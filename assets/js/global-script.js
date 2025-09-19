@@ -1,0 +1,2095 @@
+// JavaScript code for SPCF Digital Workflow Management System
+// Add hover effects and active state management for admin tabs
+document.addEventListener('DOMContentLoaded', function () {
+    const adminTabs = document.querySelectorAll('#adminTabs .nav-link');
+
+    adminTabs.forEach(tab => {
+        // Add hover effects
+        tab.addEventListener('mouseenter', function () {
+            if (!this.classList.contains('active')) {
+                this.style.background = 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
+                this.style.borderColor = '#3b82f6';
+                this.style.color = '#1e40af';
+                this.style.transform = 'translateY(-2px)';
+                this.style.boxShadow = '0 8px 20px rgba(59, 130, 246, 0.2)';
+            }
+        });
+
+        tab.addEventListener('mouseleave', function () {
+            if (!this.classList.contains('active')) {
+                this.style.background = 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)';
+                this.style.borderColor = '#cbd5e1';
+                this.style.color = '#475569';
+                this.style.transform = 'translateY(0)';
+                this.style.boxShadow = 'none';
+            }
+        });
+
+        // Handle active state changes
+        tab.addEventListener('click', function () {
+            // Reset all tabs
+            adminTabs.forEach(t => {
+                t.style.background = 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)';
+                t.style.borderColor = '#cbd5e1';
+                t.style.color = '#475569';
+                t.style.transform = 'translateY(0)';
+                t.style.boxShadow = 'none';
+            });
+
+            // Set active tab
+            this.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100())';
+            this.style.borderColor = 'transparent';
+            this.style.color = 'white';
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+        });
+    });
+});
+
+let currentDate = new Date();
+let today = new Date(); // Keep track of actual today
+let events = JSON.parse(localStorage.getItem('calendarEvents')) || {};
+let editingEventId = null;
+let currentUser = null;
+
+// Audit log system
+let auditLog = JSON.parse(localStorage.getItem('auditLog')) || [];
+
+// Public materials database
+let publicMaterials = JSON.parse(localStorage.getItem('publicMaterials')) || [];
+
+// Initialize with sample data if empty
+if (publicMaterials.length === 0) {
+    const sampleMaterials = [
+        {
+            id: 'MAT001',
+            fileName: 'engineering_symposium_poster.png',
+            fileType: 'image/png',
+            fileSize: '2.4 MB',
+            submittedBy: 'STU001',
+            submitterName: 'Juan Dela Cruz',
+            department: 'College of Engineering',
+            submissionDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+            status: 'approved',
+            description: 'Poster for the upcoming Engineering Symposium event',
+            approvedBy: 'EMP001',
+            approvalDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+            downloadCount: 15,
+            lastDownloaded: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
+        },
+        {
+            id: 'MAT002',
+            fileName: 'nursing_competition_flyer.jpeg',
+            fileType: 'image/jpeg',
+            fileSize: '1.8 MB',
+            submittedBy: 'STU002',
+            submitterName: 'Maria Santos',
+            department: 'College of Nursing',
+            submissionDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+            status: 'pending',
+            description: 'Promotional flyer for nursing skills competition',
+            downloadCount: 0,
+            lastDownloaded: null
+        },
+        {
+            id: 'MAT003',
+            fileName: 'business_plan_template.png',
+            fileType: 'image/png',
+            fileSize: '3.1 MB',
+            submittedBy: 'STU003',
+            submitterName: 'Carlos Rodriguez',
+            department: 'College of Business',
+            submissionDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+            status: 'rejected',
+            description: 'Template design for business plan presentations',
+            rejectedBy: 'EMP001',
+            rejectionDate: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+            rejectionReason: 'Does not meet university branding guidelines',
+            downloadCount: 3,
+            lastDownloaded: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString()
+        }
+    ];
+
+    publicMaterials = sampleMaterials;
+    localStorage.setItem('publicMaterials', JSON.stringify(publicMaterials));
+}
+
+// Initialize audit log with sample data if empty
+if (auditLog.length === 0) {
+    const sampleAuditEntries = [
+        {
+            id: 'AUDIT001',
+            timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+            userId: 'ADM001',
+            userName: 'System Administrator',
+            action: 'LOGIN',
+            category: 'Authentication',
+            details: 'Administrator logged into the system',
+            ipAddress: '192.168.1.100',
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            severity: 'INFO'
+        },
+        {
+            id: 'AUDIT002',
+            timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+            userId: 'EMP001',
+            userName: 'Maria Santos',
+            action: 'EVENT_CREATED',
+            category: 'Event Management',
+            details: 'Created new event: Engineering Symposium',
+            targetId: '1',
+            targetType: 'Event',
+            ipAddress: '192.168.1.101',
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            severity: 'INFO'
+        },
+        {
+            id: 'AUDIT003',
+            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            userId: 'STU001',
+            userName: 'Juan Dela Cruz',
+            action: 'MATERIAL_SUBMITTED',
+            category: 'Public Materials',
+            details: 'Submitted public material: engineering_symposium_poster.png',
+            targetId: 'MAT001',
+            targetType: 'PublicMaterial',
+            ipAddress: '192.168.1.102',
+            userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X)',
+            severity: 'INFO'
+        },
+        {
+            id: 'AUDIT004',
+            timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+            userId: 'ADM001',
+            userName: 'System Administrator',
+            action: 'USER_CREATED',
+            category: 'User Management',
+            details: 'Created new user account: STU004',
+            targetId: 'STU004',
+            targetType: 'User',
+            ipAddress: '192.168.1.100',
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            severity: 'INFO'
+        },
+        {
+            id: 'AUDIT005',
+            timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+            userId: 'SYSTEM',
+            userName: 'System',
+            action: 'LOGIN_FAILED',
+            category: 'Security',
+            details: 'Failed login attempt for user: STU999',
+            targetId: 'STU999',
+            targetType: 'User',
+            ipAddress: '203.124.45.67',
+            userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+            severity: 'WARNING'
+        }
+    ];
+
+    auditLog = sampleAuditEntries;
+    localStorage.setItem('auditLog', JSON.stringify(auditLog));
+}
+
+// Function to add audit log entry
+function addAuditLog(action, category, details, targetId = null, targetType = null, severity = 'INFO') {
+    const entry = {
+        id: 'AUDIT' + Date.now(),
+        timestamp: new Date().toISOString(),
+        userId: currentUser ? currentUser.id : 'SYSTEM',
+        userName: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'System',
+        action: action,
+        category: category,
+        details: details,
+        targetId: targetId,
+        targetType: targetType,
+        ipAddress: '192.168.1.' + Math.floor(Math.random() * 255), // Simulated IP
+        userAgent: navigator.userAgent,
+        severity: severity
+    };
+
+    auditLog.unshift(entry); // Add to beginning of array
+
+    // Keep only last 1000 entries to prevent excessive storage
+    if (auditLog.length > 1000) {
+        auditLog = auditLog.slice(0, 1000);
+    }
+
+    localStorage.setItem('auditLog', JSON.stringify(auditLog));
+}
+
+// User database with MFA settings
+const users = {
+    'ADM001': {
+        id: 'ADM001',
+        password: 'admin123',
+        firstName: 'System',
+        lastName: 'Administrator',
+        role: 'admin',
+        office: 'IT Department',
+        employeePosition: 'System Administrator',
+        email: 'admin@university.edu',
+        phone: '+63 917 000 0000'
+    },
+    'EMP001': {
+        id: 'EMP001',
+        password: 'admin123',
+        firstName: 'Maria',
+        lastName: 'Santos',
+        role: 'employee',
+        office: 'Administration Office',
+        employeePosition: 'Dean',
+        email: 'maria.santos@university.edu',
+        phone: '+63 917 123 4567'
+    },
+    'STU001': {
+        id: 'STU001',
+        password: 'student123',
+        firstName: 'Juan',
+        lastName: 'Dela Cruz',
+        role: 'student',
+        department: 'College of Engineering',
+        studentPosition: 'Class President',
+        email: 'juan.delacruz@student.university.edu',
+        phone: '+63 918 765 4321'
+    }
+};
+
+// Sample events for demonstration
+if (Object.keys(events).length === 0) {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+
+    // Add some sample events
+    events[`${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-15`] = [{
+        id: '1',
+        title: 'Engineering Symposium',
+        time: '09:00',
+        description: 'Annual engineering symposium featuring latest research and innovations in the field.',
+        color: 'bg-primary'
+    }];
+
+    events[`${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-22`] = [{
+        id: '2',
+        title: 'Nursing Skills Competition',
+        time: '14:00',
+        description: 'Inter-college nursing skills competition showcasing clinical expertise.',
+        color: 'bg-success'
+    }];
+
+    events[`${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-28`] = [{
+        id: '3',
+        title: 'Business Plan Presentation',
+        time: '10:30',
+        description: 'Final presentations for the entrepreneurship course business plans.',
+        color: 'bg-danger'
+    }];
+
+    localStorage.setItem('calendarEvents', JSON.stringify(events));
+}
+
+// Initialize interface - check for existing login or redirect to login page
+document.addEventListener('DOMContentLoaded', function () {
+    // Check if user is already logged in
+    const savedUser = localStorage.getItem('currentUser');
+    
+    if (savedUser) {
+        // User is logged in, proceed to dashboard
+        currentUser = JSON.parse(savedUser);
+        showDashboard();
+    } else {
+        // No login found, redirect to login page
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // Update calendar every minute to keep it current
+    setInterval(function () {
+        const newToday = new Date();
+        // Only regenerate if the date has actually changed
+        if (newToday.getDate() !== today.getDate() ||
+            newToday.getMonth() !== today.getMonth() ||
+            newToday.getFullYear() !== today.getFullYear()) {
+            today = newToday;
+            if (document.getElementById('dashboardScreen').style.display !== 'none') {
+                generateCalendar();
+            }
+        }
+    }, 60000); // Check every minute
+});
+
+function showDashboard() {
+    if (currentUser.role === 'admin') {
+        // Show admin interface
+        document.getElementById('adminScreen').style.display = 'block';
+        document.getElementById('dashboardScreen').style.display = 'none';
+
+        // Update admin info
+        document.getElementById('adminDisplayName').textContent = `${currentUser.firstName} ${currentUser.lastName}`;
+
+        // Load admin interfaces
+        loadUsersTable();
+        updateUserStatistics();
+        loadMaterialsTable();
+        loadAuditLogTable();
+    } else {
+        // Show regular dashboard
+        document.getElementById('adminScreen').style.display = 'none';
+        document.getElementById('dashboardScreen').style.display = 'block';
+
+        // Update user info
+        document.getElementById('userDisplayName').textContent = `${currentUser.firstName} ${currentUser.lastName}`;
+        document.getElementById('userRole').textContent = currentUser.role.toUpperCase();
+
+        // Configure dashboard based on user role
+        if (currentUser.role === 'student') {
+            // Show student notice modal for calendar viewing
+            const studentModal = new bootstrap.Modal(document.getElementById('studentNoticeModal'));
+            studentModal.show();
+            // Show full navigation menu for students
+            document.getElementById('navigationMenu').style.display = 'block';
+            //Hide Notifications for students
+            const studentHiddenItems = ['Notifications'];
+            document.querySelectorAll('.nav-menu-btn').forEach(btn => {
+                const btnText = btn.querySelector('span').textContent;
+                if (studentHiddenItems.includes(btnText)) {
+                    btn.style.display = 'none';
+                } else {
+                    btn.style.display = 'flex';
+                }
+            });
+        } else if (currentUser.role === 'employee') {
+            // Show limited navigation menu for employees
+            document.getElementById('navigationMenu').style.display = 'block';
+            // Hide specific navigation items for employees
+            const employeeHiddenItems = ['Create Document', 'Submit Pubmat', 'Track Documents'];
+            document.querySelectorAll('.nav-menu-btn').forEach(btn => {
+                const btnText = btn.querySelector('span').textContent;
+                if (employeeHiddenItems.includes(btnText)) {
+                    btn.style.display = 'none';
+                } else {
+                    btn.style.display = 'flex';
+                }
+            });
+        }
+        generateCalendar();
+    }
+}
+
+
+
+function logout() {
+    // Add audit log entry for logout
+    if (currentUser) {
+        addAuditLog('LOGOUT', 'Authentication', `User ${currentUser.firstName} ${currentUser.lastName} logged out`, currentUser.id, 'User', 'INFO');
+    }
+
+    localStorage.removeItem('currentUser');
+    currentUser = null;
+    
+    // Redirect to login page
+    window.location.href = 'login.html';
+}
+
+function generateCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    // Update month display
+    const monthNames = ["January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"];
+    document.getElementById('currentMonth').textContent = `${monthNames[month]} ${year}`;
+
+    // Get first day of month and number of days
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+    const calendarGrid = document.getElementById('calendarGrid');
+    calendarGrid.innerHTML = '';
+
+    let dayCount = 0;
+    const isStudent = currentUser && currentUser.role === 'student';
+
+    // Calculate statistics
+    updateEventStatistics();
+
+    // Generate 6 weeks of calendar
+    for (let week = 0; week < 6; week++) {
+        for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+            let day, isOtherMonth, displayYear, displayMonth;
+
+            if (week === 0 && dayOfWeek < firstDay) {
+                // Previous month days
+                day = daysInPrevMonth - (firstDay - dayOfWeek - 1);
+                isOtherMonth = true;
+                displayYear = month === 0 ? year - 1 : year;
+                displayMonth = month === 0 ? 11 : month - 1;
+            } else if (dayCount >= daysInMonth) {
+                // Next month days
+                day = dayCount - daysInMonth + 1;
+                isOtherMonth = true;
+                displayYear = month === 11 ? year + 1 : year;
+                displayMonth = month === 11 ? 0 : month + 1;
+                dayCount++;
+            } else {
+                // Current month days
+                day = dayCount + 1;
+                isOtherMonth = false;
+                displayYear = year;
+                displayMonth = month;
+                dayCount++;
+            }
+
+            const dateStr = `${displayYear}-${String(displayMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+            const dayElement = document.createElement('div');
+            const dayClass = isStudent ? 'view-only' : '';
+
+            // Check if this is today
+            const isToday = !isOtherMonth &&
+                displayYear === today.getFullYear() &&
+                displayMonth === today.getMonth() &&
+                day === today.getDate();
+
+            dayElement.className = `calendar-day ${isOtherMonth ? 'other-month' : ''} ${dayClass} ${isToday ? 'today' : ''}`;
+            if (!isOtherMonth && !isStudent) {
+                dayElement.onclick = () => openEventModal(dateStr);
+            }
+
+            dayElement.innerHTML = `
+                        <div class="day-number">${day}</div>
+                        <div class="events-container" id="events-${dateStr}"></div>
+                    `;
+
+            // Add events for this day
+            if (events[dateStr]) {
+                const eventsContainer = dayElement.querySelector(`#events-${dateStr}`);
+                events[dateStr].forEach(event => {
+                    const eventElement = document.createElement('div');
+                    const eventClass = isStudent ? 'view-only' : '';
+                    eventElement.className = `event-item ${event.color} text-white ${eventClass}`;
+                    eventElement.textContent = event.title;
+
+                    if (!isStudent) {
+                        eventElement.onclick = (e) => {
+                            e.stopPropagation();
+                            editEvent(event.id, dateStr);
+                        };
+                    } else {
+                        eventElement.onclick = (e) => {
+                            e.stopPropagation();
+                            viewEventDetails(event.id, dateStr);
+                        };
+                    }
+                    eventsContainer.appendChild(eventElement);
+                });
+            }
+
+            calendarGrid.appendChild(dayElement);
+        }
+    }
+}
+
+function updateEventStatistics() {
+    const totalEvents = Object.values(events).reduce((total, dayEvents) => total + dayEvents.length, 0);
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+
+    let thisMonthEvents = 0;
+    Object.keys(events).forEach(dateStr => {
+        const eventDate = new Date(dateStr);
+        if (eventDate.getMonth() === currentMonth && eventDate.getFullYear() === currentYear) {
+            thisMonthEvents += events[dateStr].length;
+        }
+    });
+
+    document.getElementById('totalEvents').textContent = totalEvents;
+    document.getElementById('thisMonthEvents').textContent = thisMonthEvents;
+}
+
+function previousMonth() {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    generateCalendar();
+}
+
+function nextMonth() {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    generateCalendar();
+}
+
+function openEventModal(selectedDate = null) {
+    // Students cannot create events
+    if (currentUser && currentUser.role === 'student') {
+        return;
+    }
+
+    const form = document.getElementById('eventForm');
+    const deleteBtn = document.getElementById('deleteBtn');
+    const modal = new bootstrap.Modal(document.getElementById('eventModal'));
+
+    form.reset();
+    editingEventId = null;
+    deleteBtn.classList.add('d-none');
+    document.getElementById('eventModalLabel').textContent = 'Add New Event';
+
+    if (selectedDate) {
+        document.getElementById('eventDate').value = selectedDate;
+    } else {
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('eventDate').value = todayStr;
+    }
+
+    modal.show();
+}
+
+function editEvent(eventId, dateStr) {
+    // Students cannot edit events
+    if (currentUser && currentUser.role === 'student') {
+        return;
+    }
+
+    const event = events[dateStr].find(e => e.id === eventId);
+    if (!event) return;
+
+    editingEventId = eventId;
+    document.getElementById('eventModalLabel').textContent = 'Edit Event';
+    document.getElementById('eventTitle').value = event.title;
+    document.getElementById('eventDate').value = dateStr;
+    document.getElementById('eventTime').value = event.time || '';
+    document.getElementById('eventDescription').value = event.description || '';
+    document.getElementById('eventColor').value = event.color;
+    document.getElementById('deleteBtn').classList.remove('d-none');
+
+    const modal = new bootstrap.Modal(document.getElementById('eventModal'));
+    modal.show();
+}
+
+function deleteEvent() {
+    if (!editingEventId) return;
+
+    const dateStr = document.getElementById('eventDate').value;
+
+    events[dateStr] = events[dateStr].filter(e => e.id !== editingEventId);
+
+    if (events[dateStr].length === 0) {
+        delete events[dateStr];
+    }
+
+    localStorage.setItem('calendarEvents', JSON.stringify(events));
+    generateCalendar();
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
+    modal.hide();
+}
+
+document.getElementById('eventForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    // Students cannot submit events
+    if (currentUser && currentUser.role === 'student') {
+        return;
+    }
+
+    const title = document.getElementById('eventTitle').value;
+    const date = document.getElementById('eventDate').value;
+    const time = document.getElementById('eventTime').value;
+    const description = document.getElementById('eventDescription').value;
+    const color = document.getElementById('eventColor').value;
+
+    if (!events[date]) {
+        events[date] = [];
+    }
+
+    if (editingEventId) {
+        // Update existing event
+        const eventIndex = events[date].findIndex(e => e.id === editingEventId);
+        if (eventIndex !== -1) {
+            events[date][eventIndex] = {
+                id: editingEventId,
+                title,
+                time,
+                description,
+                color
+            };
+        }
+    } else {
+        // Add new event
+        const newEvent = {
+            id: Date.now().toString(),
+            title,
+            time,
+            description,
+            color
+        };
+        events[date].push(newEvent);
+    }
+
+    localStorage.setItem('calendarEvents', JSON.stringify(events));
+    generateCalendar();
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
+    modal.hide();
+});
+
+// Event viewing functions for students
+function viewEventDetails(eventId, dateStr) {
+    const event = events[dateStr].find(e => e.id === eventId);
+    if (!event) return;
+
+    // Get department name from color class
+    const departmentMap = {
+        'bg-primary': 'College of Engineering',
+        'bg-success': 'College of Nursing',
+        'bg-danger': 'College of Business',
+        'bg-warning': 'College of Criminology',
+        'bg-info': 'College of Computing and Information Sciences',
+        'bg-secondary': 'College of Art and Social Sciences and Education',
+        'bg-dark': 'Colleges of Hospitality and Tourism Management'
+    };
+
+    // Format date
+    const eventDate = new Date(dateStr);
+    const formattedDate = eventDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+
+    // Format time
+    let formattedTime = 'Not specified';
+    if (event.time) {
+        const timeObj = new Date(`2000-01-01T${event.time}`);
+        formattedTime = timeObj.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+    }
+
+    // Populate popup content
+    document.getElementById('popupEventTitle').textContent = event.title;
+    document.getElementById('popupEventDate').textContent = formattedDate;
+    document.getElementById('popupEventTime').textContent = formattedTime;
+    document.getElementById('popupEventDescription').textContent = event.description || 'No description provided';
+
+    const departmentBadge = document.getElementById('popupEventDepartment');
+    departmentBadge.textContent = departmentMap[event.color] || 'Unknown Department';
+    departmentBadge.className = `department-badge ${event.color}`;
+
+    // Show popup
+    const popup = document.getElementById('eventViewPopup');
+    popup.style.display = 'flex';
+
+    // Add click outside to close
+    popup.onclick = (e) => {
+        if (e.target === popup) {
+            closeEventPopup();
+        }
+    };
+}
+
+function closeEventPopup() {
+    const popup = document.getElementById('eventViewPopup');
+    popup.style.display = 'none';
+}
+
+// Close popup with Escape key
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        closeEventPopup();
+    }
+});
+
+// Password visibility toggle function
+function togglePasswordVisibility(fieldId) {
+    const passwordInput = document.getElementById(fieldId);
+    const toggleIcon = document.getElementById(fieldId + 'Icon');
+
+    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+    passwordInput.setAttribute('type', type);
+
+    // Toggle the icon
+    if (type === 'text') {
+        toggleIcon.className = 'bi bi-eye-slash';
+    } else {
+        toggleIcon.className = 'bi bi-eye';
+    }
+}
+
+// Change password functions
+function openChangePassword() {
+    const modal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
+    document.getElementById('changePasswordForm').reset();
+    hidePasswordChangeMessages();
+    modal.show();
+}
+
+function showPasswordChangeError(message) {
+    const errorDiv = document.getElementById('passwordChangeError');
+    const errorMessage = document.getElementById('passwordChangeErrorMessage');
+    const successDiv = document.getElementById('passwordChangeSuccess');
+
+    successDiv.classList.add('d-none');
+    errorMessage.textContent = message;
+    errorDiv.classList.remove('d-none');
+}
+
+function showPasswordChangeSuccess(message) {
+    const errorDiv = document.getElementById('passwordChangeError');
+    const successDiv = document.getElementById('passwordChangeSuccess');
+    const successMessage = document.getElementById('passwordChangeSuccessMessage');
+
+    errorDiv.classList.add('d-none');
+    successMessage.textContent = message;
+    successDiv.classList.remove('d-none');
+}
+
+function hidePasswordChangeMessages() {
+    document.getElementById('passwordChangeError').classList.add('d-none');
+    document.getElementById('passwordChangeSuccess').classList.add('d-none');
+}
+
+// Handle password change form submission
+document.getElementById('changePasswordForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    hidePasswordChangeMessages();
+
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    // Validate current password
+    if (currentPassword !== currentUser.password) {
+        showPasswordChangeError('Current password is incorrect.');
+        return;
+    }
+
+    // Validate new password length
+    if (newPassword.length < 6) {
+        showPasswordChangeError('New password must be at least 6 characters long.');
+        return;
+    }
+
+    // Validate password confirmation
+    if (newPassword !== confirmPassword) {
+        showPasswordChangeError('New password and confirmation do not match.');
+        return;
+    }
+
+    // Check if new password is different from current
+    if (newPassword === currentPassword) {
+        showPasswordChangeError('New password must be different from current password.');
+        return;
+    }
+
+    // Update password in users database and current user
+    users[currentUser.id].password = newPassword;
+    currentUser.password = newPassword;
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+
+    showPasswordChangeSuccess('Password changed successfully!');
+
+    // Clear form and close modal after 2 seconds
+    setTimeout(() => {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('changePasswordModal'));
+        modal.hide();
+        document.getElementById('changePasswordForm').reset();
+    }, 2000);
+});
+
+// Settings dropdown functions
+function openProfileSettings() {
+    if (currentUser && currentUser.role === 'student') {
+        alert('👤 Profile Settings - Student Access\n\n' +
+            '✏️ Available Options:\n' +
+            '• Update personal information\n' +
+            '• Change contact details\n' +
+            '• Update academic information\n' +
+            '• Manage profile picture\n' +
+            '• Privacy preferences\n\n' +
+            'This would open your profile settings panel');
+    } else {
+        alert('👤 Profile Settings - Employee Access\n\n' +
+            '✏️ Available Options:\n' +
+            '• Update personal information\n' +
+            '• Change contact details\n' +
+            '• Update department information\n' +
+            '• Manage profile picture\n' +
+            '• Administrative preferences\n\n' +
+            'This would open your profile settings panel');
+    }
+}
+
+function openNotificationSettings() {
+    if (currentUser && currentUser.role === 'student') {
+        alert('🔔 Notification Settings - Student Access\n\n' +
+            '⚙️ Available Options:\n' +
+            '• Email notifications on/off\n' +
+            '• Event reminders\n' +
+            '• Document status updates\n' +
+            '• Assignment notifications\n' +
+            '• System announcements\n\n' +
+            'This would open your notification preferences');
+    } else {
+        alert('🔔 Notification Settings - Employee Access\n\n' +
+            '⚙️ Available Options:\n' +
+            '• Administrative alerts\n' +
+            '• Approval notifications\n' +
+            '• System status updates\n' +
+            '• Event management alerts\n' +
+            '• User activity notifications\n\n' +
+            'This would open your notification preferences');
+    }
+}
+
+function openSystemSettings() {
+    if (currentUser && currentUser.role === 'student') {
+        alert('🖥️ System Settings - Student Access\n\n' +
+            '🔧 Available Options:\n' +
+            '• Calendar view preferences\n' +
+            '• Language settings\n' +
+            '• Theme preferences\n' +
+            '• Accessibility options\n' +
+            '• Data export options\n\n' +
+            'This would open your system preferences');
+    } else {
+        alert('🖥️ System Settings - Employee Access\n\n' +
+            '🔧 Available Options:\n' +
+            '• System administration\n' +
+            '• User management\n' +
+            '• Security settings\n' +
+            '• Backup configurations\n' +
+            '• System maintenance\n\n' +
+            'This would open the administrative system settings');
+    }
+}
+
+// Forgot Password Functions
+let forgotPasswordUser = null;
+let mfaCode = null;
+let mfaTimer = null;
+let mfaTimeLeft = 300; // 5 minutes in seconds
+
+function openForgotPassword() {
+    const modal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'));
+    resetForgotPasswordModal();
+    modal.show();
+}
+
+function resetForgotPasswordModal() {
+    // Reset all steps
+    document.getElementById('forgotPasswordStep1').style.display = 'block';
+    document.getElementById('forgotPasswordStep2').style.display = 'none';
+    document.getElementById('forgotPasswordStep3').style.display = 'none';
+    document.getElementById('forgotPasswordStep4').style.display = 'none';
+
+    // Clear all forms
+    document.getElementById('forgotPasswordForm').reset();
+    document.getElementById('mfaVerificationForm').reset();
+    document.getElementById('resetPasswordForm').reset();
+
+    // Hide all error messages
+    hideForgotPasswordError();
+    hideMfaError();
+    hideResetPasswordError();
+
+    // Clear MFA timer
+    if (mfaTimer) {
+        clearInterval(mfaTimer);
+        mfaTimer = null;
+    }
+
+    forgotPasswordUser = null;
+    mfaCode = null;
+    mfaTimeLeft = 300;
+}
+
+function closeForgotPasswordModal() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('forgotPasswordModal'));
+    modal.hide();
+    resetForgotPasswordModal();
+}
+
+function showForgotPasswordError(message) {
+    const errorDiv = document.getElementById('forgotPasswordError');
+    const errorMessage = document.getElementById('forgotPasswordErrorMessage');
+
+    errorMessage.textContent = message;
+    errorDiv.classList.remove('d-none');
+}
+
+function hideForgotPasswordError() {
+    document.getElementById('forgotPasswordError').classList.add('d-none');
+}
+
+function showMfaError(message) {
+    const errorDiv = document.getElementById('mfaError');
+    const errorMessage = document.getElementById('mfaErrorMessage');
+
+    errorMessage.textContent = message;
+    errorDiv.classList.remove('d-none');
+}
+
+function hideMfaError() {
+    document.getElementById('mfaError').classList.add('d-none');
+}
+
+function showResetPasswordError(message) {
+    const errorDiv = document.getElementById('resetPasswordError');
+    const errorMessage = document.getElementById('resetPasswordErrorMessage');
+
+    errorMessage.textContent = message;
+    errorDiv.classList.remove('d-none');
+}
+
+function hideResetPasswordError() {
+    document.getElementById('resetPasswordError').classList.add('d-none');
+}
+
+function backToStep1() {
+    document.getElementById('forgotPasswordStep2').style.display = 'none';
+    document.getElementById('forgotPasswordStep1').style.display = 'block';
+    hideMfaError();
+
+    // Clear MFA timer
+    if (mfaTimer) {
+        clearInterval(mfaTimer);
+        mfaTimer = null;
+    }
+}
+
+function backToStep2() {
+    document.getElementById('forgotPasswordStep3').style.display = 'none';
+    document.getElementById('forgotPasswordStep2').style.display = 'block';
+    hideResetPasswordError();
+}
+
+// MFA utility functions
+function generateMfaCode() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+function maskEmail(email) {
+    const [username, domain] = email.split('@');
+    const maskedUsername = username.charAt(0) + '*'.repeat(username.length - 2) + username.charAt(username.length - 1);
+    return maskedUsername + '@' + domain;
+}
+
+function maskPhone(phone) {
+    const cleaned = phone.replace(/\D/g, '');
+    return cleaned.substring(0, 3) + ' ' + '*'.repeat(3) + ' ' + '*'.repeat(3) + ' ' + cleaned.substring(cleaned.length - 4);
+}
+
+function startMfaTimer() {
+    mfaTimeLeft = 300; // Reset to 5 minutes
+    updateTimerDisplay();
+
+    mfaTimer = setInterval(() => {
+        mfaTimeLeft--;
+        updateTimerDisplay();
+
+        if (mfaTimeLeft <= 0) {
+            clearInterval(mfaTimer);
+            mfaTimer = null;
+            mfaCode = null;
+            showMfaError('Verification code has expired. Please request a new code.');
+            document.getElementById('resendCodeBtn').style.display = 'inline-block';
+        }
+    }, 1000);
+}
+
+function updateTimerDisplay() {
+    const minutes = Math.floor(mfaTimeLeft / 60);
+    const seconds = mfaTimeLeft % 60;
+    document.getElementById('codeTimer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function resendMfaCode() {
+    if (!forgotPasswordUser) return;
+
+    // Generate new code
+    mfaCode = generateMfaCode();
+
+    // Clear any existing timer
+    if (mfaTimer) {
+        clearInterval(mfaTimer);
+    }
+
+    // Start new timer
+    startMfaTimer();
+
+    // Hide resend button temporarily
+    document.getElementById('resendCodeBtn').style.display = 'none';
+    setTimeout(() => {
+        document.getElementById('resendCodeBtn').style.display = 'inline-block';
+    }, 30000); // Show resend button after 30 seconds
+
+    // Clear any errors
+    hideMfaError();
+
+    // Show success message
+    const successDiv = document.createElement('div');
+    successDiv.className = 'alert alert-success alert-dismissible fade show';
+    successDiv.innerHTML = `
+                <i class="bi bi-check-circle me-2"></i>
+                New verification code sent! 
+                <strong>Demo Code: ${mfaCode}</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+    const mfaForm = document.getElementById('mfaVerificationForm');
+    mfaForm.insertBefore(successDiv, mfaForm.firstChild);
+
+    // Auto-dismiss after 10 seconds
+    setTimeout(() => {
+        if (successDiv.parentNode) {
+            successDiv.remove();
+        }
+    }, 10000);
+}
+
+// Handle forgot password form submission (Step 1)
+document.getElementById('forgotPasswordForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    hideForgotPasswordError();
+
+    const userId = document.getElementById('forgotUserId').value.trim();
+
+    if (!userId) {
+        showForgotPasswordError('Please enter your User ID.');
+        return;
+    }
+
+    if (!users[userId]) {
+        showForgotPasswordError('User ID not found. Please check and try again.');
+        return;
+    }
+
+    forgotPasswordUser = users[userId];
+
+    // Generate MFA code
+    mfaCode = generateMfaCode();
+
+    // Display masked contact information
+    document.getElementById('maskedEmail').textContent = maskEmail(forgotPasswordUser.email);
+    document.getElementById('maskedPhone').textContent = maskPhone(forgotPasswordUser.phone);
+
+    // Start MFA timer
+    startMfaTimer();
+
+    // Hide resend button initially
+    document.getElementById('resendCodeBtn').style.display = 'none';
+    setTimeout(() => {
+        document.getElementById('resendCodeBtn').style.display = 'inline-block';
+    }, 30000); // Show after 30 seconds
+
+    // Show demo code for testing (in real app, this would be sent via email/SMS)
+    const demoAlert = document.createElement('div');
+    demoAlert.className = 'alert alert-info alert-dismissible fade show';
+    demoAlert.innerHTML = `
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Demo Mode:</strong> Your verification code is <strong>${mfaCode}</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+    const step2 = document.getElementById('forgotPasswordStep2');
+    step2.insertBefore(demoAlert, step2.querySelector('form'));
+
+    // Move to step 2
+    document.getElementById('forgotPasswordStep1').style.display = 'none';
+    document.getElementById('forgotPasswordStep2').style.display = 'block';
+});
+
+// MFA code input formatting
+document.getElementById('mfaCode').addEventListener('input', function (e) {
+    // Only allow numbers
+    this.value = this.value.replace(/\D/g, '');
+
+    // Limit to 6 digits
+    if (this.value.length > 6) {
+        this.value = this.value.substring(0, 6);
+    }
+});
+
+// Handle MFA verification form submission (Step 2)
+document.getElementById('mfaVerificationForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    hideMfaError();
+
+    const enteredCode = document.getElementById('mfaCode').value.trim();
+
+    if (!enteredCode) {
+        showMfaError('Please enter the verification code.');
+        return;
+    }
+
+    if (enteredCode.length !== 6) {
+        showMfaError('Verification code must be 6 digits.');
+        return;
+    }
+
+    if (!forgotPasswordUser) {
+        showMfaError('Session expired. Please start over.');
+        backToStep1();
+        return;
+    }
+
+    if (!mfaCode) {
+        showMfaError('Verification code has expired. Please request a new code.');
+        return;
+    }
+
+    if (enteredCode !== mfaCode) {
+        showMfaError('Invalid verification code. Please check and try again.');
+        return;
+    }
+
+    // Clear MFA timer
+    if (mfaTimer) {
+        clearInterval(mfaTimer);
+        mfaTimer = null;
+    }
+
+    // Move to step 3
+    document.getElementById('forgotPasswordStep2').style.display = 'none';
+    document.getElementById('forgotPasswordStep3').style.display = 'block';
+});
+
+// Handle reset password form submission (Step 3)
+document.getElementById('resetPasswordForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    hideResetPasswordError();
+
+    const newPassword = document.getElementById('newPasswordReset').value;
+    const confirmPassword = document.getElementById('confirmPasswordReset').value;
+
+    if (newPassword.length < 6) {
+        showResetPasswordError('Password must be at least 6 characters long.');
+        return;
+    }
+
+    if (newPassword !== confirmPassword) {
+        showResetPasswordError('Passwords do not match. Please try again.');
+        return;
+    }
+
+    if (!forgotPasswordUser) {
+        showResetPasswordError('Session expired. Please start over.');
+        backToStep1();
+        return;
+    }
+
+    // Update password in users database
+    users[forgotPasswordUser.id].password = newPassword;
+
+    // If this is the current user, update their session too
+    if (currentUser && currentUser.id === forgotPasswordUser.id) {
+        currentUser.password = newPassword;
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    }
+
+    // Move to step 4 (success)
+    document.getElementById('forgotPasswordStep3').style.display = 'none';
+    document.getElementById('forgotPasswordStep4').style.display = 'block';
+});
+
+// Admin Management Functions
+let editingUserId = null;
+let selectedUserRole = null;
+let selectedMaterials = [];
+let currentMaterialId = null;
+
+// Materials Management Functions
+function loadMaterialsTable() {
+    const tbody = document.getElementById('materialsTableBody');
+    tbody.innerHTML = '';
+
+    publicMaterials.forEach(material => {
+        const row = createMaterialRow(material);
+        tbody.appendChild(row);
+    });
+}
+
+function createMaterialRow(material) {
+    const row = document.createElement('tr');
+
+    const statusClass = {
+        'pending': 'bg-warning text-dark',
+        'approved': 'bg-success text-white',
+        'rejected': 'bg-danger text-white'
+    };
+
+    const submissionDate = new Date(material.submissionDate).toLocaleDateString();
+    const fileTypeIcon = material.fileType === 'image/png' ? 'bi-filetype-png' : 'bi-filetype-jpg';
+
+    row.innerHTML = `
+                <td>
+                    <input type="checkbox" class="material-checkbox" value="${material.id}" onchange="updateSelectedMaterials()">
+                </td>
+                <td><strong>${material.id}</strong></td>
+                <td>
+                    <i class="bi ${fileTypeIcon} me-2"></i>
+                    ${material.fileName}
+                </td>
+                <td>${material.fileType}</td>
+                <td>${material.fileSize}</td>
+                <td>${material.submitterName} (${material.submittedBy})</td>
+                <td>${material.department}</td>
+                <td><span class="badge ${statusClass[material.status]}">${material.status.toUpperCase()}</span></td>
+                <td>${submissionDate}</td>
+                <td>${material.downloadCount}</td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-info" onclick="viewMaterialDetails('${material.id}')" title="View Details">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteMaterial('${material.id}')" title="Delete Material">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+
+    return row;
+}
+
+function viewMaterialDetails(materialId) {
+    const material = publicMaterials.find(m => m.id === materialId);
+    if (!material) return;
+
+    currentMaterialId = materialId;
+
+    // Populate modal with material details
+    document.getElementById('materialDetailId').textContent = material.id;
+    document.getElementById('materialDetailFileName').textContent = material.fileName;
+    document.getElementById('materialDetailFileType').textContent = material.fileType;
+    document.getElementById('materialDetailFileSize').textContent = material.fileSize;
+    document.getElementById('materialDetailSubmitter').textContent = `${material.submitterName} (${material.submittedBy})`;
+    document.getElementById('materialDetailDepartment').textContent = material.department;
+    document.getElementById('materialDetailSubmissionDate').textContent = new Date(material.submissionDate).toLocaleString();
+    document.getElementById('materialDetailStatus').innerHTML = `<span class="badge ${getStatusClass(material.status)}">${material.status.toUpperCase()}</span>`;
+    document.getElementById('materialDetailDescription').textContent = material.description || 'No description provided';
+    document.getElementById('materialDetailDownloadCount').textContent = material.downloadCount;
+    document.getElementById('materialDetailLastDownloaded').textContent = material.lastDownloaded ? new Date(material.lastDownloaded).toLocaleString() : 'Never';
+
+    // Show/hide approval/rejection info
+    const approvalInfo = document.getElementById('materialApprovalInfo');
+    const rejectionInfo = document.getElementById('materialRejectionInfo');
+
+    if (material.status === 'approved' && material.approvedBy) {
+        document.getElementById('materialDetailApprovedBy').textContent = material.approvedBy;
+        document.getElementById('materialDetailApprovalDate').textContent = new Date(material.approvalDate).toLocaleString();
+        approvalInfo.style.display = 'block';
+        rejectionInfo.style.display = 'none';
+    } else if (material.status === 'rejected' && material.rejectedBy) {
+        document.getElementById('materialDetailRejectedBy').textContent = material.rejectedBy;
+        document.getElementById('materialDetailRejectionDate').textContent = new Date(material.rejectionDate).toLocaleString();
+        document.getElementById('materialDetailRejectionReason').textContent = material.rejectionReason;
+        rejectionInfo.style.display = 'block';
+        approvalInfo.style.display = 'none';
+    } else {
+        approvalInfo.style.display = 'none';
+        rejectionInfo.style.display = 'none';
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('materialDetailModal'));
+    modal.show();
+}
+
+function getStatusClass(status) {
+    const statusClasses = {
+        'pending': 'bg-warning text-dark',
+        'approved': 'bg-success text-white',
+        'rejected': 'bg-danger text-white'
+    };
+    return statusClasses[status] || 'bg-secondary text-white';
+}
+
+function deleteMaterial(materialId) {
+    currentMaterialId = materialId;
+    const material = publicMaterials.find(m => m.id === materialId);
+    if (!material) return;
+
+    // Show confirmation in material detail modal if it's open
+    if (confirm(`Are you sure you want to delete "${material.fileName}"?\n\nThis action cannot be undone.`)) {
+        deleteSingleMaterial();
+    }
+}
+
+function deleteSingleMaterial() {
+    if (!currentMaterialId) return;
+
+    const material = publicMaterials.find(m => m.id === currentMaterialId);
+    if (!material) return;
+
+    // Remove from array
+    publicMaterials = publicMaterials.filter(m => m.id !== currentMaterialId);
+    localStorage.setItem('publicMaterials', JSON.stringify(publicMaterials));
+
+    // Add audit log
+    addAuditLog('MATERIAL_DELETED', 'Public Materials', `Deleted public material: ${material.fileName}`, currentMaterialId, 'PublicMaterial', 'INFO');
+
+    // Close modal and refresh table
+    const modal = bootstrap.Modal.getInstance(document.getElementById('materialDetailModal'));
+    if (modal) modal.hide();
+
+    loadMaterialsTable();
+    currentMaterialId = null;
+}
+
+function updateSelectedMaterials() {
+    const checkboxes = document.querySelectorAll('.material-checkbox:checked');
+    selectedMaterials = Array.from(checkboxes).map(cb => cb.value);
+
+    // Update select all checkbox
+    const selectAllCheckbox = document.getElementById('selectAllMaterials');
+    const allCheckboxes = document.querySelectorAll('.material-checkbox');
+    selectAllCheckbox.checked = selectedMaterials.length === allCheckboxes.length;
+    selectAllCheckbox.indeterminate = selectedMaterials.length > 0 && selectedMaterials.length < allCheckboxes.length;
+}
+
+function toggleSelectAllMaterials() {
+    const selectAllCheckbox = document.getElementById('selectAllMaterials');
+    const checkboxes = document.querySelectorAll('.material-checkbox');
+
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+
+    updateSelectedMaterials();
+}
+
+function bulkDeleteMaterials() {
+    if (selectedMaterials.length === 0) {
+        alert('Please select materials to delete.');
+        return;
+    }
+
+    document.getElementById('bulkDeleteCount').textContent = selectedMaterials.length;
+    const modal = new bootstrap.Modal(document.getElementById('bulkDeleteModal'));
+    modal.show();
+}
+
+function confirmBulkDelete() {
+    if (selectedMaterials.length === 0) return;
+
+    const deletedMaterials = [];
+    selectedMaterials.forEach(materialId => {
+        const material = publicMaterials.find(m => m.id === materialId);
+        if (material) {
+            deletedMaterials.push(material.fileName);
+        }
+    });
+
+    // Remove selected materials
+    publicMaterials = publicMaterials.filter(m => !selectedMaterials.includes(m.id));
+    localStorage.setItem('publicMaterials', JSON.stringify(publicMaterials));
+
+    // Add audit log
+    addAuditLog('MATERIALS_BULK_DELETED', 'Public Materials', `Bulk deleted ${selectedMaterials.length} materials: ${deletedMaterials.join(', ')}`, null, 'PublicMaterial', 'INFO');
+
+    // Close modal and refresh
+    const modal = bootstrap.Modal.getInstance(document.getElementById('bulkDeleteModal'));
+    modal.hide();
+
+    loadMaterialsTable();
+    selectedMaterials = [];
+    document.getElementById('selectAllMaterials').checked = false;
+}
+
+function filterMaterials() {
+    const statusFilter = document.getElementById('materialStatusFilter').value;
+    const typeFilter = document.getElementById('materialTypeFilter').value;
+    const tbody = document.getElementById('materialsTableBody');
+    const rows = tbody.querySelectorAll('tr');
+
+    rows.forEach(row => {
+        const statusCell = row.querySelector('td:nth-child(8)');
+        const typeCell = row.querySelector('td:nth-child(4)');
+
+        const statusMatch = statusFilter === 'all' || statusCell.textContent.toLowerCase().includes(statusFilter);
+        const typeMatch = typeFilter === 'all' || typeCell.textContent.includes(typeFilter);
+
+        if (statusMatch && typeMatch) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function searchMaterials() {
+    const searchTerm = document.getElementById('materialSearchInput').value.toLowerCase();
+    const tbody = document.getElementById('materialsTableBody');
+    const rows = tbody.querySelectorAll('tr');
+
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function refreshMaterialsList() {
+    loadMaterialsTable();
+    document.getElementById('materialStatusFilter').value = 'all';
+    document.getElementById('materialTypeFilter').value = 'all';
+    document.getElementById('materialSearchInput').value = '';
+    selectedMaterials = [];
+    document.getElementById('selectAllMaterials').checked = false;
+}
+
+function exportMaterials() {
+    const materialData = publicMaterials.map(material => ({
+        'Material ID': material.id,
+        'File Name': material.fileName,
+        'File Type': material.fileType,
+        'File Size': material.fileSize,
+        'Submitted By': material.submitterName,
+        'User ID': material.submittedBy,
+        'Department': material.department,
+        'Status': material.status,
+        'Submission Date': new Date(material.submissionDate).toLocaleString(),
+        'Description': material.description || '',
+        'Download Count': material.downloadCount,
+        'Last Downloaded': material.lastDownloaded ? new Date(material.lastDownloaded).toLocaleString() : 'Never'
+    }));
+
+    const csv = convertToCSV(materialData);
+    downloadCSV(csv, 'public_materials.csv');
+
+    // Add audit log
+    addAuditLog('MATERIALS_EXPORTED', 'Public Materials', `Exported ${materialData.length} materials to CSV`, null, 'System', 'INFO');
+}
+
+// Audit Log Management Functions
+function loadAuditLogTable() {
+    const tbody = document.getElementById('auditLogTableBody');
+    tbody.innerHTML = '';
+
+    // Show most recent entries first
+    const sortedAuditLog = [...auditLog].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    sortedAuditLog.forEach(entry => {
+        const row = createAuditLogRow(entry);
+        tbody.appendChild(row);
+    });
+}
+
+function createAuditLogRow(entry) {
+    const row = document.createElement('tr');
+
+    const severityClass = {
+        'INFO': 'bg-info text-white',
+        'WARNING': 'bg-warning text-dark',
+        'ERROR': 'bg-danger text-white',
+        'CRITICAL': 'bg-dark text-white'
+    };
+
+    const timestamp = new Date(entry.timestamp).toLocaleString();
+    const truncatedDetails = entry.details.length > 50 ? entry.details.substring(0, 50) + '...' : entry.details;
+
+    row.innerHTML = `
+                <td>${timestamp}</td>
+                <td>${entry.userName} (${entry.userId})</td>
+                <td>${entry.action}</td>
+                <td>${entry.category}</td>
+                <td title="${entry.details}">${truncatedDetails}</td>
+                <td><span class="badge ${severityClass[entry.severity]}">${entry.severity}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-info" onclick="viewAuditDetails('${entry.id}')" title="View Details">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </td>
+            `;
+
+    return row;
+}
+
+function viewAuditDetails(auditId) {
+    const entry = auditLog.find(e => e.id === auditId);
+    if (!entry) return;
+
+    // Populate modal with audit details
+    document.getElementById('auditDetailId').textContent = entry.id;
+    document.getElementById('auditDetailTimestamp').textContent = new Date(entry.timestamp).toLocaleString();
+    document.getElementById('auditDetailUser').textContent = `${entry.userName} (${entry.userId})`;
+    document.getElementById('auditDetailAction').textContent = entry.action;
+    document.getElementById('auditDetailCategory').textContent = entry.category;
+    document.getElementById('auditDetailSeverity').innerHTML = `<span class="badge ${getSeverityClass(entry.severity)}">${entry.severity}</span>`;
+    document.getElementById('auditDetailIpAddress').textContent = entry.ipAddress;
+    document.getElementById('auditDetailTarget').textContent = entry.targetId ? `${entry.targetType}: ${entry.targetId}` : 'N/A';
+    document.getElementById('auditDetailDetails').textContent = entry.details;
+    document.getElementById('auditDetailUserAgent').textContent = entry.userAgent;
+
+    const modal = new bootstrap.Modal(document.getElementById('auditDetailModal'));
+    modal.show();
+}
+
+function getSeverityClass(severity) {
+    const severityClasses = {
+        'INFO': 'bg-info text-white',
+        'WARNING': 'bg-warning text-dark',
+        'ERROR': 'bg-danger text-white',
+        'CRITICAL': 'bg-dark text-white'
+    };
+    return severityClasses[severity] || 'bg-secondary text-white';
+}
+
+function filterAuditLog() {
+    const categoryFilter = document.getElementById('auditCategoryFilter').value;
+    const severityFilter = document.getElementById('auditSeverityFilter').value;
+    const tbody = document.getElementById('auditLogTableBody');
+    const rows = tbody.querySelectorAll('tr');
+
+    rows.forEach(row => {
+        const categoryCell = row.querySelector('td:nth-child(4)');
+        const severityCell = row.querySelector('td:nth-child(7)');
+
+        const categoryMatch = categoryFilter === 'all' || categoryCell.textContent.includes(categoryFilter);
+        const severityMatch = severityFilter === 'all' || severityCell.textContent.includes(severityFilter);
+
+        if (categoryMatch && severityMatch) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function searchAuditLog() {
+    const searchTerm = document.getElementById('auditSearchInput').value.toLowerCase();
+    const tbody = document.getElementById('auditLogTableBody');
+    const rows = tbody.querySelectorAll('tr');
+
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function refreshAuditLog() {
+    loadAuditLogTable();
+    document.getElementById('auditCategoryFilter').value = 'all';
+    document.getElementById('auditSeverityFilter').value = 'all';
+    document.getElementById('auditSearchInput').value = '';
+}
+
+function exportAuditLog() {
+    const auditData = auditLog.map(entry => ({
+        'Audit ID': entry.id,
+        'Timestamp': new Date(entry.timestamp).toLocaleString(),
+        'User ID': entry.userId,
+        'User Name': entry.userName,
+        'Action': entry.action,
+        'Category': entry.category,
+        'Details': entry.details,
+        'Target ID': entry.targetId || '',
+        'Target Type': entry.targetType || '',
+        'IP Address': entry.ipAddress,
+        'Severity': entry.severity,
+        'User Agent': entry.userAgent
+    }));
+
+    const csv = convertToCSV(auditData);
+    downloadCSV(csv, 'audit_log.csv');
+
+    // Add audit log entry for export
+    addAuditLog('AUDIT_LOG_EXPORTED', 'System', `Exported ${auditData.length} audit log entries to CSV`, null, 'System', 'INFO');
+}
+
+function clearAuditLog() {
+    if (confirm('Are you sure you want to clear the entire audit log?\n\nThis action cannot be undone and will remove all audit history.')) {
+        const entryCount = auditLog.length;
+        auditLog = [];
+        localStorage.setItem('auditLog', JSON.stringify(auditLog));
+
+        // Add a new audit entry for the clear action (this will be the only entry)
+        addAuditLog('AUDIT_LOG_CLEARED', 'System', `Cleared audit log containing ${entryCount} entries`, null, 'System', 'WARNING');
+
+        loadAuditLogTable();
+    }
+}
+
+function updateUserStatistics() {
+    const totalUsers = Object.keys(users).length;
+    const totalEmployees = Object.values(users).filter(user => user.role === 'employee').length;
+    const totalStudents = Object.values(users).filter(user => user.role === 'student').length;
+
+    document.getElementById('totalUsers').textContent = totalUsers;
+    document.getElementById('totalEmployees').textContent = totalEmployees;
+    document.getElementById('totalStudents').textContent = totalStudents;
+}
+
+function loadUsersTable() {
+    const tbody = document.getElementById('usersTableBody');
+    tbody.innerHTML = '';
+
+    Object.values(users).forEach(user => {
+        const row = createUserRow(user);
+        tbody.appendChild(row);
+    });
+}
+
+function createUserRow(user) {
+    const row = document.createElement('tr');
+
+    const roleClass = {
+        'admin': 'bg-danger text-white',
+        'employee': 'bg-primary text-white',
+        'student': 'bg-success text-white'
+    };
+
+    const departmentOrOffice = user.role === 'student' ? user.department : user.office;
+    const position = user.role === 'student' ? user.studentPosition : user.employeePosition;
+
+    row.innerHTML = `
+                <td><strong>${user.id}</strong></td>
+                <td>${user.firstName} ${user.lastName}</td>
+                <td><span class="badge ${roleClass[user.role]}">${user.role.toUpperCase()}</span></td>
+                <td>${departmentOrOffice || '-'}</td>
+                <td>${position || '-'}</td>
+                <td>${user.email}</td>
+                <td>${user.phone}</td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-primary" onclick="editUser('${user.id}')" title="Edit User">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${user.id}')" title="Delete User">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+
+    return row;
+}
+
+function openAddUserModal() {
+    const modal = new bootstrap.Modal(document.getElementById('userModal'));
+    resetUserForm();
+    document.getElementById('userModalLabel').textContent = 'Add New User';
+    document.getElementById('deleteUserBtn').classList.add('d-none');
+    editingUserId = null;
+    modal.show();
+}
+
+function resetUserForm() {
+    document.getElementById('userForm').reset();
+    selectedUserRole = null;
+
+    // Reset role buttons
+    document.getElementById('adminRoleBtn').className = 'btn btn-outline-danger flex-fill';
+    document.getElementById('employeeRoleBtn').className = 'btn btn-outline-primary flex-fill';
+    document.getElementById('studentRoleBtn').className = 'btn btn-outline-success flex-fill';
+
+    // Hide role-specific fields
+    document.getElementById('employeeFields').style.display = 'none';
+    document.getElementById('studentFields').style.display = 'none';
+
+    // Hide password notice
+    document.getElementById('passwordNotice').style.display = 'none';
+
+    // Hide messages
+    hideUserFormMessages();
+}
+
+function selectUserRole(role) {
+    selectedUserRole = role;
+
+    // Reset all buttons
+    document.getElementById('adminRoleBtn').className = 'btn btn-outline-danger flex-fill';
+    document.getElementById('employeeRoleBtn').className = 'btn btn-outline-primary flex-fill';
+    document.getElementById('studentRoleBtn').className = 'btn btn-outline-success flex-fill';
+
+    // Highlight selected role
+    if (role === 'admin') {
+        document.getElementById('adminRoleBtn').className = 'btn btn-danger flex-fill';
+        document.getElementById('employeeFields').style.display = 'block';
+        document.getElementById('studentFields').style.display = 'none';
+    } else if (role === 'employee') {
+        document.getElementById('employeeRoleBtn').className = 'btn btn-primary flex-fill';
+        document.getElementById('employeeFields').style.display = 'block';
+        document.getElementById('studentFields').style.display = 'none';
+    } else if (role === 'student') {
+        document.getElementById('studentRoleBtn').className = 'btn btn-success flex-fill';
+        document.getElementById('employeeFields').style.display = 'none';
+        document.getElementById('studentFields').style.display = 'block';
+    }
+}
+
+function editUser(userId) {
+    const user = users[userId];
+    if (!user) return;
+
+    editingUserId = userId;
+
+    // Populate form
+    document.getElementById('userIdInput').value = user.id;
+    document.getElementById('userFirstName').value = user.firstName;
+    document.getElementById('userLastName').value = user.lastName;
+    document.getElementById('userEmail').value = user.email;
+    document.getElementById('userPhone').value = user.phone;
+
+    // Select role
+    selectUserRole(user.role);
+
+    // Populate role-specific fields
+    if (user.role === 'admin' || user.role === 'employee') {
+        document.getElementById('userOffice').value = user.office || '';
+        document.getElementById('userEmployeePosition').value = user.employeePosition || '';
+    } else if (user.role === 'student') {
+        document.getElementById('userDepartment').value = user.department || '';
+        document.getElementById('userStudentPosition').value = user.studentPosition || '';
+    }
+
+    // Show password notice for editing
+    document.getElementById('passwordNotice').style.display = 'block';
+
+    // Update modal
+    document.getElementById('userModalLabel').textContent = 'Edit User';
+    document.getElementById('deleteUserBtn').classList.remove('d-none');
+
+    const modal = new bootstrap.Modal(document.getElementById('userModal'));
+    modal.show();
+}
+
+function deleteUser(userId) {
+    const user = users[userId];
+    if (!user) return;
+
+    // Prevent deleting current admin
+    if (currentUser && currentUser.id === userId) {
+        showUserFormError('You cannot delete your own account while logged in.');
+        return;
+    }
+
+    // Populate delete confirmation modal
+    document.getElementById('deleteUserId').textContent = user.id;
+    document.getElementById('deleteUserName').textContent = `${user.firstName} ${user.lastName}`;
+    document.getElementById('deleteUserRole').textContent = user.role.toUpperCase();
+
+    editingUserId = userId;
+
+    const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+    modal.show();
+}
+
+function confirmDeleteUser() {
+    if (!editingUserId) return;
+
+    const deletedUser = users[editingUserId];
+    delete users[editingUserId];
+
+    // Add audit log
+    addAuditLog('USER_DELETED', 'User Management', `Deleted user account: ${deletedUser.firstName} ${deletedUser.lastName} (${deletedUser.id})`, deletedUser.id, 'User', 'WARNING');
+
+    // Close modals
+    const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal'));
+    deleteModal.hide();
+
+    const userModal = bootstrap.Modal.getInstance(document.getElementById('userModal'));
+    if (userModal) userModal.hide();
+
+    // Refresh table
+    loadUsersTable();
+    updateUserStatistics();
+
+    editingUserId = null;
+}
+
+function showUserFormError(message) {
+    const errorDiv = document.getElementById('userFormError');
+    const errorMessage = document.getElementById('userFormErrorMessage');
+    const successDiv = document.getElementById('userFormSuccess');
+
+    successDiv.classList.add('d-none');
+    errorMessage.textContent = message;
+    errorDiv.classList.remove('d-none');
+}
+
+function showUserFormSuccess(message) {
+    const errorDiv = document.getElementById('userFormError');
+    const successDiv = document.getElementById('userFormSuccess');
+    const successMessage = document.getElementById('userFormSuccessMessage');
+
+    errorDiv.classList.add('d-none');
+    successMessage.textContent = message;
+    successDiv.classList.remove('d-none');
+}
+
+function hideUserFormMessages() {
+    document.getElementById('userFormError').classList.add('d-none');
+    document.getElementById('userFormSuccess').classList.add('d-none');
+}
+
+function filterUsers() {
+    const filter = document.getElementById('userRoleFilter').value;
+    const tbody = document.getElementById('usersTableBody');
+    const rows = tbody.querySelectorAll('tr');
+
+    rows.forEach(row => {
+        const roleCell = row.querySelector('td:nth-child(3)');
+        if (filter === 'all' || roleCell.textContent.toLowerCase().includes(filter)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function searchUsers() {
+    const searchTerm = document.getElementById('userSearchInput').value.toLowerCase();
+    const tbody = document.getElementById('usersTableBody');
+    const rows = tbody.querySelectorAll('tr');
+
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function refreshUserList() {
+    loadUsersTable();
+    updateUserStatistics();
+    document.getElementById('userRoleFilter').value = 'all';
+    document.getElementById('userSearchInput').value = '';
+}
+
+function exportUsers() {
+    const userData = Object.values(users).map(user => ({
+        'User ID': user.id,
+        'First Name': user.firstName,
+        'Last Name': user.lastName,
+        'Role': user.role,
+        'Department/Office': user.role === 'student' ? user.department : user.office,
+        'Position': user.role === 'student' ? user.studentPosition : user.employeePosition,
+        'Email': user.email,
+        'Phone': user.phone
+    }));
+
+    const csv = convertToCSV(userData);
+    downloadCSV(csv, 'university_users.csv');
+}
+
+function convertToCSV(data) {
+    const headers = Object.keys(data[0]);
+    const csvContent = [
+        headers.join(','),
+        ...data.map(row => headers.map(header => `"${row[header] || ''}"`).join(','))
+    ].join('\n');
+
+    return csvContent;
+}
+
+function downloadCSV(csv, filename) {
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', filename);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+// Handle user form submission
+document.getElementById('userForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    hideUserFormMessages();
+
+    if (!selectedUserRole) {
+        showUserFormError('Please select a user role.');
+        return;
+    }
+
+    const userId = document.getElementById('userIdInput').value.trim();
+    const firstName = document.getElementById('userFirstName').value.trim();
+    const lastName = document.getElementById('userLastName').value.trim();
+    const email = document.getElementById('userEmail').value.trim();
+    const phone = document.getElementById('userPhone').value.trim();
+
+    // Validation
+    if (!userId || !firstName || !lastName || !email || !phone) {
+        showUserFormError('Please fill in all required fields.');
+        return;
+    }
+
+    // Check if user ID already exists (for new users)
+    if (!editingUserId && users[userId]) {
+        showUserFormError('User ID already exists. Please choose a different ID.');
+        return;
+    }
+
+    // Create user object
+    const userData = {
+        id: userId,
+        firstName: firstName,
+        lastName: lastName,
+        role: selectedUserRole,
+        email: email,
+        phone: phone
+    };
+
+    // For new users, set a default password that they must change
+    if (!editingUserId) {
+        userData.password = 'temp123'; // Default temporary password
+    } else {
+        // For existing users, preserve their current password
+        userData.password = users[editingUserId].password;
+    }
+
+    // Add role-specific fields
+    if (selectedUserRole === 'admin' || selectedUserRole === 'employee') {
+        userData.office = document.getElementById('userOffice').value;
+        userData.employeePosition = document.getElementById('userEmployeePosition').value;
+    } else if (selectedUserRole === 'student') {
+        userData.department = document.getElementById('userDepartment').value;
+        userData.studentPosition = document.getElementById('userStudentPosition').value;
+    }
+
+    // Save user
+    if (editingUserId) {
+        // Update existing user
+        users[editingUserId] = userData;
+        showUserFormSuccess('User updated successfully!');
+
+        // Add audit log
+        addAuditLog('USER_UPDATED', 'User Management', `Updated user account: ${userData.firstName} ${userData.lastName} (${userData.id})`, userData.id, 'User', 'INFO');
+    } else {
+        // Add new user
+        users[userId] = userData;
+        showUserFormSuccess(`User created successfully! Default password: temp123 (User must change on first login)`);
+
+        // Add audit log
+        addAuditLog('USER_CREATED', 'User Management', `Created new user account: ${userData.firstName} ${userData.lastName} (${userData.id}) with temporary password`, userData.id, 'User', 'INFO');
+    }
+
+    // Refresh table
+    loadUsersTable();
+    updateUserStatistics();
+
+    // Close modal after 2 seconds
+    setTimeout(() => {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('userModal'));
+        modal.hide();
+    }, 2000);
+});
+
+// Navigation menu functions
+function createDocument() {
+    if (currentUser && currentUser.role === 'student') {
+        alert('📄 Create Document - Student Access\n\n' +
+            '✅ Available Features:\n' +
+            '• Create event proposals\n' +
+            '• Submit organization documents\n' +
+            '• Request official letters\n' +
+            '• Generate activity reports\n\n' +
+            'This would open the student document creation interface');
+    } else {
+        alert('📄 Create Document - Employee Access\n\n' +
+            '✅ Available Features:\n' +
+            '• Create official announcements\n' +
+            '• Generate administrative documents\n' +
+            '• Draft policy documents\n' +
+            '• Create event approvals\n\n' +
+            'This would open the employee document creation interface');
+    }
+}
+
+function submitPubmat() {
+    if (currentUser && currentUser.role === 'student') {
+        alert('🎨 Submit Pubmat - Student Access\n\n' +
+            '✅ Available Features:\n' +
+            '• Submit event posters\n' +
+            '• Upload organization materials\n' +
+            '• Submit design proposals\n' +
+            '• Request design approvals\n\n' +
+            'This would open the student publication material submission form');
+    } else {
+        alert('🎨 Submit Pubmat - Employee Access\n\n' +
+            '✅ Available Features:\n' +
+            '• Review submitted materials\n' +
+            '• Approve/reject submissions\n' +
+            '• Create official publications\n' +
+            '• Manage design templates\n\n' +
+            'This would open the employee publication management interface');
+    }
+}
+
+function trackDocuments() {
+    if (currentUser && currentUser.role === 'student') {
+        alert('📋 Track Documents - Student Access\n\n' +
+            '📄 Your Submissions:\n' +
+            '• Event Proposal #2024-001 - Under Review\n' +
+            '• Club Registration - Approved ✅\n' +
+            '• Activity Report - Pending\n' +
+            '• Poster Submission - In Progress\n\n' +
+            'This would show your document tracking dashboard');
+    } else {
+        alert('📋 Track Documents - Employee Access\n\n' +
+            '📊 System Overview:\n' +
+            '• 15 pending approvals\n' +
+            '• 8 documents under review\n' +
+            '• 23 approved this week\n' +
+            '• 3 requiring revisions\n\n' +
+            'This would show the administrative tracking dashboard');
+    }
+}
+
+function openSettings() {
+    if (currentUser && currentUser.role === 'student') {
+        alert('⚙️ Settings - Student Access\n\n' +
+            '🔧 Available Options:\n' +
+            '• Update profile information\n' +
+            '• Notification preferences\n' +
+            '• Calendar view settings\n' +
+            '• Change password\n' +
+            '• Privacy settings\n\n' +
+            'This would open the student settings panel');
+    } else {
+        alert('⚙️ Settings - Employee Access\n\n' +
+            '🔧 Available Options:\n' +
+            '• System administration\n' +
+            '• User management\n' +
+            '• Event management settings\n' +
+            '• Notification configuration\n' +
+            '• Security settings\n\n' +
+            'This would open the administrative settings panel');
+    }
+}
+
+// Notification functions (for all users)
+function showNotifications() {
+    if (currentUser && currentUser.role === 'employee') {
+        alert('📢 Notifications - Employee View\n\n' +
+            '🔔 Administrative Updates:\n' +
+            '• 3 pending event approvals\n' +
+            '• 5 events scheduled this week\n' +
+            '• 2 new document submissions\n' +
+            '• System maintenance scheduled\n' +
+            '• Monthly report due tomorrow\n\n' +
+            'This would open the administrative notification panel');
+    }
+}

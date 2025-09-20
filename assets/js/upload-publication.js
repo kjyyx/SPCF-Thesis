@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeUploadSystem() {
+// High-level: Drag-and-drop and input-based file selection with previews, ordering, usage bar, and simple alerts.
     // File upload related variables
     const uploadZone = document.getElementById('upload-zone');
     const fileInput = document.getElementById('file-input');
@@ -65,19 +66,22 @@ function initializeUploadSystem() {
     function handleDragOver(e) {
         e.preventDefault();
         e.stopPropagation();
-        uploadZone.closest('.upload-section').classList.add('dragover');
+        const section = uploadZone && uploadZone.closest ? uploadZone.closest('.upload-section') : null;
+        if (section) section.classList.add('dragover');
     }
 
     function handleDragLeave(e) {
         e.preventDefault();
         e.stopPropagation();
-        uploadZone.closest('.upload-section').classList.remove('dragover');
+        const section = uploadZone && uploadZone.closest ? uploadZone.closest('.upload-section') : null;
+        if (section) section.classList.remove('dragover');
     }
 
     function handleDrop(e) {
         e.preventDefault();
         e.stopPropagation();
-        uploadZone.closest('.upload-section').classList.remove('dragover');
+        const section = uploadZone && uploadZone.closest ? uploadZone.closest('.upload-section') : null;
+        if (section) section.classList.remove('dragover');
 
         const files = Array.from(e.dataTransfer.files);
         processFiles(files);
@@ -205,7 +209,7 @@ function initializeUploadSystem() {
         fileElement.addEventListener('dragover', handleFileDragOver);
         fileElement.addEventListener('drop', handleFileDrop);
 
-        previewGrid.appendChild(fileElement);
+    if (previewGrid) previewGrid.appendChild(fileElement);
         
         // Show preview container and update counts
         showPreviewContainer();
@@ -286,7 +290,7 @@ function initializeUploadSystem() {
         const dropTarget = e.target.closest('.file-preview');
 
         if (draggedElement && dropTarget && draggedElement !== dropTarget) {
-            const allPreviews = Array.from(previewGrid.children);
+            const allPreviews = previewGrid ? Array.from(previewGrid.children) : [];
             const draggedIndex = allPreviews.indexOf(draggedElement);
             const dropIndex = allPreviews.indexOf(dropTarget);
 
@@ -295,10 +299,12 @@ function initializeUploadSystem() {
             uploadedFiles.splice(dropIndex, 0, draggedFile);
 
             // Reorder DOM elements
-            if (draggedIndex < dropIndex) {
-                previewGrid.insertBefore(draggedElement, dropTarget.nextSibling);
-            } else {
-                previewGrid.insertBefore(draggedElement, dropTarget);
+            if (previewGrid) {
+                if (draggedIndex < dropIndex) {
+                    previewGrid.insertBefore(draggedElement, dropTarget.nextSibling);
+                } else {
+                    previewGrid.insertBefore(draggedElement, dropTarget);
+                }
             }
         }
 
@@ -356,7 +362,7 @@ function initializeUploadSystem() {
 
         // Clear files after successful submission
         uploadedFiles = [];
-        previewGrid.innerHTML = '';
+        if (previewGrid) previewGrid.innerHTML = '';
         updateSubmitButton();
         updateStorageUsage();
     }

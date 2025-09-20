@@ -1,5 +1,32 @@
-// JavaScript code for SPCF Digital Workflow Management System
-// Add hover effects and active state management for admin tabs
+// === Password Visibility Toggle ===
+function togglePasswordVisibility(fieldId) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+
+    // Find the icon - it could be in different structures
+    let icon = null;
+
+    // Try different selectors to find the icon
+    const button = field.parentNode.querySelector('button');
+    if (button) {
+        icon = button.querySelector('i');
+    }
+
+    // Fallback: look for icon directly in parent
+    if (!icon) {
+        icon = field.parentNode.querySelector('i');
+    }
+
+    if (!icon) return;
+
+    if (field.type === 'password') {
+        field.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        field.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+}
 document.addEventListener('DOMContentLoaded', function () {
     const adminTabs = document.querySelectorAll('#adminTabs .nav-link');
 
@@ -300,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function () {
         showDashboard();
     } else {
         // No login found, redirect to login page
-        window.location.href = 'login.html';
+        window.location.href = 'user-login.php';
         return;
     }
 
@@ -389,7 +416,7 @@ function logout() {
     currentUser = null;
     
     // Redirect to login page
-    window.location.href = 'login.html';
+    window.location.href = 'user-login.php';
 }
 
 function generateCalendar() {

@@ -132,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                         <input type="password" class="form-control" id="password" name="password"
                             placeholder="Enter your password" required>
                         <button type="button" class="password-toggle" id="togglePassword">
-                            <i class="bi bi-eye" id="togglePasswordIcon"></i>
+                            <i class="bi bi-eye" id="passwordIcon"></i>
                         </button>
                     </div>
                 </div>
@@ -280,7 +280,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                                     <input type="password" class="form-control" id="newPasswordReset" required
                                         minlength="6">
                                     <button type="button" class="password-toggle"
-                                        onclick="togglePasswordVisibility('newPasswordReset')">
+                                        id="newPasswordResetToggle">
                                         <i class="bi bi-eye" id="newPasswordResetIcon"></i>
                                     </button>
                                 </div>
@@ -292,7 +292,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                                 <div class="password-wrapper">
                                     <input type="password" class="form-control" id="confirmPasswordReset" required>
                                     <button type="button" class="password-toggle"
-                                        onclick="togglePasswordVisibility('confirmPasswordReset')">
+                                        id="confirmPasswordResetToggle">
                                         <i class="bi bi-eye" id="confirmPasswordResetIcon"></i>
                                     </button>
                                 </div>

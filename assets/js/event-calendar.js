@@ -1,3 +1,10 @@
+// Event Calendar JavaScript
+// High-level: Renders a month view calendar with events; employees/admins can CRUD, students view-only.
+// Notes for future developers:
+// - Keep global functions used by HTML intact (openChangePassword, logout, showNotifications).
+// - Storage is localStorage-only for now (calendarEvents); swap to API-backed data later.
+// - Guard DOM access; the calendar can render even if some elements are absent.
+// - Avoid changing DOM IDs/classes expected by the HTML templates.
 /**
  * Calendar Application integrated with University Event Management System
  * Employees can CRUD events, Students can only view
@@ -6,7 +13,8 @@
 // Global variables
 let currentDate = new Date();
 let today = new Date();
-let events = JSON.parse(localStorage.getItem('calendarEvents')) || {};
+// Events cache (keyed by YYYY-MM-DD); filled from API
+let events = {};
 let editingEventId = null;
 let currentUser = null; // Declare currentUser globally
 
@@ -46,11 +54,13 @@ class CalendarApp {
         
         this.currentDate = currentDate;
         this.selectedDate = null;
-        this.events = events;
+    this.events = events;
+    // Fixed palette for department colors (Bootstrap backgrounds)
+    this.COLOR_CLASSES = ['bg-primary','bg-success','bg-danger','bg-warning','bg-info','bg-secondary','bg-dark'];
         
         console.log('Initializing calendar...');
         this.init();
-        this.loadEvents();
+    this.loadEvents();
     }
     
     init() {
@@ -125,7 +135,7 @@ class CalendarApp {
         // View controls
         document.querySelectorAll('.view-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const view = e.target.dataset.view;
+                const view = (e.currentTarget || e.target).dataset.view;
                 this.switchView(view);
             });
         });
@@ -139,15 +149,116 @@ class CalendarApp {
         
         // Event form submission
         document.getElementById('eventForm')?.addEventListener('submit', (e) => this.handleEventFormSubmit(e));
+
+        // Populate departments (units) into the eventDepartment select
+        this.populateDepartments();
     }
     
-    loadEvents() {
-        // Events are already loaded from localStorage in the global variable
-        // Initialize with sample data if empty
-        if (Object.keys(this.events).length === 0) {
-            this.events = this.getSampleEvents();
-            localStorage.setItem('calendarEvents', JSON.stringify(this.events));
+    async loadEvents() {
+        try {
+            const resp = await fetch('../api/events.php');
+            const data = await resp.json();
+            if (data && data.success) {
+                // Normalize into map keyed by date
+                const map = {};
+                (data.events || []).forEach(ev => {
+                    const date = ev.event_date;
+                    if (!map[date]) map[date] = [];
+                    map[date].push({
+                        id: String(ev.id),
+                        title: ev.title,
+                        time: ev.event_time || '',
+                        description: ev.description || '',
+                        department: ev.department || '',
+                        color: this.getDepartmentColor(ev.department || '')
+                    });
+                });
+                this.events = map;
+                events = map;
+                this.generateCalendar();
+                this.updateEventStatistics();
+            } else {
+                console.error('Failed to load events', data);
+            }
+        } catch (e) {
+            console.error('Error loading events', e);
         }
+    }
+
+    async populateDepartments() {
+        try {
+            const select = document.getElementById('eventDepartment');
+            if (!select) {
+                // Still render legend if available
+                const resp = await fetch('../api/units.php');
+                const data = await resp.json();
+                if (data && data.success) this.renderDepartmentLegend(data.units || []);
+                return;
+            }
+            // Keep existing placeholder option, then append from API
+            const resp = await fetch('../api/units.php');
+            const data = await resp.json();
+            if (data && data.success) {
+                // Clear all except first placeholder
+                const first = select.querySelector('option');
+                select.innerHTML = '';
+                if (first && first.value === '') {
+                    select.appendChild(first);
+                } else {
+                    const placeholder = document.createElement('option');
+                    placeholder.value = '';
+                    placeholder.textContent = 'Select Department';
+                    select.appendChild(placeholder);
+                }
+                (data.units || []).forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value = u.name; // UI still uses name; API maps to unit_id on save
+                    opt.textContent = u.name;
+                    select.appendChild(opt);
+                });
+                // Also render legend if a container exists
+                this.renderDepartmentLegend(data.units || []);
+            }
+        } catch (e) {
+            console.error('Failed to load units', e);
+        }
+    }
+
+    renderDepartmentLegend(units) {
+        const legend = document.getElementById('departmentLegend');
+        if (!legend) return; // optional UI element
+        legend.innerHTML = '';
+
+        // Group by type for clarity
+        const byType = { office: [], college: [] };
+        units.forEach(u => {
+            if (!u) return;
+            if (u.type === 'office') byType.office.push(u);
+            else if (u.type === 'college') byType.college.push(u);
+        });
+
+        const renderGroup = (title, list) => {
+            if (!list.length) return;
+            const header = document.createElement('div');
+            header.className = 'legend-group-title fw-semibold mt-2 mb-1';
+            header.textContent = title;
+            legend.appendChild(header);
+
+            const wrap = document.createElement('div');
+            wrap.className = 'd-flex flex-wrap gap-2';
+            list.forEach(u => {
+                const bg = this.getDepartmentColor(u.name);
+                const text = this.getTextColorForBg(bg);
+                const badge = document.createElement('span');
+                badge.className = `badge ${bg} ${text}`;
+                badge.textContent = u.name;
+                wrap.appendChild(badge);
+            });
+            legend.appendChild(wrap);
+        };
+
+        renderGroup('Offices', byType.office);
+        renderGroup('Colleges', byType.college);
     }
     
     getSampleEvents() {
@@ -188,9 +299,42 @@ class CalendarApp {
         return sampleEvents;
     }
     
+    // Color utilities and mapping
+    hashToColorIndex(name) {
+        let h = 0;
+        for (let i = 0; i < (name || '').length; i++) {
+            h = (h * 31 + name.charCodeAt(i)) >>> 0;
+        }
+        return h % this.COLOR_CLASSES.length;
+    }
+
+    getTextColorForBg(bgClass) {
+        const darkBg = new Set(['bg-primary','bg-success','bg-danger','bg-dark']);
+        return darkBg.has(bgClass) ? 'text-white' : 'text-dark';
+    }
+
     // Department color mapping function
     getDepartmentColor(department) {
+        // Map known unit names (aligned with schema.sql seed data) to bootstrap color classes
         const colorMap = {
+            // Offices
+            'Administration Office': 'bg-secondary',
+            'Academic Affairs': 'bg-info',
+            'Student Affairs': 'bg-success',
+            'Finance Office': 'bg-warning',
+            'HR Department': 'bg-primary',
+            'IT Department': 'bg-dark',
+            'Library': 'bg-secondary',
+            'Registrar': 'bg-info',
+            // Colleges (exact names from schema.sql)
+            'College of Engineering': 'bg-warning',
+            'College of Nursing': 'bg-info',
+            'College of Business': 'bg-success',
+            'College of Criminology': 'bg-dark',
+            'College of Computing and Information Sciences': 'bg-danger',
+            'College of Art and Social Sciences and Education': 'bg-primary',
+            'College of Hospitality and Tourism Management': 'bg-secondary',
+            // Backward-compat keys from older placeholder data
             'College of Arts, Sciences and Education': 'bg-primary',
             'College of Business and Accountancy': 'bg-success',
             'College of Computer Science and Information Systems': 'bg-danger',
@@ -199,7 +343,9 @@ class CalendarApp {
             'College of Law and Criminology': 'bg-dark',
             'College of Tourism, Hospitality Management and Transportation': 'bg-secondary'
         };
-        return colorMap[department] || 'bg-primary';
+        if (department && colorMap[department]) return colorMap[department];
+        if (department) return this.COLOR_CLASSES[this.hashToColorIndex(department)];
+        return 'bg-primary';
     }
     
     generateCalendar() {
@@ -210,7 +356,8 @@ class CalendarApp {
         // Update month display
         const monthNames = ["January", "February", "March", "April", "May", "June",
             "July", "August", "September", "October", "November", "December"];
-        document.getElementById('currentMonth').textContent = `${monthNames[month]} ${year}`;
+        const monthEl = document.getElementById('currentMonth');
+        if (monthEl) monthEl.textContent = `${monthNames[month]} ${year}`;
         console.log('Month display updated to:', `${monthNames[month]} ${year}`);
 
         // Get first day of month and number of days
@@ -288,7 +435,10 @@ class CalendarApp {
                     eventElement.dataset.eventId = event.id;
                     eventElement.dataset.date = dateStr;
                     eventElement.textContent = event.title;
-                    eventElement.title = `${event.time} - ${event.title}`;
+                    // Tooltip shows time and department when available
+                    const timeStr = event.time ? `${event.time} - ` : '';
+                    const deptStr = event.department ? ` (${event.department})` : '';
+                    eventElement.title = `${timeStr}${event.title}${deptStr}`;
                     
                     // Add click handler
                     eventElement.addEventListener('click', (e) => {
@@ -349,9 +499,12 @@ class CalendarApp {
             }
         });
 
-        document.getElementById('totalEvents').textContent = thisMonthEvents;
-        document.getElementById('upcomingEvents').textContent = upcomingEvents;
-        document.getElementById('todayEvents').textContent = todayEvents;
+    const totalEl = document.getElementById('totalEvents');
+    const upcomingEl = document.getElementById('upcomingEvents');
+    const todayEl = document.getElementById('todayEvents');
+    if (totalEl) totalEl.textContent = thisMonthEvents;
+    if (upcomingEl) upcomingEl.textContent = upcomingEvents;
+    if (todayEl) todayEl.textContent = todayEvents;
         
         // Update notification badge
         const notificationBadge = document.getElementById('notificationCount');
@@ -434,6 +587,8 @@ class CalendarApp {
             day: 'numeric'
         });
         
+        const deptBg = this.getDepartmentColor(event.department || '');
+        const deptText = this.getTextColorForBg(deptBg);
         eventDiv.innerHTML = `
             <div class="event-list-header">
                 <h5 class="event-list-title">${event.title}</h5>
@@ -442,7 +597,8 @@ class CalendarApp {
             <p class="event-list-description">${event.description}</p>
             <div class="event-list-meta">
                 <span><i class="bi bi-tag"></i> Event</span>
-                <span><i class="bi bi-person"></i> University</span>
+                <span class="ms-2"><i class="bi bi-building"></i></span>
+                <span class="badge ${deptBg} ${deptText}">${event.department || 'University'}</span>
             </div>
         `;
         
@@ -499,7 +655,25 @@ class CalendarApp {
         document.getElementById('eventDate').value = dateStr;
         document.getElementById('eventTime').value = event.time || '';
         document.getElementById('eventDescription').value = event.description || '';
-        document.getElementById('eventDepartment').value = event.department || 'College of Arts, Sciences and Education';
+        // Try to set the department; if option list hasn't loaded yet, populate then set
+        const deptSelect = document.getElementById('eventDepartment');
+        if (deptSelect) {
+            const setValue = () => {
+                const val = event.department || '';
+                if (val && Array.from(deptSelect.options).some(o => o.value === val)) {
+                    deptSelect.value = val;
+                } else {
+                    // Leave placeholder selected if unknown; user must choose before saving
+                    deptSelect.value = '';
+                }
+            };
+            if (deptSelect.options.length <= 1) {
+                // Likely not yet populated; populate then set
+                this.populateDepartments().finally(setValue);
+            } else {
+                setValue();
+            }
+        }
         document.getElementById('deleteBtn').style.display = 'inline-block';
 
         const modal = new bootstrap.Modal(document.getElementById('eventModal'));
@@ -545,50 +719,51 @@ class CalendarApp {
         const department = document.getElementById('eventDepartment').value;
         const color = this.getDepartmentColor(department);
 
-        if (!this.events[date]) {
-            this.events[date] = [];
+        // Validate required fields
+        if (!title || !date) {
+            alert('Please provide a title and date for the event.');
+            return;
+        }
+        if (!department) {
+            alert('Please select a department.');
+            return;
         }
 
-        if (editingEventId) {
-            // Edit existing event
-            const eventIndex = this.events[date].findIndex(e => e.id === editingEventId);
-            if (eventIndex !== -1) {
-                this.events[date][eventIndex] = {
-                    id: editingEventId,
-                    title,
-                    time,
-                    description,
-                    department,
-                    color
-                };
-                
-                // Add audit log
-                addAuditLog('EVENT_UPDATED', 'Event Management', `Updated event: ${title}`, editingEventId, 'Event');
+        // Persist via API
+        const payload = {
+            title,
+            description,
+            event_date: date,
+            event_time: time || null,
+            department
+        };
+
+        const isUpdate = Boolean(editingEventId);
+        const url = isUpdate ? `../api/events.php?id=${encodeURIComponent(editingEventId)}` : '../api/events.php';
+        const method = isUpdate ? 'PUT' : 'POST';
+
+        fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                addAuditLog(isUpdate ? 'EVENT_UPDATED' : 'EVENT_CREATED', 'Event Management', `${isUpdate ? 'Updated' : 'Created'} event: ${title}`, isUpdate ? editingEventId : res.id, 'Event');
+                // Refresh list
+                this.loadEvents();
+                const modal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
+                modal?.hide();
+                this.showToast(isUpdate ? 'Event updated successfully' : 'Event created successfully', 'success');
+            } else {
+                alert(res.message || 'Failed to save event');
             }
-        } else {
-            // Create new event
-            const newEvent = {
-                id: Date.now().toString(),
-                title,
-                time,
-                description,
-                department,
-                color
-            };
-            this.events[date].push(newEvent);
-            
-            // Add audit log
-            addAuditLog('EVENT_CREATED', 'Event Management', `Created new event: ${title}`, newEvent.id, 'Event');
-        }
-
-        localStorage.setItem('calendarEvents', JSON.stringify(this.events));
-        this.generateCalendar();
-
-        const modal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
-        modal.hide();
-        
-        // Show success toast
-        this.showToast(editingEventId ? 'Event updated successfully' : 'Event created successfully', 'success');
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Server error saving event');
+        });
     }
     
     deleteEvent() {
@@ -599,23 +774,21 @@ class CalendarApp {
         
         if (!event) return;
 
-        this.events[dateStr] = this.events[dateStr].filter(e => e.id !== editingEventId);
-
-        if (this.events[dateStr].length === 0) {
-            delete this.events[dateStr];
-        }
-
-        localStorage.setItem('calendarEvents', JSON.stringify(this.events));
-        this.generateCalendar();
-
-        const modal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
-        modal.hide();
-        
-        // Add audit log
-        addAuditLog('EVENT_DELETED', 'Event Management', `Deleted event: ${event.title}`, editingEventId, 'Event');
-        
-        // Show success toast
-        this.showToast('Event deleted successfully', 'success');
+        // Persist via API
+        fetch(`../api/events.php?id=${encodeURIComponent(editingEventId)}`, { method: 'DELETE' })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    addAuditLog('EVENT_DELETED', 'Event Management', `Deleted event: ${event.title}`, editingEventId, 'Event');
+                    this.loadEvents();
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
+                    modal?.hide();
+                    this.showToast('Event deleted successfully', 'success');
+                } else {
+                    alert(res.message || 'Delete failed');
+                }
+            })
+            .catch(err => { console.error(err); alert('Server error deleting event'); });
     }
     
     isToday(date) {
@@ -627,6 +800,76 @@ class CalendarApp {
         alert(message);
     }
 }
+
+function openChangePassword() {
+    const modal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
+    modal.show();
+}
+
+// Global password visibility toggle for inline onclick usage in the page
+function togglePasswordVisibility(fieldId) {
+    try {
+        const field = document.getElementById(fieldId);
+        const icon = document.getElementById(fieldId + 'Icon');
+        if (!field) return;
+
+        if (field.type === 'password') {
+            field.type = 'text';
+            if (icon) { icon.classList.remove('bi-eye'); icon.classList.add('bi-eye-slash'); }
+        } else {
+            field.type = 'password';
+            if (icon) { icon.classList.remove('bi-eye-slash'); icon.classList.add('bi-eye'); }
+        }
+    } catch (_) {
+        // no-op: keep UI resilient even if elements are missing
+    }
+}
+
+// Handle change password form
+document.getElementById('changePasswordForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const currentPassword = document.getElementById('currentPassword')?.value || '';
+    const newPassword = document.getElementById('newPassword')?.value || '';
+    const confirmPassword = document.getElementById('confirmPassword')?.value || '';
+    const messagesDiv = document.getElementById('changePasswordMessages');
+
+    const show = (html) => { if (messagesDiv) messagesDiv.innerHTML = html; };
+    const ok = (msg) => `<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>${msg}</div>`;
+    const err = (msg) => `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>${msg}</div>`;
+
+    if (!currentPassword || !newPassword || !confirmPassword) { show(err('All fields are required.')); return; }
+    if (newPassword !== confirmPassword) { show(err('New passwords do not match.')); return; }
+    const policy = /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/;
+    if (!policy.test(newPassword)) { show(err('Password must be 8+ chars with upper, lower, number, special.')); return; }
+
+    try {
+        const resp = await fetch('../api/auth.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'change_password', current_password: currentPassword, new_password: newPassword })
+        }).then(r => r.json());
+
+        if (resp.success) {
+            addAuditLog('PASSWORD_CHANGED', 'Security', 'Password changed', currentUser?.id || null, 'User', 'INFO');
+            // Clear must_change_password flag on the client if present
+            if (window.currentUser) {
+                window.currentUser.must_change_password = 0;
+            }
+            show(ok('Password changed successfully!'));
+            setTimeout(() => {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('changePasswordModal'));
+                if (modal) modal.hide();
+                if (messagesDiv) messagesDiv.innerHTML = '';
+                document.getElementById('changePasswordForm')?.reset();
+            }, 1500);
+        } else {
+            show(err(resp.message || 'Failed to change password.'));
+        }
+    } catch (e) {
+        show(err('Server error changing password.'));
+    }
+});
 
 // Utility functions from original script.js
 function logout() {

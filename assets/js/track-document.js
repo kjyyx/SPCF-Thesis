@@ -1,3 +1,9 @@
+// Track Document JavaScript
+// High-level: Provides selection, tracking progress visualization, and exporting for event documents.
+// Notes for future developers:
+// - Public functions (toggleEventFolder) and the global instance (documentManager) are referenced by HTML; keep names.
+// - The data is driven from DOM attributes; no network calls here.
+// - Add guards when reading DOM to avoid null exceptions if sections are missing.
 /* Track Document JavaScript - Extracted from trackdocument.html */
 
 class DocumentManagerV6 {
@@ -100,15 +106,17 @@ class DocumentManagerV6 {
 
     initializeEventListeners() {
         // Search functionality
-        document.getElementById('search-input').addEventListener('input', (e) => this.handleSearch(e.target.value));
+        const searchEl = document.getElementById('search-input');
+        if (searchEl) searchEl.addEventListener('input', (e) => this.handleSearch(e.target.value));
         
         // Filter buttons
         document.querySelectorAll('.filter-pill').forEach(btn => {
-            btn.addEventListener('click', (e) => this.handleFilter(e.target.dataset.filter));
+            btn.addEventListener('click', (e) => this.handleFilter((e.currentTarget || e.target).dataset.filter));
         });
 
         // Select all checkbox
-        document.getElementById('select-all').addEventListener('change', (e) => this.handleSelectAll(e.target.checked));
+        const selectAll = document.getElementById('select-all');
+        if (selectAll) selectAll.addEventListener('change', (e) => this.handleSelectAll(e.target.checked));
 
         // Event checkboxes
         document.querySelectorAll('.event-checkbox').forEach(checkbox => {
@@ -272,16 +280,22 @@ class DocumentManagerV6 {
 
         // Add loading state
         const trackBtn = document.getElementById('track-selected-btn');
-        trackBtn.classList.add('loading');
-        trackBtn.innerHTML = '<span class="spinner me-2"></span>Loading Tracker...';
+        if (trackBtn) {
+            trackBtn.classList.add('loading');
+            trackBtn.innerHTML = '<span class="spinner me-2"></span>Loading Tracker...';
+        }
 
         setTimeout(() => {
-            document.getElementById('management-interface').style.display = 'none';
-            document.getElementById('tracker-interface').style.display = 'block';
+            const mgmt = document.getElementById('management-interface');
+            const tracker = document.getElementById('tracker-interface');
+            if (mgmt) mgmt.style.display = 'none';
+            if (tracker) tracker.style.display = 'block';
             this.updateTrackerInterface();
             
-            trackBtn.classList.remove('loading');
-            trackBtn.innerHTML = '<i class="bi bi-graph-up me-2"></i>Track Selected';
+            if (trackBtn) {
+                trackBtn.classList.remove('loading');
+                trackBtn.innerHTML = '<i class="bi bi-graph-up me-2"></i>Track Selected';
+            }
         }, 1000);
     }
 
@@ -369,8 +383,10 @@ class DocumentManagerV6 {
     }
 
     backToManagement() {
-        document.getElementById('tracker-interface').style.display = 'none';
-        document.getElementById('management-interface').style.display = 'block';
+        const tracker = document.getElementById('tracker-interface');
+        const mgmt = document.getElementById('management-interface');
+        if (tracker) tracker.style.display = 'none';
+        if (mgmt) mgmt.style.display = 'block';
     }
 
     downloadSelected() {

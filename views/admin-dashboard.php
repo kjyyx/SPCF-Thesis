@@ -42,7 +42,6 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         ?>;
     </script>
     
-    <script src="../assets/js/admin-dashboard.js"></script>
 </head>
 
 <body>
@@ -365,7 +364,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                     <h5 class="modal-title" id="userModalLabel">Add New User</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form id="userForm">
+                <form id="userForm" novalidate>
                     <div class="modal-body">
                         <div id="userFormMessages"></div>
 
@@ -392,10 +391,13 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                         </div>
 
                         <!-- Security Notice -->
-                        <div class="alert alert-info mb-4">
+                        <div id="addUserNotice" class="alert alert-info mb-4">
                             <i class="bi bi-shield-lock me-2"></i>
-                            <strong>Password Security:</strong> For security reasons, administrators cannot view or edit
-                            user passwords. Users must change their own passwords through the system settings.
+                            <strong>Password Security:</strong> Set a temporary password for the new user. They will be required to change it on first login. Default password will be used if left empty.
+                        </div>
+                        <div id="editUserNotice" class="alert alert-warning mb-4" style="display: none;">
+                            <i class="bi bi-shield-lock me-2"></i>
+                            <strong>Password Security:</strong> Passwords cannot be viewed or edited for security reasons. Users must change their own passwords through the system settings.
                         </div>
 
                         <!-- Basic Information -->
@@ -403,7 +405,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             <div class="col-md-12">
                                 <div class="mb-3">
                                     <label for="userIdInput" class="form-label">User ID</label>
-                                    <input type="text" class="form-control" id="userIdInput" required>
+                                    <input type="text" class="form-control" id="userIdInput" placeholder="Enter unique user ID (e.g., ADM001, EMP001, STU001)" required>
                                 </div>
                             </div>
                         </div>
@@ -412,13 +414,13 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="userFirstName" class="form-label">First Name</label>
-                                    <input type="text" class="form-control" id="userFirstName" required>
+                                    <input type="text" class="form-control" id="userFirstName" placeholder="Enter first name" required>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="userLastName" class="form-label">Last Name</label>
-                                    <input type="text" class="form-control" id="userLastName" required>
+                                    <input type="text" class="form-control" id="userLastName" placeholder="Enter last name" required>
                                 </div>
                             </div>
                         </div>
@@ -541,18 +543,44 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             </div>
                         </div>
 
-                        <!-- Contact Information -->
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="userEmail" class="form-label">Email</label>
-                                    <input type="email" class="form-control" id="userEmail" required>
+                                    <input type="email" class="form-control" id="userEmail" placeholder="Enter email address (e.g., user@university.edu)" required>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="userPhone" class="form-label">Phone</label>
-                                    <input type="tel" class="form-control" id="userPhone" required>
+                                    <input type="tel" class="form-control" id="userPhone" placeholder="Enter phone number (e.g., 09123456789 or +639123456789)" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Password Section (only for new users) -->
+                        <div id="passwordSection" class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="userPassword" class="form-label">Temporary Password</label>
+                                    <div class="password-wrapper">
+                                        <input type="password" class="form-control" id="userPassword" placeholder="Enter temporary password (leave empty for default)">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="togglePasswordVisibility('userPassword')">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </div>
+                                    <div class="form-text">Default password: <code>ChangeMe123!</code> (user must change on first login)</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="userConfirmPassword" class="form-label">Confirm Password</label>
+                                    <div class="password-wrapper">
+                                        <input type="password" class="form-control" id="userConfirmPassword" placeholder="Confirm temporary password">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="togglePasswordVisibility('userConfirmPassword')">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -808,6 +836,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/user-login.js"></script>
+    <script src="../assets/js/admin-dashboard.js"></script>
 </body>
 
 </html>

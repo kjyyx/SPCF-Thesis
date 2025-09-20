@@ -19,6 +19,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -26,15 +27,16 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/event-calendar.css">
-    
+
     <script>
         // Pass user data to JavaScript
-        window.currentUser = <?php 
-            // Convert snake_case to camelCase for JavaScript
-            $jsUser = $currentUser;
-            $jsUser['firstName'] = $currentUser['first_name'];
-            $jsUser['lastName'] = $currentUser['last_name'];
-            echo json_encode($jsUser); 
+        window.currentUser = <?php
+        // Convert snake_case to camelCase for JavaScript
+        $jsUser = $currentUser;
+        $jsUser['firstName'] = $currentUser['first_name'];
+        $jsUser['lastName'] = $currentUser['last_name'];
+        $jsUser['must_change_password'] = isset($currentUser['must_change_password']) ? (int)$currentUser['must_change_password'] : ((int)($_SESSION['must_change_password'] ?? 0));
+        echo json_encode($jsUser);
         ?>;
         window.isAdmin = <?php echo ($currentUser['role'] === 'admin') ? 'true' : 'false'; ?>;
     </script>
@@ -97,6 +99,18 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
 
     <!-- Main Content -->
     <div class="main-content">
+        <?php if (isset($currentUser['must_change_password']) && (int)$currentUser['must_change_password'] === 1): ?>
+            <div class="container-fluid">
+                <div class="alert alert-warning alert-dismissible fade show mt-3" role="alert">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Your account is using a temporary password. For your security, please change your password now.
+                    <button type="button" class="btn btn-sm btn-warning ms-2" onclick="openChangePassword()">
+                        <i class="bi bi-key me-1"></i>Change Password
+                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            </div>
+        <?php endif; ?>
         <!-- Combined Compact Header -->
         <div class="calendar-header-compact">
             <div class="container-fluid">
@@ -382,7 +396,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                 <input type="password" class="form-control" id="currentPassword" required>
                                 <button type="button" class="password-toggle"
                                     onclick="togglePasswordVisibility('currentPassword')">
-                                    <i class="bi bi-eye"></i>
+                                    <i class="bi bi-eye" id="currentPasswordIcon"></i>
                                 </button>
                             </div>
                         </div>
@@ -392,7 +406,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                 <input type="password" class="form-control" id="newPassword" required>
                                 <button type="button" class="password-toggle"
                                     onclick="togglePasswordVisibility('newPassword')">
-                                    <i class="bi bi-eye"></i>
+                                    <i class="bi bi-eye" id="newPasswordIcon"></i>
                                 </button>
                             </div>
                         </div>
@@ -402,7 +416,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                 <input type="password" class="form-control" id="confirmPassword" required>
                                 <button type="button" class="password-toggle"
                                     onclick="togglePasswordVisibility('confirmPassword')">
-                                    <i class="bi bi-eye"></i>
+                                    <i class="bi bi-eye" id="confirmPasswordIcon"></i>
                                 </button>
                             </div>
                         </div>
@@ -435,6 +449,59 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                     <button type="button" class="btn btn-secondary" onclick="markAllAsRead()">Mark All Read</button>
                     <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-key me-2"></i>Change Password
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="changePasswordForm">
+                    <div class="modal-body">
+                        <div id="changePasswordMessages"></div>
+                        <div class="mb-3">
+                            <label for="currentPassword" class="form-label">Current Password</label>
+                            <div class="password-wrapper">
+                                <input type="password" class="form-control" id="currentPassword" required>
+                                <button type="button" class="password-toggle"
+                                    onclick="togglePasswordVisibility('currentPassword')">
+                                    <i class="bi bi-eye" id="currentPasswordIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">New Password</label>
+                            <div class="password-wrapper">
+                                <input type="password" class="form-control" id="newPassword" required>
+                                <button type="button" class="password-toggle"
+                                    onclick="togglePasswordVisibility('newPassword')">
+                                    <i class="bi bi-eye" id="newPasswordIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                            <div class="password-wrapper">
+                                <input type="password" class="form-control" id="confirmPassword" required>
+                                <button type="button" class="password-toggle"
+                                    onclick="togglePasswordVisibility('confirmPassword')">
+                                    <i class="bi bi-eye" id="confirmPasswordIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update Password</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

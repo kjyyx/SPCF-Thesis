@@ -1,59 +1,36 @@
-// Admin Dashboard JavaScript - Event Management System
+// Admin Dashboard JavaScript
+// High-level: Handles admin functionality — user management, materials, audit logs.
+// Notes for future developers:
+// - Keep public function names referenced by HTML unchanged (e.g., editUser, deleteUser, etc.).
+// - API endpoints are centralized via apiFetch(); update base paths here if folder structure changes.
+// - Avoid storing secrets or sensitive data in client-side code. Passwords are never read back from the API.
 
-// Global variables
-let currentUser = null;
-let auditLog = JSON.parse(localStorage.getItem('auditLog')) || [];
-let publicMaterials = JSON.parse(localStorage.getItem('publicMaterials')) || [];
-let editingUserId = null;
-let selectedUserRole = null;
-let selectedMaterials = [];
-let currentMaterialId = null;
+// === Global Variables ===
+let currentUser = null; // set by PHP on page
+let auditLog = JSON.parse(localStorage.getItem('auditLog')) || []; // local-only audit log
+let publicMaterials = JSON.parse(localStorage.getItem('publicMaterials')) || []; // replaced by API load
+let editingUserId = null; // tracks current edit target
+let selectedUserRole = null; // tracks role selection in modal
+let selectedMaterials = []; // bulk selection for materials
+let currentMaterialId = null; // detail modal focus
+let editingUserOriginalRole = null; // used to prevent table hopping on edit
 
-// User database - will be populated from PHP/database
+// User database - will be populated from backend API
 let users = {};
+const USERS_API = '../api/users.php';
 
-// Initialize with sample users for demo purposes
-function initializeSampleUsers() {
-    users = {
-        'ADM001': {
-            id: 'ADM001',
-            firstName: 'System',
-            lastName: 'Administrator',
-            role: 'admin',
-            office: 'IT Department',
-            position: 'System Administrator',
-            email: 'admin@university.edu',
-            phone: '+63 917 000 0000'
-        },
-        'EMP001': {
-            id: 'EMP001',
-            firstName: 'Maria',
-            lastName: 'Santos',
-            role: 'employee',
-            office: 'Administration Office',
-            position: 'Dean',
-            email: 'maria.santos@university.edu',
-            phone: '+63 917 123 4567'
-        },
-        'STU001': {
-            id: 'STU001',
-            firstName: 'Juan',
-            lastName: 'Dela Cruz',
-            role: 'student',
-            department: 'College of Engineering',
-            position: 'Student',
-            email: 'juan.delacruz@student.university.edu',
-            phone: '+63 918 765 4321'
-        }
-    };
-}
+// ==========================================================
+// Initialization / Boot
+// ==========================================================
+// Removed legacy sample users seeding (users load from API)
 
 // Initialize data
+/**
+ * Seed demo public materials in localStorage on first run.
+ * Real data is fetched via API later; this keeps UI from looking empty.
+ */
 function initializeSampleData() {
-    // Initialize users
-    initializeSampleUsers();
-    
-    // Initialize public materials with sample data if empty
+    // Keep only Public Materials sample seeding (we'll replace with real API later)
     if (publicMaterials.length === 0) {
         const sampleMaterials = [
             {
@@ -108,86 +85,15 @@ function initializeSampleData() {
         publicMaterials = sampleMaterials;
         localStorage.setItem('publicMaterials', JSON.stringify(publicMaterials));
     }
-
-    // Initialize audit log with sample data if empty
-    if (auditLog.length === 0) {
-        const sampleAuditEntries = [
-            {
-                id: 'AUDIT001',
-                timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-                userId: 'ADM001',
-                userName: 'System Administrator',
-                action: 'LOGIN',
-                category: 'Authentication',
-                details: 'Administrator logged into the system',
-                ipAddress: '192.168.1.100',
-                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                severity: 'INFO'
-            },
-            {
-                id: 'AUDIT002',
-                timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-                userId: 'EMP001',
-                userName: 'Maria Santos',
-                action: 'EVENT_CREATED',
-                category: 'Event Management',
-                details: 'Created new event: Engineering Symposium',
-                targetId: '1',
-                targetType: 'Event',
-                ipAddress: '192.168.1.101',
-                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                severity: 'INFO'
-            },
-            {
-                id: 'AUDIT003',
-                timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-                userId: 'STU001',
-                userName: 'Juan Dela Cruz',
-                action: 'MATERIAL_SUBMITTED',
-                category: 'Public Materials',
-                details: 'Submitted public material: engineering_symposium_poster.png',
-                targetId: 'MAT001',
-                targetType: 'PublicMaterial',
-                ipAddress: '192.168.1.102',
-                userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X)',
-                severity: 'INFO'
-            },
-            {
-                id: 'AUDIT004',
-                timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-                userId: 'ADM001',
-                userName: 'System Administrator',
-                action: 'USER_CREATED',
-                category: 'User Management',
-                details: 'Created new user account: STU004',
-                targetId: 'STU004',
-                targetType: 'User',
-                ipAddress: '192.168.1.100',
-                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                severity: 'INFO'
-            },
-            {
-                id: 'AUDIT005',
-                timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-                userId: 'SYSTEM',
-                userName: 'System',
-                action: 'LOGIN_FAILED',
-                category: 'Security',
-                details: 'Failed login attempt for user: STU999',
-                targetId: 'STU999',
-                targetType: 'User',
-                ipAddress: '203.124.45.67',
-                userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
-                severity: 'WARNING'
-            }
-        ];
-
-        auditLog = sampleAuditEntries;
-        localStorage.setItem('auditLog', JSON.stringify(auditLog));
-    }
 }
 
-// Function to add audit log entry
+// ==========================================================
+// Audit Log Helpers (client-side only)
+// ==========================================================
+/**
+ * Add an entry to the local audit log for user-initiated actions.
+ * This is not a server-side audit trail — adjust once a backend exists.
+ */
 function addAuditLog(action, category, details, targetId = null, targetType = null, severity = 'INFO') {
     const entry = {
         id: 'AUDIT' + Date.now(),
@@ -214,62 +120,71 @@ function addAuditLog(action, category, details, targetId = null, targetType = nu
     localStorage.setItem('auditLog', JSON.stringify(auditLog));
 }
 
+// ==========================================================
+// Main Initialization
+// ==========================================================
 // Initialize the admin dashboard when the page loads
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
     console.log('Admin Dashboard loaded');
-    
+
     // Use the user data passed from PHP
     if (window.currentUser) {
         currentUser = window.currentUser;
         console.log('Admin user:', currentUser);
-        
+
         // Check if user is actually an admin
         if (currentUser.role !== 'admin') {
             console.log('User is not an admin, redirecting...');
             window.location.href = 'event-calendar.php';
             return;
         }
-        
+
         // Update UI
         const adminUserName = document.getElementById('adminUserName');
         if (adminUserName) {
             adminUserName.textContent = `${currentUser.firstName} ${currentUser.lastName}`;
         }
-        
+
         // Initialize dashboard
         initializeSampleData();
-        loadUsers();
-        loadMaterials();
+        await loadUsersFromAPI();
+        await loadMaterials();
         loadAuditLogs();
         updateDashboardStats();
-        
+
     } else {
         console.log('No user data, redirecting to login...');
         window.location.href = 'user-login.php';
     }
 });
 
-// Navigation functions
-function goToCalendar() {
-    window.location.href = 'event-calendar.php';
-}
+// ==========================================================
+// Navigation
+// ==========================================================
+// Navigation functions moved below (single source of truth)
 
-function logout() {
-    window.location.href = 'user-logout.php';
-}
-
-// User Management Functions
+// ==========================================================
+// Users: State, UI, and Actions
+// ==========================================================
+/** Update header statistics based on current state. */
 function updateUserStatistics() {
     const totalUsers = Object.keys(users).length;
     const pendingMaterials = publicMaterials.filter(m => m.status === 'pending').length;
 
-    document.getElementById('totalUsers').textContent = totalUsers;
-    document.getElementById('totalMaterials').textContent = publicMaterials.length;
-    document.getElementById('pendingApprovals').textContent = pendingMaterials;
+    const totalUsersEl = document.getElementById('totalUsers');
+    const totalMaterialsEl = document.getElementById('totalMaterials');
+    const pendingApprovalsEl = document.getElementById('pendingApprovals');
+
+    if (totalUsersEl) totalUsersEl.textContent = totalUsers;
+    if (totalMaterialsEl) totalMaterialsEl.textContent = publicMaterials.length;
+    if (pendingApprovalsEl) pendingApprovalsEl.textContent = pendingMaterials;
 }
 
+/** Render the users table based on current users map. */
 function loadUsersTable() {
     const tbody = document.getElementById('usersTableBody');
+    if (!tbody) return;
+
     tbody.innerHTML = '';
 
     Object.values(users).forEach(user => {
@@ -278,6 +193,7 @@ function loadUsersTable() {
     });
 }
 
+/** Build a <tr> element for a given user. */
 function createUserRow(user) {
     const row = document.createElement('tr');
 
@@ -288,7 +204,7 @@ function createUserRow(user) {
     };
 
     const departmentOrOffice = user.role === 'student' ? user.department : user.office;
-    const contact = `${user.email}<br><small>${user.phone}</small>`;
+    const contact = `${user.email}<br><small>${user.phone || '-'}</small>`;
 
     // Show edit/delete buttons for all roles now
     const actionButtons = `
@@ -314,32 +230,74 @@ function createUserRow(user) {
     return row;
 }
 
+/** Open the modal to create a new user. */
 function openAddUserModal() {
     const modal = new bootstrap.Modal(document.getElementById('userModal'));
     resetUserForm();
-    document.getElementById('userModalLabel').textContent = 'Add New User';
+    const modalLabel = document.getElementById('userModalLabel');
+    if (modalLabel) modalLabel.textContent = 'Add New User';
     editingUserId = null;
+    editingUserOriginalRole = null;
+    // Enable role selection for create
+    document.querySelectorAll('.role-btn').forEach(btn => btn.disabled = false);
+    const idInput = document.getElementById('userIdInput');
+    if (idInput) idInput.disabled = false;
+    // Show password section for new users
+    const passwordSection = document.getElementById('passwordSection');
+    const addUserNotice = document.getElementById('addUserNotice');
+    const editUserNotice = document.getElementById('editUserNotice');
+    if (passwordSection) passwordSection.style.display = 'block';
+    if (addUserNotice) addUserNotice.style.display = 'block';
+    if (editUserNotice) editUserNotice.style.display = 'none';
     modal.show();
 }
 
+/** Reset and sanitize the user form inputs. */
 function resetUserForm() {
-    document.getElementById('userForm').reset();
+    const userForm = document.getElementById('userForm');
+    if (userForm) userForm.reset();
     selectedUserRole = null;
+    editingUserOriginalRole = null;
+
+    // Reset password fields specifically (since form.reset() might not clear them properly)
+    const userPassword = document.getElementById('userPassword');
+    const userConfirmPassword = document.getElementById('userConfirmPassword');
+    if (userPassword) userPassword.value = '';
+    if (userConfirmPassword) userConfirmPassword.value = '';
+
+    // Reset password visibility to hidden
+    if (userPassword) userPassword.type = 'password';
+    if (userConfirmPassword) userConfirmPassword.type = 'password';
+    const passwordButtons = document.querySelectorAll('#userPassword ~ .btn, #userConfirmPassword ~ .btn');
+    passwordButtons.forEach(btn => {
+        const icon = btn.querySelector('i');
+        if (icon) icon.className = 'bi bi-eye';
+    });
 
     // Reset role buttons
     document.querySelectorAll('.role-btn').forEach(btn => {
         btn.classList.remove('active');
     });
 
-    // Hide role-specific fields
+    // Hide role-specific fields and clear constraints
     document.querySelectorAll('.role-fields').forEach(field => {
         field.style.display = 'none';
     });
+    setRoleFieldConstraints(null);
 
     // Hide messages
     hideUserFormMessages();
+
+    // Show password section by default
+    const passwordSection = document.getElementById('passwordSection');
+    const addUserNotice = document.getElementById('addUserNotice');
+    const editUserNotice = document.getElementById('editUserNotice');
+    if (passwordSection) passwordSection.style.display = 'block';
+    if (addUserNotice) addUserNotice.style.display = 'block';
+    if (editUserNotice) editUserNotice.style.display = 'none';
 }
 
+/** Handle role button selection in the modal. */
 function selectUserRole(role) {
     // Allow admin, employee and student roles
     if (role !== 'admin' && role !== 'employee' && role !== 'student') {
@@ -360,58 +318,124 @@ function selectUserRole(role) {
         selectedBtn.classList.add('active');
     }
 
-    // Show/hide role-specific fields
+    // Show/hide role-specific fields and apply constraints
     document.querySelectorAll('.role-fields').forEach(field => {
         field.style.display = 'none';
     });
 
     if (role === 'admin') {
-        document.getElementById('adminFields').style.display = 'block';
+        const adminFields = document.getElementById('adminFields');
+        if (adminFields) adminFields.style.display = 'block';
     } else if (role === 'employee') {
-        document.getElementById('employeeFields').style.display = 'block';
+        const employeeFields = document.getElementById('employeeFields');
+        if (employeeFields) employeeFields.style.display = 'block';
     } else if (role === 'student') {
-        document.getElementById('studentFields').style.display = 'block';
+        const studentFields = document.getElementById('studentFields');
+        if (studentFields) studentFields.style.display = 'block';
     }
+
+    setRoleFieldConstraints(role);
 
     // Clear any previous error messages
     hideUserFormMessages();
 }
 
+/** Open the modal pre-filled for editing a user. */
 function editUser(userId) {
     const user = users[userId];
     if (!user) return;
 
     editingUserId = userId;
+    editingUserOriginalRole = user.role;
 
     // Populate form
-    document.getElementById('userIdInput').value = user.id;
-    document.getElementById('userFirstName').value = user.firstName;
-    document.getElementById('userLastName').value = user.lastName;
-    document.getElementById('userEmail').value = user.email;
-    document.getElementById('userPhone').value = user.phone;
+    const userIdInput = document.getElementById('userIdInput');
+    const userFirstName = document.getElementById('userFirstName');
+    const userLastName = document.getElementById('userLastName');
+    const userEmail = document.getElementById('userEmail');
+    const userPhone = document.getElementById('userPhone');
+    const userPassword = document.getElementById('userPassword');
+    const userConfirmPassword = document.getElementById('userConfirmPassword');
+
+    if (userIdInput) {
+        userIdInput.value = user.id;
+        userIdInput.disabled = true; // prevent PK change during edit
+    }
+    if (userFirstName) userFirstName.value = user.firstName;
+    if (userLastName) userLastName.value = user.lastName;
+    if (userEmail) userEmail.value = user.email;
+    if (userPhone) userPhone.value = user.phone;
+
+    // Clear password fields for security (don't show existing passwords)
+    if (userPassword) userPassword.value = '';
+    if (userConfirmPassword) userConfirmPassword.value = '';
 
     // Select role
     selectUserRole(user.role);
+    // Disable changing role during edit to avoid moving across tables
+    document.querySelectorAll('.role-btn').forEach(btn => btn.disabled = true);
 
     // Populate role-specific fields
     if (user.role === 'admin') {
-        document.getElementById('adminOffice').value = user.office || '';
-        document.getElementById('adminPosition').value = user.employeePosition || '';
+        const adminOffice = document.getElementById('adminOffice');
+        const adminPosition = document.getElementById('adminPosition');
+        if (adminOffice) adminOffice.value = user.office || '';
+        if (adminPosition) adminPosition.value = user.position || '';
     } else if (user.role === 'employee') {
-        document.getElementById('employeeOffice').value = user.office || '';
-        document.getElementById('employeePosition').value = user.employeePosition || '';
+        const employeeOffice = document.getElementById('employeeOffice');
+        const employeePosition = document.getElementById('employeePosition');
+        if (employeeOffice) employeeOffice.value = user.office || '';
+        if (employeePosition) employeePosition.value = user.position || '';
     } else if (user.role === 'student') {
-        document.getElementById('studentDepartment').value = user.department || '';
-        document.getElementById('studentPosition').value = user.studentPosition || '';
+        const studentDepartment = document.getElementById('studentDepartment');
+        const studentPosition = document.getElementById('studentPosition');
+        if (studentDepartment) studentDepartment.value = user.department || '';
+        if (studentPosition) studentPosition.value = user.position || '';
     }
 
     // Update modal
-    document.getElementById('userModalLabel').textContent = 'Edit User';
+    const userModalLabel = document.getElementById('userModalLabel');
+    const passwordSection = document.getElementById('passwordSection');
+    const addUserNotice = document.getElementById('addUserNotice');
+    const editUserNotice = document.getElementById('editUserNotice');
+
+    if (userModalLabel) userModalLabel.textContent = 'Edit User';
+    // Hide password section for editing (security)
+    if (passwordSection) passwordSection.style.display = 'none';
+    if (addUserNotice) addUserNotice.style.display = 'none';
+    if (editUserNotice) editUserNotice.style.display = 'block';
 
     const modal = new bootstrap.Modal(document.getElementById('userModal'));
     modal.show();
 }
 
+// Ensure hidden role fields are not marked required/disabled incorrectly
+/** Apply input required/disabled flags depending on the selected role. */
+function setRoleFieldConstraints(role) {
+    const adminOffice = document.getElementById('adminOffice');
+    const adminPosition = document.getElementById('adminPosition');
+    const employeeOffice = document.getElementById('employeeOffice');
+    const employeePosition = document.getElementById('employeePosition');
+    const studentDepartment = document.getElementById('studentDepartment');
+    const studentPosition = document.getElementById('studentPosition');
+
+    // Reset all to not required and disabled when role is null
+    [adminOffice, adminPosition, employeeOffice, employeePosition, studentDepartment, studentPosition]
+        .forEach(el => { if (el) { el.required = false; el.disabled = true; } });
+
+    if (role === 'admin') {
+        if (adminOffice) { adminOffice.disabled = false; adminOffice.required = true; }
+        if (adminPosition) { adminPosition.disabled = false; adminPosition.required = true; }
+    } else if (role === 'employee') {
+        if (employeeOffice) { employeeOffice.disabled = false; employeeOffice.required = true; }
+        if (employeePosition) { employeePosition.disabled = false; employeePosition.required = true; }
+    } else if (role === 'student') {
+        if (studentDepartment) { studentDepartment.disabled = false; studentDepartment.required = true; }
+        if (studentPosition) { studentPosition.disabled = false; /* optional */ }
+    }
+}
+
+/** Ask for confirmation and stage user deletion. */
 function deleteUser(userId) {
     const user = users[userId];
     if (!user) return;
@@ -428,31 +452,57 @@ function deleteUser(userId) {
     modal.show();
 }
 
+/** Perform user deletion via API after confirm modal. */
 function confirmDeleteUser() {
     const userId = window.userToDelete;
     if (!userId || !users[userId]) return;
-
-    const deletedUser = users[userId];
-    delete users[userId];
-
-    // Add audit log
-    addAuditLog('USER_DELETED', 'User Management', `Deleted user account: ${deletedUser.firstName} ${deletedUser.lastName} (${deletedUser.id})`, deletedUser.id, 'User', 'WARNING');
-
-    // Close modal
-    const modal = bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal'));
-    if (modal) modal.hide();
-
-    // Refresh table
-    loadUsersTable();
-    updateUserStatistics();
-
-    editingUserId = null;
-    alert('User deleted successfully.');
+    const u = users[userId];
+    // Call API to delete
+    fetch(`${USERS_API}?id=${encodeURIComponent(userId)}&role=${encodeURIComponent(u.role)}`, {
+        method: 'DELETE'
+    }).then(r => r.json()).then(resp => {
+        if (resp.success) {
+            addAuditLog('USER_DELETED', 'User Management', `Deleted user account: ${u.firstName} ${u.lastName} (${u.id})`, u.id, 'User', 'WARNING');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal'));
+            if (modal) modal.hide();
+            loadUsersFromAPI().then(() => {
+                updateUserStatistics();
+                editingUserId = null;
+                alert('User deleted successfully.');
+            });
+        } else {
+            alert(resp.message || 'Delete failed');
+        }
+    }).catch(err => {
+        console.error('Delete error', err);
+        alert('Server error while deleting user');
+    });
 }
 
+// ----------------------------------------------------------
+// Form messaging helpers
+// ----------------------------------------------------------
 function showUserFormError(message) {
     const messagesDiv = document.getElementById('userFormMessages');
     messagesDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>${message}</div>`;
+}
+
+// Validation helpers
+/** Basic email validation. */
+function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+/** Remove common punctuation/spaces for phone input. */
+function normalizePhone(input) {
+    return input.replace(/[\s\-().]/g, '');
+}
+
+/** Accept PH mobile formats: 09XXXXXXXXX or +639XXXXXXXXX */
+function isValidPHPhone(phone) {
+    const p = normalizePhone(phone);
+    // Accept Philippines mobile format: 09XXXXXXXXX or +639XXXXXXXXX
+    return /^(09|\+639)\d{9}$/.test(p);
 }
 
 function showUserFormSuccess(message) {
@@ -465,6 +515,7 @@ function hideUserFormMessages() {
     messagesDiv.innerHTML = '';
 }
 
+/** Filter users table by role (dropdown). */
 function filterUsers() {
     const filter = document.getElementById('userRoleFilter').value;
     const tbody = document.getElementById('usersTableBody');
@@ -480,6 +531,7 @@ function filterUsers() {
     });
 }
 
+/** Client-side full table text search for users. */
 function searchUsers() {
     const searchTerm = document.getElementById('userSearch').value.toLowerCase();
     const tbody = document.getElementById('usersTableBody');
@@ -495,13 +547,14 @@ function searchUsers() {
     });
 }
 
+/** Re-fetch users and clear filters. */
 function refreshUserList() {
-    loadUsersTable();
-    updateUserStatistics();
+    loadUsersFromAPI().then(() => updateUserStatistics());
     document.getElementById('userRoleFilter').value = '';
     document.getElementById('userSearch').value = '';
 }
 
+/** Export users to CSV (client-side only). */
 function exportUsers() {
     const userData = Object.values(users).map(user => ({
         'User ID': user.id,
@@ -509,7 +562,7 @@ function exportUsers() {
         'Last Name': user.lastName,
         'Role': user.role,
         'Department/Office': user.role === 'student' ? user.department : user.office,
-        'Position': user.role === 'student' ? user.studentPosition : user.employeePosition,
+        'Position': user.position,
         'Email': user.email,
         'Phone': user.phone
     }));
@@ -522,6 +575,9 @@ function exportUsers() {
 }
 
 // Handle user form submission
+// ----------------------------------------------------------
+// User form submit (create/update)
+// ----------------------------------------------------------
 document.getElementById('userForm').addEventListener('submit', function (e) {
     e.preventDefault();
 
@@ -538,6 +594,11 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
     const lastName = document.getElementById('userLastName').value.trim();
     const email = document.getElementById('userEmail').value.trim();
     const phone = document.getElementById('userPhone').value.trim();
+    const password = document.getElementById('userPassword').value;
+    const confirmPassword = document.getElementById('userConfirmPassword').value;
+
+    // Determine if this is an edit operation
+    const isEdit = !!editingUserId;
 
     // Validation
     if (!userId || !firstName || !lastName || !email || !phone) {
@@ -545,13 +606,45 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
         return;
     }
 
+    // Email and phone validation
+    if (!isValidEmail(email)) {
+        showUserFormError('Please enter a valid email address (e.g., user@example.com).');
+        return;
+    }
+    if (!isValidPHPhone(phone)) {
+        showUserFormError('Please enter a valid Philippines mobile number (e.g., 09123456789 or +639123456789).');
+        return;
+    }
+
+    // Password validation (only for new users)
+    if (!isEdit) {
+        if (password && password.length < 8) {
+            showUserFormError('Password must be at least 8 characters long.');
+            return;
+        }
+        if (password && confirmPassword && password !== confirmPassword) {
+            showUserFormError('Passwords do not match.');
+            return;
+        }
+        // If password is provided but confirmation is empty
+        if (password && !confirmPassword) {
+            showUserFormError('Please confirm the password.');
+            return;
+        }
+        // If confirmation is provided but password is empty
+        if (!password && confirmPassword) {
+            showUserFormError('Please enter a password first.');
+            return;
+        }
+    }
+
     // Role-specific validation
     let office, position, department, studentPosition;
-    
+
     if (selectedUserRole === 'admin') {
         office = document.getElementById('adminOffice').value;
         position = document.getElementById('adminPosition').value;
-        
+
         if (!office || !position) {
             showUserFormError('Please select both Office and Admin Position for administrators.');
             return;
@@ -559,7 +652,7 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
     } else if (selectedUserRole === 'employee') {
         office = document.getElementById('employeeOffice').value;
         position = document.getElementById('employeePosition').value;
-        
+
         if (!office || !position) {
             showUserFormError('Please select both Office and Employee Position for employees.');
             return;
@@ -567,85 +660,72 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
     } else if (selectedUserRole === 'student') {
         department = document.getElementById('studentDepartment').value;
         studentPosition = document.getElementById('studentPosition').value;
-        
+
         if (!department) {
             showUserFormError('Please select a Department/College for students.');
             return;
         }
     }
 
-    // Check if user ID already exists (for new users)
-    if (!editingUserId && users[userId]) {
-        showUserFormError('User ID already exists. Please choose a different ID.');
-        return;
-    }
-
-    // Create user object
-    const userData = {
+    // Prepare payload
+    const payload = {
         id: userId,
-        firstName: firstName,
-        lastName: lastName,
+        first_name: firstName,
+        last_name: lastName,
         role: selectedUserRole,
         email: email,
-        phone: phone
+        phone: normalizePhone(phone) // store normalized phone
     };
 
-    // Assign default password based on role (secure default passwords)
-    if (!editingUserId) {
-        // New user - assign default password based on role
-        if (selectedUserRole === 'admin') {
-            userData.password = 'admin123'; // Default admin password
-        } else if (selectedUserRole === 'employee') {
-            userData.password = 'employee123'; // Default employee password
-        } else if (selectedUserRole === 'student') {
-            userData.password = 'student123'; // Default student password
+    // Add password if provided (only for new users)
+    if (!isEdit && password) {
+        payload.default_password = password;
+    }
+
+    if (selectedUserRole === 'student') {
+        payload.department = department;
+        payload.position = studentPosition || 'Regular Student';
+    } else {
+        payload.office = office;
+        payload.position = position;
+    }
+
+    const roleForUpdate = isEdit ? editingUserOriginalRole : selectedUserRole;
+    const request = isEdit
+        ? apiFetch(`${USERS_API}?id=${encodeURIComponent(userId)}&role=${encodeURIComponent(roleForUpdate)}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        })
+        : apiFetch(USERS_API, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+    request.then(async resp => {
+        if (resp.success) {
+            if (isEdit) {
+                showUserFormSuccess('User updated successfully!');
+                addAuditLog('USER_UPDATED', 'User Management', `Updated user: ${firstName} ${lastName} (${userId})`, userId, 'User', 'INFO');
+            } else {
+                const passwordMsg = password ? 'The provided password was set.' : 'Default password "ChangeMe123!" was set.';
+                showUserFormSuccess(`User created successfully! ${passwordMsg} User must change password on first login.`);
+                addAuditLog('USER_CREATED', 'User Management', `Created ${selectedUserRole}: ${firstName} ${lastName} (${userId})`, userId, 'User', 'INFO');
+            }
+            await loadUsersFromAPI();
+            updateUserStatistics();
+            setTimeout(() => {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('userModal'));
+                if (modal) modal.hide();
+            }, 1000);
+        } else {
+            showUserFormError(resp.message || 'Operation failed');
         }
-    } else {
-        // For existing users, preserve their current password
-        userData.password = users[editingUserId].password;
-    }
-
-    // Add role-specific fields
-    if (selectedUserRole === 'admin') {
-        userData.office = office;
-        userData.employeePosition = position;
-    } else if (selectedUserRole === 'employee') {
-        userData.office = office;
-        userData.employeePosition = position;
-    } else if (selectedUserRole === 'student') {
-        userData.department = department;
-        userData.studentPosition = studentPosition || 'Regular Student';
-    }
-
-    // Save user
-    if (editingUserId) {
-        // Update existing user
-        users[editingUserId] = userData;
-        showUserFormSuccess('User updated successfully!');
-
-        // Add audit log
-        addAuditLog('USER_UPDATED', 'User Management', `Updated user account: ${userData.firstName} ${userData.lastName} (${userData.id})`, userData.id, 'User', 'INFO');
-    } else {
-        // Add new user
-        users[userId] = userData;
-        showUserFormSuccess(`User created successfully! Default password: ${userData.password} (User must change on first login)`);
-
-        // Add audit log
-        addAuditLog('USER_CREATED', 'User Management', `Created new ${userData.role} account: ${userData.firstName} ${userData.lastName} (${userData.id})`, userData.id, 'User', 'INFO');
-    }
-
-    // Refresh table
-    loadUsersTable();
-    updateUserStatistics();
-
-    // Close modal after 2 seconds
-    setTimeout(() => {
-        const modal = bootstrap.Modal.getInstance(document.getElementById('userModal'));
-        modal.hide();
-    }, 2000);
+    }).catch(err => handleApiError('User save error', err, showUserFormError));
 });
 
-// Materials Management Functions
+// ==========================================================
+// Materials: State, UI, and Actions
+// ==========================================================
 function loadMaterialsTable() {
     const tbody = document.getElementById('materialsTableBody');
     tbody.innerHTML = '';
@@ -659,6 +739,7 @@ function loadMaterialsTable() {
     updateSelectedMaterials();
 }
 
+/** Build a <tr> for a material row. */
 function createMaterialRow(material) {
     const row = document.createElement('tr');
 
@@ -668,16 +749,16 @@ function createMaterialRow(material) {
         'rejected': 'bg-danger text-white'
     };
 
-    const submissionDate = new Date(material.submissionDate).toLocaleDateString();
+    const submissionDate = new Date(material.uploaded_at).toLocaleDateString();
 
     row.innerHTML = `
         <td>
             <input type="checkbox" class="material-checkbox" value="${material.id}" onchange="updateSelectedMaterials()">
         </td>
         <td><strong>${material.id}</strong></td>
-        <td>${material.fileName}</td>
-        <td>${material.submitterName}</td>
-        <td>${material.department}</td>
+        <td>${material.title}</td>
+        <td>${material.student_id}</td>
+        <td>${material.doc_type}</td>
         <td><span class="badge ${statusClass[material.status]}">${material.status.toUpperCase()}</span></td>
         <td>${submissionDate}</td>
         <td>
@@ -695,39 +776,26 @@ function createMaterialRow(material) {
     return row;
 }
 
+/** Open the material detail modal for a given ID. */
 function viewMaterialDetails(materialId) {
-    const material = publicMaterials.find(m => m.id === materialId);
+    const material = publicMaterials.find(m => m.id == materialId);
     if (!material) return;
 
     currentMaterialId = materialId;
 
     // Populate modal with material details
     document.getElementById('materialDetailId').textContent = material.id;
-    document.getElementById('materialDetailFileName').textContent = material.fileName;
+    document.getElementById('materialDetailFileName').textContent = material.title;
     document.getElementById('materialDetailStatus').innerHTML = `<span class="badge ${getStatusClass(material.status)}">${material.status.toUpperCase()}</span>`;
-    document.getElementById('materialDetailSize').textContent = material.fileSize;
-    document.getElementById('materialDetailDownloads').textContent = material.downloadCount;
+    document.getElementById('materialDetailSize').textContent = 'N/A'; // No size in documents table
+    document.getElementById('materialDetailDownloads').textContent = 'N/A'; // No download count
     document.getElementById('materialDetailDescription').textContent = material.description || 'No description provided';
 
-    // Show/hide approval/rejection info
+    // Hide approval/rejection info for now
     const approvalInfo = document.getElementById('materialApprovalInfo');
     const rejectionInfo = document.getElementById('materialRejectionInfo');
-
-    if (material.status === 'approved' && material.approvedBy) {
-        document.getElementById('materialApprovedBy').textContent = material.approvedBy;
-        document.getElementById('materialApprovalDate').textContent = new Date(material.approvalDate).toLocaleString();
-        approvalInfo.style.display = 'block';
-        rejectionInfo.style.display = 'none';
-    } else if (material.status === 'rejected' && material.rejectedBy) {
-        document.getElementById('materialRejectedBy').textContent = material.rejectedBy;
-        document.getElementById('materialRejectionDate').textContent = new Date(material.rejectionDate).toLocaleString();
-        document.getElementById('materialRejectionReason').textContent = material.rejectionReason;
-        rejectionInfo.style.display = 'block';
-        approvalInfo.style.display = 'none';
-    } else {
-        approvalInfo.style.display = 'none';
-        rejectionInfo.style.display = 'none';
-    }
+    approvalInfo.style.display = 'none';
+    rejectionInfo.style.display = 'none';
 
     const modal = new bootstrap.Modal(document.getElementById('materialDetailModal'));
     modal.show();
@@ -742,6 +810,7 @@ function getStatusClass(status) {
     return statusClasses[status] || 'bg-secondary text-white';
 }
 
+/** Ask confirmation and stage material deletion. */
 function deleteMaterial(materialId) {
     currentMaterialId = materialId;
     const material = publicMaterials.find(m => m.id === materialId);
@@ -755,25 +824,23 @@ function deleteMaterial(materialId) {
 function deleteSingleMaterial() {
     if (!currentMaterialId) return;
 
-    const material = publicMaterials.find(m => m.id === currentMaterialId);
-    if (!material) return;
-
-    // Remove from array
-    publicMaterials = publicMaterials.filter(m => m.id !== currentMaterialId);
-    localStorage.setItem('publicMaterials', JSON.stringify(publicMaterials));
-
-    // Add audit log
-    addAuditLog('MATERIAL_DELETED', 'Public Materials', `Deleted public material: ${material.fileName}`, currentMaterialId, 'PublicMaterial', 'INFO');
-
-    // Close modal and refresh table
-    const modal = bootstrap.Modal.getInstance(document.getElementById('materialDetailModal'));
-    if (modal) modal.hide();
-
-    loadMaterialsTable();
-    updateUserStatistics();
-    currentMaterialId = null;
+    apiFetch(`${MATERIALS_API}?id=${encodeURIComponent(currentMaterialId)}`, {
+        method: 'DELETE'
+    }).then(resp => {
+        if (resp.success) {
+            addAuditLog('MATERIAL_DELETED', 'Public Materials', `Deleted material ID: ${currentMaterialId}`, currentMaterialId, 'Material', 'INFO');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('materialDetailModal'));
+            if (modal) modal.hide();
+            loadMaterials();
+            updateUserStatistics();
+            currentMaterialId = null;
+        } else {
+            alert(resp.message || 'Delete failed');
+        }
+    }).catch(err => handleApiError('Delete error', err, (m) => alert(m || 'Server error while deleting material')));
 }
 
+/** Maintain bulk selection state and toggle button states. */
 function updateSelectedMaterials() {
     const checkboxes = document.querySelectorAll('.material-checkbox:checked');
     selectedMaterials = Array.from(checkboxes).map(cb => cb.value);
@@ -781,8 +848,8 @@ function updateSelectedMaterials() {
     // Update bulk delete button
     const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
     bulkDeleteBtn.disabled = selectedMaterials.length === 0;
-    bulkDeleteBtn.textContent = selectedMaterials.length > 0 
-        ? `Delete Selected (${selectedMaterials.length})` 
+    bulkDeleteBtn.textContent = selectedMaterials.length > 0
+        ? `Delete Selected (${selectedMaterials.length})`
         : 'Delete Selected';
 
     // Update select all checkbox
@@ -841,6 +908,7 @@ function confirmBulkDelete() {
     alert(`Successfully deleted ${deletedMaterials.length} materials.`);
 }
 
+/** Client-side filter materials by status. */
 function filterMaterials() {
     const statusFilter = document.getElementById('materialStatusFilter').value;
     const tbody = document.getElementById('materialsTableBody');
@@ -858,6 +926,7 @@ function filterMaterials() {
     });
 }
 
+/** Client-side search across materials table. */
 function searchMaterials() {
     const searchTerm = document.getElementById('materialSearch').value.toLowerCase();
     const tbody = document.getElementById('materialsTableBody');
@@ -873,6 +942,7 @@ function searchMaterials() {
     });
 }
 
+/** Reset filters and re-render materials. */
 function refreshMaterialsList() {
     loadMaterialsTable();
     updateUserStatistics();
@@ -881,20 +951,16 @@ function refreshMaterialsList() {
     selectedMaterials = [];
 }
 
+/** Export materials to CSV. */
 function exportMaterials() {
     const materialData = publicMaterials.map(material => ({
         'Material ID': material.id,
-        'File Name': material.fileName,
-        'File Type': material.fileType,
-        'File Size': material.fileSize,
-        'Submitted By': material.submitterName,
-        'User ID': material.submittedBy,
-        'Department': material.department,
+        'Title': material.title,
+        'Student ID': material.student_id,
+        'Type': material.doc_type,
         'Status': material.status,
-        'Submission Date': new Date(material.submissionDate).toLocaleString(),
         'Description': material.description || '',
-        'Download Count': material.downloadCount,
-        'Last Downloaded': material.lastDownloaded ? new Date(material.lastDownloaded).toLocaleString() : 'Never'
+        'Uploaded At': new Date(material.uploaded_at).toLocaleString()
     }));
 
     const csv = convertToCSV(materialData);
@@ -904,7 +970,10 @@ function exportMaterials() {
     addAuditLog('MATERIALS_EXPORTED', 'Public Materials', `Exported ${materialData.length} materials to CSV`, null, 'System', 'INFO');
 }
 
-// Audit Log Management Functions
+// ==========================================================
+// Audit Log: UI helpers
+// ==========================================================
+// Note: Audit details modal is triggered by the eye icon in the audit table
 function loadAuditLogTable() {
     const tbody = document.getElementById('auditTableBody');
     tbody.innerHTML = '';
@@ -918,6 +987,7 @@ function loadAuditLogTable() {
     });
 }
 
+/** Build a <tr> for an audit log entry. */
 function createAuditLogRow(entry) {
     const row = document.createElement('tr');
 
@@ -947,6 +1017,7 @@ function createAuditLogRow(entry) {
     return row;
 }
 
+/** Open details modal for an audit log entry. */
 function viewAuditDetails(auditId) {
     const entry = auditLog.find(e => e.id === auditId);
     if (!entry) return;
@@ -961,6 +1032,7 @@ function viewAuditDetails(auditId) {
     modal.show();
 }
 
+/** Client-side filter audit table by category and severity. */
 function filterAuditLog() {
     const categoryFilter = document.getElementById('auditCategoryFilter').value;
     const severityFilter = document.getElementById('auditSeverityFilter').value;
@@ -982,6 +1054,7 @@ function filterAuditLog() {
     });
 }
 
+/** Client-side search across audit table. */
 function searchAuditLog() {
     const searchTerm = document.getElementById('auditSearch').value.toLowerCase();
     const tbody = document.getElementById('auditTableBody');
@@ -1004,6 +1077,7 @@ function refreshAuditLog() {
     document.getElementById('auditSearch').value = '';
 }
 
+/** Export audit log to CSV (local only). */
 function exportAuditLog() {
     const auditData = auditLog.map(entry => ({
         'Audit ID': entry.id,
@@ -1039,7 +1113,9 @@ function clearAuditLog() {
     }
 }
 
-// Settings and Profile Functions
+// ==========================================================
+// Settings and Profile (stubs)
+// ==========================================================
 function openProfileSettings() {
     alert('Profile Settings\n\nThis would open a modal to edit administrator profile information, including name, email, and contact details.');
 }
@@ -1058,83 +1134,72 @@ function openChangePassword() {
 }
 
 // Handle change password form
-document.getElementById('changePasswordForm').addEventListener('submit', function(e) {
+document.getElementById('changePasswordForm').addEventListener('submit', async function (e) {
     e.preventDefault();
-    
-    const currentPassword = document.getElementById('currentPassword').value;
-    const newPassword = document.getElementById('newPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-    
+
+    const currentPassword = document.getElementById('currentPassword')?.value || '';
+    const newPassword = document.getElementById('newPassword')?.value || '';
+    const confirmPassword = document.getElementById('confirmPassword')?.value || '';
     const messagesDiv = document.getElementById('changePasswordMessages');
-    
-    // Validation
-    if (currentPassword !== currentUser.password) {
-        messagesDiv.innerHTML = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Current password is incorrect.</div>';
-        return;
+
+    const show = (html) => { if (messagesDiv) messagesDiv.innerHTML = html; };
+    const ok = (msg) => `<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>${msg}</div>`;
+    const err = (msg) => `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>${msg}</div>`;
+
+    if (!currentPassword || !newPassword || !confirmPassword) { show(err('All fields are required.')); return; }
+    if (newPassword !== confirmPassword) { show(err('New passwords do not match.')); return; }
+    const policy = /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/;
+    if (!policy.test(newPassword)) { show(err('Password must be 8+ chars with upper, lower, number, special.')); return; }
+
+    try {
+        const resp = await fetch('../api/auth.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'change_password', current_password: currentPassword, new_password: newPassword })
+        }).then(r => r.json());
+
+        if (resp.success) {
+            addAuditLog('PASSWORD_CHANGED', 'Security', 'Password changed', currentUser?.id || null, 'User', 'INFO');
+            show(ok('Password changed successfully!'));
+            setTimeout(() => {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('changePasswordModal'));
+                if (modal) modal.hide();
+                if (messagesDiv) messagesDiv.innerHTML = '';
+                document.getElementById('changePasswordForm')?.reset();
+            }, 1500);
+        } else {
+            show(err(resp.message || 'Failed to change password.'));
+        }
+    } catch (e) {
+        show(err('Server error changing password.'));
     }
-    
-    if (newPassword !== confirmPassword) {
-        messagesDiv.innerHTML = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>New passwords do not match.</div>';
-        return;
-    }
-    
-    if (newPassword.length < 6) {
-        messagesDiv.innerHTML = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Password must be at least 6 characters long.</div>';
-        return;
-    }
-    
-    // Update password
-    users[currentUser.id].password = newPassword;
-    currentUser.password = newPassword;
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    
-    // Add audit log
-    addAuditLog('PASSWORD_CHANGED', 'Security', 'Administrator changed password', currentUser.id, 'User', 'INFO');
-    
-    // Show success message
-    messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Password changed successfully!</div>';
-    
-    // Close modal after delay
-    setTimeout(() => {
-        const modal = bootstrap.Modal.getInstance(document.getElementById('changePasswordModal'));
-        modal.hide();
-        messagesDiv.innerHTML = '';
-        document.getElementById('changePasswordForm').reset();
-    }, 2000);
 });
 
 // Notification function
 function showNotifications() {
     const pendingMaterials = publicMaterials.filter(m => m.status === 'pending').length;
     const recentAudits = auditLog.filter(a => new Date(a.timestamp) > new Date(Date.now() - 24 * 60 * 60 * 1000)).length;
-    
+
     alert(`📢 Admin Notifications\n\n` +
-          `🔔 Recent Activity:\n` +
-          `• ${pendingMaterials} pending material approvals\n` +
-          `• ${recentAudits} audit entries in last 24h\n` +
-          `• ${Object.keys(users).length} total system users\n` +
-          `• System running normally\n\n` +
-          `This would show a detailed notification panel with real-time alerts.`);
+        `🔔 Recent Activity:\n` +
+        `• ${pendingMaterials} pending material approvals\n` +
+        `• ${recentAudits} audit entries in last 24h\n` +
+        `• ${Object.keys(users).length} total system users\n` +
+        `• System running normally\n\n` +
+        `This would show a detailed notification panel with real-time alerts.`);
 }
 
-// Password visibility toggle function
-function togglePasswordVisibility(fieldId) {
-    const field = document.getElementById(fieldId);
-    const button = field.parentNode.querySelector('.password-toggle i');
-    
-    if (field.type === 'password') {
-        field.type = 'text';
-        button.className = 'bi bi-eye-slash';
-    } else {
-        field.type = 'password';
-        button.className = 'bi bi-eye';
-    }
-}
+// ==========================================================
+// Utility helpers (DOM, CSV, Fetch)
+// ==========================================================
+/** Shortcut for querySelector. */
+const qs = (sel, root = document) => root.querySelector(sel);
+/** Shortcut for querySelectorAll. */
+const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-// Utility Functions
 function convertToCSV(data) {
     if (data.length === 0) return '';
-    
+
     const headers = Object.keys(data[0]);
     const csvContent = [
         headers.join(','),
@@ -1147,7 +1212,7 @@ function convertToCSV(data) {
 function downloadCSV(csv, filename) {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    
+
     if (link.download !== undefined) {
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
@@ -1158,118 +1223,76 @@ function downloadCSV(csv, filename) {
         document.body.removeChild(link);
     }
 }
-
-// Initialize the admin dashboard when the page loads
-document.addEventListener('DOMContentLoaded', function () {
-    console.log('Admin Dashboard DOM loaded');
-    console.log('window.currentUser:', window.currentUser);
-    
-    // Use the user data passed from PHP
-    if (window.currentUser) {
-        currentUser = window.currentUser;
-        console.log('Admin user data found:', currentUser);
-        
-        // Update user display name
-        const adminUserName = document.getElementById('adminUserName');
-        if (adminUserName) {
-            adminUserName.textContent = `${currentUser.firstName} ${currentUser.lastName}`;
-        }
-        
-        // Initialize dashboard
-        initializeDashboard();
-        
-    } else {
-        console.log('No admin user data found, redirecting to login...');
-        // If no user data, redirect to login
-        window.location.href = 'user-login.php';
+/**
+ * API fetch wrapper to unify headers, error handling, and JSON parsing.
+ * Returns parsed JSON or throws on network/parse errors.
+ */
+async function apiFetch(url, options = {}) {
+    const defaultHeaders = { 'Content-Type': 'application/json' };
+    const merged = { headers: defaultHeaders, ...options };
+    try {
+        const resp = await fetch(url, merged);
+        const data = await resp.json().catch(() => ({}));
+        return data;
+    } catch (e) {
+        throw e;
     }
-});
-
-function initializeDashboard() {
-    console.log('Initializing admin dashboard...');
-    
-    // Initialize sample data
-    initializeSampleData();
-    
-    // Load initial data
-    loadUsers();
-    loadMaterials();
-    loadAuditLogs();
-    updateDashboardStats();
-    
-    console.log('Admin dashboard initialized successfully');
 }
 
-// Load users into the table
-function loadUsers() {
-    const userTableBody = document.getElementById('usersTableBody');
-    if (!userTableBody) return;
-    
-    userTableBody.innerHTML = '';
-    
-    Object.values(users).forEach(user => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${user.id}</td>
-            <td>${user.firstName} ${user.lastName}</td>
-            <td><span class="badge bg-${getRoleColor(user.role)}">${user.role}</span></td>
-            <td>${user.role === 'student' ? (user.department || 'N/A') : (user.office || 'N/A')}</td>
-            <td>${user.email}</td>
-            <td>
-                <button class="btn btn-sm btn-outline-primary me-1" onclick="viewUser('${user.id}')">
-                    <i class="bi bi-eye"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-warning me-1" onclick="editUser('${user.id}')">
-                    <i class="bi bi-pencil"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${user.id}')">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </td>
-        `;
-        userTableBody.appendChild(row);
-    });
+/** Generic API error handler to reduce console + alert boilerplate. */
+function handleApiError(prefix, err, notifyFn = (msg) => alert(msg)) {
+    console.error(prefix, err);
+    notifyFn('Server error, please try again');
+}
+
+// ==========================================================
+// API and Loading Functions
+// ==========================================================
+// Replace older duplicated init/load functions with API-backed ones
+const MATERIALS_API = '../api/materials.php';
+
+async function loadUsersFromAPI(role = null) {
+    const url = role ? `${USERS_API}?role=${encodeURIComponent(role)}` : USERS_API;
+    try {
+        const data = await apiFetch(url);
+        if (data.success) {
+            users = data.users || {};
+            loadUsersTable();
+            return true;
+        } else {
+            console.error('Failed to load users', data.message);
+            alert('Failed to load users: ' + (data.message || 'Unknown error'));
+            return false;
+        }
+    } catch (e) {
+        handleApiError('Error loading users', e, (m) => alert(m || 'Server error while loading users'));
+        return false;
+    }
 }
 
 // Load materials into the table
-function loadMaterials() {
-    const materialsTableBody = document.getElementById('materialsTableBody');
-    if (!materialsTableBody) return;
-    
-    materialsTableBody.innerHTML = '';
-    
-    publicMaterials.forEach(material => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${material.id}</td>
-            <td>${material.fileName}</td>
-            <td>${material.submitterName}</td>
-            <td>${material.department}</td>
-            <td><span class="badge bg-${getStatusColor(material.status)}">${material.status}</span></td>
-            <td>${new Date(material.submissionDate).toLocaleDateString()}</td>
-            <td>
-                <button class="btn btn-sm btn-outline-primary me-1" onclick="viewMaterial('${material.id}')">
-                    <i class="bi bi-eye"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-success me-1" onclick="approveMaterial('${material.id}')">
-                    <i class="bi bi-check-circle"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="rejectMaterial('${material.id}')">
-                    <i class="bi bi-x-circle"></i>
-                </button>
-            </td>
-        `;
-        materialsTableBody.appendChild(row);
-    });
+async function loadMaterials() {
+    try {
+        const data = await apiFetch(MATERIALS_API);
+        if (data.success) {
+            publicMaterials = data.materials || [];
+            loadMaterialsTable();
+        } else {
+            console.error('Failed to load materials', data.message);
+            alert('Failed to load materials: ' + (data.message || 'Unknown error'));
+        }
+    } catch (e) {
+        handleApiError('Error loading materials', e, (m) => alert(m || 'Server error while loading materials'));
+    }
 }
 
 // Load audit logs into the table
 function loadAuditLogs() {
     const auditTableBody = document.getElementById('auditTableBody');
     if (!auditTableBody) return;
-    
+
     auditTableBody.innerHTML = '';
-    
+
     auditLog.slice(0, 50).forEach(entry => {
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -1289,12 +1312,15 @@ function updateDashboardStats() {
     const totalUsers = Object.keys(users).length;
     const totalMaterials = publicMaterials.length;
     const pendingApprovals = publicMaterials.filter(m => m.status === 'pending').length;
-    
+
     document.getElementById('totalUsers').textContent = totalUsers;
     document.getElementById('totalMaterials').textContent = totalMaterials;
     document.getElementById('pendingApprovals').textContent = pendingApprovals;
 }
 
+// ==========================================================
+// Helper Functions (colors, navigation)
+// ==========================================================
 // Helper functions for colors
 function getRoleColor(role) {
     const colors = { admin: 'danger', employee: 'primary', student: 'success' };
@@ -1311,192 +1337,25 @@ function getSeverityColor(severity) {
     return colors[severity] || 'secondary';
 }
 
-// Basic utility functions
-function logout() {
-    if (currentUser) {
-        addAuditLog('LOGOUT', 'Authentication', `Admin ${currentUser.firstName} ${currentUser.lastName} logged out`);
-    }
-    window.location.href = 'user-logout.php';
-}
+// === Basic Utility Functions ===
+// Basic utility functions (defined earlier in the file where applicable)
 
-function showNotifications() {
-    // Simple notification display
-    alert('Notifications feature coming soon!');
-}
+// Remove duplicate stubbed user functions (now handled above)
 
-function openProfileSettings() {
-    alert('Profile settings feature coming soon!');
-}
-
-function openChangePassword() {
-    alert('Change password feature coming soon!');
-}
-
-function openSystemSettings() {
-    alert('System settings feature coming soon!');
-}
-
+// Navigation functions (required by UI)
 function goToCalendar() {
     window.location.href = 'event-calendar.php';
 }
 
-// User management functions
-function openAddUserModal() {
-    alert('Add user modal coming soon!');
-}
-
-function exportUsers() {
-    const csv = arrayToCSV(Object.values(users));
-    downloadCSV(csv, 'users.csv');
-}
-
-function refreshUserList() {
-    loadUsers();
-    addAuditLog('USER_LIST_REFRESH', 'User Management', 'Refreshed user list');
-}
-
-function viewUser(userId) {
-    const user = users[userId];
-    if (user) {
-        alert(`User Details:\n\nID: ${user.id}\nName: ${user.firstName} ${user.lastName}\nRole: ${user.role}\nEmail: ${user.email}`);
-    }
-}
-
-function editUser(userId) {
-    alert('Edit user feature coming soon!');
-}
-
-function deleteUser(userId) {
-    if (confirm('Are you sure you want to delete this user?')) {
-        delete users[userId];
-        localStorage.setItem('users', JSON.stringify(users));
-        loadUsers();
-        addAuditLog('USER_DELETED', 'User Management', `Deleted user ${userId}`);
-    }
-}
-
-// Materials management functions
-function viewMaterial(materialId) {
-    const material = publicMaterials.find(m => m.id === materialId);
-    if (material) {
-        alert(`Material Details:\n\nID: ${material.id}\nFile: ${material.fileName}\nSubmitted by: ${material.submitterName}\nStatus: ${material.status}`);
-    }
-}
-
-function approveMaterial(materialId) {
-    const material = publicMaterials.find(m => m.id === materialId);
-    if (material) {
-        material.status = 'approved';
-        material.approvedBy = currentUser.id;
-        material.approvalDate = new Date().toISOString();
-        localStorage.setItem('publicMaterials', JSON.stringify(publicMaterials));
-        loadMaterials();
-        addAuditLog('MATERIAL_APPROVED', 'Materials Management', `Approved material ${material.fileName}`);
-    }
-}
-
-function rejectMaterial(materialId) {
-    const reason = prompt('Enter rejection reason:');
-    if (reason) {
-        const material = publicMaterials.find(m => m.id === materialId);
-        if (material) {
-            material.status = 'rejected';
-            material.rejectedBy = currentUser.id;
-            material.rejectionDate = new Date().toISOString();
-            material.rejectionReason = reason;
-            localStorage.setItem('publicMaterials', JSON.stringify(publicMaterials));
-            loadMaterials();
-            addAuditLog('MATERIAL_REJECTED', 'Materials Management', `Rejected material ${material.fileName}`);
+function logout() {
+    try {
+        if (currentUser) {
+            addAuditLog('LOGOUT', 'Authentication', `Admin ${currentUser.firstName} ${currentUser.lastName} logged out`);
         }
+    } catch (e) {
+        // ignore audit errors
     }
+    window.location.href = 'user-logout.php';
 }
 
-function bulkDeleteMaterials() {
-    alert('Bulk delete feature coming soon!');
-}
-
-function exportMaterials() {
-    const csv = arrayToCSV(publicMaterials);
-    downloadCSV(csv, 'materials.csv');
-}
-
-function refreshMaterialsList() {
-    loadMaterials();
-    addAuditLog('MATERIALS_LIST_REFRESH', 'Materials Management', 'Refreshed materials list');
-}
-
-// Audit log functions
-function clearAuditLog() {
-    if (confirm('Are you sure you want to clear all audit logs?')) {
-        auditLog = [];
-        localStorage.setItem('auditLog', JSON.stringify(auditLog));
-        loadAuditLogs();
-        addAuditLog('AUDIT_LOG_CLEARED', 'Audit Management', 'Cleared all audit logs');
-    }
-}
-
-function exportAuditLog() {
-    const csv = arrayToCSV(auditLog);
-    downloadCSV(csv, 'audit-log.csv');
-}
-
-function refreshAuditLog() {
-    loadAuditLogs();
-    addAuditLog('AUDIT_LOG_REFRESH', 'Audit Management', 'Refreshed audit log');
-}
-
-// User role selection
-function selectUserRole(role) {
-    selectedUserRole = role;
-    // Update UI to show selected role
-    document.querySelectorAll('.role-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.querySelector(`[data-role="${role}"]`).classList.add('active');
-}
-
-// Modal functions
-function confirmDeleteUser() {
-    alert('Delete user confirmation coming soon!');
-}
-
-function deleteSingleMaterial() {
-    alert('Delete material feature coming soon!');
-}
-
-function confirmBulkDelete() {
-    alert('Bulk delete confirmation coming soon!');
-}
-
-// Filter functions
-function filterUsers() {
-    const filterValue = document.getElementById('userRoleFilter').value;
-    const rows = document.querySelectorAll('#usersTableBody tr');
-    
-    rows.forEach(row => {
-        const roleCell = row.cells[2]; // Role column
-        const role = roleCell.textContent.toLowerCase();
-        
-        if (filterValue === '' || role.includes(filterValue)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-}
-
-function filterMaterials() {
-    const filterValue = document.getElementById('materialStatusFilter').value;
-    const rows = document.querySelectorAll('#materialsTableBody tr');
-    
-    rows.forEach(row => {
-        const statusCell = row.cells[4]; // Status column
-        const status = statusCell.textContent.toLowerCase();
-        
-        if (filterValue === '' || status.includes(filterValue)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-}
+// End of file

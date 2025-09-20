@@ -44,21 +44,19 @@ function selectLoginType(type) {
     }, 100);
 }
 
-// Password visibility toggle
-document.getElementById('togglePassword').addEventListener('click', function () {
-    const passwordField = document.getElementById('password');
-    const toggleIcon = document.getElementById('togglePasswordIcon');
-
-    if (passwordField.type === 'password') {
-        passwordField.type = 'text';
-        toggleIcon.classList.remove('bi-eye');
-        toggleIcon.classList.add('bi-eye-slash');
+// Password visibility toggle (global so inline onclick can call it)
+function togglePasswordVisibility(fieldId) {
+    const field = document.getElementById(fieldId);
+    const icon = document.getElementById(fieldId + 'Icon');
+    if (!field) return;
+    if (field.type === 'password') {
+        field.type = 'text';
+        if (icon) { icon.classList.remove('bi-eye'); icon.classList.add('bi-eye-slash'); }
     } else {
-        passwordField.type = 'password';
-        toggleIcon.classList.remove('bi-eye-slash');
-        toggleIcon.classList.add('bi-eye');
+        field.type = 'password';
+        if (icon) { icon.classList.remove('bi-eye-slash'); icon.classList.add('bi-eye'); }
     }
-});
+}
 
 // Login error handling functions
 function showLoginError(message) {
@@ -96,32 +94,30 @@ function hideLoginError() {
     }
 }
 
-// Form validation before submission
-document.getElementById('loginForm').addEventListener('submit', function (e) {
-    // Client-side validation
-    if (!selectedLoginType) {
-        e.preventDefault();
-        showLoginError('Please select whether you are logging in as an Employee, Student, or Administrator.');
-        return;
-    }
-
-    const userId = document.getElementById('userId').value;
-    const password = document.getElementById('password').value;
-    
-    if (!userId || !password) {
-        e.preventDefault();
-        showLoginError('Please enter both User ID and Password.');
-        return;
-    }
-    
-    // Show loading state
-    const loginButton = document.getElementById('loginButton');
-    const loginContainer = document.querySelector('.login-container');
-    
-    loginContainer.classList.add('loading');
-    loginButton.innerHTML = '<i class="bi bi-hourglass-split"></i>Signing In...';
-    loginButton.disabled = true;
-});
+// Form validation before submission (attach after DOM ready)
+function attachLoginSubmitHandler() {
+    const form = document.getElementById('loginForm');
+    if (!form) return;
+    form.addEventListener('submit', function (e) {
+        if (!selectedLoginType) {
+            e.preventDefault();
+            showLoginError('Please select whether you are logging in as an Employee, Student, or Administrator.');
+            return;
+        }
+        const userId = document.getElementById('userId').value;
+        const password = document.getElementById('password').value;
+        if (!userId || !password) {
+            e.preventDefault();
+            showLoginError('Please enter both User ID and Password.');
+            return;
+        }
+        const loginButton = document.getElementById('loginButton');
+        const loginContainer = document.querySelector('.login-container');
+        loginContainer.classList.add('loading');
+        loginButton.innerHTML = '<i class="bi bi-hourglass-split"></i>Signing In...';
+        loginButton.disabled = true;
+    });
+}
 
 // Forgot Password Modal Functions
 function openForgotPassword() {
@@ -270,24 +266,17 @@ function resendMfaCode() {
     }, 3000);
 }
 
-// Password visibility toggle for reset forms
-function togglePasswordVisibility(fieldId) {
-    const field = document.getElementById(fieldId);
-    const icon = document.getElementById(fieldId + 'Icon');
-
-    if (field.type === 'password') {
-        field.type = 'text';
-        icon.classList.remove('bi-eye');
-        icon.classList.add('bi-eye-slash');
-    } else {
-        field.type = 'password';
-        icon.classList.remove('bi-eye-slash');
-        icon.classList.add('bi-eye');
-    }
-}
+// (Duplicate togglePasswordVisibility removed; single global function defined above)
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function () {
+    // Attach submit handler and wire up main password eye button
+    attachLoginSubmitHandler();
+    const togglePasswordBtn = document.getElementById('togglePassword');
+    if (togglePasswordBtn) {
+        togglePasswordBtn.addEventListener('click', function () { togglePasswordVisibility('password'); });
+    }
+
     // Check if there's a PHP error message to display
     const errorDiv = document.getElementById('loginError');
     if (errorDiv && !errorDiv.classList.contains('d-none')) {
@@ -296,10 +285,17 @@ document.addEventListener('DOMContentLoaded', function () {
             hideLoginError();
         }, 5000);
     }
-    
+
     // If a login type was previously selected, restore it
     const loginTypeInput = document.getElementById('loginTypeInput');
     if (loginTypeInput && loginTypeInput.value) {
         selectLoginType(loginTypeInput.value);
     }
+
+    // Add event listeners for forgot password modal toggles
+    const newPasswordToggle = document.getElementById('newPasswordResetToggle');
+    const confirmPasswordToggle = document.getElementById('confirmPasswordResetToggle');
+
+    if (newPasswordToggle) newPasswordToggle.addEventListener('click', function () { togglePasswordVisibility('newPasswordReset'); });
+    if (confirmPasswordToggle) confirmPasswordToggle.addEventListener('click', function () { togglePasswordVisibility('confirmPasswordReset'); });
 });

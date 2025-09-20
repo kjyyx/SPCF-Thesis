@@ -1,4 +1,9 @@
 // Document Notification System JavaScript
+// High-level: Presents a dashboard of actionable documents with statuses, details view, and simple toasts.
+// Notes for future developers:
+// - Keep exported functions (init, openDocument, goBack, etc.) used by HTML intact.
+// - This module uses mock data; replace with API calls when backend is ready.
+// - All DOM lookups are guarded; ensure IDs/classes match the HTML.
 
 class DocumentNotificationSystem {
     constructor() {
@@ -175,8 +180,8 @@ class DocumentNotificationSystem {
 
     // Render documents in dashboard
     renderDocuments() {
-        const container = document.getElementById('documentsContainer');
-        if (!container) return;
+    const container = document.getElementById('documentsContainer');
+    if (!container) return;
         
         // Add loading state
         container.innerHTML = '<div class="col-12 text-center"><div class="loading" style="height: 200px;"></div></div>';
@@ -299,8 +304,8 @@ class DocumentNotificationSystem {
 
     // Filter documents by status
     filterDocuments(status) {
-        const container = document.getElementById('documentsContainer');
-        if (!container) return;
+    const container = document.getElementById('documentsContainer');
+    if (!container) return;
 
         // Show loading state
         container.innerHTML = '<div class="col-12 text-center"><div class="loading" style="height: 200px;"></div></div>';
@@ -386,7 +391,7 @@ class DocumentNotificationSystem {
 
     // Open document detail view
     openDocument(docId) {
-        this.currentDocument = this.documents.find(doc => doc.id === docId);
+    this.currentDocument = this.documents.find(doc => doc.id === docId);
         if (!this.currentDocument) return;
 
         // Add loading state
@@ -479,7 +484,7 @@ class DocumentNotificationSystem {
 
     // Apply signature from database - Compact Version
     applySignature() {
-        const signaturePlaceholder = document.getElementById('signaturePlaceholder');
+    const signaturePlaceholder = document.getElementById('signaturePlaceholder');
         const appliedSignature = document.getElementById('appliedSignature');
         const applySignatureBtn = document.getElementById('applySignatureBtn');
 
@@ -505,7 +510,7 @@ class DocumentNotificationSystem {
 
     // Reset signature state - Compact Version
     resetSignatureState() {
-        const signaturePlaceholder = document.getElementById('signaturePlaceholder');
+    const signaturePlaceholder = document.getElementById('signaturePlaceholder');
         const appliedSignature = document.getElementById('appliedSignature');
         const applySignatureBtn = document.getElementById('applySignatureBtn');
 

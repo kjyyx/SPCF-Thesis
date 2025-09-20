@@ -22,7 +22,13 @@ try {
 
     switch ($method) {
         case 'GET':
-            $query = "SELECT * FROM events ORDER BY event_date, event_time";
+            // Join units to expose readable department name for UI
+            $query = "SELECT e.id, e.title, e.description, e.event_date, e.event_time, e.unit_id,
+                             e.created_by, e.created_by_role, e.created_at, e.updated_at,
+                             u.name AS department
+                      FROM events e
+                      LEFT JOIN units u ON e.unit_id = u.id
+                      ORDER BY e.event_date, e.event_time";
             $stmt = $db->prepare($query);
             $stmt->execute();
 
@@ -41,21 +47,35 @@ try {
             }
 
             $data = json_decode(file_get_contents('php://input'), true);
+            $title = trim($data['title'] ?? '');
+            $description = $data['description'] ?? null;
+            $event_date = $data['event_date'] ?? null;
+            $event_time = $data['event_time'] ?? null; // can be null
+            $departmentName = $data['department'] ?? null; // UI sends department name; map to unit_id
 
-            $query = "INSERT INTO events 
-                      (title, description, event_date, event_time, department, created_by, created_by_role) 
-                      VALUES (:title, :description, :event_date, :event_time, :department, :created_by, :created_by_role)";
+            // Map department name to unit_id (optional)
+            $unit_id = null;
+            if ($departmentName) {
+                $u = $db->prepare("SELECT id FROM units WHERE name = :name LIMIT 1");
+                $u->execute([':name' => $departmentName]);
+                $row = $u->fetch(PDO::FETCH_ASSOC);
+                if ($row) { $unit_id = (int)$row['id']; }
+            }
+
+            $query = "INSERT INTO events (title, description, event_date, event_time, unit_id, created_by, created_by_role)
+                      VALUES (:title, :description, :event_date, :event_time, :unit_id, :created_by, :created_by_role)";
             $stmt = $db->prepare($query);
+            $ok = $stmt->execute([
+                ':title' => $title,
+                ':description' => $description,
+                ':event_date' => $event_date,
+                ':event_time' => $event_time,
+                ':unit_id' => $unit_id,
+                ':created_by' => $userId,
+                ':created_by_role' => $role,
+            ]);
 
-            $stmt->bindParam(':title', $data['title']);
-            $stmt->bindParam(':description', $data['description']);
-            $stmt->bindParam(':event_date', $data['event_date']);
-            $stmt->bindParam(':event_time', $data['event_time']);
-            $stmt->bindParam(':department', $data['department']);
-            $stmt->bindParam(':created_by', $userId);
-            $stmt->bindParam(':created_by_role', $role);
-
-            if ($stmt->execute()) {
+            if ($ok) {
                 echo json_encode(['success' => true, 'message' => 'Event created', 'id' => $db->lastInsertId()]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Event creation failed']);
@@ -87,15 +107,29 @@ try {
                 }
             }
 
+            $title = trim($data['title'] ?? '');
+            $description = $data['description'] ?? null;
+            $event_date = $data['event_date'] ?? null;
+            $event_time = $data['event_time'] ?? null;
+            $departmentName = $data['department'] ?? null;
+
+            $unit_id = null;
+            if ($departmentName) {
+                $u = $db->prepare("SELECT id FROM units WHERE name = :name LIMIT 1");
+                $u->execute([':name' => $departmentName]);
+                $row = $u->fetch(PDO::FETCH_ASSOC);
+                if ($row) { $unit_id = (int)$row['id']; }
+            }
+
             $stmt = $db->prepare("UPDATE events 
-                SET title=:title, description=:description, event_date=:event_date, event_time=:event_time, department=:department, updated_at=NOW()
+                SET title=:title, description=:description, event_date=:event_date, event_time=:event_time, unit_id=:unit_id, updated_at=NOW()
                 WHERE id=:id");
             $ok = $stmt->execute([
-                ':title' => $data['title'],
-                ':description' => $data['description'],
-                ':event_date' => $data['event_date'],
-                ':event_time' => $data['event_time'],
-                ':department' => $data['department'],
+                ':title' => $title,
+                ':description' => $description,
+                ':event_date' => $event_date,
+                ':event_time' => $event_time,
+                ':unit_id' => $unit_id,
                 ':id' => $id
             ]);
 

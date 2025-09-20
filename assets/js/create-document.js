@@ -1,4 +1,10 @@
-/* Document Maker - JavaScript Functions */
+// Document Maker JavaScript
+// High-level: Generates printable previews for multiple document types (proposal, SAF, facility, communication) with live updates.
+// Notes for future developers:
+// - Keep public function names referenced by HTML unchanged (e.g., selectDocumentType, printDocument, addBudgetRowProp, etc.).
+// - This script is client-side only; no network calls. Avoid introducing API dependencies here.
+// - Prefer non-destructive refactors: do not change DOM IDs/classes the HTML relies on.
+// - Guard DOM access where possible to avoid runtime errors if sections are not present.
 
 /*******************************
  * State Variables
@@ -61,6 +67,7 @@ function generateDocument() {
  *******************************/
 function paginateAndRender(html) {
     const container = document.getElementById('paper-container');
+    if (!container) return; // Guard if preview container is missing
     container.innerHTML = '';
     
     // The generators already produce one or more .paper-page blocks; render them directly
@@ -82,9 +89,12 @@ function paginateAndRender(html) {
 
 function renderPage() {
     const container = document.getElementById('paper-container');
+    if (!container) return;
     container.innerHTML = pages[currentPage - 1] || '<div class="paper-page"><em>No preview</em></div>';
-    document.getElementById('page-controls').style.display = totalPages > 1 ? 'flex' : 'none';
-    document.getElementById('page-indicator').textContent = `Page ${currentPage} of ${totalPages}`;
+    const controls = document.getElementById('page-controls');
+    const indicator = document.getElementById('page-indicator');
+    if (controls) controls.style.display = totalPages > 1 ? 'flex' : 'none';
+    if (indicator) indicator.textContent = `Page ${currentPage} of ${totalPages}`;
 }
 
 function nextPage() {
@@ -324,7 +334,10 @@ function calcBudgetTotalsProp() {
 function setupBudgetProp() {
     document.querySelectorAll('#budget-body-prop .item-price, #budget-body-prop .item-qty')
         .forEach(i => i.addEventListener('input', calcBudgetTotalsProp));
-    calcBudgetTotalsProp();
+    // Initial compute (guard table exists)
+    if (document.getElementById('budget-body-prop')) {
+        calcBudgetTotalsProp();
+    }
 }
 
 function addProgramRowProp() {
@@ -497,3 +510,15 @@ document.addEventListener('change', function(e) {
 setTimeout(() => {
     scheduleGenerate();
 }, 300);
+
+// ==========================================================
+// Utilities (DOM helpers and error logging)
+// ==========================================================
+/** Shortcut for querySelector. */
+const qs = (sel, root = document) => root.querySelector(sel);
+/** Shortcut for querySelectorAll to Array. */
+const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+/** Basic error logger to keep console noise consistent. */
+function handleError(prefix, err) {
+    console.error(`[CreateDocument] ${prefix}:`, err);
+}

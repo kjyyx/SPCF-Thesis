@@ -44,9 +44,11 @@ class Auth {
 
                 if ($passwordVerified) {
                     // Return user data without password
+                    $mustChange = isset($user['must_change_password']) ? (int)$user['must_change_password'] : 0;
                     unset($user['password']);
                     $user['role'] = $loginType;
-                    error_log("DEBUG Auth->login: Login successful for user=" . $user['id']);
+                    $user['must_change_password'] = $mustChange;
+                    error_log("DEBUG Auth->login: Login successful for user=" . $user['id'] . ", must_change_password=" . $mustChange);
                     return $user;
                 } else {
                     error_log("DEBUG Auth->login: Password verification failed");
@@ -78,9 +80,9 @@ class Auth {
 
             // Different tables have different column names
             if ($role === 'student') {
-                $query = "SELECT id, first_name, last_name, email, department, position, phone FROM " . $table . " WHERE id = :id";
+                $query = "SELECT id, first_name, last_name, email, department, position, phone, must_change_password FROM " . $table . " WHERE id = :id";
             } else {
-                $query = "SELECT id, first_name, last_name, email, office, position, phone FROM " . $table . " WHERE id = :id";
+                $query = "SELECT id, first_name, last_name, email, office, position, phone, must_change_password FROM " . $table . " WHERE id = :id";
             }
 
             $stmt = $this->conn->prepare($query);

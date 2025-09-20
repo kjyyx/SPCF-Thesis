@@ -9,7 +9,9 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
   <!-- Custom CSS -->
+  <link href="../assets/css/event-calendar.css" rel="stylesheet"> <!-- Reuse shared navbar/dropdown/modal styles -->
   <link href="../assets/css/upload-publication.css" rel="stylesheet">
+  <link href="../assets/css/toast.css" rel="stylesheet">
 </head>
 
 <body>
@@ -35,15 +37,15 @@
             <i class="bi bi-gear me-2"></i>Settings
           </button>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="calendar.html"><i class="bi bi-calendar-event me-2"></i>Calendar</a></li>
-            <li><a class="dropdown-item" href="createdocument.html"><i class="bi bi-file-text me-2"></i>Create
-                Document</a></li>
-            <li><a class="dropdown-item" href="trackdocument.html"><i class="bi bi-file-earmark-check me-2"></i>Track
-                Documents</a></li>
+      <li><a class="dropdown-item" href="event-calendar.php"><i class="bi bi-calendar-event me-2"></i>Calendar</a></li>
+      <li><a class="dropdown-item" href="create-document.php"><i class="bi bi-file-text me-2"></i>Create
+        Document</a></li>
+      <li><a class="dropdown-item" href="track-document.php"><i class="bi bi-file-earmark-check me-2"></i>Track
+        Documents</a></li>
             <li>
               <hr class="dropdown-divider">
             </li>
-            <li><a class="dropdown-item text-danger" href="login.html"><i
+      <li><a class="dropdown-item text-danger" href="user-logout.php"><i
                   class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
           </ul>
         </div>
@@ -187,6 +189,9 @@
 
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Toast Utils -->
+  <script src="../assets/js/toast.js"></script>
 
   <!-- Custom JavaScript -->
   <script src="../assets/js/upload-publication.js"></script> <!-- Updated path -->

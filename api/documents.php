@@ -1,0 +1,435 @@
+<?php
+require_once '../includes/session.php';
+require_once '../includes/auth.php';
+require_once '../includes/database.php';
+
+header('Content-Type: application/json');
+
+// Initialize database connection
+$database = new Database();
+$db = $database->getConnection();
+
+// Get current user info
+$auth = new Auth();
+$currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
+
+if (!$currentUser) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    exit();
+}
+
+$method = $_SERVER['REQUEST_METHOD'];
+
+switch ($method) {
+    case 'GET':
+        handleGet();
+        break;
+    case 'POST':
+        handlePost();
+        break;
+    case 'PUT':
+        handlePut();
+        break;
+    case 'DELETE':
+        handleDelete();
+        break;
+    default:
+        http_response_code(405);
+        echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+        break;
+}
+
+function handleGet() {
+    global $db, $currentUser;
+
+    try {
+        // If a specific document id is requested, return full details for modal view
+        if (isset($_GET['id']) && is_numeric($_GET['id'])) {
+            $documentId = (int) $_GET['id'];
+
+            // Load document and student info
+            $docStmt = $db->prepare("SELECT d.*, s.id AS student_id, CONCAT(s.first_name,' ',s.last_name) AS student_name, s.department AS student_department
+                                     FROM documents d
+                                     JOIN students s ON d.student_id = s.id
+                                     WHERE d.id = ?");
+            $docStmt->execute([$documentId]);
+            $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$doc) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Document not found']);
+                return;
+            }
+
+            // Load workflow steps with assignee and signature info
+            $stepsStmt = $db->prepare("SELECT ds.*, e.first_name, e.last_name,
+                                              dsg.status AS signature_status, dsg.signed_at
+                                       FROM document_steps ds
+                                       LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
+                                       LEFT JOIN document_signatures dsg ON dsg.step_id = ds.id AND dsg.employee_id = ds.assigned_to_employee_id
+                                       WHERE ds.document_id = ?
+                                       ORDER BY ds.step_order ASC");
+            $stepsStmt->execute([$documentId]);
+            $steps = [];
+            while ($s = $stepsStmt->fetch(PDO::FETCH_ASSOC)) {
+                $steps[] = [
+                    'id' => (int)$s['id'],
+                    'step_order' => (int)$s['step_order'],
+                    'name' => $s['name'],
+                    'status' => $s['status'],
+                    'note' => $s['note'],
+                    'acted_at' => $s['acted_at'],
+                    'assignee_id' => $s['assigned_to_employee_id'],
+                    'assignee_name' => ($s['first_name'] || $s['last_name']) ? trim($s['first_name'] . ' ' . $s['last_name']) : null,
+                    'signature_status' => $s['signature_status'],
+                    'signed_at' => $s['signed_at']
+                ];
+            }
+
+            // Optional attachment (first one)
+            $filePath = null;
+            $attStmt = $db->prepare("SELECT file_path FROM attachments WHERE document_id = ? ORDER BY id ASC LIMIT 1");
+            $attStmt->execute([$documentId]);
+            if ($att = $attStmt->fetch(PDO::FETCH_ASSOC)) {
+                $filePath = $att['file_path'];
+            }
+
+            $payload = [
+                'id' => (int)$doc['id'],
+                'title' => $doc['title'],
+                'doc_type' => $doc['doc_type'],
+                'description' => $doc['description'],
+                'status' => $doc['status'],
+                'current_step' => (int)$doc['current_step'],
+                'uploaded_at' => $doc['uploaded_at'],
+                'student' => [
+                    'id' => $doc['student_id'],
+                    'name' => $doc['student_name'],
+                    'department' => $doc['student_department']
+                ],
+                'workflow' => $steps,
+                'file_path' => $filePath
+            ];
+
+            // Return as a plain object (notifications.js expects no wrapper)
+            echo json_encode($payload);
+            return;
+        }
+        // Get documents assigned to current employee that need action
+        $stmt = $db->prepare("
+            SELECT
+                d.id,
+                d.title,
+                d.doc_type,
+                d.description,
+                d.status,
+                d.current_step,
+                d.uploaded_at,
+                s.id as student_id,
+                CONCAT(s.first_name, ' ', s.last_name) as student_name,
+                s.department as student_department,
+                ds.id as step_id,
+                ds.step_order,
+                ds.name as step_name,
+                ds.status as step_status,
+                ds.note as step_note,
+                ds.acted_at,
+                ds.assigned_to_employee_id,
+                dsg.status as signature_status,
+                dsg.signed_at,
+                e.first_name AS assignee_first,
+                e.last_name AS assignee_last
+            FROM documents d
+            JOIN students s ON d.student_id = s.id
+            JOIN document_steps ds ON d.id = ds.document_id
+            LEFT JOIN document_signatures dsg ON ds.id = dsg.step_id AND dsg.employee_id = ?
+            LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
+            WHERE ds.assigned_to_employee_id = ?
+            AND ds.status = 'pending'
+            AND d.status IN ('submitted', 'in_review')
+            ORDER BY d.uploaded_at DESC, ds.step_order ASC
+        ");
+
+        $stmt->execute([$currentUser['id'], $currentUser['id']]);
+        $documents = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Group by document and organize workflow
+        $processedDocuments = [];
+        foreach ($documents as $doc) {
+            $docId = $doc['id'];
+
+            if (!isset($processedDocuments[$docId])) {
+                $processedDocuments[$docId] = [
+                    'id' => $doc['id'],
+                    'title' => $doc['title'],
+                    'doc_type' => $doc['doc_type'],
+                    'description' => $doc['description'],
+                    'status' => $doc['status'],
+                    'current_step' => $doc['current_step'],
+                    'uploaded_at' => $doc['uploaded_at'],
+                    'student' => [
+                        'id' => $doc['student_id'],
+                        'name' => $doc['student_name'],
+                        'department' => $doc['student_department']
+                    ],
+                    'workflow' => []
+                ];
+            }
+
+            // Add workflow step
+            $processedDocuments[$docId]['workflow'][] = [
+                'id' => $doc['step_id'],
+                'step_order' => $doc['step_order'],
+                'name' => $doc['step_name'],
+                'status' => $doc['step_status'],
+                'note' => $doc['step_note'],
+                'acted_at' => $doc['acted_at'],
+                'assignee_id' => $doc['assigned_to_employee_id'],
+                'assignee_name' => trim(($doc['assignee_first'] ?? '') . ' ' . ($doc['assignee_last'] ?? '')) ?: null,
+                'signature_status' => $doc['signature_status'],
+                'signed_at' => $doc['signed_at']
+            ];
+        }
+
+        echo json_encode([
+            'success' => true,
+            'documents' => array_values($processedDocuments)
+        ]);
+
+    } catch (Exception $e) {
+        error_log("Error fetching documents: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Failed to fetch documents']);
+    }
+}
+
+function handlePost() {
+    global $db, $currentUser;
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    $action = $input['action'] ?? '';
+
+    try {
+        switch ($action) {
+            case 'sign':
+                signDocument($input);
+                break;
+            case 'reject':
+                rejectDocument($input);
+                break;
+            default:
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Invalid action']);
+                break;
+        }
+    } catch (Exception $e) {
+        error_log("Error processing document action: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Failed to process action']);
+    }
+}
+
+function signDocument($input) {
+    global $db, $currentUser;
+
+    $documentId = $input['document_id'] ?? 0;
+    $stepId = $input['step_id'] ?? 0;
+    $notes = $input['notes'] ?? '';
+
+    if (!$documentId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Document ID is required']);
+        return;
+    }
+
+    // If stepId not provided, infer the current pending step assigned to this employee
+    if (!$stepId) {
+        $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
+        $q->execute([$documentId, $currentUser['id']]);
+        $row = $q->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No pending step assigned to you for this document']);
+            return;
+        }
+        $stepId = (int)$row['id'];
+    }
+
+    $db->beginTransaction();
+
+    try {
+        // Update document signature
+        $stmt = $db->prepare("
+            INSERT INTO document_signatures (document_id, step_id, employee_id, status, signed_at, signature_path)
+            VALUES (?, ?, ?, 'signed', NOW(), NULL)
+            ON DUPLICATE KEY UPDATE
+            status = 'signed', signed_at = NOW(), signature_path = NULL
+        ");
+        $stmt->execute([$documentId, $stepId, $currentUser['id']]);
+
+        // Update document step
+        $stmt = $db->prepare("
+            UPDATE document_steps
+            SET status = 'completed', acted_at = NOW(), note = ?
+            WHERE id = ? AND assigned_to_employee_id = ?
+        ");
+        $stmt->execute([$notes, $stepId, $currentUser['id']]);
+
+        // Check if all steps are completed
+        $stmt = $db->prepare("
+            SELECT COUNT(*) as total_steps,
+                   COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_steps
+            FROM document_steps
+            WHERE document_id = ?
+        ");
+        $stmt->execute([$documentId]);
+        $progress = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($progress['total_steps'] == $progress['completed_steps']) {
+            // All steps completed, update document status
+            $stmt = $db->prepare("
+                UPDATE documents
+                SET status = 'approved', updated_at = NOW()
+                WHERE id = ?
+            ");
+            $stmt->execute([$documentId]);
+        } else {
+            // Update current step and status
+            $stmt = $db->prepare("
+                UPDATE documents
+                SET current_step = current_step + 1, status = 'in_review', updated_at = NOW()
+                WHERE id = ?
+            ");
+            $stmt->execute([$documentId]);
+        }
+
+        // Add audit log
+        addAuditLog('DOCUMENT_SIGNED', 'Document Management',
+            "Document signed by {$currentUser['first_name']} {$currentUser['last_name']}",
+            $documentId, 'Document', 'INFO');
+
+        $db->commit();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Document signed successfully',
+            'step_id' => $stepId
+        ]);
+
+    } catch (Exception $e) {
+        $db->rollBack();
+        throw $e;
+    }
+}
+
+function rejectDocument($input) {
+    global $db, $currentUser;
+
+    $documentId = $input['document_id'] ?? 0;
+    $stepId = $input['step_id'] ?? 0;
+    $reason = $input['reason'] ?? '';
+
+    if (!$documentId || empty($reason)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Document ID and rejection reason are required']);
+        return;
+    }
+
+    // If stepId not provided, infer the current pending step assigned to this employee
+    if (!$stepId) {
+        $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
+        $q->execute([$documentId, $currentUser['id']]);
+        $row = $q->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No pending step assigned to you for this document']);
+            return;
+        }
+        $stepId = (int)$row['id'];
+    }
+
+    $db->beginTransaction();
+
+    try {
+        // Update document signature to rejected
+        $stmt = $db->prepare("
+            INSERT INTO document_signatures (document_id, step_id, employee_id, status, signed_at)
+            VALUES (?, ?, ?, 'rejected', NOW())
+            ON DUPLICATE KEY UPDATE
+            status = 'rejected', signed_at = NOW()
+        ");
+        $stmt->execute([$documentId, $stepId, $currentUser['id']]);
+
+        // Update document step to rejected
+        $stmt = $db->prepare("
+            UPDATE document_steps
+            SET status = 'rejected', acted_at = NOW(), note = ?
+            WHERE id = ? AND assigned_to_employee_id = ?
+        ");
+        $stmt->execute([$reason, $stepId, $currentUser['id']]);
+
+        // Update document status to rejected
+        $stmt = $db->prepare("
+            UPDATE documents
+            SET status = 'rejected', updated_at = NOW()
+            WHERE id = ?
+        ");
+        $stmt->execute([$documentId]);
+
+        // Add audit log
+        addAuditLog('DOCUMENT_REJECTED', 'Document Management',
+            "Document rejected by {$currentUser['first_name']} {$currentUser['last_name']}: {$reason}",
+            $documentId, 'Document', 'WARNING');
+
+        $db->commit();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Document rejected successfully',
+            'step_id' => $stepId
+        ]);
+
+    } catch (Exception $e) {
+        $db->rollBack();
+        throw $e;
+    }
+}
+
+function handlePut() {
+    // Handle document updates if needed
+    http_response_code(501);
+    echo json_encode(['success' => false, 'message' => 'Not implemented']);
+}
+
+function handleDelete() {
+    // Handle document deletion if needed
+    http_response_code(501);
+    echo json_encode(['success' => false, 'message' => 'Not implemented']);
+}
+
+function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
+    global $db, $currentUser;
+
+    try {
+        $stmt = $db->prepare("
+            INSERT INTO audit_logs (user_id, user_role, action, category, details, target_id, target_type, severity, ip_address, user_agent)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        $stmt->execute([
+            $currentUser['id'],
+            $currentUser['role'],
+            $action,
+            $category,
+            $details,
+            $targetId,
+            $targetType,
+            $severity,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null
+        ]);
+    } catch (Exception $e) {
+        error_log("Failed to add audit log: " . $e->getMessage());
+    }
+}
+?>

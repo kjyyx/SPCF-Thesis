@@ -1,0 +1,116 @@
+.toast-container {
+    z-index: 1080 !important;
+}
+
+.toast {
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.12);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+    min-width: 300px;
+}
+
+.toast-header {
+    backdrop-filter: blur(15px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-weight: 600;
+    padding: 0.75rem 1rem;
+}
+
+.toast-body {
+    padding: 0.875rem 1rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Success Toast */
+.toast.bg-success-subtle {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%) !important;
+    border-color: rgba(16, 185, 129, 0.2) !important;
+}
+
+.toast.bg-success-subtle .toast-header {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%) !important;
+    color: #047857;
+}
+
+/* Error/Danger Toast */
+.toast.bg-danger-subtle {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%) !important;
+    border-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+.toast.bg-danger-subtle .toast-header {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.1) 100%) !important;
+    color: #b91c1c;
+}
+
+/* Warning Toast */
+.toast.bg-warning-subtle {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%) !important;
+    border-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+.toast.bg-warning-subtle .toast-header {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.1) 100%) !important;
+    color: #92400e;
+}
+
+/* Info/Primary Toast */
+.toast.bg-info-subtle, .toast.bg-primary-subtle {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.05) 100%) !important;
+    border-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+.toast.bg-info-subtle .toast-header, .toast.bg-primary-subtle .toast-header {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.1) 100%) !important;
+    color: #1d4ed8;
+}
+
+/* Toast animations */
+.toast.showing {
+    animation: toastSlideIn 0.3s ease-out;
+}
+
+.toast.hide {
+    animation: toastSlideOut 0.3s ease-in;
+}
+
+@keyframes toastSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(100%) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes toastSlideOut {
+    from {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100%) scale(0.95);
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+    .toast-container {
+        left: 0.75rem;
+        right: 0.75rem;
+        top: 0.75rem !important;
+        max-width: none;
+    }
+    
+    .toast {
+        min-width: unset;
+        width: 100%;
+    }
+}

@@ -19,6 +19,21 @@ let editingUserOriginalRole = null; // used to prevent table hopping on edit
 let users = {};
 const USERS_API = '../api/users.php';
 
+// Toast notification helper
+function showToast(message, type = 'info', title = null) {
+    if (window.ToastManager) {
+        window.ToastManager.show({
+            type: type,
+            title: title,
+            message: message,
+            duration: 4000
+        });
+    } else {
+        // Fallback
+        alert(message);
+    }
+}
+
 // ==========================================================
 // Initialization / Boot
 // ==========================================================
@@ -442,7 +457,7 @@ function deleteUser(userId) {
 
     // Prevent deleting current admin (self-deletion protection)
     if (currentUser && currentUser.id === userId) {
-        alert('You cannot delete your own account while logged in.');
+        showToast('You cannot delete your own account while logged in.', 'warning');
         return;
     }
 
@@ -468,14 +483,14 @@ function confirmDeleteUser() {
             loadUsersFromAPI().then(() => {
                 updateUserStatistics();
                 editingUserId = null;
-                alert('User deleted successfully.');
+                showToast('User deleted successfully.', 'success');
             });
         } else {
-            alert(resp.message || 'Delete failed');
+            showToast(resp.message || 'Delete failed', 'error');
         }
     }).catch(err => {
         console.error('Delete error', err);
-        alert('Server error while deleting user');
+        showToast('Server error while deleting user', 'error');
     });
 }
 
@@ -835,9 +850,9 @@ function deleteSingleMaterial() {
             updateUserStatistics();
             currentMaterialId = null;
         } else {
-            alert(resp.message || 'Delete failed');
+            showToast(resp.message || 'Delete failed', 'error');
         }
-    }).catch(err => handleApiError('Delete error', err, (m) => alert(m || 'Server error while deleting material')));
+    }).catch(err => handleApiError('Delete error', err, (m) => showToast(m || 'Server error while deleting material', 'error')));
 }
 
 /** Maintain bulk selection state and toggle button states. */
@@ -872,7 +887,7 @@ function toggleSelectAllMaterials() {
 
 function bulkDeleteMaterials() {
     if (selectedMaterials.length === 0) {
-        alert('Please select materials to delete.');
+        showToast('Please select materials to delete.', 'warning');
         return;
     }
 
@@ -905,7 +920,7 @@ function confirmBulkDelete() {
     selectedMaterials = [];
     document.getElementById('selectAllMaterials').checked = false;
 
-    alert(`Successfully deleted ${deletedMaterials.length} materials.`);
+    showToast(`Successfully deleted ${deletedMaterials.length} materials.`, 'success');
 }
 
 /** Client-side filter materials by status. */
@@ -1240,7 +1255,7 @@ async function apiFetch(url, options = {}) {
 }
 
 /** Generic API error handler to reduce console + alert boilerplate. */
-function handleApiError(prefix, err, notifyFn = (msg) => alert(msg)) {
+function handleApiError(prefix, err, notifyFn = (msg) => showToast(msg, 'error')) {
     console.error(prefix, err);
     notifyFn('Server error, please try again');
 }
@@ -1261,11 +1276,11 @@ async function loadUsersFromAPI(role = null) {
             return true;
         } else {
             console.error('Failed to load users', data.message);
-            alert('Failed to load users: ' + (data.message || 'Unknown error'));
+            showToast('Failed to load users: ' + (data.message || 'Unknown error'), 'error');
             return false;
         }
     } catch (e) {
-        handleApiError('Error loading users', e, (m) => alert(m || 'Server error while loading users'));
+        handleApiError('Error loading users', e, (m) => showToast(m || 'Server error while loading users', 'error'));
         return false;
     }
 }
@@ -1279,10 +1294,10 @@ async function loadMaterials() {
             loadMaterialsTable();
         } else {
             console.error('Failed to load materials', data.message);
-            alert('Failed to load materials: ' + (data.message || 'Unknown error'));
+            showToast('Failed to load materials: ' + (data.message || 'Unknown error'), 'error');
         }
     } catch (e) {
-        handleApiError('Error loading materials', e, (m) => alert(m || 'Server error while loading materials'));
+        handleApiError('Error loading materials', e, (m) => showToast(m || 'Server error while loading materials', 'error'));
     }
 }
 

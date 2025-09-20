@@ -10,6 +10,7 @@
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="../assets/css/track-document.css"> <!-- Updated path -->
+    <link rel="stylesheet" href="../assets/css/toast.css">
 </head>
 
 <body>
@@ -618,6 +619,9 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Toast Utils -->
+    <script src="../assets/js/toast.js"></script>
 
     <!-- Custom JavaScript -->
     <script src="../assets/js/track-document.js"></script> <!-- Updated path -->

@@ -368,22 +368,15 @@ function initializeUploadSystem() {
     }
 
     function showAlert(message, type) {
-        if (!alertContainer) return;
-
-        const alert = document.createElement('div');
-        alert.className = `alert alert-${type} alert-dismissible fade show`;
-        alert.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-
-        alertContainer.appendChild(alert);
-
-        // Auto remove after 5 seconds
-        setTimeout(() => {
-            if (alert.parentNode) {
-                alert.remove();
-            }
-        }, 5000);
+        if (window.ToastManager) {
+            window.ToastManager.show({
+                type: type,
+                message: message,
+                duration: 5000
+            });
+        } else {
+            // Fallback - remove old alert container method
+            alert(message);
+        }
     }
 }

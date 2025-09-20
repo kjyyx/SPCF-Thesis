@@ -721,11 +721,11 @@ class CalendarApp {
 
         // Validate required fields
         if (!title || !date) {
-            alert('Please provide a title and date for the event.');
+            this.showToast('Please provide a title and date for the event.', 'warning');
             return;
         }
         if (!department) {
-            alert('Please select a department.');
+            this.showToast('Please select a department.', 'warning');
             return;
         }
 
@@ -757,12 +757,12 @@ class CalendarApp {
                 modal?.hide();
                 this.showToast(isUpdate ? 'Event updated successfully' : 'Event created successfully', 'success');
             } else {
-                alert(res.message || 'Failed to save event');
+                this.showToast(res.message || 'Failed to save event', 'error');
             }
         })
         .catch(err => {
             console.error(err);
-            alert('Server error saving event');
+            this.showToast('Server error saving event', 'error');
         });
     }
     
@@ -785,10 +785,10 @@ class CalendarApp {
                     modal?.hide();
                     this.showToast('Event deleted successfully', 'success');
                 } else {
-                    alert(res.message || 'Delete failed');
+                    this.showToast(res.message || 'Delete failed', 'error');
                 }
             })
-            .catch(err => { console.error(err); alert('Server error deleting event'); });
+            .catch(err => { console.error(err); this.showToast('Server error deleting event', 'error'); });
     }
     
     isToday(date) {
@@ -796,8 +796,16 @@ class CalendarApp {
     }
     
     showToast(message, type = 'info') {
-        // Simple alert for now - can be enhanced with proper toast implementation
-        alert(message);
+        if (window.ToastManager) {
+            window.ToastManager.show({
+                type: type,
+                message: message,
+                duration: 3000
+            });
+        } else {
+            // Fallback
+            alert(message);
+        }
     }
 }
 

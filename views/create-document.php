@@ -9,7 +9,9 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
   <!-- Custom CSS -->
+  <link rel="stylesheet" href="../assets/css/event-calendar.css"> <!-- Reuse shared navbar/dropdown/modal styles -->
   <link rel="stylesheet" href="../assets/css/create-document.css"> <!-- Updated path -->
+  <link rel="stylesheet" href="../assets/css/toast.css">
 </head>
 
 <body>
@@ -57,7 +59,7 @@
             <li>
               <hr class="dropdown-divider">
             </li>
-            <li><a class="dropdown-item text-danger" href="user-login.php" onclick="logout()"><i
+            <li><a class="dropdown-item text-danger" href="user-logout.php"><i
                   class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
           </ul>
         </div>
@@ -659,6 +661,9 @@
 
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Toast Utils -->
+  <script src="../assets/js/toast.js"></script>
 
   <!-- Custom JavaScript -->
   <script src="../assets/js/create-document.js"></script>

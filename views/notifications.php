@@ -23,7 +23,8 @@ if (!$currentUser) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Reuse event-calendar styles for navbar, dropdown, and modal -->
+    <!-- Global shared styles + page-specific overrides -->
+    <link rel="stylesheet" href="../assets/css/global.css">
     <link rel="stylesheet" href="../assets/css/event-calendar.css">
     <link rel="stylesheet" href="../assets/css/notifications.css">
     <link rel="stylesheet" href="../assets/css/toast.css">
@@ -43,7 +44,7 @@ if (!$currentUser) {
     </script>
 </head>
 
-<body>
+<body class="with-fixed-navbar">
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg fixed-top">
         <div class="container-fluid">

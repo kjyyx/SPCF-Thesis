@@ -9,6 +9,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
 
     <!-- Custom CSS -->
+    <link rel="stylesheet" href="../assets/css/global.css"> <!-- Global shared UI styles -->
     <link rel="stylesheet" href="../assets/css/track-document.css"> <!-- Updated path -->
     <link rel="stylesheet" href="../assets/css/toast.css">
 </head>

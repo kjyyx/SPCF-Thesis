@@ -26,7 +26,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
     <title>Event Calendar - <?php echo SITE_NAME; ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="../assets/css/event-calendar.css">
+    <link rel="stylesheet" href="../assets/css/global.css"><!-- Global shared UI styles -->
+    <link rel="stylesheet" href="../assets/css/event-calendar.css"><!-- Calendar-specific styles -->
     <link rel="stylesheet" href="../assets/css/toast.css">
 
     <script>
@@ -43,7 +44,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
     </script>
 </head>
 
-<body>
+<body class="with-fixed-navbar">
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg fixed-top">
         <div class="container-fluid">

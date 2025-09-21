@@ -26,6 +26,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
     <title>Admin Dashboard - Event Management System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/global.css">
     <link rel="stylesheet" href="../assets/css/admin-dashboard.css">
     <link rel="stylesheet" href="../assets/css/toast.css">
     
@@ -45,7 +46,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
     
 </head>
 
-<body>
+<body class="with-fixed-navbar">
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg fixed-top">
         <div class="container-fluid">

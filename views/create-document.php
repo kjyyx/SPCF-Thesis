@@ -9,12 +9,13 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
   <!-- Custom CSS -->
+  <link rel="stylesheet" href="../assets/css/global.css"> <!-- Global shared UI styles -->
   <link rel="stylesheet" href="../assets/css/event-calendar.css"> <!-- Reuse shared navbar/dropdown/modal styles -->
   <link rel="stylesheet" href="../assets/css/create-document.css"> <!-- Updated path -->
   <link rel="stylesheet" href="../assets/css/toast.css">
 </head>
 
-<body>
+<body class="with-fixed-navbar">
   <!-- Navigation Bar -->
   <nav class="navbar navbar-expand-lg fixed-top">
     <div class="container-fluid">

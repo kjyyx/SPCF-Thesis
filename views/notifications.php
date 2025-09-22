@@ -132,6 +132,11 @@ if (!$currentUser) {
                             <i class="bi bi-check2-all"></i>
                             <span>Mark Read</span>
                         </button>
+                        <!-- Create a mock document for testing -->
+                        <button class="action-button" onclick="createMockDocument()" title="Create Mock Document">
+                            <i class="bi bi-file-earmark-plus"></i>
+                            <span>Create Mock</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -199,15 +204,6 @@ if (!$currentUser) {
                                                 <small class="text-muted" id="pdfTitle">Document content preview</small>
                                             </div>
                                         </div>
-                                        <div class="pdf-controls">
-                                            <button class="pdf-control-btn" onclick="zoomOut()" title="Zoom Out">
-                                                <i class="bi bi-zoom-out"></i>
-                                            </button>
-                                            <span class="zoom-indicator" id="zoomLevel">100%</span>
-                                            <button class="pdf-control-btn" onclick="zoomIn()" title="Zoom In">
-                                                <i class="bi bi-zoom-in"></i>
-                                            </button>
-                                        </div>
                                     </div>
                                     <div class="pdf-content" id="pdfContent"></div>
                                 </div>
@@ -221,8 +217,8 @@ if (!$currentUser) {
                             <button class="btn btn-success btn-sm" onclick="signDocument()" title="Sign Document">
                                 <i class="bi bi-pen-fill me-1"></i>Sign
                             </button>
-                            <button class="btn btn-outline-primary btn-sm" onclick="applySignature()" id="applySignatureBtn" title="Apply Signature">
-                                <i class="bi bi-person-check me-1"></i>Apply
+                            <button class="btn btn-outline-primary btn-sm" onclick="toggleSignaturePad()" id="applySignatureBtn" title="Draw/Apply Signature">
+                                <i class="bi bi-person-check me-1"></i>Signature Pad
                             </button>
                         </div>
 
@@ -234,6 +230,22 @@ if (!$currentUser) {
                             <div class="signed-indicator-compact" id="appliedSignature" style="display: none;">
                                 <i class="bi bi-check-circle-fill text-success"></i>
                                 <span class="text-success fs-sm fw-medium">Signature applied</span>
+                            </div>
+                        </div>
+
+                        <!-- Inline signature pad (no modals) -->
+                        <div id="signaturePadContainer" class="signature-pad d-none">
+                            <canvas id="signatureCanvas"></canvas>
+                            <div class="d-flex justify-content-end gap-2 mt-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="sigClearBtn">
+                                    <i class="bi bi-eraser me-1"></i>Clear
+                                </button>
+                                <button type="button" class="btn btn-primary btn-sm" id="sigSaveBtn">
+                                    <i class="bi bi-check2 me-1"></i>Save
+                                </button>
+                            </div>
+                            <div class="small text-muted mt-2">
+                                Tip: Draw your signature. It will appear on the highlighted area.
                             </div>
                         </div>
 
@@ -253,9 +265,6 @@ if (!$currentUser) {
             </div>
         </div>
     </div>
-
-    <!-- Document Modal (used by controller) -->
-    <div class="modal fade" id="documentModal" tabindex="-1" aria-labelledby="documentModalLabel" aria-hidden="true"></div>
 
     <!-- Change Password Modal -->
     <div class="modal fade" id="changePasswordModal" tabindex="-1">
@@ -401,20 +410,14 @@ if (!$currentUser) {
             }
         }
 
-        function applySignature() {
-            const placeholder = document.getElementById('signaturePlaceholder');
-            const applied = document.getElementById('appliedSignature');
-            const btn = document.getElementById('applySignatureBtn');
-            if (placeholder && applied && btn) {
-                placeholder.style.display = 'none';
-                applied.style.display = 'flex';
-                btn.disabled = true;
-                btn.classList.remove('btn-outline-primary');
-                btn.classList.add('btn-outline-success');
-                btn.innerHTML = '<i class="bi bi-check me-1"></i>Applied';
-            }
-            if (window.ToastManager) {
-                ToastManager.success('Signature applied.', 'Success');
+        function applySignature() { toggleSignaturePad(); }
+
+        function toggleSignaturePad() {
+            const pad = document.getElementById('signaturePadContainer');
+            if (!pad) return;
+            pad.classList.toggle('d-none');
+            if (!pad.classList.contains('d-none') && window.documentSystem) {
+                window.documentSystem.initSignaturePad();
             }
         }
 
@@ -425,9 +428,6 @@ if (!$currentUser) {
         function printDocument() {
             window.print();
         }
-
-        function zoomIn() {}
-        function zoomOut() {}
     </script>
 </body>
 </html>

@@ -589,6 +589,24 @@ body {
     box-shadow: 0 8px 25px rgba(6, 182, 212, 0.35);
 }
 
+/* Map API statuses to badge variants used by old cards design */
+.status-badge.submitted { /* urgent */
+    background: linear-gradient(135deg, var(--danger-color) 0%, var(--danger-hover) 100%);
+    color: #fff;
+}
+.status-badge.in_review { /* high */
+    background: linear-gradient(135deg, var(--warning-color) 0%, var(--warning-hover) 100%);
+    color: #fff;
+}
+.status-badge.approved { /* normal/info */
+    background: linear-gradient(135deg, var(--info-color) 0%, var(--info-hover) 100%);
+    color: #fff;
+}
+.status-badge.rejected {
+    background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+    color: #fff;
+}
+
 /* Document Detail View - Matching Calendar.css Layout */
 .document-detail {
     animation: fadeIn 0.6s ease-out;
@@ -652,21 +670,34 @@ body {
 .pdf-file-info {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
 }
 
 .pdf-file-icon {
-    font-size: 2rem;
+    font-size: 1.2rem;
     color: var(--danger-color);
     background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.15) 100%);
-    padding: 0.75rem;
-    border-radius: var(--border-radius);
-    border: 2px solid rgba(239, 68, 68, 0.2);
+    padding: 0.3rem;
+    border-radius: 6px;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.pdf-file-info > div {
+    line-height: 1.2;
+}
+
+.pdf-file-info .fw-semibold {
+    font-size: 0.9rem;
+    margin-bottom: 0.1rem;
+}
+
+.pdf-file-info small {
+    font-size: 0.75rem;
+    line-height: 1.1;
 }
 
 .pdf-controls {
-    display: flex;
-    gap: 0.5rem;
+    display: none; /* Hide zoom controls - not needed */
 }
 
 .pdf-control-btn {
@@ -783,6 +814,50 @@ body {
 .signed-indicator:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+}
+
+.signature-target {
+    position: absolute;
+    border: 2px dashed #16a34a;
+    background: rgba(16, 163, 69, 0.08);
+    border-radius: 8px;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #16a34a;
+    font-weight: 600;
+    transition: transform .15s ease, box-shadow .15s ease;
+    min-width: 50px;
+    min-height: 30px;
+    user-select: none;
+}
+
+.signature-target:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(16,185,129,.25);
+    background: rgba(16, 163, 69, 0.12);
+}
+
+.signature-target.dragging {
+    cursor: grabbing;
+    opacity: 0.8;
+}
+
+.resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 15px;
+    height: 15px;
+    background: #16a34a;
+    cursor: nw-resize;
+    border-radius: 50%;
+    border: 2px solid white;
+}
+
+.resize-handle:hover {
+    background: #059669;
 }
 
 /* Button Improvements - Matching Calendar.css Style System */
@@ -1402,9 +1477,9 @@ body {
 
 .editor-wrapper {
     display: grid;
-    grid-template-columns: 1fr 300px; /* Document viewer takes most space, compact actions panel */
+    grid-template-columns: 1fr 500px; /* Document viewer takes most space, compact actions panel */
     gap: 1rem;
-    min-height: 100%;
+    height: calc(100vh - 200px); /* Use viewport height minus header space */
 }
 
 /* Enhanced Editor Panel - Focused on Document Viewing */
@@ -1416,35 +1491,16 @@ body {
     backdrop-filter: blur(10px);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
     position: relative;
     z-index: 1;
+    height: 100%; /* Fill the grid container height */
 }
 
 .editor-content {
     flex: 1;
-    padding: 1.5rem; /* Reduced padding for more document space */
-    overflow-y: auto;
-}
-
-.editor-content::-webkit-scrollbar {
-    width: 8px;
-}
-
-.editor-content::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.editor-content::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, rgba(148, 163, 184, 0.3) 0%, rgba(100, 116, 139, 0.5) 100%);
-    border-radius: 10px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
-}
-
-.editor-content::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, rgba(148, 163, 184, 0.5) 0%, rgba(100, 116, 139, 0.7) 100%);
-    background-clip: padding-box;
+    padding: 0; /* Remove padding to maximize document space */
+    display: flex;
+    flex-direction: column;
 }
 
 /* Compact Actions Panel */
@@ -1457,8 +1513,8 @@ body {
     flex-direction: column;
     gap: 1rem;
     padding: 1rem;
-    max-width: 300px;
-    height: fit-content;
+    height: 100%; /* Fill the grid height */
+    overflow-y: auto; /* Only allow scrolling in the actions panel if needed */
 }
 
 /* Quick Actions Bar */
@@ -1585,6 +1641,9 @@ body {
 
 /* Enhanced Document Form Section - More Space for Document */
 .form-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     background: linear-gradient(135deg, var(--lightest-bg) 0%, var(--light-bg) 100%);
     border: 1px solid rgba(179, 186, 196, 0.6);
     border-radius: var(--border-radius-lg);
@@ -1596,60 +1655,87 @@ body {
     color: var(--text-secondary);
     font-weight: 700;
     margin: 0;
-    padding: 1rem 1.5rem; /* Reduced padding */
+    padding: 0.75rem 1rem;
     background: linear-gradient(135deg, var(--light-bg) 0%, var(--lighter-bg) 100%);
     border-bottom: 1px solid var(--border-color-light);
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 1rem; /* Slightly smaller */
+    font-size: 1rem;
 }
 
 .document-form {
-    padding: 1rem 1.5rem; /* Reduced padding */
+    flex: 1;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 /* PDF Viewer - Optimized for Document Focus */
 .pdf-viewer-container {
+    flex: 1;
     background: var(--lightest-bg);
     border-radius: var(--border-radius);
-    overflow: hidden;
     box-shadow: var(--card-shadow);
-    min-height: 600px; /* Increased min height for better document viewing */
+    display: flex;
+    flex-direction: column;
 }
 
 .pdf-viewer-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
-    padding: 0.75rem 1rem; /* Reduced padding */
+    padding: 0.25rem 0.5rem;
     background: linear-gradient(135deg, var(--light-bg) 0%, var(--lighter-bg) 100%);
     border-bottom: 1px solid var(--border-color-light);
+    flex-shrink: 0;
+    min-height: 32px;
 }
 
 .pdf-content {
-    padding: 1.5rem; /* Reduced padding for more document space */
-    min-height: 500px;
-    max-height: 70vh; /* Responsive height */
-    overflow-y: auto;
+    flex: 1;
+    padding: 0;
     background: white;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
 }
 
 /* Enhanced Responsive Design for Compact Layout */
 @media (max-width: 1200px) {
     .editor-wrapper {
-        grid-template-columns: 1fr 280px; /* Slightly smaller actions panel on medium screens */
+        grid-template-columns: 1fr 400px;
+        height: calc(100vh - 180px);
     }
 }
 
 @media (max-width: 992px) {
     .editor-wrapper {
-        grid-template-columns: 1fr; /* Stack on smaller screens */
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+        height: calc(100vh - 160px);
+        gap: 0.5rem;
     }
     
     .compact-actions-panel {
-        max-width: 100%;
-        order: -1; /* Show actions above document on mobile */
+        height: auto;
+        overflow-y: auto;
+        order: -1;
+    }
+    
+    .form-section {
+        min-height: 500px;
+    }
+    
+    .pdf-content {
+        min-height: calc(100vh - 320px); /* Maintain good height on mobile */
+    }
+    
+    .pdf-embed,
+    .pdf-placeholder {
+        min-height: calc(100vh - 320px);
     }
     
     .quick-actions-bar {
@@ -1658,13 +1744,17 @@ body {
 }
 
 @media (max-width: 768px) {
+    .editor-wrapper {
+        height: calc(100vh - 140px);
+    }
+    
     .document-container {
         padding: 0 0.5rem;
     }
     
-    .editor-content,
-    .document-form {
-        padding: 1rem;
+    .form-section h5 {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.95rem;
     }
     
     .compact-actions-panel {
@@ -1673,9 +1763,81 @@ body {
     }
     
     .pdf-content {
-        padding: 1rem;
-        max-height: 50vh;
+        min-height: calc(100vh - 250px); /* Ensure good height even on small screens */
     }
+    
+    .pdf-embed,
+    .pdf-placeholder {
+        min-height: calc(100vh - 250px);
+    }
+    
+    .pdf-content {
+        padding: 0.5rem;
+    }
+}
+
+/* Inline UI additions */
+.document-card:focus { outline: none; transform: translateY(-6px) scale(1.008); box-shadow: var(--card-shadow-hover); }
+
+.pdf-embed { 
+    width: 100%; 
+    height: 100%; 
+    border: none; 
+    border-radius: var(--border-radius);
+    min-height: calc(100vh - 270px); /* Match PDF content height with compact header */
+}
+
+.pdf-placeholder { 
+    padding: 2rem; 
+    color: var(--text-secondary); 
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: calc(100vh - 270px); /* Match PDF embed height */
+}
+
+/* Old cards document info + workflow preview */
+.document-card .document-info .fs-sm { line-height: 1.2; }
+.workflow-preview small { font-weight: 600; }
+.workflow-preview .progress { height: 6px; background-color: rgba(148,163,184,0.25); }
+.workflow-preview .progress-bar.bg-danger { background-color: var(--danger-color) !important; }
+.workflow-preview .progress-bar.bg-warning { background-color: var(--warning-color) !important; }
+.workflow-preview .progress-bar.bg-info { background-color: var(--info-color) !important; }
+
+/* Signature target overlay */
+.signature-target {
+    position: absolute;
+    border: 2px dashed #16a34a;
+    background: rgba(16, 163, 69, 0.08);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #16a34a;
+    font-weight: 600;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.signature-target:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(16,185,129,.25); }
+
+/* Inline signature pad container */
+.signature-pad {
+    background: linear-gradient(135deg, var(--lightest-bg) 0%, var(--light-bg) 100%);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 0.75rem;
+    box-shadow: var(--card-shadow);
+    margin-top: 0.5rem;
+}
+.signature-pad canvas#signatureCanvas {
+    width: 100%;
+    height: 200px;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
 }
 
 /* Enhanced Form Sections - Based on createdocument.css */
@@ -1908,8 +2070,6 @@ body {
 .pdf-content {
     padding: 2rem;
     min-height: 400px;
-    max-height: 600px;
-    overflow-y: auto;
     background: white;
 }
 

@@ -11,6 +11,8 @@ class DocumentNotificationSystem {
         this.currentDocument = null;
         this.currentUser = window.currentUser || null;
         this.apiBase = '../api/documents.php';
+        this.signatureImage = null;
+        this.currentSignatureMap = null;
     }
 
     // Initialize the application
@@ -26,6 +28,25 @@ class DocumentNotificationSystem {
         this.renderDocuments();
         this.setupEventListeners();
         this.updateStatsDisplay();
+    }
+
+    // Create a mock document via API then reload list
+    async createMockDocument() {
+        try {
+            const res = await fetch('../api/documents.php?action=generate_mock');
+            const data = await res.json();
+            if (data.success) {
+                this.showToast({ type: 'success', title: 'Mock Created', message: 'Mock document generated.' });
+                await this.loadDocuments();
+                this.renderDocuments();
+                this.updateStatsDisplay();
+            } else {
+                throw new Error(data.message || 'Failed to create mock');
+            }
+        } catch (e) {
+            console.error(e);
+            this.showToast({ type: 'error', title: 'Error', message: 'Failed to create mock document.' });
+        }
     }
 
     // Load documents from API
@@ -152,7 +173,7 @@ class DocumentNotificationSystem {
         };
     }
 
-    // Render documents in dashboard
+    // Render documents in dashboard (old cards design)
     renderDocuments() {
         const container = document.getElementById('documentsContainer');
         if (!container) return;
@@ -162,6 +183,7 @@ class DocumentNotificationSystem {
 
         setTimeout(() => {
             container.innerHTML = '';
+
             if (this.documents.length === 0) {
                 container.innerHTML = `
                     <div class="col-12 text-center py-5">
@@ -179,64 +201,124 @@ class DocumentNotificationSystem {
                 const card = this.createDocumentCard(doc);
                 container.appendChild(card);
             });
+
+            this.updateStatsDisplay();
         }, 300);
     }
 
-    // Create document card
+    // Create document card (old cards design)
     createDocumentCard(doc) {
         const col = document.createElement('div');
-        col.className = 'col-lg-6 col-xl-4';
+        col.className = 'col-md-6 col-lg-4';
 
         const statusInfo = this.getStatusInfo(doc.status);
-        const currentStep = doc.workflow.find(step => step.status === 'pending') || doc.workflow[0];
+        const dueDate = this.getDueDate(doc);
+        const daysUntilDue = this.getDaysUntilDue(dueDate);
+        const progressPct = this.computeProgress(doc);
+        const fromWho = doc.student?.department || doc.from || 'Unknown';
+        const docType = this.formatDocType(doc.doc_type || doc.type);
 
         col.innerHTML = `
-            <div class="document-card" onclick="documentSystem.openDocument(${doc.id})">
-                <div class="card-header">
-                    <div class="card-type">
-                        <i class="bi bi-file-earmark-text"></i>
-                        <span>${this.formatDocType(doc.doc_type)}</span>
-                    </div>
-                    <div class="card-status status-${statusInfo.class}">
-                        <i class="bi bi-${statusInfo.icon}"></i>
-                        <span>${statusInfo.label}</span>
-                    </div>
-                </div>
+            <div class="card document-card h-100" onclick="documentSystem.openDocument(${doc.id})" tabindex="0" role="button" aria-label="Open ${this.escapeHtml(doc.title)}">
                 <div class="card-body">
-                    <h5 class="card-title">${doc.title}</h5>
-                    <p class="card-description">${doc.description || 'No description provided'}</p>
-                    <div class="card-meta">
-                        <div class="meta-item">
-                            <i class="bi bi-person"></i>
-                            <span>${doc.student.name}</span>
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h6 class="card-title mb-0 fw-semibold">${this.escapeHtml(doc.title)}</h6>
+                        <span class="status-badge ${this.escapeHtml(doc.status)}">
+                            <i class="bi bi-${statusInfo.icon} me-1"></i>${String(doc.status || '').toUpperCase()}
+                        </span>
+                    </div>
+
+                    <div class="document-info mb-3">
+                        <div class="d-flex align-items-center text-muted mb-2">
+                            <i class="bi bi-folder me-2"></i>
+                            <span class="fs-sm">${this.escapeHtml(docType)}</span>
                         </div>
-                        <div class="meta-item">
-                            <i class="bi bi-building"></i>
-                            <span>${doc.student.department}</span>
+                        <div class="d-flex align-items-center text-muted mb-2">
+                            <i class="bi bi-person me-2"></i>
+                            <span class="fs-sm">From: ${this.escapeHtml(fromWho)}</span>
                         </div>
-                        <div class="meta-item">
-                            <i class="bi bi-calendar"></i>
-                            <span>${this.formatDate(doc.uploaded_at)}</span>
+                        <div class="d-flex align-items-center text-muted">
+                            <i class="bi bi-calendar me-2"></i>
+                            <span class="fs-sm">Due: ${dueDate ? this.formatDate(dueDate) : '—'}</span>
+                            ${daysUntilDue !== null ? 
+                                `<span class="badge ${daysUntilDue <= 1 ? 'bg-danger' : daysUntilDue <= 3 ? 'bg-warning' : 'bg-info'} ms-2 fs-sm">${daysUntilDue === 0 ? 'Today' : daysUntilDue === 1 ? '1 day' : `${daysUntilDue} days`}</span>`
+                                : '<span class="badge bg-secondary ms-2 fs-sm">Overdue</span>'}
                         </div>
                     </div>
-                    <div class="current-step">
-                        <div class="step-info">
-                            <span class="step-label">Current Step:</span>
-                            <span class="step-name">${currentStep ? currentStep.name : 'N/A'}</span>
+
+                    <div class="workflow-preview">
+                        <small class="text-muted">Workflow Progress:</small>
+                        <div class="progress mt-1" style="height: 6px;">
+                            <div class="progress-bar ${doc.status === 'submitted' ? 'bg-danger' : doc.status === 'in_review' ? 'bg-warning' : 'bg-info'}" style="width: ${progressPct}%"></div>
                         </div>
-                    </div>
-                </div>
-                <div class="card-footer">
-                    <div class="action-buttons">
-                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); documentSystem.openDocument(${doc.id})">
-                            <i class="bi bi-eye me-1"></i>Review
-                        </button>
                     </div>
                 </div>
             </div>
         `;
 
+        // Keyboard support for opening on Enter/Space
+        const cardEl = col.querySelector('.document-card');
+        cardEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.openDocument(doc.id);
+            }
+        });
+
         return col;
+    }
+
+    // Helpers for due date and progress (compatible with API + mock)
+    getDueDate(doc) {
+        // Prefer explicit due_date if provided by API
+        const explicit = doc.due_date || doc.dueDate;
+        if (explicit) {
+            const d = new Date(explicit);
+            return isNaN(d.getTime()) ? null : d;
+        }
+        // Fallback: derive from uploaded_at and status
+        const uploaded = doc.uploaded_at ? new Date(doc.uploaded_at) : null;
+        if (!uploaded || isNaN(uploaded.getTime())) return null;
+        const base = new Date(uploaded.getTime());
+        const addDays = (n) => new Date(uploaded.getTime() + n * 86400000);
+        switch (doc.status) {
+            case 'submitted':
+                return addDays(2);
+            case 'in_review':
+                return addDays(4);
+            case 'approved':
+                return addDays(0);
+            case 'rejected':
+                return addDays(0);
+            default:
+                return base;
+        }
+    }
+
+    getDaysUntilDue(dueDate) {
+        if (!dueDate) return null;
+        const now = new Date();
+        const diffMs = dueDate.getTime() - now.getTime();
+        const days = Math.ceil(diffMs / 86400000);
+        return days < 0 ? null : days;
+    }
+
+    computeProgress(doc) {
+        const wf = Array.isArray(doc.workflow) ? doc.workflow : [];
+        if (wf.length === 0) return 0;
+        const done = wf.filter(s => s.status === 'completed').length;
+        return Math.round((done / wf.length) * 100);
+    }
+
+    // Escape for safe HTML injection
+    escapeHtml(str) {
+        if (str == null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     // Get status information
@@ -305,16 +387,11 @@ class DocumentNotificationSystem {
         }, 300);
     }
 
-    // Open document modal
-        async openDocument(docId) {
-        const doc = this.documents.find(d => d.id === docId);
-        if (!doc) return;
-
-        // track in controller (used by Sign button outside modal)
-        this.currentDocument = doc;
-
-        // Show loading modal
-        this.showDocumentModal(doc, true);
+    // Open inline detail instead of modal
+    async openDocument(docId) {
+        const skeleton = this.documents.find(d => d.id === docId);
+        if (!skeleton) return;
+        this.currentDocument = skeleton;
 
         try {
             const response = await fetch(`../api/documents.php?id=${docId}`, {
@@ -323,119 +400,326 @@ class DocumentNotificationSystem {
             });
             if (!response.ok) throw new Error('Failed to load document details');
             const fullDoc = await response.json();
-            // ensure currentDocument reflects latest payload
             this.currentDocument = fullDoc;
-            this.showDocumentModal(fullDoc, false);
+            this.renderDocumentDetail(fullDoc);
         } catch (error) {
             console.error('Error loading document:', error);
-            this.showToast({
-                type: 'error',
-                title: 'Error',
-                message: 'Failed to load document details. Please try again.'
-            });
+            // Fallback to skeleton if API fails
+            this.renderDocumentDetail(this.currentDocument);
+            this.showToast({ type: 'warning', title: 'Offline', message: 'Showing cached details.' });
         }
     }
 
-    // Show document modal
-    showDocumentModal(doc, loading = false) {
-        const modal = document.getElementById('documentModal');
-        if (!modal) return;
+    // Render detail section inline
+    renderDocumentDetail(doc) {
+        const dashboard = document.getElementById('dashboardView');
+        const detail = document.getElementById('documentView');
+        if (!dashboard || !detail) return;
 
-        if (loading) {
-            modal.innerHTML = `
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Loading Document...</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body text-center">
-                            <div class="loading" style="height: 200px;"></div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        } else {
-            const statusInfo = this.getStatusInfo(doc.status);
-            const currentStep = doc.workflow.find(step => step.status === 'pending') || doc.workflow[0];
+        dashboard.style.display = 'none';
+        detail.style.display = 'block';
 
-            modal.innerHTML = `
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">
-                                <i class="bi bi-file-earmark-text me-2"></i>${doc.title}
-                            </h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="document-details">
-                                <div class="row mb-4">
-                                    <div class="col-md-6">
-                                        <div class="detail-item">
-                                            <label class="detail-label">Document Type:</label>
-                                            <span class="detail-value">${this.formatDocType(doc.doc_type)}</span>
-                                        </div>
-                                        <div class="detail-item">
-                                            <label class="detail-label">Status:</label>
-                                            <span class="detail-value status-${statusInfo.class}">${statusInfo.label}</span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="detail-item">
-                                            <label class="detail-label">Student:</label>
-                                            <span class="detail-value">${doc.student.name}</span>
-                                        </div>
-                                        <div class="detail-item">
-                                            <label class="detail-label">Department:</label>
-                                            <span class="detail-value">${doc.student.department}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="document-description mb-4">
-                                    <h6>Description:</h6>
-                                    <p>${doc.description || 'No description provided'}</p>
-                                </div>
-                                <div class="workflow-section mb-4">
-                                    <h6>Workflow Progress:</h6>
-                                    <div class="workflow-steps">
-                                        ${doc.workflow.map((step, index) => `
-                                            <div class="workflow-step ${step.status}">
-                                                <div class="step-number">${index + 1}</div>
-                                                <div class="step-content">
-                                                    <div class="step-name">${step.name}</div>
-                                                    <div class="step-assignee">${step.assignee_name || 'Unassigned'}</div>
-                                                    <div class="step-status">${this.formatStepStatus(step.status)}</div>
-                                                </div>
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                </div>
-                                ${doc.file_path ? `
-                                    <div class="document-file mb-4">
-                                        <h6>Attached File:</h6>
-                                        <div class="file-preview">
-                                            <i class="bi bi-file-earmark-pdf"></i>
-                                            <span>${doc.file_path.split('/').pop()}</span>
-                                            <a href="${doc.file_path}" target="_blank" class="btn btn-sm btn-outline-primary ms-2">
-                                                <i class="bi bi-download me-1"></i>Download
-                                            </a>
-                                        </div>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            ${this.getActionButtons(doc)}
-                        </div>
-                    </div>
-                </div>
-            `;
+        // Status badge
+        const statusInfo = this.getStatusInfo(doc.status);
+        const docStatus = document.getElementById('docStatus');
+        if (docStatus) {
+            docStatus.textContent = statusInfo.label;
+            docStatus.className = `status-badge ${statusInfo.class}`;
         }
 
-        // Show modal
-        const bsModal = new bootstrap.Modal(modal);
-        bsModal.show();
+        // Title & file info
+        const docTitle = document.getElementById('docTitle');
+        const pdfFileName = document.getElementById('pdfFileName');
+        const pdfTitle = document.getElementById('pdfTitle');
+        if (docTitle) docTitle.textContent = doc.title || 'Document';
+        const fileName = (doc.file_path || '').split('/').pop() || 'Document.pdf';
+        if (pdfFileName) pdfFileName.textContent = fileName;
+        if (pdfTitle) pdfTitle.textContent = doc.description || 'Document content preview';
+
+        // PDF host
+        const pdfContent = document.getElementById('pdfContent');
+        if (pdfContent) {
+            pdfContent.innerHTML = '';
+            pdfContent.style.position = 'relative';
+            if (doc.file_path && /\.pdf(\?|$)/i.test(doc.file_path)) {
+                const obj = document.createElement('object');
+                obj.type = 'application/pdf';
+                obj.data = doc.file_path;
+                obj.className = 'pdf-embed';
+                obj.setAttribute('aria-label', 'PDF Preview');
+                pdfContent.appendChild(obj);
+            } else {
+                const ph = document.createElement('div');
+                ph.className = 'pdf-placeholder';
+                ph.innerHTML = `<h4>${doc.title}</h4><p>${doc.description || ''}</p>`;
+                pdfContent.appendChild(ph);
+            }
+            this.initClickToPlace(pdfContent); // Enable click-to-place
+        }
+
+        // Workflow compact list
+        const workflowSteps = document.getElementById('workflowSteps');
+        if (workflowSteps) {
+            workflowSteps.innerHTML = (doc.workflow || []).map(step => `
+                <div class="workflow-step-compact ${step.status}">
+                    <div class="workflow-icon ${step.status}">
+                        <i class="bi ${step.status === 'completed' ? 'bi-check2-circle' : step.status === 'rejected' ? 'bi-x-circle' : 'bi-hourglass-split'}"></i>
+                    </div>
+                    <div class="workflow-content">
+                        <div class="step-name">${step.name}</div>
+                        <div class="step-date">${step.assignee_name || 'Unassigned'}${step.acted_at ? ' • ' + new Date(step.acted_at).toLocaleString() : ''}</div>
+                    </div>
+                </div>`).join('');
+        }
+
+        // Signature target overlay
+        this.renderSignatureOverlay(doc);
+
+        // Rebind notes debounce
+        const notesInput = document.getElementById('notesInput');
+        if (notesInput) {
+            notesInput.removeEventListener('input', this._notesHandler || (()=>{}));
+            this._notesHandler = this.debounce(() => this.saveNotes(), 500);
+            notesInput.addEventListener('input', this._notesHandler);
+        }
+    }
+
+    // Overlay signature target area based on signature_map (inline)
+    renderSignatureOverlay(doc) {
+        if (!doc || !doc.signature_map) return;
+        const { x_pct, y_pct, w_pct, h_pct, label } = doc.signature_map;
+        const content = document.getElementById('pdfContent');
+        if (!content) return;
+
+        content.style.position = 'relative';
+
+        let box = content.querySelector('.signature-target');
+        if (!box) {
+            box = document.createElement('div');
+            box.className = 'signature-target draggable';
+            box.title = 'Drag to move, resize handle to adjust size';
+            content.appendChild(box);
+            this.makeDraggable(box, content);
+            this.makeResizable(box, content);
+            box.addEventListener('click', () => {
+                const pad = document.getElementById('signaturePadContainer');
+                if (pad && pad.classList.contains('d-none')) {
+                    pad.classList.remove('d-none');
+                    this.initSignaturePad();
+                }
+            });
+        }
+
+        const rect = content.getBoundingClientRect();
+        const cw = rect.width || content.clientWidth || 800;
+        const ch = content.clientHeight || 600;
+        box.style.left = (cw * x_pct) + 'px';
+        box.style.top = (ch * y_pct) + 'px';
+        box.style.width = (cw * w_pct) + 'px';
+        box.style.height = (ch * h_pct) + 'px';
+        box.textContent = label || 'Sign here';
+
+        if (this.signatureImage) this.updateSignatureOverlayImage();
+    }
+
+    // Make signature target draggable
+    makeDraggable(element, container) {
+        let isDragging = false;
+        let startX, startY, initialX, initialY;
+
+        element.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('resize-handle')) return; // Don't drag if resizing
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            initialX = element.offsetLeft;
+            initialY = element.offsetTop;
+            element.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            let newX = initialX + dx;
+            let newY = initialY + dy;
+            const containerRect = container.getBoundingClientRect();
+            const elementRect = element.getBoundingClientRect();
+            // Constrain to container bounds
+            newX = Math.max(0, Math.min(newX, containerRect.width - elementRect.width));
+            newY = Math.max(0, Math.min(newY, containerRect.height - elementRect.height));
+            element.style.left = newX + 'px';
+            element.style.top = newY + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                element.style.cursor = 'grab';
+                this.updateSignatureMap(element, container); // Save position
+            }
+        });
+    }
+
+    // Make signature target resizable
+    makeResizable(element, container) {
+        const handle = document.createElement('div');
+        handle.className = 'resize-handle';
+        element.appendChild(handle);
+
+        let isResizing = false;
+        let startX, startY, startWidth, startHeight;
+
+        handle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startWidth = element.offsetWidth;
+            startHeight = element.offsetHeight;
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            let newWidth = startWidth + dx;
+            let newHeight = startHeight + dy;
+            const containerRect = container.getBoundingClientRect();
+            // Constrain to container bounds
+            newWidth = Math.max(50, Math.min(newWidth, containerRect.width - element.offsetLeft));
+            newHeight = Math.max(30, Math.min(newHeight, containerRect.height - element.offsetTop));
+            element.style.width = newWidth + 'px';
+            element.style.height = newHeight + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                this.updateSignatureMap(element, container); // Save size
+            }
+        });
+    }
+
+    // Update signature map with current position/size
+    updateSignatureMap(element, container) {
+        const rect = container.getBoundingClientRect();
+        const cw = rect.width;
+        const ch = rect.height;
+        const elRect = element.getBoundingClientRect();
+        const x_pct = elRect.left / cw;
+        const y_pct = elRect.top / ch;
+        const w_pct = elRect.width / cw;
+        const h_pct = elRect.height / ch;
+        this.currentSignatureMap = { x_pct, y_pct, w_pct, h_pct, label: 'Sign here' };
+    }
+
+    // Allow click-to-place new signature target
+    initClickToPlace(container) {
+        container.addEventListener('click', (e) => {
+            if (e.target.closest('.signature-target')) return; // Don't place if clicking existing
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            let box = container.querySelector('.signature-target');
+            if (!box) {
+                box = document.createElement('div');
+                box.className = 'signature-target draggable';
+                box.title = 'Drag to move, resize handle to adjust size';
+                container.appendChild(box);
+                this.makeDraggable(box, container);
+                this.makeResizable(box, container);
+                box.addEventListener('click', () => {
+                    const pad = document.getElementById('signaturePadContainer');
+                    if (pad && pad.classList.contains('d-none')) {
+                        pad.classList.remove('d-none');
+                        this.initSignaturePad();
+                    }
+                });
+            }
+            box.style.left = x + 'px';
+            box.style.top = y + 'px';
+            box.style.width = '100px'; // Default size
+            box.style.height = '50px';
+            box.textContent = 'Sign here';
+            this.updateSignatureMap(box, container);
+        });
+    }
+
+    // Initialize inline signature pad
+    initSignaturePad() {
+        const container = document.getElementById('signaturePadContainer');
+        const canvas = document.getElementById('signatureCanvas');
+        if (!container || !canvas) return;
+
+        const width = container.clientWidth ? Math.min(container.clientWidth - 16, 560) : 560;
+        canvas.width = width;
+        canvas.height = 200;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        this._initCanvasDrawing(canvas);
+
+        const clearBtn = document.getElementById('sigClearBtn');
+        const saveBtn = document.getElementById('sigSaveBtn');
+        if (clearBtn) clearBtn.onclick = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height); };
+        if (saveBtn) saveBtn.onclick = () => {
+            this.signatureImage = canvas.toDataURL('image/png');
+            this.updateSignatureOverlayImage();
+            const placeholder = document.getElementById('signaturePlaceholder');
+            const applied = document.getElementById('appliedSignature');
+            if (placeholder) placeholder.style.display = 'none';
+            if (applied) applied.style.display = 'flex';
+            this.showToast({ type: 'success', title: 'Signature Saved', message: 'Signature ready to apply.' });
+        };
+    }
+
+    _initCanvasDrawing(canvas) {
+        let drawing = false;
+        const ctx = canvas.getContext('2d');
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 2.2;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+
+        const pos = (e) => {
+            const r = canvas.getBoundingClientRect();
+            const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+            const y = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+            return { x, y };
+        };
+
+        const start = (e) => { drawing = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); };
+        const move = (e) => { if (!drawing) return; const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); };
+        const end = () => { drawing = false; };
+
+        canvas.onmousedown = start; canvas.onmousemove = move; window.addEventListener('mouseup', end);
+        canvas.ontouchstart = start; canvas.ontouchmove = move; window.addEventListener('touchend', end);
+
+        const clearBtn = document.getElementById('sigClearBtn');
+        const saveBtn = document.getElementById('sigSaveBtn');
+        if (clearBtn) clearBtn.onclick = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height); };
+        if (saveBtn) saveBtn.onclick = () => {
+            this.signatureImage = canvas.toDataURL('image/png');
+            this.updateSignatureOverlayImage();
+            this.showToast({ type: 'success', title: 'Signature Saved', message: 'Signature ready to apply.' });
+        };
+    }
+
+    updateSignatureOverlayImage() {
+        let content = document.getElementById('pdfContent');
+        const box = content?.querySelector('.signature-target');
+        if (!box || !this.signatureImage) return;
+        box.textContent = '';
+        const img = new Image();
+        img.src = this.signatureImage;
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '100%';
+        img.style.objectFit = 'contain';
+        box.appendChild(img);
     }
 
     // Get action buttons based on document status and user role
@@ -482,11 +766,14 @@ class DocumentNotificationSystem {
                 : this.documents.find(d => d.id === docId);
             const pendingStep = doc?.workflow?.find(s => s.status === 'pending');
             const stepId = pendingStep?.id || undefined;
+            const body = { action: 'sign', document_id: docId, step_id: stepId };
+            if (this.signatureImage) body.signature_image = this.signatureImage;
+            if (this.currentSignatureMap) body.signature_map = this.currentSignatureMap; // Include updated map
 
             const response = await fetch('../api/documents.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'sign', document_id: docId, step_id: stepId })
+                body: JSON.stringify(body)
             });
             const result = await response.json();
 
@@ -602,12 +889,22 @@ class DocumentNotificationSystem {
 
 // Initialize the document notification system
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize toast manager
     if (typeof ToastManager !== 'undefined') {
         window.toastManager = new ToastManager();
     }
 
-    // Initialize document system
     window.documentSystem = new DocumentNotificationSystem();
     window.documentSystem.init();
+
+    // Expose safe global wrapper for button onclick
+    window.createMockDocument = function () {
+        if (window.documentSystem && typeof window.documentSystem.createMockDocument === 'function') {
+            return window.documentSystem.createMockDocument();
+        }
+        if (window.ToastManager) {
+            ToastManager.info('Initializing… please try again.', 'Info');
+        } else {
+            alert('Initializing… please try again.');
+        }
+    };
 });

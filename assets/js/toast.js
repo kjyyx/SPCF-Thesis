@@ -9,7 +9,12 @@ class ToastManager {
     }
 
     init() {
-        this.createToastContainer();
+        // If DOM not ready yet, defer container creation
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.createToastContainer(), { once: true });
+        } else {
+            this.createToastContainer();
+        }
     }
 
     createToastContainer() {
@@ -24,19 +29,37 @@ class ToastManager {
         this.container.id = 'toast-container';
         this.container.className = 'toast-container position-fixed top-0 end-0 p-3';
         this.container.style.zIndex = '1080';
-        document.body.appendChild(this.container);
+        if (document.body) {
+            document.body.appendChild(this.container);
+        } else {
+            // In unlikely case body is missing, wait until DOMContentLoaded
+            document.addEventListener('DOMContentLoaded', () => {
+                if (!document.getElementById('toast-container')) {
+                    document.body.appendChild(this.container);
+                }
+            }, { once: true });
+        }
     }
 
-    show({ 
-        type = 'info', 
-        title = '', 
-        message = '', 
+        show({
+        type = 'info',
+        title = '',
+        message = '',
         duration = 4000,
         showClose = true,
-        autohide = true 
+        autohide = true
     }) {
-        const toastId = 'toast-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-        
+        // Ensure container exists
+        if (!this.container || !document.getElementById('toast-container')) {
+            this.createToastContainer();
+        }
+        if (!this.container) {
+            // As a last resort, avoid crashing
+            console.warn('ToastManager: container not available, falling back to alert');
+            if (message) alert(`${title || this.getDefaultTitle(type)}: ${message}`);
+            return null;
+        }
+
         const iconMap = {
             success: 'check-circle-fill',
             error: 'exclamation-triangle-fill',
@@ -64,27 +87,72 @@ class ToastManager {
             danger: 'bg-danger-subtle border-danger'
         };
 
-        const toastHtml = `
-            <div class="toast ${bgMap[type] || bgMap.info}" role="alert" aria-live="assertive" aria-atomic="true" id="${toastId}" data-bs-autohide="${autohide}" data-bs-delay="${duration}">
-                <div class="toast-header ${bgMap[type] || bgMap.info}">
-                    <i class="bi bi-${iconMap[type] || iconMap.info} ${colorMap[type] || colorMap.info} me-2"></i>
-                    <strong class="me-auto">${title || this.getDefaultTitle(type)}</strong>
-                    <small class="text-muted">now</small>
-                    ${showClose ? '<button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>' : ''}
-                </div>
-                ${message ? `<div class="toast-body fw-medium">${message}</div>` : ''}
-            </div>
-        `;
+        // Build DOM elements safely (no innerHTML parsing)
+        const toastEl = document.createElement('div');
+        toastEl.className = `toast ${bgMap[type] || bgMap.info}`;
+        toastEl.setAttribute('role', 'alert');
+        toastEl.setAttribute('aria-live', 'assertive');
+        toastEl.setAttribute('aria-atomic', 'true');
+        toastEl.dataset.bsAutohide = String(autohide);
+        toastEl.dataset.bsDelay = String(duration);
 
-        this.container.insertAdjacentHTML('beforeend', toastHtml);
-        
-        const toastElement = document.getElementById(toastId);
-        const toast = new bootstrap.Toast(toastElement);
-        
+        const header = document.createElement('div');
+        header.className = `toast-header ${bgMap[type] || bgMap.info}`;
+
+        const icon = document.createElement('i');
+        icon.className = `bi bi-${iconMap[type] || iconMap.info} ${colorMap[type] || colorMap.info} me-2`;
+
+        const strong = document.createElement('strong');
+        strong.className = 'me-auto';
+        strong.textContent = title || this.getDefaultTitle(type);
+
+        const small = document.createElement('small');
+        small.className = 'text-muted';
+        small.textContent = 'now';
+
+        header.appendChild(icon);
+        header.appendChild(strong);
+        header.appendChild(small);
+
+        if (showClose) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn-close';
+            btn.setAttribute('data-bs-dismiss', 'toast');
+            btn.setAttribute('aria-label', 'Close');
+            header.appendChild(btn);
+        }
+
+        toastEl.appendChild(header);
+
+        if (message) {
+            const body = document.createElement('div');
+            body.className = 'toast-body fw-medium';
+            body.textContent = message;
+            toastEl.appendChild(body);
+        }
+
+        this.container.appendChild(toastEl);
+
+        // Initialize bootstrap toast
+        let toast;
+        try {
+            if (typeof bootstrap === 'undefined' || !bootstrap.Toast) {
+                throw new Error('Bootstrap Toast not available');
+            }
+            toast = new bootstrap.Toast(toastEl);
+        } catch (e) {
+            console.warn('ToastManager: Bootstrap Toast init failed, fallback to timeout removal', e);
+            setTimeout(() => toastEl.remove(), duration);
+            return null;
+        }
+
         // Auto-remove from DOM after toast is hidden
-        toastElement.addEventListener('hidden.bs.toast', () => {
-            toastElement.remove();
-        });
+        if (typeof toastEl.addEventListener === 'function') {
+            toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+        } else {
+            setTimeout(() => toastEl.remove(), duration + 1000);
+        }
 
         toast.show();
         return toast;

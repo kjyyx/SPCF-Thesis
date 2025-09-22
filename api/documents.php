@@ -44,6 +44,12 @@ function handleGet() {
     global $db, $currentUser;
 
     try {
+        // Generate a mock document with sample PDF and signature mapping
+        if (isset($_GET['action']) && $_GET['action'] === 'generate_mock') {
+            generateMockDocument();
+            return;
+        }
+
         // If a specific document id is requested, return full details for modal view
         if (isset($_GET['id']) && is_numeric($_GET['id'])) {
             $documentId = (int) $_GET['id'];
@@ -110,6 +116,18 @@ function handleGet() {
                 'workflow' => $steps,
                 'file_path' => $filePath
             ];
+
+            // Attach signature mapping if available (percent-based coordinates)
+            $mockDir = realpath(__DIR__ . '/../assets') . DIRECTORY_SEPARATOR . 'mock';
+            if ($mockDir && is_dir($mockDir)) {
+                $mapFile = $mockDir . DIRECTORY_SEPARATOR . 'signature_map_' . $documentId . '.json';
+                if (file_exists($mapFile)) {
+                    $mapJson = json_decode(file_get_contents($mapFile), true);
+                    if (is_array($mapJson)) {
+                        $payload['signature_map'] = $mapJson;
+                    }
+                }
+            }
 
             // Return as a plain object (notifications.js expects no wrapper)
             echo json_encode($payload);
@@ -255,17 +273,40 @@ function signDocument($input) {
         $stepId = (int)$row['id'];
     }
 
+    // Optional signature image data URL -> save as PNG
+    $signaturePathForDB = null;
+    if (!empty($input['signature_image']) && is_string($input['signature_image'])) {
+        $prefix = 'data:image/png;base64,';
+        if (strpos($input['signature_image'], $prefix) === 0) {
+            $base64 = substr($input['signature_image'], strlen($prefix));
+            $bin = base64_decode($base64);
+            if ($bin !== false) {
+                $sigDir = realpath(__DIR__ . '/../assets');
+                if (!$sigDir) { $sigDir = __DIR__ . '/../assets'; }
+                $sigDir = rtrim($sigDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'signatures';
+                if (!is_dir($sigDir)) {
+                    @mkdir($sigDir, 0775, true);
+                }
+                $fn = 'signature_doc' . $documentId . '_emp' . $currentUser['id'] . '_' . time() . '.png';
+                $abs = $sigDir . DIRECTORY_SEPARATOR . $fn;
+                if (@file_put_contents($abs, $bin) !== false) {
+                    $signaturePathForDB = '../assets/signatures/' . $fn; // web-relative path
+                }
+            }
+        }
+    }
+
     $db->beginTransaction();
 
     try {
-        // Update document signature
+        // Update document signature (store signature image path if provided)
         $stmt = $db->prepare("
             INSERT INTO document_signatures (document_id, step_id, employee_id, status, signed_at, signature_path)
-            VALUES (?, ?, ?, 'signed', NOW(), NULL)
+            VALUES (?, ?, ?, 'signed', NOW(), ?)
             ON DUPLICATE KEY UPDATE
-            status = 'signed', signed_at = NOW(), signature_path = NULL
+            status = 'signed', signed_at = NOW(), signature_path = VALUES(signature_path)
         ");
-        $stmt->execute([$documentId, $stepId, $currentUser['id']]);
+        $stmt->execute([$documentId, $stepId, $currentUser['id'], $signaturePathForDB]);
 
         // Update document step
         $stmt = $db->prepare("
@@ -430,6 +471,84 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
         ]);
     } catch (Exception $e) {
         error_log("Failed to add audit log: " . $e->getMessage());
+    }
+}
+
+// Seed a mock document with a sample PDF and signature mapping JSON
+function generateMockDocument() {
+    global $db, $currentUser;
+
+    if (!$currentUser || $currentUser['role'] !== 'employee') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Forbidden']);
+        return;
+    }
+
+    try {
+        // Ensure demo student exists
+        $studentId = 'STU101';
+        $q = $db->prepare("SELECT id FROM students WHERE id = ?");
+        $q->execute([$studentId]);
+        if (!$q->fetch()) {
+            $ins = $db->prepare("INSERT INTO students (id, first_name, last_name, email, password, department, position) VALUES (?,?,?,?,?,'College of Engineering','Student')");
+            // Use a unique email to avoid violating UNIQUE(email)
+            $ins->execute([$studentId, 'Juan', 'Dela Cruz', 'mock.student101@university.edu', password_hash('password', PASSWORD_BCRYPT)]);
+        }
+
+        // Create document
+        $stmt = $db->prepare("INSERT INTO documents (student_id, doc_type, title, description, status, current_step, uploaded_at) VALUES (?,?,?,?, 'submitted', 1, NOW())");
+        $stmt->execute([
+            $studentId,
+            'proposal',
+            'Mock Research Proposal: Energy Efficiency',
+            'Auto-generated mock for testing PDF preview and e-signature placement.'
+        ]);
+        $docId = (int)$db->lastInsertId();
+
+        // Create a pending step assigned to current employee
+        $st = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status, acted_at, note) VALUES (?,?,?,?, 'pending', NULL, NULL)");
+        $st->execute([$docId, 1, 'Initial Review', $currentUser['id']]);
+
+        // Ensure mock dir exists
+        $assetsDir = realpath(__DIR__ . '/../assets');
+        if (!$assetsDir) { $assetsDir = __DIR__ . '/../assets'; }
+        $mockDir = rtrim($assetsDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'mock';
+        if (!is_dir($mockDir)) { @mkdir($mockDir, 0775, true); }
+
+        // Prefer existing sample2.pdf for mock preview; fallback to a tiny generated sample.pdf
+        $pdfPathAbs2 = $mockDir . DIRECTORY_SEPARATOR . 'sample2.pdf';
+        if (file_exists($pdfPathAbs2)) {
+            $pdfWebPath = '../assets/mock/sample2.pdf';
+        } else {
+            // Write a tiny PDF if fallback not present
+            $pdfPathAbs = $mockDir . DIRECTORY_SEPARATOR . 'sample.pdf';
+            if (!file_exists($pdfPathAbs)) {
+                $pdfBase64 = 'JVBERi0xLjQKJcTl8uXrp/CgIDAgb2JqCjw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+CmVuZG9iagoyIDAgb2JqCjw8L1R5cGUvUGFnZXMvS2lkc1szIDAgUl0vQ291bnQgMT4+CmVuZG9iagozIDAgb2JqCjw8L1R5cGUvUGFnZS9QYXJlbnQgMiAwIFIvTWVkaWFCb3hbMCAwIDU5NSA4NDJdL0NvbnRlbnRzIDQgMCBSL1Jlc291cmNlczw8L0ZvbnQ8PC9GMCA1IDAgUj4+Pj4+Pj4KZW5kb2JqCjQgMCBvYmoKPDwvTGVuZ3RoIDY3Pj4Kc3RyZWFtCkJUCi9GMCAxMiBUZgoxMDAgNzUwIFRkCihNb2NrIFBERiBmb3IgdGVzdGluZyAmIFNpZ25hdHVyZSBNYXBwaW5nKSBUagoKRVQKZW5kc3RyZWFtCmVuZG9iago1IDAgb2JqCjw8L1R5cGUvRm9udC9TdWJ0eXBlL1R5cGUxL0Jhc2VGb250L0hlbHZldGljYT4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwOTcgMDAwMDAgbiAKMDAwMDAwMDE5NyAwMDAwMCBuIAowMDAwMDAwNDExIDAwMDAwIG4gCjAwMDAwMDAxNDMgMDAwMDAgbiAKMDAwMDAwMDUwMyAwMDAwMCBuIAp0cmFpbGVyCjw8L1NpemUgNi9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjcyNQolJUVPRg==';
+                @file_put_contents($pdfPathAbs, base64_decode($pdfBase64));
+            }
+            $pdfWebPath = '../assets/mock/sample.pdf';
+        }
+
+        // Attach the PDF
+    $att = $db->prepare("INSERT INTO attachments (document_id, file_path, file_type, file_size_kb) VALUES (?,?, 'application/pdf', 12)");
+        $att->execute([$docId, $pdfWebPath]);
+
+        // Signature mapping JSON (percent-based coords relative to rendered box)
+        $map = [
+            'page' => 1,
+            'x_pct' => 0.62,
+            'y_pct' => 0.78,
+            'w_pct' => 0.28,
+            'h_pct' => 0.10,
+            'label' => 'Sign here'
+        ];
+        @file_put_contents($mockDir . DIRECTORY_SEPARATOR . 'signature_map_' . $docId . '.json', json_encode($map));
+
+        echo json_encode(['success' => true, 'document_id' => $docId]);
+    } catch (Exception $e) {
+        error_log('generateMockDocument error: ' . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Failed to generate mock document']);
     }
 }
 ?>

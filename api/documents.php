@@ -5,6 +5,15 @@ require_once '../includes/database.php';
 
 header('Content-Type: application/json');
 
+// Document timeout configuration
+if (!defined('DOC_TIMEOUT_DAYS')) {
+    define('DOC_TIMEOUT_DAYS', 5); // Auto-timeout threshold in days
+}
+if (!defined('DOC_TIMEOUT_MODE')) {
+    // 'reject' or 'delete' (soft-delete by setting documents.status = 'deleted')
+    define('DOC_TIMEOUT_MODE', 'reject');
+}
+
 // Initialize database connection
 $database = new Database();
 $db = $database->getConnection();
@@ -40,10 +49,13 @@ switch ($method) {
         break;
 }
 
-function handleGet() {
+function handleGet()
+{
     global $db, $currentUser;
 
     try {
+        // Enforce timeouts on stale documents before responding
+        enforceTimeouts();
         // Generate a mock document with sample PDF and signature mapping
         if (isset($_GET['action']) && $_GET['action'] === 'generate_mock') {
             generateMockDocument();
@@ -79,8 +91,8 @@ function handleGet() {
             $steps = [];
             while ($s = $stepsStmt->fetch(PDO::FETCH_ASSOC)) {
                 $steps[] = [
-                    'id' => (int)$s['id'],
-                    'step_order' => (int)$s['step_order'],
+                    'id' => (int) $s['id'],
+                    'step_order' => (int) $s['step_order'],
                     'name' => $s['name'],
                     'status' => $s['status'],
                     'note' => $s['note'],
@@ -101,12 +113,12 @@ function handleGet() {
             }
 
             $payload = [
-                'id' => (int)$doc['id'],
+                'id' => (int) $doc['id'],
                 'title' => $doc['title'],
                 'doc_type' => $doc['doc_type'],
                 'description' => $doc['description'],
                 'status' => $doc['status'],
-                'current_step' => (int)$doc['current_step'],
+                'current_step' => (int) $doc['current_step'],
                 'uploaded_at' => $doc['uploaded_at'],
                 'student' => [
                     'id' => $doc['student_id'],
@@ -221,13 +233,16 @@ function handleGet() {
     }
 }
 
-function handlePost() {
+function handlePost()
+{
     global $db, $currentUser;
 
     $input = json_decode(file_get_contents('php://input'), true);
     $action = $input['action'] ?? '';
 
     try {
+        // Enforce timeouts on stale documents before processing actions
+        enforceTimeouts();
         switch ($action) {
             case 'sign':
                 signDocument($input);
@@ -247,12 +262,14 @@ function handlePost() {
     }
 }
 
-function signDocument($input) {
+function signDocument($input)
+{
     global $db, $currentUser;
 
     $documentId = $input['document_id'] ?? 0;
     $stepId = $input['step_id'] ?? 0;
     $notes = $input['notes'] ?? '';
+    $signatureMap = $input['signature_map'] ?? null; // optional percent-based coordinates
 
     if (!$documentId) {
         http_response_code(400);
@@ -270,7 +287,7 @@ function signDocument($input) {
             echo json_encode(['success' => false, 'message' => 'No pending step assigned to you for this document']);
             return;
         }
-        $stepId = (int)$row['id'];
+        $stepId = (int) $row['id'];
     }
 
     // Optional signature image data URL -> save as PNG
@@ -282,7 +299,9 @@ function signDocument($input) {
             $bin = base64_decode($base64);
             if ($bin !== false) {
                 $sigDir = realpath(__DIR__ . '/../assets');
-                if (!$sigDir) { $sigDir = __DIR__ . '/../assets'; }
+                if (!$sigDir) {
+                    $sigDir = __DIR__ . '/../assets';
+                }
                 $sigDir = rtrim($sigDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'signatures';
                 if (!is_dir($sigDir)) {
                     @mkdir($sigDir, 0775, true);
@@ -316,6 +335,25 @@ function signDocument($input) {
         ");
         $stmt->execute([$notes, $stepId, $currentUser['id']]);
 
+        // Persist signature mapping (percent-based) if provided
+        if (is_array($signatureMap)) {
+            try {
+                $assetsDir = realpath(__DIR__ . '/../assets');
+                if (!$assetsDir) {
+                    $assetsDir = __DIR__ . '/../assets';
+                }
+                $mockDir = rtrim($assetsDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'mock';
+                if (!is_dir($mockDir)) {
+                    @mkdir($mockDir, 0775, true);
+                }
+                $mapPath = $mockDir . DIRECTORY_SEPARATOR . 'signature_map_' . $documentId . '.json';
+                @file_put_contents($mapPath, json_encode($signatureMap));
+            } catch (Exception $e) {
+                // Do not fail signing if map persistence fails; just log
+                error_log('Failed to persist signature_map: ' . $e->getMessage());
+            }
+        }
+
         // Check if all steps are completed
         $stmt = $db->prepare("
             SELECT COUNT(*) as total_steps,
@@ -345,9 +383,14 @@ function signDocument($input) {
         }
 
         // Add audit log
-        addAuditLog('DOCUMENT_SIGNED', 'Document Management',
+        addAuditLog(
+            'DOCUMENT_SIGNED',
+            'Document Management',
             "Document signed by {$currentUser['first_name']} {$currentUser['last_name']}",
-            $documentId, 'Document', 'INFO');
+            $documentId,
+            'Document',
+            'INFO'
+        );
 
         $db->commit();
 
@@ -363,7 +406,8 @@ function signDocument($input) {
     }
 }
 
-function rejectDocument($input) {
+function rejectDocument($input)
+{
     global $db, $currentUser;
 
     $documentId = $input['document_id'] ?? 0;
@@ -376,17 +420,24 @@ function rejectDocument($input) {
         return;
     }
 
-    // If stepId not provided, infer the current pending step assigned to this employee
+    // If stepId not provided, infer a step assigned to this employee
     if (!$stepId) {
+        // Prefer a pending step owned by this employee
         $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
         $q->execute([$documentId, $currentUser['id']]);
         $row = $q->fetch(PDO::FETCH_ASSOC);
         if (!$row) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'No pending step assigned to you for this document']);
-            return;
+            // Otherwise, allow any step assigned to this employee (any status)
+            $q2 = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? ORDER BY step_order ASC LIMIT 1");
+            $q2->execute([$documentId, $currentUser['id']]);
+            $row = $q2->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'No step assigned to you for this document']);
+                return;
+            }
         }
-        $stepId = (int)$row['id'];
+        $stepId = (int) $row['id'];
     }
 
     $db->beginTransaction();
@@ -418,9 +469,14 @@ function rejectDocument($input) {
         $stmt->execute([$documentId]);
 
         // Add audit log
-        addAuditLog('DOCUMENT_REJECTED', 'Document Management',
+        addAuditLog(
+            'DOCUMENT_REJECTED',
+            'Document Management',
             "Document rejected by {$currentUser['first_name']} {$currentUser['last_name']}: {$reason}",
-            $documentId, 'Document', 'WARNING');
+            $documentId,
+            'Document',
+            'WARNING'
+        );
 
         $db->commit();
 
@@ -436,19 +492,82 @@ function rejectDocument($input) {
     }
 }
 
-function handlePut() {
+/**
+ * Enforce timeouts on documents that have been pending beyond the configured threshold.
+ * - If DOC_TIMEOUT_MODE = 'reject', mark document and pending steps as rejected.
+ * - If DOC_TIMEOUT_MODE = 'delete', soft delete by setting documents.status = 'deleted'.
+ */
+function enforceTimeouts()
+{
+    global $db;
+
+    try {
+        // Identify stale documents
+        $sel = $db->prepare("
+            SELECT id FROM documents
+            WHERE status IN ('submitted', 'in_review')
+              AND DATEDIFF(NOW(), uploaded_at) >= ?
+        ");
+        $sel->execute([DOC_TIMEOUT_DAYS]);
+        $stale = $sel->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!$stale) {
+            return;
+        }
+
+        foreach ($stale as $docId) {
+            $db->beginTransaction();
+            try {
+                if (DOC_TIMEOUT_MODE === 'delete') {
+                    // Soft delete: mark as deleted
+                    $upd = $db->prepare("UPDATE documents SET status = 'deleted', updated_at = NOW() WHERE id = ? AND status IN ('submitted', 'in_review')");
+                    $upd->execute([$docId]);
+                } else {
+                    // Reject: mark pending steps and document as rejected
+                    $updSteps = $db->prepare("UPDATE document_steps SET status = 'rejected', acted_at = NOW(), note = CONCAT(COALESCE(note, ''), CASE WHEN COALESCE(note,'') <> '' THEN ' ' ELSE '' END, '[Auto-timeout after ', ?, ' days]') WHERE document_id = ? AND status = 'pending'");
+                    $updSteps->execute([DOC_TIMEOUT_DAYS, $docId]);
+
+                    $updDoc = $db->prepare("UPDATE documents SET status = 'rejected', updated_at = NOW() WHERE id = ? AND status IN ('submitted', 'in_review')");
+                    $updDoc->execute([$docId]);
+                }
+
+                // Audit log entry
+                @addAuditLog(
+                    'DOCUMENT_TIMEOUT',
+                    'Document Management',
+                    'Auto-timeout applied to document ID ' . $docId . ' after ' . DOC_TIMEOUT_DAYS . ' days (mode=' . DOC_TIMEOUT_MODE . ')',
+                    $docId,
+                    'Document',
+                    'WARNING'
+                );
+
+                $db->commit();
+            } catch (Exception $e) {
+                $db->rollBack();
+                error_log('enforceTimeouts failed for doc ' . $docId . ': ' . $e->getMessage());
+            }
+        }
+    } catch (Exception $e) {
+        error_log('enforceTimeouts error: ' . $e->getMessage());
+    }
+}
+
+function handlePut()
+{
     // Handle document updates if needed
     http_response_code(501);
     echo json_encode(['success' => false, 'message' => 'Not implemented']);
 }
 
-function handleDelete() {
+function handleDelete()
+{
     // Handle document deletion if needed
     http_response_code(501);
     echo json_encode(['success' => false, 'message' => 'Not implemented']);
 }
 
-function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
+function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO')
+{
     global $db, $currentUser;
 
     try {
@@ -475,7 +594,8 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 }
 
 // Seed a mock document with a sample PDF and signature mapping JSON
-function generateMockDocument() {
+function generateMockDocument()
+{
     global $db, $currentUser;
 
     if (!$currentUser || $currentUser['role'] !== 'employee') {
@@ -503,7 +623,7 @@ function generateMockDocument() {
             'Mock Research Proposal: Energy Efficiency',
             'Auto-generated mock for testing PDF preview and e-signature placement.'
         ]);
-        $docId = (int)$db->lastInsertId();
+        $docId = (int) $db->lastInsertId();
 
         // Create a pending step assigned to current employee
         $st = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status, acted_at, note) VALUES (?,?,?,?, 'pending', NULL, NULL)");
@@ -511,9 +631,13 @@ function generateMockDocument() {
 
         // Ensure mock dir exists
         $assetsDir = realpath(__DIR__ . '/../assets');
-        if (!$assetsDir) { $assetsDir = __DIR__ . '/../assets'; }
+        if (!$assetsDir) {
+            $assetsDir = __DIR__ . '/../assets';
+        }
         $mockDir = rtrim($assetsDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'mock';
-        if (!is_dir($mockDir)) { @mkdir($mockDir, 0775, true); }
+        if (!is_dir($mockDir)) {
+            @mkdir($mockDir, 0775, true);
+        }
 
         // Prefer existing sample2.pdf for mock preview; fallback to a tiny generated sample.pdf
         $pdfPathAbs2 = $mockDir . DIRECTORY_SEPARATOR . 'sample2.pdf';
@@ -530,7 +654,7 @@ function generateMockDocument() {
         }
 
         // Attach the PDF
-    $att = $db->prepare("INSERT INTO attachments (document_id, file_path, file_type, file_size_kb) VALUES (?,?, 'application/pdf', 12)");
+        $att = $db->prepare("INSERT INTO attachments (document_id, file_path, file_type, file_size_kb) VALUES (?,?, 'application/pdf', 12)");
         $att->execute([$docId, $pdfWebPath]);
 
         // Signature mapping JSON (percent-based coords relative to rendered box)

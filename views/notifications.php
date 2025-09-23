@@ -22,24 +22,25 @@ if (!$currentUser) {
     <meta name="description" content="Modern document notification and digital signature system">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <!-- Global shared styles + page-specific overrides -->
     <link rel="stylesheet" href="../assets/css/global.css">
     <link rel="stylesheet" href="../assets/css/event-calendar.css">
     <link rel="stylesheet" href="../assets/css/notifications.css">
     <link rel="stylesheet" href="../assets/css/toast.css">
-    
+
     <script>
         // Provide user data to JS (employee-only)
         window.currentUser = <?php
-            $jsUser = [
-                'id' => $currentUser['id'],
-                'firstName' => $currentUser['first_name'],
-                'lastName' => $currentUser['last_name'],
-                'role' => $currentUser['role'],
-                'email' => $currentUser['email']
-            ];
-            echo json_encode($jsUser);
+        $jsUser = [
+            'id' => $currentUser['id'],
+            'firstName' => $currentUser['first_name'],
+            'lastName' => $currentUser['last_name'],
+            'role' => $currentUser['role'],
+            'email' => $currentUser['email']
+        ];
+        echo json_encode($jsUser);
         ?>;
     </script>
 </head>
@@ -69,15 +70,22 @@ if (!$currentUser) {
 
                 <!-- Settings Dropdown -->
                 <div class="dropdown me-3">
-                    <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown">
                         <i class="bi bi-gear me-2"></i>Settings
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="#" onclick="openProfileSettings()"><i class="bi bi-person-gear me-2"></i>Profile</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="openChangePassword()"><i class="bi bi-key me-2"></i>Change Password</a></li>
-                        <li><a class="dropdown-item" href="event-calendar.php"><i class="bi bi-calendar-event me-2"></i>Calendar</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item text-danger" href="user-logout.php"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="openProfileSettings()"><i
+                                    class="bi bi-person-gear me-2"></i>Profile</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="openChangePassword()"><i
+                                    class="bi bi-key me-2"></i>Change Password</a></li>
+                        <li><a class="dropdown-item" href="event-calendar.php"><i
+                                    class="bi bi-calendar-event me-2"></i>Calendar</a></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li><a class="dropdown-item text-danger" href="user-logout.php"><i
+                                    class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
                     </ul>
                 </div>
             </div>
@@ -217,7 +225,11 @@ if (!$currentUser) {
                             <button class="btn btn-success btn-sm" onclick="signDocument()" title="Sign Document">
                                 <i class="bi bi-pen-fill me-1"></i>Sign
                             </button>
-                            <button class="btn btn-outline-primary btn-sm" onclick="toggleSignaturePad()" id="applySignatureBtn" title="Draw/Apply Signature">
+                            <button class="btn btn-outline-danger btn-sm" onclick="showRejectModal()" title="Reject Document">
+                                <i class="bi bi-x-circle me-1"></i>Reject
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm" onclick="toggleSignaturePad()"
+                                id="applySignatureBtn" title="Draw/Apply Signature">
                                 <i class="bi bi-person-check me-1"></i>Signature Pad
                             </button>
                         </div>
@@ -250,7 +262,8 @@ if (!$currentUser) {
                         </div>
 
                         <div class="notes-compact">
-                            <textarea class="form-control form-control-sm" rows="2" placeholder="Add notes..." id="notesInput"></textarea>
+                            <textarea class="form-control form-control-sm" rows="2" placeholder="Add notes..."
+                                id="notesInput"></textarea>
                         </div>
 
                         <div class="workflow-compact">
@@ -283,7 +296,8 @@ if (!$currentUser) {
                             <label for="currentPassword" class="form-label">Current Password</label>
                             <div class="password-wrapper">
                                 <input type="password" class="form-control" id="currentPassword" required>
-                                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('currentPassword')">
+                                <button type="button" class="password-toggle"
+                                    onclick="togglePasswordVisibility('currentPassword')">
                                     <i class="bi bi-eye" id="currentPasswordIcon"></i>
                                 </button>
                             </div>
@@ -292,7 +306,8 @@ if (!$currentUser) {
                             <label for="newPassword" class="form-label">New Password</label>
                             <div class="password-wrapper">
                                 <input type="password" class="form-control" id="newPassword" required>
-                                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('newPassword')">
+                                <button type="button" class="password-toggle"
+                                    onclick="togglePasswordVisibility('newPassword')">
                                     <i class="bi bi-eye" id="newPasswordIcon"></i>
                                 </button>
                             </div>
@@ -301,7 +316,8 @@ if (!$currentUser) {
                             <label for="confirmPassword" class="form-label">Confirm New Password</label>
                             <div class="password-wrapper">
                                 <input type="password" class="form-control" id="confirmPassword" required>
-                                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('confirmPassword')">
+                                <button type="button" class="password-toggle"
+                                    onclick="togglePasswordVisibility('confirmPassword')">
                                     <i class="bi bi-eye" id="confirmPasswordIcon"></i>
                                 </button>
                             </div>
@@ -331,6 +347,33 @@ if (!$currentUser) {
                     <button type="button" class="btn btn-secondary" onclick="markAllAsRead()">Mark All Read</button>
                     <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reject Document Modal -->
+    <div class="modal fade" id="rejectDocumentModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger">
+                        <i class="bi bi-x-circle me-2"></i>Reject Document
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="rejectDocumentForm" autocomplete="off">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="rejectReason" class="form-label">Reason for rejection</label>
+                            <textarea class="form-control" id="rejectReason" rows="3" required placeholder="Enter reason..."></textarea>
+                        </div>
+                        <div id="rejectError" class="text-danger small d-none"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">Reject</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -373,7 +416,7 @@ if (!$currentUser) {
         }
 
         function openProfileSettings() {
-            if (window.ToastManager) ToastManager.info('Profile settings are not available yet.', 'Info');
+            if (window.ToastManager) window.ToastManager.info('Profile settings are not available yet.', 'Info');
         }
 
         function openChangePassword() {
@@ -387,7 +430,7 @@ if (!$currentUser) {
                 badge.textContent = '0';
                 badge.style.display = 'none';
             }
-            if (window.ToastManager) ToastManager.success('All notifications marked as read.', 'Done');
+            if (window.ToastManager) window.ToastManager.success('All notifications marked as read.', 'Done');
         }
 
         // Document actions routed to the controller
@@ -396,7 +439,7 @@ if (!$currentUser) {
                 window.documentSystem.filterDocuments(status);
             }
         }
-
+        
         function goBack() {
             document.getElementById('documentView').style.display = 'none';
             document.getElementById('dashboardView').style.display = 'block';
@@ -406,7 +449,7 @@ if (!$currentUser) {
             if (window.documentSystem && window.documentSystem.currentDocument) {
                 window.documentSystem.signDocument(window.documentSystem.currentDocument.id);
             } else if (window.ToastManager) {
-                ToastManager.warning('Open a document first.', 'Notice');
+                window.ToastManager.warning('Open a document first.', 'Notice');
             }
         }
 
@@ -422,12 +465,45 @@ if (!$currentUser) {
         }
 
         function downloadPDF() {
-            if (window.ToastManager) ToastManager.info('Downloading not wired yet.', 'Info');
+            if (window.ToastManager) window.ToastManager.info('Downloading not wired yet.', 'Info');
         }
 
         function printDocument() {
             window.print();
         }
+
+        // Reject modal functions
+        function showRejectModal() {
+            const modal = new bootstrap.Modal(document.getElementById('rejectDocumentModal'));
+            document.getElementById('rejectReason').value = '';
+            document.getElementById('rejectError').classList.add('d-none');
+            modal.show();
+        }
+
+        // Handle reject form submit
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('rejectDocumentForm');
+            if (form) {
+                form.onsubmit = function (e) {
+                    e.preventDefault();
+                    const reason = document.getElementById('rejectReason').value.trim();
+                    const errorDiv = document.getElementById('rejectError');
+                    if (!reason) {
+                        errorDiv.textContent = 'Please provide a reason for rejection.';
+                        errorDiv.classList.remove('d-none');
+                        return;
+                    }
+                    errorDiv.classList.add('d-none');
+                    // Call the JS controller to reject
+                    if (window.documentSystem && window.documentSystem.currentDocument) {
+                        window.documentSystem.rejectDocument(window.documentSystem.currentDocument.id, reason);
+                    }
+                    // Hide modal after submit
+                    bootstrap.Modal.getInstance(document.getElementById('rejectDocumentModal')).hide();
+                };
+            }
+        });
     </script>
 </body>
+
 </html>

@@ -30,6 +30,17 @@ class DocumentNotificationSystem {
         this.updateStatsDisplay();
     }
 
+    // Navigate back to dashboard from detail view
+    goBack() {
+        const dashboard = document.getElementById('dashboardView');
+        const detail = document.getElementById('documentView');
+        if (dashboard && detail) {
+            detail.style.display = 'none';
+            dashboard.style.display = 'block';
+        }
+        this.currentDocument = null;
+    }
+
     // Create a mock document via API then reload list
     async createMockDocument() {
         try {
@@ -603,14 +614,14 @@ class DocumentNotificationSystem {
         });
     }
 
-    // Update signature map with current position/size
+    // Update signature map with current position/size (fix: relative to container)
     updateSignatureMap(element, container) {
         const rect = container.getBoundingClientRect();
-        const cw = rect.width;
-        const ch = rect.height;
+        const cw = rect.width || container.clientWidth || 1;
+        const ch = rect.height || container.clientHeight || 1;
         const elRect = element.getBoundingClientRect();
-        const x_pct = elRect.left / cw;
-        const y_pct = elRect.top / ch;
+        const x_pct = (elRect.left - rect.left) / cw;
+        const y_pct = (elRect.top - rect.top) / ch;
         const w_pct = elRect.width / cw;
         const h_pct = elRect.height / ch;
         this.currentSignatureMap = { x_pct, y_pct, w_pct, h_pct, label: 'Sign here' };
@@ -658,14 +669,13 @@ class DocumentNotificationSystem {
         canvas.width = width;
         canvas.height = 200;
         const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Remove white background fill to keep transparent
 
         this._initCanvasDrawing(canvas);
 
         const clearBtn = document.getElementById('sigClearBtn');
         const saveBtn = document.getElementById('sigSaveBtn');
-        if (clearBtn) clearBtn.onclick = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height); };
+        if (clearBtn) clearBtn.onclick = () => { ctx.clearRect(0,0,canvas.width,canvas.height); };
         if (saveBtn) saveBtn.onclick = () => {
             this.signatureImage = canvas.toDataURL('image/png');
             this.updateSignatureOverlayImage();
@@ -701,7 +711,7 @@ class DocumentNotificationSystem {
 
         const clearBtn = document.getElementById('sigClearBtn');
         const saveBtn = document.getElementById('sigSaveBtn');
-        if (clearBtn) clearBtn.onclick = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height); };
+        if (clearBtn) clearBtn.onclick = () => { ctx.clearRect(0,0,canvas.width,canvas.height); };
         if (saveBtn) saveBtn.onclick = () => {
             this.signatureImage = canvas.toDataURL('image/png');
             this.updateSignatureOverlayImage();
@@ -784,13 +794,11 @@ class DocumentNotificationSystem {
                     message: 'Document has been successfully signed and approved.'
                 });
 
-                const modal = bootstrap.Modal.getInstance(document.getElementById('documentModal'));
-                if (modal) modal.hide();
-
-                // refresh data + UI
+                // Refresh data and return to dashboard (no modal)
                 await this.loadDocuments();
                 this.renderDocuments();
                 this.updateStatsDisplay();
+                this.goBack();
             } else {
                 throw new Error(result.message || 'Failed to sign document');
             }
@@ -804,8 +812,7 @@ class DocumentNotificationSystem {
         }
     }
 
-    async rejectDocument(docId) {
-        const reason = prompt('Please provide a reason for rejection:');
+    async rejectDocument(docId, reason) {
         if (!reason || reason.trim() === '') return;
 
         try {
@@ -829,13 +836,11 @@ class DocumentNotificationSystem {
                     message: 'Document has been rejected.'
                 });
 
-                const modal = bootstrap.Modal.getInstance(document.getElementById('documentModal'));
-                if (modal) modal.hide();
-
-                // refresh data + UI
+                // Refresh data and return to dashboard (no modal)
                 await this.loadDocuments();
                 this.renderDocuments();
                 this.updateStatsDisplay();
+                this.goBack();
             } else {
                 throw new Error(result.message || 'Failed to reject document');
             }
@@ -889,10 +894,6 @@ class DocumentNotificationSystem {
 
 // Initialize the document notification system
 document.addEventListener('DOMContentLoaded', function() {
-    if (typeof ToastManager !== 'undefined') {
-        window.toastManager = new ToastManager();
-    }
-
     window.documentSystem = new DocumentNotificationSystem();
     window.documentSystem.init();
 
@@ -902,7 +903,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return window.documentSystem.createMockDocument();
         }
         if (window.ToastManager) {
-            ToastManager.info('Initializing… please try again.', 'Info');
+            window.ToastManager.info('Initializing… please try again.', 'Info');
         } else {
             alert('Initializing… please try again.');
         }

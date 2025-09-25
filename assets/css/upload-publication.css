@@ -369,6 +369,43 @@ body {
   font-weight: 500;
 }
 
+.file-description {
+    margin-top: 0.5rem;
+}
+
+.desc-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
+.desc-textarea {
+    width: 100%;
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    border-radius: 6px;
+    padding: 0.5rem;
+    font-size: 0.75rem;
+    resize: vertical;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(5px);
+    min-height: 60px;
+}
+
+.desc-textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+    .desc-textarea {
+        font-size: 0.6875rem;
+    }
+}
+
 /* Enhanced Delete Button */
 .delete-btn {
   position: absolute;

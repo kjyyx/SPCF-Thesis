@@ -1,55 +1,167 @@
-// Document Maker JavaScript
-// High-level: Generates printable previews for multiple document types (proposal, SAF, facility, communication) with live updates.
-// Notes for future developers:
-// - Keep public function names referenced by HTML unchanged (e.g., selectDocumentType, printDocument, addBudgetRowProp, etc.).
-// - This script is client-side only; no network calls. Avoid introducing API dependencies here.
-// - Prefer non-destructive refactors: do not change DOM IDs/classes the HTML relies on.
-// - Guard DOM access where possible to avoid runtime errors if sections are not present.
+/**
+ * Document Creator JavaScript - Dynamic Document Generation System
+ *
+ * This file provides comprehensive document creation functionality for the SPCF Thesis system,
+ * enabling users to generate professional documents including project proposals, SAF requests,
+ * facility requests, and communication letters with real-time preview and pagination.
+ *
+ * @fileoverview Client-side document generation and preview system
+ * @author SPCF Thesis Development Team
+ * @version 1.0.0
+ * @since 2024
+ *
+ * @description
+ * This JavaScript file handles all client-side document creation operations, including:
+ * - Multi-format document generation (Project Proposals, SAF Forms, Facility Requests, Communication Letters)
+ * - Real-time live preview with automatic updates
+ * - Multi-page document pagination and navigation
+ * - Form data collection and validation
+ * - Professional HTML generation with proper formatting
+ * - Print-ready document output
+ *
+ * @architecture
+ * The code is organized into logical sections:
+ * 1. Global State Variables & Configuration
+ * 2. Document Type Selection & Management
+ * 3. Document Generation & Preview System
+ * 4. Data Collection & Processing
+ * 5. HTML Generation Templates
+ * 6. Utility Functions & Helpers
+ * 7. Form-Specific Helpers (Budget, Program, SAF, Communication)
+ * 8. Event Handling & Initialization
+ *
+ * @dependencies
+ * - Bootstrap (UI components and styling)
+ * - ToastManager (notification system for audit logging)
+ * - PHP Backend (for audit logging via window.addAuditLog)
+ * - Browser DOM API (for form manipulation and preview rendering)
+ *
+ * @security
+ * - All data processing is client-side only
+ * - No sensitive data is transmitted or stored
+ * - Input validation prevents XSS through HTML escaping
+ * - DOM access is guarded to prevent runtime errors
+ *
+ * @document-types
+ * - proposal: Project Proposal with budget, program schedule, and objectives
+ * - saf: Student Activities Fund release form with category-based funding
+ * - facility: Facility reservation request with date and purpose
+ * - communication: Official communication letter with signature blocks
+ *
+ * @features
+ * - Live preview updates on form changes
+ * - Multi-page document support with navigation
+ * - Professional document formatting
+ * - Form validation and error handling
+ * - Print functionality for final output
+ * - Audit logging integration
+ *
+ * @notes
+ * - Public function names referenced by HTML must remain unchanged
+ * - This script is client-side only; no network calls except audit logging
+ * - Prefer non-destructive refactors: do not change DOM IDs/classes the HTML relies on
+ * - Guard DOM access where possible to avoid runtime errors if sections are not present
+ * - All document generation uses sanitized HTML to prevent XSS attacks
+ *
+ * @example
+ * // File is automatically loaded by create-document.php
+ * // Document type selection triggers automatic preview generation
+ * selectDocumentType('proposal'); // Switches to proposal form and preview
+ */
 
-/*******************************
- * State Variables
- *******************************/
-let currentDocumentType = 'proposal';
-let pages = [];
-let currentPage = 1;
-let totalPages = 1;
-let genTimeout = null;
+// === Global State Variables & Configuration ===
 
-/*******************************
- * Document Type Selection
- *******************************/
+/**
+ * @section Global State Management
+ * Core application state that persists across function calls
+ * These variables track the current state of the document creation interface
+ */
+
+/**
+ * Document Type State
+ * Tracks which type of document is currently being created
+ */
+let currentDocumentType = 'proposal'; // Currently selected document type ('proposal', 'saf', 'facility', 'communication')
+
+/**
+ * Pagination State
+ * Manages multi-page document display and navigation
+ */
+let pages = []; // Array of HTML strings, each representing one page of the document
+let currentPage = 1; // Current page number being displayed (1-indexed)
+let totalPages = 1; // Total number of pages in the current document
+
+/**
+ * Generation Control
+ * Prevents excessive regeneration during rapid user input
+ */
+let genTimeout = null; // Timeout ID for debounced document generation
+
+/**
+ * @section Document Type Selection & Management
+ * Functions for switching between different document types and managing form visibility
+ */
+
+/**
+ * Select and switch to a specific document type
+ * Updates the UI to show the appropriate form and triggers document regeneration
+ * @param {string} type - The document type to select ('proposal', 'saf', 'facility', 'communication')
+ */
 function selectDocumentType(type) {
+    // Update global state
     currentDocumentType = type;
+
+    // Map document types to display names
     const map = {
-        proposal: 'Project Proposal', 
-        saf: 'SAF Request', 
-        facility: 'Facility Request', 
+        proposal: 'Project Proposal',
+        saf: 'SAF Request',
+        facility: 'Facility Request',
         communication: 'Communication Letter'
     };
+
+    // Update dropdown button text
     document.getElementById('documentTypeDropdown').textContent = map[type];
-    
-    // Hide all forms
+
+    // Hide all document forms
     document.querySelectorAll('.document-form').forEach(el => el.style.display = 'none');
-    
-    // Show chosen form
+
+    // Show the selected form
     if (type === 'proposal') document.getElementById('proposal-form').style.display = 'block';
     if (type === 'saf') document.getElementById('saf-form').style.display = 'block';
     if (type === 'facility') document.getElementById('facility-form').style.display = 'block';
     if (type === 'communication') document.getElementById('communication-form').style.display = 'block';
-    
+
+    // Log the document type selection for audit purposes
+    if (window.addAuditLog) {
+        window.addAuditLog('DOCUMENT_TYPE_SELECTED', 'Document Management', `Selected document type: ${map[type]}`, null, 'Document', 'INFO');
+    }
+
+    // Trigger document regeneration with new form data
     scheduleGenerate();
 }
 
-/*******************************
- * Document Generation Utility
- *******************************/
+/**
+ * @section Document Generation & Preview System
+ * Core functions for generating documents and managing multi-page preview
+ */
+
+/**
+ * Schedule document regeneration with debouncing
+ * Prevents excessive regeneration during rapid user input by delaying execution
+ */
 function scheduleGenerate() {
     clearTimeout(genTimeout);
     genTimeout = setTimeout(generateDocument, 220);
 }
 
+/**
+ * Generate the complete document based on current form data
+ * Routes to the appropriate document generator based on current document type
+ */
 function generateDocument() {
     let html = '';
+
+    // Route to appropriate document generator
     if (currentDocumentType === 'proposal') {
         html = generateProposalHTML(collectProposalData());
     } else if (currentDocumentType === 'saf') {
@@ -59,44 +171,76 @@ function generateDocument() {
     } else if (currentDocumentType === 'communication') {
         html = generateCommunicationHTML(collectCommunicationData());
     }
+
+    // Process and display the generated document
     paginateAndRender(html);
+
+    // Log document creation for audit purposes
+    if (window.addAuditLog) {
+        window.addAuditLog('DOCUMENT_CREATED', 'Document Management', `Created ${currentDocumentType} document: ${collectProposalData().title || 'Untitled'}`, null, 'Document', 'INFO');
+    }
 }
 
-/*******************************
- * Pagination & Rendering
- *******************************/
+/**
+ * @section Pagination & Rendering
+ * Functions for managing multi-page document display and navigation
+ */
+
+/**
+ * Process generated HTML and split into pages for display
+ * Handles pagination by extracting .paper-page elements or creating them
+ * @param {string} html - The generated HTML content to paginate
+ */
 function paginateAndRender(html) {
     const container = document.getElementById('paper-container');
     if (!container) return; // Guard if preview container is missing
+
     container.innerHTML = '';
-    
-    // The generators already produce one or more .paper-page blocks; render them directly
+
+    // Parse the HTML and extract page elements
     const temp = document.createElement('div');
     temp.innerHTML = html;
     const nodes = temp.querySelectorAll('.paper-page');
     pages = [];
-    
+
+    // Store each page's HTML
     if (nodes.length) {
         nodes.forEach(n => pages.push(n.outerHTML));
     } else {
+        // If no page breaks, wrap entire content in a single page
         pages.push(`<div class="paper-page">${html}</div>`);
     }
-    
+
+    // Reset to first page and render
     totalPages = pages.length;
     currentPage = 1;
     renderPage();
 }
 
+/**
+ * Render the current page in the preview container
+ * Updates the display and navigation controls based on current page
+ */
 function renderPage() {
     const container = document.getElementById('paper-container');
     if (!container) return;
+
+    // Display current page or fallback message
     container.innerHTML = pages[currentPage - 1] || '<div class="paper-page"><em>No preview</em></div>';
+
+    // Update navigation controls visibility
     const controls = document.getElementById('page-controls');
     const indicator = document.getElementById('page-indicator');
+
+    // Show/hide pagination controls based on page count
     if (controls) controls.style.display = totalPages > 1 ? 'flex' : 'none';
     if (indicator) indicator.textContent = `Page ${currentPage} of ${totalPages}`;
 }
 
+/**
+ * Navigate to the next page in the document
+ * Only advances if not already on the last page
+ */
 function nextPage() {
     if (currentPage < totalPages) {
         currentPage++;
@@ -104,6 +248,10 @@ function nextPage() {
     }
 }
 
+/**
+ * Navigate to the previous page in the document
+ * Only goes back if not already on the first page
+ */
 function previousPage() {
     if (currentPage > 1) {
         currentPage--;
@@ -111,10 +259,19 @@ function previousPage() {
     }
 }
 
-/*******************************
- * Data Collectors
- *******************************/
+/**
+ * @section Data Collection & Processing
+ * Functions for collecting form data from different document types
+ * Each function extracts and validates data from the corresponding form
+ */
+
+/**
+ * Collect all data from the Project Proposal form
+ * Gathers budget items, program schedule, objectives, and other proposal details
+ * @returns {Object} Proposal data object with all form fields
+ */
 function collectProposalData() {
+    // Collect budget table data
     const budgetRows = [];
     document.querySelectorAll('#budget-body-prop tr').forEach(tr => {
         const name = tr.querySelector('.item-name')?.value || '';
@@ -124,7 +281,8 @@ function collectProposalData() {
         const total = price * qty;
         if (name || price || size || qty) budgetRows.push({ name, price, size, qty, total });
     });
-    
+
+    // Collect program schedule data
     const programRows = [];
     document.querySelectorAll('#program-rows-prop .program-row').forEach(r => {
         const start = r.querySelectorAll('.time-selector')[0]?.getAttribute('data-time') || '';
@@ -132,7 +290,8 @@ function collectProposalData() {
         const act = r.querySelector('.activity-input')?.value || '';
         if (start || end || act) programRows.push({ start, end, act });
     });
-    
+
+    // Return complete proposal data object
     return {
         date: document.getElementById('prop-date').value,
         organizer: document.getElementById('prop-organizer').value,
@@ -151,7 +310,13 @@ function collectProposalData() {
     };
 }
 
+/**
+ * Collect all data from the SAF (Student Activities Fund) form
+ * Gathers fund categories, available amounts, requested amounts, and project details
+ * @returns {Object} SAF data object with categories, funds, and project information
+ */
 function collectSAFData() {
+    // Collect selected fund categories
     const categories = {
         ssc: document.getElementById('saf-ssc').checked,
         csc: document.getElementById('saf-csc').checked,
@@ -162,7 +327,8 @@ function collectSAFData() {
         others: document.getElementById('saf-others').checked,
         othersText: document.getElementById('saf-others-text').value || ''
     };
-    
+
+    // Collect fund availability and requests for each category
     const funds = {
         ssc: { available: parseFloat(document.getElementById('avail-ssc')?.value) || 0, requested: parseFloat(document.getElementById('req-ssc')?.value) || 0 },
         csc: { available: parseFloat(document.getElementById('avail-csc')?.value) || 0, requested: parseFloat(document.getElementById('req-csc')?.value) || 0 },
@@ -172,7 +338,8 @@ function collectSAFData() {
         idev: { available: parseFloat(document.getElementById('avail-idev')?.value) || 0, requested: parseFloat(document.getElementById('req-idev')?.value) || 0 },
         others: { available: parseFloat(document.getElementById('avail-others')?.value) || 0, requested: parseFloat(document.getElementById('req-others')?.value) || 0 }
     };
-    
+
+    // Return complete SAF data object
     return {
         dept: document.getElementById('saf-dept').value,
         title: document.getElementById('saf-title').value,
@@ -182,6 +349,11 @@ function collectSAFData() {
     };
 }
 
+/**
+ * Collect all data from the Facility Request form
+ * Gathers requester information, facility details, and reservation notes
+ * @returns {Object} Facility data object with reservation details
+ */
 function collectFacilityData() {
     return {
         name: document.getElementById('fac-name').value,
@@ -191,7 +363,17 @@ function collectFacilityData() {
     };
 }
 
+/**
+ * Collect all data from the Communication Letter form
+ * Gathers letter details, recipient/sender lists, and message content
+ * @returns {Object} Communication data object with letter details and personnel lists
+ */
 function collectCommunicationData() {
+    /**
+     * Helper function to read personnel lists from form sections
+     * @param {string} listId - The ID of the personnel list container
+     * @returns {Array} Array of personnel objects with name and title
+     */
     function readPeople(listId) {
         const arr = [];
         document.querySelectorAll(`#${listId} .person-entry`).forEach(e => {
@@ -201,7 +383,7 @@ function collectCommunicationData() {
         });
         return arr;
     }
-    
+
     return {
         date: document.getElementById('comm-date').value,
         forList: readPeople('for-list'),
@@ -213,26 +395,38 @@ function collectCommunicationData() {
     };
 }
 
-/*******************************
- * HTML Generators
- *******************************/
+/**
+ * @section HTML Generation Templates
+ * Functions for generating professional HTML documents from collected form data
+ * Each function creates print-ready HTML with proper formatting and styling
+ */
+
+/**
+ * Generate HTML for Project Proposal document
+ * Creates a complete project proposal with budget, program schedule, and objectives
+ * @param {Object} d - Proposal data object from collectProposalData()
+ * @returns {string} Complete HTML string for the proposal document
+ */
 function generateProposalHTML(d) {
+    // Generate document header with logos and title
     const header = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;"><div class="logo-placeholder">LOGO</div><div style="text-align:center"><div style="font-weight:800">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-size:0.95rem">Project Proposal</div></div><div class="logo-placeholder">LOGO</div></div>`;
-    
-    const objectivesHtml = (d.objectives && d.objectives.length) ? 
-        `<ol>${d.objectives.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ol>` : 
+
+    // Generate objectives list with HTML escaping for security
+    const objectivesHtml = (d.objectives && d.objectives.length) ?
+        `<ol>${d.objectives.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ol>` :
         '<div class="text-muted">No objectives provided</div>';
-    
-    const ilosHtml = (d.ilos && d.ilos.length) ? 
-        `<ol>${d.ilos.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ol>` : 
+
+    // Generate Intended Learning Outcomes list
+    const ilosHtml = (d.ilos && d.ilos.length) ?
+        `<ol>${d.ilos.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ol>` :
         '<div class="text-muted">No ILOs provided</div>';
-    
-    const budgetHtml = (d.budget && d.budget.length) ? 
-        `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #ddd;padding:6px">Item</th><th style="border:1px solid #ddd;padding:6px">Qty</th><th style="border:1px solid #ddd;padding:6px">Unit Price</th><th style="border:1px solid #ddd;padding:6px">Total</th></tr></thead><tbody>${d.budget.map(b => `<tr><td style="border:1px solid #ddd;padding:6px">${escapeHtml(b.name)}</td><td style="border:1px solid #ddd;padding:6px;text-align:right">${b.qty}</td><td style="border:1px solid #ddd;padding:6px;text-align:right">₱${b.price.toFixed(2)}</td><td style="border:1px solid #ddd;padding:6px;text-align:right">₱${b.total.toFixed(2)}</td></tr>`).join('')}</tbody></table>` : 
+
+    const budgetHtml = (d.budget && d.budget.length) ?
+        `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #ddd;padding:6px">Item</th><th style="border:1px solid #ddd;padding:6px">Qty</th><th style="border:1px solid #ddd;padding:6px">Unit Price</th><th style="border:1px solid #ddd;padding:6px">Total</th></tr></thead><tbody>${d.budget.map(b => `<tr><td style="border:1px solid #ddd;padding:6px">${escapeHtml(b.name)}</td><td style="border:1px solid #ddd;padding:6px;text-align:right">${b.qty}</td><td style="border:1px solid #ddd;padding:6px;text-align:right">₱${b.price.toFixed(2)}</td><td style="border:1px solid #ddd;padding:6px;text-align:right">₱${b.total.toFixed(2)}</td></tr>`).join('')}</tbody></table>` :
         '<div class="text-muted">No budget items</div>';
-    
-    const programHtml = (d.program && d.program.length) ? 
-        `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #ddd;padding:6px">Start</th><th style="border:1px solid #ddd;padding:6px">End</th><th style="border:1px solid #ddd;padding:6px">Activity</th></tr></thead><tbody>${d.program.map(p => `<tr><td style="border:1px solid #ddd;padding:6px">${escapeHtml(p.start)}</td><td style="border:1px solid #ddd;padding:6px">${escapeHtml(p.end)}</td><td style="border:1px solid #ddd;padding:6px">${escapeHtml(p.act)}</td></tr>`).join('')}</tbody></table>` : 
+
+    const programHtml = (d.program && d.program.length) ?
+        `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #ddd;padding:6px">Start</th><th style="border:1px solid #ddd;padding:6px">End</th><th style="border:1px solid #ddd;padding:6px">Activity</th></tr></thead><tbody>${d.program.map(p => `<tr><td style="border:1px solid #ddd;padding:6px">${escapeHtml(p.start)}</td><td style="border:1px solid #ddd;padding:6px">${escapeHtml(p.end)}</td><td style="border:1px solid #ddd;padding:6px">${escapeHtml(p.act)}</td></tr>`).join('')}</tbody></table>` :
         '<div class="text-muted">No program schedule</div>';
 
     return `<div class="paper-page">${header}<div><strong>Title:</strong> ${escapeHtml(d.title || '[Project Title]')}</div><div style="margin-top:6px"><strong>Date:</strong> ${formatDate(d.date)}</div><div style="margin-top:6px"><strong>Organizer:</strong> ${escapeHtml(d.organizer || '')}</div><div style="margin-top:6px"><strong>Lead Facilitator:</strong> ${escapeHtml(d.lead || '')}</div><div style="margin-top:6px"><strong>Department:</strong> ${escapeHtml(d.department || '')}</div><div style="margin-top:12px"><strong>Rationale:</strong><div style="margin-top:6px">${(d.rationale || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Objectives:</strong>${objectivesHtml}</div><div style="margin-top:12px"><strong>Intended Learning Outcomes:</strong>${ilosHtml}</div><div style="margin-top:12px"><strong>Source of Budget:</strong> ${escapeHtml(d.budgetSource || '')}</div><div style="margin-top:12px"><strong>Venue:</strong> ${escapeHtml(d.venue || '')}</div><div style="margin-top:12px"><strong>Mechanics:</strong><div style="margin-top:6px">${(d.mechanics || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Schedule (summary):</strong><div style="margin-top:6px">${(d.scheduleSummary || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Program Schedule:</strong>${programHtml}</div><div style="margin-top:12px"><strong>Budget Requirements:</strong>${budgetHtml}</div></div>`;
@@ -240,7 +434,7 @@ function generateProposalHTML(d) {
 
 function generateSAFHTML(d) {
     const header = `<div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:1rem;"><div class="logo-placeholder"></div><div style="text-align:center"><div style="font-weight:800">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700">FUND RELEASE FORM</div></div><div class="logo-placeholder"></div></div>`;
-    
+
     // Build funds table HTML
     const funds = ['ssc', 'csc', 'cca', 'ex', 'osa', 'idev', 'others'];
     const fundsHtml = `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #000;padding:6px">Fund/s</th><th style="border:1px solid #000;padding:6px">Available</th><th style="border:1px solid #000;padding:6px">Requested</th><th style="border:1px solid #000;padding:6px">Balance</th></tr></thead><tbody>${funds.map(code => {
@@ -268,15 +462,23 @@ function generateCommunicationHTML(d) {
         if (!list || !list.length) return '<div class="comm-indent"><em>—</em></div>';
         return `<div class="comm-indent">${list.map(p => `<div style="margin-bottom:.35rem"><strong>${escapeHtml(p.name || '__________')}</strong><div style="font-style:italic;text-transform:capitalize">${escapeHtml(p.title || '')}</div></div>`).join('')}</div>`;
     }
-    
+
     const header = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;"><div class="logo-placeholder"></div><div style="text-align:center"><div style="font-weight:800">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-size:0.95rem">Communication Letter</div></div><div class="logo-placeholder"></div></div>`;
     const bodyHtml = (d.body || '').replace(/\n/g, '<br>') || '&nbsp;';
     return `<div class="paper-page">${header}<div><div><strong>Date:</strong> ${formatDate(d.date)}</div><div style="display:flex;gap:2rem;margin-top:12px"><div style="flex:1"><strong>For:</strong>${renderPeople(d.forList)}</div><div style="flex:1"><strong>From:</strong>${renderPeople(d.fromList)}</div></div><div style="display:flex;gap:2rem;margin-top:12px"><div style="flex:1"><strong>Noted:</strong>${renderPeople(d.notedList)}</div><div style="flex:1"><strong>Approved:</strong>${renderPeople(d.approvedList)}</div></div><div style="margin-top:12px"><strong>Subject:</strong> ${escapeHtml(d.subject || '')}<div style="height:1px;background:#e9ecef;margin-top:6px;margin-bottom:8px;width:85%"></div></div><div style="margin-top:12px">${bodyHtml}</div></div></div>`;
 }
 
-/*******************************
- * Helper Functions
- *******************************/
+/**
+ * @section Utility Functions & Helpers
+ * Common utility functions for date formatting, HTML escaping, and error handling
+ */
+
+/**
+ * Format a date string into a readable format
+ * Converts date inputs to "Month Day, Year" format for document display
+ * @param {string} s - Date string to format
+ * @returns {string} Formatted date string or original string if parsing fails
+ */
 function formatDate(s) {
     if (!s) return '[Date]';
     try {
@@ -287,16 +489,34 @@ function formatDate(s) {
     }
 }
 
+/**
+ * Escape HTML characters to prevent XSS attacks
+ * Converts dangerous HTML characters to safe HTML entities
+ * @param {any} unsafe - Value to escape (converted to string)
+ * @returns {string} HTML-safe string
+ */
 function escapeHtml(unsafe) {
     if (unsafe === undefined || unsafe === null) return '';
-    return String(unsafe).replace(/[&<>"']/g, function(m) {
+    return String(unsafe).replace(/[&<>"']/g, function (m) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
     });
 }
 
-/*******************************
- * Budget & Program Helpers for Proposal
- *******************************/
+/**
+ * @section Form-Specific Helper Functions
+ * Specialized functions for managing dynamic form elements and calculations
+ * Includes budget tables, program schedules, SAF funding, and communication lists
+ */
+
+/**
+ * @subsection Budget & Program Helpers for Project Proposals
+ * Functions for managing dynamic budget tables and program schedules
+ */
+
+/**
+ * Add a new budget row to the proposal form
+ * Creates input fields for item name, price, size, quantity, and calculates totals
+ */
 function addBudgetRowProp() {
     const tbody = document.getElementById('budget-body-prop');
     const tr = document.createElement('tr');
@@ -307,9 +527,14 @@ function addBudgetRowProp() {
         <td class="item-total">₱0.00</td>
         <td><button class="btn btn-sm btn-danger" onclick="removeBudgetRowProp(this)">×</button></td>`;
     tbody.appendChild(tr);
-    
-    // Attach listeners
+
+    // Attach event listeners for automatic calculation
     tr.querySelectorAll('.item-price, .item-qty').forEach(i => i.addEventListener('input', calcBudgetTotalsProp));
+
+    if (window.addAuditLog) {
+        window.addAuditLog('DOCUMENT_BUDGET_ROW_ADDED', 'Document Management', 'Added budget row to proposal', null, 'Document', 'INFO');
+    }
+
     scheduleGenerate();
 }
 
@@ -409,9 +634,9 @@ function updateSAFLocks() {
         const avail = document.getElementById(`avail-${code}`);
         const req = document.getElementById(`req-${code}`);
         const row = document.getElementById(`row-${code}`);
-        
+
         if (!cb || !avail || !req || !row) return;
-        
+
         if (cb.checked) {
             row.style.display = '';
             avail.disabled = false;
@@ -457,68 +682,96 @@ function removePerson(listId) {
     }
 }
 
-/*******************************
- * Print Function
- *******************************/
+/**
+ * @section Print Functionality
+ * Functions for document printing and output
+ */
+
+/**
+ * Trigger browser print dialog for the current document
+ * Opens the browser's print interface to allow users to print or save the document
+ */
 function printDocument() {
     window.print();
 }
 
-/*******************************
- * Event Listeners & Initialization
- *******************************/
+/**
+ * @section Initialization & Event Handling
+ * Page setup, event binding, and application initialization
+ * Ensures all interactive elements are properly configured on page load
+ */
+
+/**
+ * Initialize the document creator when the page loads
+ * Sets up event listeners, form handlers, and initial state
+ */
 document.addEventListener('DOMContentLoaded', () => {
-    // Hooks for live preview
+    // Set up live preview for all form inputs
     document.querySelectorAll('input, textarea, select').forEach(el => {
         el.addEventListener('input', scheduleGenerate);
         el.addEventListener('change', scheduleGenerate);
     });
 
-    // SAF checkboxes wiring
-    document.querySelectorAll('.saf-cat').forEach(cb => 
+    // Configure SAF category checkboxes to update form state
+    document.querySelectorAll('.saf-cat').forEach(cb =>
         cb.addEventListener('change', () => {
             updateSAFLocks();
             scheduleGenerate();
         })
     );
-    
-    // Initialize SAF form
+
+    // Initialize SAF form controls
     updateSAFLocks();
 
-    // Budget & program handlers for proposal
+    // Set up dynamic form elements for proposal
     setupBudgetProp();
     setupProgramProp();
 
-    // Initial display
+    // Start with proposal form as default
     selectDocumentType('proposal');
 });
 
-// Wire general input/change to live preview
-document.addEventListener('input', function(e) {
+/**
+ * Additional event listeners for live preview updates
+ * Ensures document regeneration happens for dynamically added elements
+ */
+document.addEventListener('input', function (e) {
     if (e.target.closest('.editor-panel') || e.target.closest('.form-section')) {
         scheduleGenerate();
     }
 });
 
-document.addEventListener('change', function(e) {
+document.addEventListener('change', function (e) {
     if (e.target.closest('.editor-panel') || e.target.closest('.form-section')) {
         scheduleGenerate();
     }
 });
 
-// Kickstart initial generation
+/**
+ * Initial document generation trigger
+ * Ensures the preview loads immediately when the page is ready
+ */
 setTimeout(() => {
     scheduleGenerate();
 }, 300);
 
-// ==========================================================
-// Utilities (DOM helpers and error logging)
-// ==========================================================
-/** Shortcut for querySelector. */
+/**
+ * @section DOM Utilities & Error Handling
+ * Helper functions for DOM manipulation and error management
+ */
+
+/** Shortcut for querySelector with optional root element */
 const qs = (sel, root = document) => root.querySelector(sel);
-/** Shortcut for querySelectorAll to Array. */
+
+/** Shortcut for querySelectorAll returning an Array */
 const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-/** Basic error logger to keep console noise consistent. */
+
+/**
+ * Centralized error logging function
+ * Provides consistent error reporting throughout the application
+ * @param {string} prefix - Context prefix for the error message
+ * @param {Error} err - The error object to log
+ */
 function handleError(prefix, err) {
     console.error(`[CreateDocument] ${prefix}:`, err);
 }

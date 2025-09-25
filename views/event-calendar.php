@@ -13,6 +13,33 @@ if (!$currentUser) {
     exit();
 }
 
+// Audit log helper function
+function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
+    global $currentUser;
+    try {
+        $db = new Database();
+        $conn = $db->getConnection();
+        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, severity, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $currentUser['id'],
+            $currentUser['first_name'] . ' ' . $currentUser['last_name'],
+            $action,
+            $category,
+            $details,
+            $targetId,
+            $targetType,
+            $severity,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null
+        ]);
+    } catch (Exception $e) {
+        error_log("Failed to add audit log: " . $e->getMessage());
+    }
+}
+
+// Log page view
+addAuditLog('EVENT_CALENDAR_VIEWED', 'Event Management', 'Viewed event calendar', $currentUser['id'], 'User', 'INFO');
+
 // Debug: Log user data
 error_log("DEBUG event-calendar.php: Current user data: " . json_encode($currentUser));
 error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));

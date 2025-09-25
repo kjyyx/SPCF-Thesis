@@ -23,28 +23,23 @@ let auditLog = JSON.parse(localStorage.getItem('auditLog')) || [];
 
 // Function to add audit log entry
 function addAuditLog(action, category, details, targetId = null, targetType = null, severity = 'INFO') {
-    const entry = {
-        id: 'AUDIT' + Date.now(),
-        timestamp: new Date().toISOString(),
-        userId: currentUser ? currentUser.id : 'SYSTEM',
-        userName: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'System',
-        action: action,
-        category: category,
-        details: details,
-        targetId: targetId,
-        targetType: targetType,
-        ipAddress: '192.168.1.' + Math.floor(Math.random() * 255),
-        userAgent: navigator.userAgent,
-        severity: severity
-    };
-
-    auditLog.unshift(entry);
-    
-    if (auditLog.length > 1000) {
-        auditLog = auditLog.slice(0, 1000);
+    if (window.addAuditLog) {
+        window.addAuditLog(action, category, details, targetId, targetType, severity);
+    } else {
+        // Fallback to API directly
+        fetch('../api/audit.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action,
+                category,
+                details,
+                target_id: targetId,
+                target_type: targetType,
+                severity
+            })
+        }).catch(e => console.error('Audit error:', e));
     }
-
-    localStorage.setItem('auditLog', JSON.stringify(auditLog));
 }
 
 class CalendarApp {

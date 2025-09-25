@@ -49,6 +49,9 @@ class ToastManager {
         showClose = true,
         autohide = true
     }) {
+        if (window.addAuditLog) {
+            window.addAuditLog('TOAST_SHOWN', 'Notifications', `Toast shown: ${message}`, null, 'Notification', 'INFO');
+        }
         // Ensure container exists
         if (!this.container || !document.getElementById('toast-container')) {
             this.createToastContainer();

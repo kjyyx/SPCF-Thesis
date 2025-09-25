@@ -13,6 +13,33 @@ if (!$currentUser || $currentUser['role'] !== 'admin') {
     exit();
 }
 
+// Audit log helper function
+function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
+    global $currentUser;
+    try {
+        $db = new Database();
+        $conn = $db->getConnection();
+        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, severity, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $currentUser['id'],
+            $currentUser['first_name'] . ' ' . $currentUser['last_name'],
+            $action,
+            $category,
+            $details,
+            $targetId,
+            $targetType,
+            $severity,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null
+        ]);
+    } catch (Exception $e) {
+        error_log("Failed to add audit log: " . $e->getMessage());
+    }
+}
+
+// Log page view
+addAuditLog('ADMIN_DASHBOARD_VIEWED', 'User Management', 'Viewed admin dashboard', $currentUser['id'], 'User', 'INFO');
+
 // Debug: Log user data
 error_log("DEBUG event-calendar.php: Current user data: " . json_encode($currentUser));
 error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
@@ -29,21 +56,21 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
     <link rel="stylesheet" href="../assets/css/global.css">
     <link rel="stylesheet" href="../assets/css/admin-dashboard.css">
     <link rel="stylesheet" href="../assets/css/toast.css">
-    
+
     <script>
         // Pass user data to JavaScript - FIXED property names
-        window.currentUser = <?php 
-            $jsUser = [
-                'id' => $currentUser['id'],
-                'firstName' => $currentUser['first_name'],
-                'lastName' => $currentUser['last_name'],
-                'role' => $currentUser['role'],
-                'email' => $currentUser['email']
-            ];
-            echo json_encode($jsUser); 
+        window.currentUser = <?php
+        $jsUser = [
+            'id' => $currentUser['id'],
+            'firstName' => $currentUser['first_name'],
+            'lastName' => $currentUser['last_name'],
+            'role' => $currentUser['role'],
+            'email' => $currentUser['email']
+        ];
+        echo json_encode($jsUser);
         ?>;
     </script>
-    
+
 </head>
 
 <body class="with-fixed-navbar">
@@ -215,6 +242,12 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                 </tbody>
                             </table>
                         </div>
+                        <!-- Pagination -->
+                        <nav aria-label="Users pagination">
+                            <ul class="pagination justify-content-center" id="usersPagination">
+                                <!-- Pagination will be populated here -->
+                            </ul>
+                        </nav>
                     </div>
                 </div>
             </div>
@@ -263,10 +296,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             <table class="table data-table" id="materialsTable">
                                 <thead>
                                     <tr>
-                                        <th>
-                                            <input type="checkbox" id="selectAllMaterials"
-                                                onchange="toggleSelectAllMaterials()">
-                                        </th>
+                                        <th><input type="checkbox" id="selectAllMaterials"
+                                                onchange="toggleSelectAllMaterials()"></th>
                                         <th>Material ID</th>
                                         <th>File Name</th>
                                         <th>Submitted By</th>
@@ -281,6 +312,12 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                 </tbody>
                             </table>
                         </div>
+                        <!-- Pagination -->
+                        <nav aria-label="Materials pagination">
+                            <ul class="pagination justify-content-center" id="materialsPagination">
+                                <!-- Pagination will be populated here -->
+                            </ul>
+                        </nav>
                     </div>
                 </div>
             </div>
@@ -352,6 +389,12 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                 </tbody>
                             </table>
                         </div>
+                        <!-- Pagination -->
+                        <nav aria-label="Audit log pagination">
+                            <ul class="pagination justify-content-center" id="auditPagination">
+                                <!-- Pagination will be populated here -->
+                            </ul>
+                        </nav>
                     </div>
                 </div>
             </div>
@@ -395,11 +438,13 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                         <!-- Security Notice -->
                         <div id="addUserNotice" class="alert alert-info mb-4">
                             <i class="bi bi-shield-lock me-2"></i>
-                            <strong>Password Security:</strong> Set a temporary password for the new user. They will be required to change it on first login. Default password will be used if left empty.
+                            <strong>Password Security:</strong> Set a temporary password for the new user. They will be
+                            required to change it on first login. Default password will be used if left empty.
                         </div>
                         <div id="editUserNotice" class="alert alert-warning mb-4" style="display: none;">
                             <i class="bi bi-shield-lock me-2"></i>
-                            <strong>Password Security:</strong> Passwords cannot be viewed or edited for security reasons. Users must change their own passwords through the system settings.
+                            <strong>Password Security:</strong> Passwords cannot be viewed or edited for security
+                            reasons. Users must change their own passwords through the system settings.
                         </div>
 
                         <!-- Basic Information -->
@@ -407,7 +452,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             <div class="col-md-12">
                                 <div class="mb-3">
                                     <label for="userIdInput" class="form-label">User ID</label>
-                                    <input type="text" class="form-control" id="userIdInput" placeholder="Enter unique user ID (e.g., ADM001, EMP001, STU001)" required>
+                                    <input type="text" class="form-control" id="userIdInput"
+                                        placeholder="Enter unique user ID (e.g., ADM001, EMP001, STU001)" required>
                                 </div>
                             </div>
                         </div>
@@ -416,13 +462,15 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="userFirstName" class="form-label">First Name</label>
-                                    <input type="text" class="form-control" id="userFirstName" placeholder="Enter first name" required>
+                                    <input type="text" class="form-control" id="userFirstName"
+                                        placeholder="Enter first name" required>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="userLastName" class="form-label">Last Name</label>
-                                    <input type="text" class="form-control" id="userLastName" placeholder="Enter last name" required>
+                                    <input type="text" class="form-control" id="userLastName"
+                                        placeholder="Enter last name" required>
                                 </div>
                             </div>
                         </div>
@@ -549,13 +597,15 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="userEmail" class="form-label">Email</label>
-                                    <input type="email" class="form-control" id="userEmail" placeholder="Enter email address (e.g., user@university.edu)" required>
+                                    <input type="email" class="form-control" id="userEmail"
+                                        placeholder="Enter email address (e.g., user@university.edu)" required>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="userPhone" class="form-label">Phone</label>
-                                    <input type="tel" class="form-control" id="userPhone" placeholder="Enter phone number (e.g., 09123456789 or +639123456789)" required>
+                                    <input type="tel" class="form-control" id="userPhone"
+                                        placeholder="Enter phone number (e.g., 09123456789 or +639123456789)" required>
                                 </div>
                             </div>
                         </div>
@@ -566,20 +616,25 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                 <div class="mb-3">
                                     <label for="userPassword" class="form-label">Temporary Password</label>
                                     <div class="password-wrapper">
-                                        <input type="password" class="form-control" id="userPassword" placeholder="Enter temporary password (leave empty for default)">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="togglePasswordVisibility('userPassword')">
+                                        <input type="password" class="form-control" id="userPassword"
+                                            placeholder="Enter temporary password (leave empty for default)">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                            onclick="togglePasswordVisibility('userPassword')">
                                             <i class="bi bi-eye"></i>
                                         </button>
                                     </div>
-                                    <div class="form-text">Default password: <code>ChangeMe123!</code> (user must change on first login)</div>
+                                    <div class="form-text">Default password: <code>ChangeMe123!</code> (user must change
+                                        on first login)</div>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="userConfirmPassword" class="form-label">Confirm Password</label>
                                     <div class="password-wrapper">
-                                        <input type="password" class="form-control" id="userConfirmPassword" placeholder="Confirm temporary password">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="togglePasswordVisibility('userConfirmPassword')">
+                                        <input type="password" class="form-control" id="userConfirmPassword"
+                                            placeholder="Confirm temporary password">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                            onclick="togglePasswordVisibility('userConfirmPassword')">
                                             <i class="bi bi-eye"></i>
                                         </button>
                                     </div>
@@ -707,6 +762,9 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="downloadMaterialBtn" onclick="downloadMaterial()">
+                        <i class="bi bi-download me-2"></i>Download
+                    </button>
                     <button type="button" class="btn btn-danger" id="deleteMaterialBtn"
                         onclick="deleteSingleMaterial()">
                         <i class="bi bi-trash me-2"></i>Delete Material

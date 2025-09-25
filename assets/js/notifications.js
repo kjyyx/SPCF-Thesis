@@ -251,9 +251,9 @@ class DocumentNotificationSystem {
                         <div class="d-flex align-items-center text-muted">
                             <i class="bi bi-calendar me-2"></i>
                             <span class="fs-sm">Due: ${dueDate ? this.formatDate(dueDate) : '—'}</span>
-                            ${daysUntilDue !== null ? 
-                                `<span class="badge ${daysUntilDue <= 1 ? 'bg-danger' : daysUntilDue <= 3 ? 'bg-warning' : 'bg-info'} ms-2 fs-sm">${daysUntilDue === 0 ? 'Today' : daysUntilDue === 1 ? '1 day' : `${daysUntilDue} days`}</span>`
-                                : '<span class="badge bg-secondary ms-2 fs-sm">Overdue</span>'}
+                            ${daysUntilDue !== null ?
+                `<span class="badge ${daysUntilDue <= 1 ? 'bg-danger' : daysUntilDue <= 3 ? 'bg-warning' : 'bg-info'} ms-2 fs-sm">${daysUntilDue === 0 ? 'Today' : daysUntilDue === 1 ? '1 day' : `${daysUntilDue} days`}</span>`
+                : '<span class="badge bg-secondary ms-2 fs-sm">Overdue</span>'}
                         </div>
                     </div>
 
@@ -489,7 +489,7 @@ class DocumentNotificationSystem {
         // Rebind notes debounce
         const notesInput = document.getElementById('notesInput');
         if (notesInput) {
-            notesInput.removeEventListener('input', this._notesHandler || (()=>{}));
+            notesInput.removeEventListener('input', this._notesHandler || (() => { }));
             this._notesHandler = this.debounce(() => this.saveNotes(), 500);
             notesInput.addEventListener('input', this._notesHandler);
         }
@@ -675,7 +675,7 @@ class DocumentNotificationSystem {
 
         const clearBtn = document.getElementById('sigClearBtn');
         const saveBtn = document.getElementById('sigSaveBtn');
-        if (clearBtn) clearBtn.onclick = () => { ctx.clearRect(0,0,canvas.width,canvas.height); };
+        if (clearBtn) clearBtn.onclick = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); };
         if (saveBtn) saveBtn.onclick = () => {
             this.signatureImage = canvas.toDataURL('image/png');
             this.updateSignatureOverlayImage();
@@ -711,7 +711,7 @@ class DocumentNotificationSystem {
 
         const clearBtn = document.getElementById('sigClearBtn');
         const saveBtn = document.getElementById('sigSaveBtn');
-        if (clearBtn) clearBtn.onclick = () => { ctx.clearRect(0,0,canvas.width,canvas.height); };
+        if (clearBtn) clearBtn.onclick = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); };
         if (saveBtn) saveBtn.onclick = () => {
             this.signatureImage = canvas.toDataURL('image/png');
             this.updateSignatureOverlayImage();
@@ -810,6 +810,10 @@ class DocumentNotificationSystem {
                 message: 'Failed to sign document. Please try again.'
             });
         }
+
+        if (window.addAuditLog) {
+            window.addAuditLog('DOCUMENT_SIGNED', 'Document Management', `Signed document ${docId}`, docId, 'Document', 'INFO');
+        }
     }
 
     async rejectDocument(docId, reason) {
@@ -852,6 +856,10 @@ class DocumentNotificationSystem {
                 message: 'Failed to reject document. Please try again.'
             });
         }
+
+        if (window.addAuditLog) {
+            window.addAuditLog('DOCUMENT_REJECTED', 'Document Management', `Rejected document ${docId}: ${reason}`, docId, 'Document', 'WARNING');
+        }
     }
 
     // Update statistics display
@@ -879,6 +887,9 @@ class DocumentNotificationSystem {
     }
 
     showToast(options) {
+        if (window.addAuditLog) {
+            window.addAuditLog('NOTIFICATION_SHOWN', 'Notifications', `Toast shown: ${options.message}`, null, 'Notification', 'INFO');
+        }
         if (window.ToastManager) {
             window.ToastManager.show(options);
         } else {
@@ -893,7 +904,7 @@ class DocumentNotificationSystem {
 }
 
 // Initialize the document notification system
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     window.documentSystem = new DocumentNotificationSystem();
     window.documentSystem.init();
 

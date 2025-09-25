@@ -1,4 +1,17 @@
 <?php
+/**
+ * Authentication API
+ * ==================
+ *
+ * Handles user authentication operations including:
+ * - User login with role-based access (POST)
+ * - Password changes for authenticated users (POST action=change_password or PUT)
+ *
+ * This API manages user sessions and password security.
+ * Uses bcrypt hashing for secure password storage.
+ * Enforces password complexity requirements.
+ */
+
 header('Content-Type: application/json');
 // Fix the include paths - use absolute paths from root
 require_once __DIR__ . '/../includes/config.php';
@@ -22,6 +35,14 @@ $data = json_decode($raw, true) ?: [];
 
 // Handle password change (POST action=change_password or PUT)
 if (($method === 'POST' && ($data['action'] ?? '') === 'change_password') || $method === 'PUT') {
+    /**
+     * Password Change Endpoint
+     * ========================
+     * Allows authenticated users to change their password.
+     * Requires current password verification for security.
+     * Enforces password complexity rules.
+     */
+
     if (!isLoggedIn()) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'Not authenticated']);
@@ -31,7 +52,7 @@ if (($method === 'POST' && ($data['action'] ?? '') === 'change_password') || $me
     $currentPassword = $data['current_password'] ?? '';
     $newPassword = $data['new_password'] ?? '';
 
-    // Enforce password policy
+    // Enforce password policy: at least 8 chars, uppercase, lowercase, number, special char
     $pattern = '/^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/';
     if (!preg_match($pattern, $newPassword)) {
         http_response_code(400);
@@ -81,6 +102,14 @@ if (($method === 'POST' && ($data['action'] ?? '') === 'change_password') || $me
 
 // Default: handle login via POST { userId, password, loginType }
 if ($method === 'POST') {
+    /**
+     * User Login Endpoint
+     * ===================
+     * Authenticates users based on role (admin/employee/student).
+     * Creates session upon successful authentication.
+     * Returns user data for frontend use.
+     */
+
     $userId = $data['userId'] ?? '';
     $password = $data['password'] ?? '';
     $loginType = $data['loginType'] ?? '';

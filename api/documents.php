@@ -1,4 +1,18 @@
 <?php
+/**
+ * Documents API - Document Workflow Management
+ * ============================================
+ *
+ * Manages document approval workflows with the following features:
+ * - Document creation and status tracking (GET/POST)
+ * - Document approval/rejection workflow (PUT)
+ * - Automatic timeout handling for stale documents
+ * - Mock document generation for testing
+ *
+ * Documents go through multiple approval steps assigned to employees.
+ * Supports PDF generation and signature collection.
+ */
+
 require_once '../includes/session.php';
 require_once '../includes/auth.php';
 require_once '../includes/database.php';
@@ -51,6 +65,15 @@ switch ($method) {
 
 function handleGet()
 {
+    /**
+     * GET /api/documents.php - Retrieve documents
+     * ===========================================
+     * Returns document list or specific document details.
+     * Query parameters:
+     * - id: Get specific document details with workflow steps
+     * - action=generate_mock: Create a test document
+     */
+
     global $db, $currentUser;
 
     try {

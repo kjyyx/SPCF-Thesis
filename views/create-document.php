@@ -1,10 +1,57 @@
+<?php
+require_once '../includes/session.php';
+require_once '../includes/auth.php';
+requireAuth(); // Requires login
+
+// Get current user
+$auth = new Auth();
+$currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
+
+if (!$currentUser) {
+  logoutUser();
+  header('Location: user-login.php');
+  exit();
+}
+
+// Audit log helper function
+function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
+    global $currentUser;
+    try {
+        $db = new Database();
+        $conn = $db->getConnection();
+        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, severity, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $currentUser['id'],
+            $currentUser['first_name'] . ' ' . $currentUser['last_name'],
+            $action,
+            $category,
+            $details,
+            $targetId,
+            $targetType,
+            $severity,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null
+        ]);
+    } catch (Exception $e) {
+        error_log("Failed to add audit log: " . $e->getMessage());
+    }
+}
+
+// Log page view
+addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create document page', $currentUser['id'], 'User', 'INFO');
+
+// Debug: Log user data (optional, for development)
+error_log("DEBUG create-document.php: Current user data: " . json_encode($currentUser));
+error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Document Creator - University Management System</title>
+  <title>Document Creator - <?php echo SITE_NAME; ?></title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
@@ -13,6 +60,19 @@
   <link rel="stylesheet" href="../assets/css/event-calendar.css"> <!-- Reuse shared navbar/dropdown/modal styles -->
   <link rel="stylesheet" href="../assets/css/create-document.css"> <!-- Updated path -->
   <link rel="stylesheet" href="../assets/css/toast.css">
+
+  <script>
+    // Pass user data to JavaScript (for consistency with event-calendar.php)
+    window.currentUser = <?php
+    // Convert snake_case to camelCase for JavaScript
+    $jsUser = $currentUser;
+    $jsUser['firstName'] = $currentUser['first_name'];
+    $jsUser['lastName'] = $currentUser['last_name'];
+    $jsUser['must_change_password'] = isset($currentUser['must_change_password']) ? (int) $currentUser['must_change_password'] : ((int) ($_SESSION['must_change_password'] ?? 0));
+    echo json_encode($jsUser);
+    ?>;
+    window.isAdmin = <?php echo ($currentUser['role'] === 'admin') ? 'true' : 'false'; ?>;
+  </script>
 </head>
 
 <body class="with-fixed-navbar">
@@ -28,8 +88,13 @@
         <!-- User Info -->
         <div class="user-info me-3">
           <i class="bi bi-person-circle me-2"></i>
-          <span id="userDisplayName">Document Creator</span>
-          <span class="badge ms-2 bg-primary" id="userRoleBadge">USER</span>
+          <span id="userDisplayName"><?php echo htmlspecialchars($currentUser['first_name'] . ' ' . $currentUser['last_name']); ?></span>
+          <span class="badge ms-2 <?php
+          echo ($currentUser['role'] === 'admin') ? 'bg-danger' :
+              (($currentUser['role'] === 'employee') ? 'bg-primary' : 'bg-success');
+          ?>" id="userRoleBadge">
+            <?php echo strtoupper($currentUser['role']); ?>
+          </span>
         </div>
 
         <!-- Back to Calendar -->
@@ -44,24 +109,17 @@
             <i class="bi bi-arrow-left me-2"></i>Back
           </button>
         </div> -->
-
         <!-- Settings Dropdown -->
         <div class="dropdown me-3">
           <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
             <i class="bi bi-gear me-2"></i>Settings
           </button>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="event-calendar.php"><i class="bi bi-calendar-event me-2"></i>Calendar</a>
-            </li> <!-- Updated link -->
-            <li><a class="dropdown-item" href="track-document.php"><i class="bi bi-file-earmark-check me-2"></i>Track
-                Documents</a></li> <!-- Updated link -->
-            <li><a class="dropdown-item" href="upload-publication.php"><i class="bi bi-cloud-upload me-2"></i>Upload
-                Materials</a></li> <!-- Updated link -->
-            <li>
-              <hr class="dropdown-divider">
-            </li>
-            <li><a class="dropdown-item text-danger" href="user-logout.php"><i
-                  class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+            <li><a class="dropdown-item" href="event-calendar.php"><i class="bi bi-calendar-event me-2"></i>Calendar</a></li>
+            <li><a class="dropdown-item" href="track-document.php"><i class="bi bi-file-earmark-check me-2"></i>Track Documents</a></li>
+            <li><a class="dropdown-item" href="upload-publication.php"><i class="bi bi-cloud-upload me-2"></i>Upload Materials</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item text-danger" href="user-logout.php"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
           </ul>
         </div>
       </div>
@@ -675,7 +733,7 @@
       if (document.referrer && document.referrer.includes(window.location.hostname)) {
         window.history.back();
       } else {
-        window.location.href = 'calendar.html';
+        window.location.href = 'event-calendar.php';  // Default to calendar if no referrer
       }
     }
   </script>

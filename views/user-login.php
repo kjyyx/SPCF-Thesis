@@ -3,6 +3,30 @@
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/session.php';
+require_once __DIR__ . '/../includes/database.php';
+
+// Audit log helper function
+function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
+    try {
+        $db = new Database();
+        $conn = $db->getConnection();
+        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, severity, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $_SESSION['user_id'] ?? null,
+            'Unknown User', // Since user not logged in yet
+            $action,
+            $category,
+            $details,
+            $targetId,
+            $targetType,
+            $severity,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null
+        ]);
+    } catch (Exception $e) {
+        error_log("Failed to add audit log: " . $e->getMessage());
+    }
+}
 
 // Redirect if already logged in
 if (isLoggedIn()) {
@@ -21,39 +45,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     $password = $_POST['password'] ?? '';
     $loginType = $_POST['loginType'] ?? '';
 
-    // DEBUG: Log form submission
-    error_log("DEBUG user-login.php: POST received - userId=$userId, loginType=$loginType, password_length=" . strlen($password));
-
     if (!empty($userId) && !empty($password) && !empty($loginType)) {
         $auth = new Auth();
         $user = $auth->login($userId, $password, $loginType);
 
-        // DEBUG: Log login result
-        error_log("DEBUG user-login.php: Auth->login returned: " . ($user ? 'SUCCESS' : 'FAILED'));
-
         if ($user) {
+            // Login successful
             loginUser($user);
 
-            // DEBUG: Log user data and redirection
-            error_log("DEBUG user-login.php: User logged in - id=" . $user['id'] . ", role=" . $user['role']);
-            error_log("DEBUG user-login.php: Session data after login: " . json_encode($_SESSION));
+            // ADD AUDIT LOG FOR SUCCESSFUL LOGIN
+            addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in", $user['id'], 'User', 'INFO');
 
             // Redirect based on role
             if ($user['role'] === 'admin') {
-                error_log("DEBUG user-login.php: Redirecting admin to admin-dashboard.php");
                 header('Location: admin-dashboard.php');
             } else {
-                error_log("DEBUG user-login.php: Redirecting user to event-calendar.php");
                 header('Location: event-calendar.php');
             }
             exit();
         } else {
+            // Login failed
             $error = 'Invalid credentials. Please try again.';
-            error_log("DEBUG user-login.php: Login failed - setting error message");
+
+            // ADD AUDIT LOG FOR FAILED LOGIN
+            addAuditLog('LOGIN_FAILED', 'Security', "Failed login attempt for user: {$userId}", null, 'User', 'WARNING');
         }
     } else {
-        $error = 'Please fill all fields.';
-        error_log("DEBUG user-login.php: Missing required fields");
+        $error = 'Please fill in all fields.';
     }
 }
 ?>
@@ -280,8 +298,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                                 <div class="password-wrapper">
                                     <input type="password" class="form-control" id="newPasswordReset" required
                                         minlength="6">
-                                    <button type="button" class="password-toggle"
-                                        id="newPasswordResetToggle">
+                                    <button type="button" class="password-toggle" id="newPasswordResetToggle">
                                         <i class="bi bi-eye" id="newPasswordResetIcon"></i>
                                     </button>
                                 </div>
@@ -292,8 +309,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                                 <label for="confirmPasswordReset" class="form-label">Confirm New Password</label>
                                 <div class="password-wrapper">
                                     <input type="password" class="form-control" id="confirmPasswordReset" required>
-                                    <button type="button" class="password-toggle"
-                                        id="confirmPasswordResetToggle">
+                                    <button type="button" class="password-toggle" id="confirmPasswordResetToggle">
                                         <i class="bi bi-eye" id="confirmPasswordResetIcon"></i>
                                     </button>
                                 </div>

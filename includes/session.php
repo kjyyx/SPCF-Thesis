@@ -28,6 +28,13 @@ function getCurrentUser()
 function requireAuth()
 {
     if (!isLoggedIn()) {
+        // Return JSON for API calls, redirect for web pages
+        $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+        if (strpos($requestUri, '/api/') !== false) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Authentication required']);
+            exit();
+        }
         // Determine the correct path based on current script location
         $currentDir = dirname($_SERVER['SCRIPT_NAME']);
         if (strpos($currentDir, '/views') !== false) {

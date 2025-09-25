@@ -1,11 +1,19 @@
 <?php
 /**
- * Users API
- * --------------------------------------
- * Provides CRUD endpoints for Admins to manage users across roles.
- * Security: Requires authenticated session with role 'admin'.
- * Response: Always JSON with shape { success: bool, ... }.
+ * Users API - User Management (Admin Only)
+ * ========================================
+ *
+ * Complete CRUD operations for user management:
+ * - GET: List users with pagination and search
+ * - POST: Create new users
+ * - PUT: Update existing users
+ * - DELETE: Remove users
+ *
+ * Restricted to administrators only.
+ * Handles users across all roles: admin, employee, student.
+ * Uses separate database tables for each role.
  */
+
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../includes/config.php';
@@ -100,12 +108,16 @@ try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
     // ----------------------------------
-    // READ: List users (optionally by role)
+    // READ: List users (optionally by role) with pagination
     // ----------------------------------
     if ($method === 'GET') {
         $role = $_GET['role'] ?? null; // optional filter
+        $page = (int)($_GET['page'] ?? 1);
+        $limit = (int)($_GET['limit'] ?? 50);
+        $offset = ($page - 1) * $limit;
 
         $users = [];
+        $total = 0;
         $rolesToFetch = $role ? [$role] : ['admin', 'employee', 'student'];
         foreach ($rolesToFetch as $r) {
             $table = get_table_by_role($r);
@@ -113,20 +125,29 @@ try {
                 continue; // ignore invalid roles in query param
             }
 
-            // Select role-specific fields
+            // Get total count for this role
+            $countSql = "SELECT COUNT(*) as count FROM $table";
+            $countStmt = $db->query($countSql);
+            $total += $countStmt->fetch(PDO::FETCH_ASSOC)['count'];
+
+            // Select role-specific fields with pagination
             if ($r === 'student') {
-                $sql = "SELECT id, first_name, last_name, email, department, position, phone FROM $table ORDER BY id";
+                $sql = "SELECT id, first_name, last_name, email, department, position, phone FROM $table ORDER BY id LIMIT :limit OFFSET :offset";
             } else {
-                $sql = "SELECT id, first_name, last_name, email, office, position, phone FROM $table ORDER BY id";
+                $sql = "SELECT id, first_name, last_name, email, office, position, phone FROM $table ORDER BY id LIMIT :limit OFFSET :offset";
             }
-            $stmt = $db->query($sql);
+            $stmt = $db->prepare($sql);
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 // Use ID as key so the UI can access quickly by ID
                 $users[$row['id']] = unify_user_row($row, $r);
             }
         }
 
-        json_response(['success' => true, 'users' => $users]);
+        $totalPages = ceil($total / $limit);
+        json_response(['success' => true, 'users' => $users, 'total' => $total, 'page' => $page, 'limit' => $limit, 'totalPages' => $totalPages]);
     }
 
     // For write operations, parse JSON body once

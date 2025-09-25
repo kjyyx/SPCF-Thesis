@@ -1,13 +1,13 @@
 // Upload Publication Materials JavaScript
 // This file contains the client-side logic for the upload publication materials page
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Initialize the upload functionality
     initializeUploadSystem();
 });
 
 function initializeUploadSystem() {
-// High-level: Drag-and-drop and input-based file selection with previews, ordering, usage bar, and simple alerts.
+    // High-level: Drag-and-drop and input-based file selection with previews, ordering, usage bar, and server upload.
     // File upload related variables
     const uploadZone = document.getElementById('upload-zone');
     const fileInput = document.getElementById('file-input');
@@ -20,12 +20,11 @@ function initializeUploadSystem() {
     let uploadedFiles = [];
     const maxFileSize = 10 * 1024 * 1024; // 10MB
     const maxTotalSize = 100 * 1024 * 1024; // 100MB
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
 
     // Drag and drop functionality
     if (uploadZone) {
         uploadZone.addEventListener('click', () => fileInput.click());
-
         uploadZone.addEventListener('dragover', handleDragOver);
         uploadZone.addEventListener('dragleave', handleDragLeave);
         uploadZone.addEventListener('drop', handleDrop);
@@ -40,7 +39,7 @@ function initializeUploadSystem() {
     if (submitBtn) {
         submitBtn.addEventListener('click', handleSubmit);
     }
-    
+
     // Clear all button
     const clearAllBtn = document.getElementById('clear-all-btn');
     if (clearAllBtn) {
@@ -49,12 +48,13 @@ function initializeUploadSystem() {
 
     function handleClearAll() {
         if (uploadedFiles.length === 0) return;
-        
+
         if (confirm('Are you sure you want to remove all files?')) {
-            uploadedFiles = [];
-            if (previewGrid) {
-                previewGrid.innerHTML = '';
+            if (window.addAuditLog) {
+                window.addAuditLog('FILES_CLEARED', 'Materials', `Cleared ${uploadedFiles.length} uploaded files`, null, 'Material', 'INFO');
             }
+            uploadedFiles = [];
+            if (previewGrid) previewGrid.innerHTML = '';
             hidePreviewContainer();
             updateSubmitButton();
             updateStorageUsage();
@@ -109,6 +109,13 @@ function initializeUploadSystem() {
             return false;
         }
 
+        // Check file name (alphanumeric, underscores, hyphens, dots only)
+        const fileNameRegex = /^[a-zA-Z0-9._-]+$/;
+        if (!fileNameRegex.test(file.name)) {
+            showAlert('Invalid file name: ' + file.name + ' (use only letters, numbers, underscores, hyphens, dots. Examples: document.pdf, file_1.txt, my-file.jpg)', 'danger');
+            return false;
+        }
+
         // Check file size
         if (file.size > maxFileSize) {
             showAlert('File too large: ' + file.name + ' (max 10MB)', 'danger');
@@ -146,12 +153,12 @@ function initializeUploadSystem() {
             iconDiv.style.height = '100px';
             iconDiv.style.background = 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)';
             iconDiv.style.borderRadius = '8px 8px 0 0';
-            
+
             // Get appropriate icon based on file extension
             const extension = file.name.split('.').pop().toLowerCase();
             let iconClass = 'bi-file-earmark-text';
             let iconColor = '#6366f1';
-            
+
             if (['pdf'].includes(extension)) {
                 iconClass = 'bi-file-earmark-pdf';
                 iconColor = '#dc2626';
@@ -159,7 +166,7 @@ function initializeUploadSystem() {
                 iconClass = 'bi-file-earmark-word';
                 iconColor = '#2563eb';
             }
-            
+
             iconDiv.innerHTML = `
                 <div class="text-center">
                     <i class="bi ${iconClass}" style="font-size: 2.5rem; color: ${iconColor};"></i>
@@ -172,20 +179,42 @@ function initializeUploadSystem() {
         // File info container
         const fileInfo = document.createElement('div');
         fileInfo.className = 'file-info';
-        
+
         // File name
         const nameDiv = document.createElement('div');
         nameDiv.className = 'file-name';
         nameDiv.textContent = file.name;
         nameDiv.title = file.name; // Tooltip for long names
         fileInfo.appendChild(nameDiv);
-        
+
+        // Add description textarea
+        const descDiv = document.createElement('div');
+        descDiv.className = 'file-description';
+        const descLabel = document.createElement('label');
+        descLabel.textContent = 'Description:';
+        descLabel.className = 'desc-label';
+        const descTextarea = document.createElement('textarea');
+        descTextarea.className = 'desc-textarea';
+        descTextarea.placeholder = 'Enter description for this file';
+        descTextarea.rows = 2;
+        descDiv.appendChild(descLabel);
+        descDiv.appendChild(descTextarea);
+        fileInfo.appendChild(descDiv);
+
+        // Store description in file object
+        file.description = '';
+
+        descTextarea.addEventListener('input', (e) => {
+            file.description = e.target.value;
+            console.log('Description updated for', file.name, ':', file.description);
+        });
+
         // File size
         const sizeDiv = document.createElement('div');
         sizeDiv.className = 'file-size';
         sizeDiv.textContent = formatFileSize(file.size);
         fileInfo.appendChild(sizeDiv);
-        
+
         fileElement.appendChild(fileInfo);
 
         // Delete button
@@ -209,8 +238,8 @@ function initializeUploadSystem() {
         fileElement.addEventListener('dragover', handleFileDragOver);
         fileElement.addEventListener('drop', handleFileDrop);
 
-    if (previewGrid) previewGrid.appendChild(fileElement);
-        
+        if (previewGrid) previewGrid.appendChild(fileElement);
+
         // Show preview container and update counts
         showPreviewContainer();
         updateFileCounts();
@@ -222,13 +251,13 @@ function initializeUploadSystem() {
         updateSubmitButton();
         updateStorageUsage();
         updateFileCounts();
-        
+
         // Hide preview container if no files
         if (uploadedFiles.length === 0) {
             hidePreviewContainer();
         }
     }
-    
+
     // Helper function to format file size
     function formatFileSize(bytes) {
         if (bytes === 0) return '0 Bytes';
@@ -237,7 +266,7 @@ function initializeUploadSystem() {
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     }
-    
+
     // Show preview container
     function showPreviewContainer() {
         const previewContainer = document.getElementById('preview-container');
@@ -245,7 +274,7 @@ function initializeUploadSystem() {
             previewContainer.style.display = 'block';
         }
     }
-    
+
     // Hide preview container
     function hidePreviewContainer() {
         const previewContainer = document.getElementById('preview-container');
@@ -253,17 +282,17 @@ function initializeUploadSystem() {
             previewContainer.style.display = 'none';
         }
     }
-    
+
     // Update file counts
     function updateFileCounts() {
         const fileCount = uploadedFiles.length;
         const fileCountElement = document.getElementById('file-count');
         const fileCountBadge = document.getElementById('file-count-badge');
-        
+
         if (fileCountElement) {
             fileCountElement.textContent = fileCount;
         }
-        
+
         if (fileCountBadge) {
             fileCountBadge.textContent = fileCount;
         }
@@ -318,6 +347,9 @@ function initializeUploadSystem() {
     }
 
     function updateStorageUsage() {
+        if (window.addAuditLog) {
+            window.addAuditLog('STORAGE_USAGE_CHECKED', 'Materials', 'Checked storage usage', null, 'Material', 'INFO');
+        }
         const totalSize = uploadedFiles.reduce((sum, file) => sum + file.size, 0);
         const percentage = (totalSize / maxTotalSize) * 100;
         const remainingSize = maxTotalSize - totalSize;
@@ -342,7 +374,7 @@ function initializeUploadSystem() {
             const percentageText = percentage.toFixed(1);
             usageText.textContent = `${usedMB} MB / 100 MB (${percentageText}%)`;
         }
-        
+
         // Update remaining space
         const remainingSpaceElement = document.getElementById('remaining-space');
         if (remainingSpaceElement) {
@@ -351,20 +383,59 @@ function initializeUploadSystem() {
         }
     }
 
-    function handleSubmit() {
+    async function handleSubmit() {
         if (uploadedFiles.length === 0) {
             showAlert('Please select files to upload', 'warning');
             return;
         }
 
-        // Here you would typically send the files to the server
-        showAlert('Files submitted successfully!', 'success');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Uploading...';
 
-        // Clear files after successful submission
-        uploadedFiles = [];
-        if (previewGrid) previewGrid.innerHTML = '';
-        updateSubmitButton();
-        updateStorageUsage();
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const file of uploadedFiles) {
+            const formData = new FormData();
+            formData.append('action', 'upload');
+            formData.append('file', file);
+            formData.append('student_id', window.currentUser?.id || 'unknown'); // Assuming user ID is available
+            formData.append('title', file.name); // Use filename as title, or prompt for description
+            formData.append('description',  file.description || 'Uploaded publication material'); // Placeholder
+            console.log('Uploading', file.name, 'with description:', file.description || 'Uploaded publication material');
+
+            try {
+                const response = await fetch('../api/materials.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                    showAlert(`Failed to upload ${file.name}: ${result.message}`, 'danger');
+                }
+            } catch (error) {
+                errorCount++;
+                showAlert(`Error uploading ${file.name}: ${error.message}`, 'danger');
+            }
+        }
+
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-send me-2"></i>Submit for Approval';
+
+        if (successCount > 0) {
+            // In handleSubmit, after successful upload:
+            showAlert(`Successfully uploaded ${successCount} file(s)! Files are pending approval.`, 'success');
+            // Clear files after successful submission
+            uploadedFiles = [];
+            if (previewGrid) previewGrid.innerHTML = '';
+            updateSubmitButton();
+            updateStorageUsage();
+            updateFileCounts();
+            hidePreviewContainer();
+        }
     }
 
     function showAlert(message, type) {
@@ -375,7 +446,7 @@ function initializeUploadSystem() {
                 duration: 5000
             });
         } else {
-            // Fallback - remove old alert container method
+            // Fallback
             alert(message);
         }
     }

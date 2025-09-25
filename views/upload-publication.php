@@ -1,3 +1,50 @@
+<?php
+require_once '../includes/session.php';
+require_once '../includes/auth.php';
+requireAuth(); // Requires login
+
+// Get current user
+$auth = new Auth();
+$currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
+
+if (!$currentUser) {
+  logoutUser();
+  header('Location: user-login.php');
+  exit();
+}
+
+// Audit log helper function
+function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
+    global $currentUser;
+    try {
+        $db = new Database();
+        $conn = $db->getConnection();
+        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, severity, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $currentUser['id'],
+            $currentUser['first_name'] . ' ' . $currentUser['last_name'],
+            $action,
+            $category,
+            $details,
+            $targetId,
+            $targetType,
+            $severity,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null
+        ]);
+    } catch (Exception $e) {
+        error_log("Failed to add audit log: " . $e->getMessage());
+    }
+}
+
+// Log page view
+addAuditLog('UPLOAD_PUBLICATION_VIEWED', 'Materials', 'Viewed upload publication page', $currentUser['id'], 'User', 'INFO');
+
+// Debug: Log user data (optional, for development)
+error_log("DEBUG upload-publication.php: Current user data: " . json_encode($currentUser));
+error_log("DEBUG upload-publication.php: Session data: " . json_encode($_SESSION));
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -12,6 +59,19 @@
   <link href="../assets/css/global.css" rel="stylesheet"> <!-- Global shared UI styles -->
   <link href="../assets/css/upload-publication.css" rel="stylesheet">
   <link href="../assets/css/toast.css" rel="stylesheet">
+
+  <script>
+    // Pass user data to JavaScript (for consistency with event-calendar.php)
+    window.currentUser = <?php
+    // Convert snake_case to camelCase for JavaScript
+    $jsUser = $currentUser;
+    $jsUser['firstName'] = $currentUser['first_name'];
+    $jsUser['lastName'] = $currentUser['last_name'];
+    $jsUser['must_change_password'] = isset($currentUser['must_change_password']) ? (int) $currentUser['must_change_password'] : ((int) ($_SESSION['must_change_password'] ?? 0));
+    echo json_encode($jsUser);
+    ?>;
+    window.isAdmin = <?php echo ($currentUser['role'] === 'admin') ? 'true' : 'false'; ?>;
+  </script>
 </head>
 
 <body class="with-fixed-navbar">
@@ -27,8 +87,14 @@
         <!-- User Info -->
         <div class="user-info me-3">
           <i class="bi bi-person-circle me-2"></i>
-          <span id="userDisplayName">Publication Manager</span>
-          <span class="badge ms-2 bg-primary" id="userRoleBadge">USER</span>
+          <span
+            id="userDisplayName"><?php echo htmlspecialchars($currentUser['first_name'] . ' ' . $currentUser['last_name']); ?></span>
+          <span class="badge ms-2 <?php
+          echo ($currentUser['role'] === 'admin') ? 'bg-danger' :
+            (($currentUser['role'] === 'employee') ? 'bg-primary' : 'bg-success');
+          ?>" id="userRoleBadge">
+            <?php echo strtoupper($currentUser['role']); ?>
+          </span>
         </div>
 
         <!-- Settings Dropdown -->
@@ -37,15 +103,16 @@
             <i class="bi bi-gear me-2"></i>Settings
           </button>
           <ul class="dropdown-menu dropdown-menu-end">
-      <li><a class="dropdown-item" href="event-calendar.php"><i class="bi bi-calendar-event me-2"></i>Calendar</a></li>
-      <li><a class="dropdown-item" href="create-document.php"><i class="bi bi-file-text me-2"></i>Create
-        Document</a></li>
-      <li><a class="dropdown-item" href="track-document.php"><i class="bi bi-file-earmark-check me-2"></i>Track
-        Documents</a></li>
+            <li><a class="dropdown-item" href="event-calendar.php"><i class="bi bi-calendar-event me-2"></i>Calendar</a>
+            </li>
+            <li><a class="dropdown-item" href="create-document.php"><i class="bi bi-file-text me-2"></i>Create
+                Document</a></li>
+            <li><a class="dropdown-item" href="track-document.php"><i class="bi bi-file-earmark-check me-2"></i>Track
+                Documents</a></li>
             <li>
               <hr class="dropdown-divider">
             </li>
-      <li><a class="dropdown-item text-danger" href="user-logout.php"><i
+            <li><a class="dropdown-item text-danger" href="user-logout.php"><i
                   class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
           </ul>
         </div>
@@ -55,17 +122,6 @@
 
   <!-- Main Content -->
   <div class="container">
-    <!-- Header Section -->
-    <!-- <div class="card text-white header-card mb-4">
-      <div class="card-body d-flex align-items-center">
-        <i class="bi bi-cloud-upload-fill me-3" style="font-size: 3rem;"></i>
-        <div>
-          <h2 class="mb-1">Upload Publication Materials</h2>
-          <p class="mb-0 opacity-90">Submit and organize your council's publication materials for approval</p>
-        </div>
-      </div>
-    </div> -->
-
     <!-- File Requirements & Guidelines -->
     <div class="card restrictions-card mb-4">
       <div class="card-body">
@@ -78,7 +134,7 @@
             <div class="row">
               <div class="col-md-6">
                 <ul class="mb-0 small">
-                  <li><strong>Supported formats:</strong> JPG, JPEG, PNG, PDF, DOC, DOCX</li>
+                  <li><strong>Supported formats:</strong> JPG, JPEG, PNG, GIF, PDF, DOC, DOCX</li>
                   <li><strong>Maximum file size:</strong> 10MB per file</li>
                   <li><strong>Image resolution:</strong> Minimum 300 DPI for print materials</li>
                 </ul>
@@ -87,7 +143,7 @@
                 <ul class="mb-0 small">
                   <li><strong>Total upload limit:</strong> 100MB per submission</li>
                   <li><strong>File naming:</strong> Use descriptive names (no spaces)</li>
-                  <li><strong>Not supported:</strong> GIF, BMP, TIFF, RAR, ZIP, EXE files</li>
+                  <li><strong>Not supported:</strong> BMP, TIFF, RAR, ZIP, EXE files</li>
                 </ul>
               </div>
             </div>
@@ -132,7 +188,7 @@
               </button>
             </div>
             <input type="file" id="file-input" class="file-input" multiple
-              accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.JPG,.JPEG,.PNG,.PDF,.DOC,.DOCX">
+              accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.JPG,.JPEG,.PNG,.GIF,.PDF,.DOC,.DOCX">
           </div>
         </div>
 
@@ -184,7 +240,6 @@
         </div>
       </div>
     </div>
-
   </div>
 
   <!-- Bootstrap JS -->
@@ -194,7 +249,7 @@
   <script src="../assets/js/toast.js"></script>
 
   <!-- Custom JavaScript -->
-  <script src="../assets/js/upload-publication.js"></script> <!-- Updated path -->
+  <script src="../assets/js/upload-publication.js"></script>
 
   <script>
     // Initialize tooltips

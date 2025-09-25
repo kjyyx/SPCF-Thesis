@@ -159,6 +159,10 @@ class DocumentManagerV6 {
             btn.classList.contains('download') ? 'download' : 'track';
 
         this.showToast(`${action.charAt(0).toUpperCase() + action.slice(1)} action triggered`, 'info');
+
+        if (window.addAuditLog) {
+            window.addAuditLog('DOCUMENT_VIEWED', 'Document Management', `Viewed document ${docId}`, docId, 'Document', 'INFO');
+        }
     }
 
     handleSearch(query) {

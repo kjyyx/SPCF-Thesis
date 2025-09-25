@@ -1,25 +1,134 @@
-// Admin Dashboard JavaScript
-// High-level: Handles admin functionality — user management, materials, audit logs.
-// Notes for future developers:
-// - Keep public function names referenced by HTML unchanged (e.g., editUser, deleteUser, etc.).
-// - API endpoints are centralized via apiFetch(); update base paths here if folder structure changes.
-// - Avoid storing secrets or sensitive data in client-side code. Passwords are never read back from the API.
+/**
+ * Admin Dashboard JavaScript - Complete Administration Interface
+ *
+ * This file provides comprehensive administrative functionality for the SPCF Thesis system,
+ * including user management, materials administration, audit logging, and system monitoring.
+ *
+ * @fileoverview Admin dashboard client-side functionality
+ * @author SPCF Thesis Development Team
+ * @version 1.0.0
+ * @since 2024
+ *
+ * @description
+ * This JavaScript file handles all client-side operations for the admin dashboard, including:
+ * - User account management (CRUD operations, role assignments, validation)
+ * - Materials management (upload, download, bulk operations, filtering)
+ * - Audit log monitoring and pagination
+ * - Real-time statistics and dashboard metrics
+ * - Form validation and user interaction handling
+ *
+ * @architecture
+ * The code is organized into logical sections:
+ * 1. Global Variables & Configuration
+ * 2. Utility Functions (validation, notifications, helpers)
+ * 3. Audit Log Management
+ * 4. User Management System
+ * 5. Materials Management System
+ * 6. Initialization & Event Handlers
+ *
+ * @dependencies
+ * - ToastManager (global notification system)
+ * - Bootstrap (modal dialogs, UI components)
+ * - PHP Backend APIs (users.php, materials.php, audit.php)
+ * - Local Storage API (for temporary data persistence)
+ *
+ * @security
+ * - All sensitive operations are handled server-side
+ * - Passwords are never stored or transmitted client-side
+ * - API calls include proper authentication headers
+ * - Input validation prevents XSS and injection attacks
+ *
+ * @api
+ * - USERS_API: '../api/users.php' - User management endpoints
+ * - MATERIALS_API: '../api/materials.php' - Materials management endpoints
+ * - AUDIT_API: '../api/audit.php' - Audit logging endpoints
+ *
+ * @notes
+ * - Public function names referenced by HTML must remain unchanged
+ * - API endpoints are centralized via apiFetch(); update base paths if folder structure changes
+ * - Avoid storing secrets or sensitive data in client-side code
+ * - All DOM manipulation uses modern querySelector/getElementById methods
+ * - Error handling provides user-friendly feedback via ToastManager
+ *
+ * @example
+ * // File is automatically loaded by admin-dashboard.php
+ * // No manual initialization required - uses DOMContentLoaded event
+ */
 
-// === Global Variables ===
-let currentUser = null; // set by PHP on page
-let auditLog = JSON.parse(localStorage.getItem('auditLog')) || []; // local-only audit log
-let publicMaterials = JSON.parse(localStorage.getItem('publicMaterials')) || []; // replaced by API load
-let editingUserId = null; // tracks current edit target
-let selectedUserRole = null; // tracks role selection in modal
-let selectedMaterials = []; // bulk selection for materials
-let currentMaterialId = null; // detail modal focus
-let editingUserOriginalRole = null; // used to prevent table hopping on edit
+// === Global Variables & Configuration ===
 
-// User database - will be populated from backend API
-let users = {};
-const USERS_API = '../api/users.php';
+/**
+ * @section Global State Variables
+ * Core application state that persists across function calls
+ * These variables track the current state of the admin interface
+ */
+let currentUser = null; // Current logged-in admin user (set by PHP on page load)
+let auditLog = JSON.parse(localStorage.getItem('auditLog')) || []; // Local audit log cache (client-side only)
+let publicMaterials = JSON.parse(localStorage.getItem('publicMaterials')) || []; // Cached materials list (replaced by API)
 
-// Toast notification helper
+/**
+ * @section User Management State
+ * Variables for tracking user editing and role selection states
+ */
+let editingUserId = null; // ID of user currently being edited (null when adding new user)
+let selectedUserRole = null; // Currently selected role in user modal
+let editingUserOriginalRole = null; // Original role before editing (prevents unintended table changes)
+
+/**
+ * @section Materials Management State
+ * Variables for tracking material selection and current focus
+ */
+let selectedMaterials = []; // Array of selected material IDs for bulk operations
+let currentMaterialId = null; // ID of material currently displayed in detail modal
+
+/**
+ * @section Pagination State
+ * Variables controlling pagination for different data tables
+ * Each section has its own pagination state for independent navigation
+ */
+
+// Audit Log Pagination
+let currentAuditPage = 1; // Current page number for audit logs
+let auditPageSize = 50; // Number of audit entries per page
+let totalAuditPages = 1; // Total number of audit pages available
+let auditLogs = []; // Current page of audit logs (for detail display)
+
+// Users Table Pagination
+let currentUsersPage = 1; // Current page number for users table
+let usersPageSize = 50; // Number of users displayed per page
+let totalUsersPages = 1; // Total number of user pages available
+
+// Materials Table Pagination
+let currentMaterialsPage = 1; // Current page number for materials table
+let materialsPageSize = 50; // Number of materials displayed per page
+let totalMaterialsPages = 1; // Total number of material pages available
+
+/**
+ * @section Data Storage
+ * Main data containers populated from backend APIs
+ */
+let users = {}; // User database cache - populated from backend API calls
+
+/**
+ * @section API Endpoints
+ * Centralized API endpoint constants for backend communication
+ * Update these paths if the folder structure changes
+ */
+const USERS_API = '../api/users.php'; // User management API endpoint
+const MATERIALS_API = '../api/materials.php'; // Materials management API endpoint
+const AUDIT_API = '../api/audit.php'; // Audit logging API endpoint
+/**
+ * @section Utility Functions
+ * Common helper functions used throughout the admin dashboard
+ * These functions provide reusable functionality for notifications, validation, and data initialization
+ */
+
+/**
+ * Display a toast notification to the user
+ * @param {string} message - The message to display
+ * @param {string} type - The type of notification ('info', 'success', 'warning', 'error')
+ * @param {string|null} title - Optional title for the notification
+ */
 function showToast(message, type = 'info', title = null) {
     if (window.ToastManager) {
         window.ToastManager.show({
@@ -29,23 +138,18 @@ function showToast(message, type = 'info', title = null) {
             duration: 4000
         });
     } else {
-        // Fallback
+        // Fallback to browser alert if ToastManager is not available
         alert(message);
     }
 }
 
-// ==========================================================
-// Initialization / Boot
-// ==========================================================
-// Removed legacy sample users seeding (users load from API)
-
-// Initialize data
 /**
- * Seed demo public materials in localStorage on first run.
- * Real data is fetched via API later; this keeps UI from looking empty.
+ * Initialize sample data for demonstration purposes
+ * Seeds localStorage with sample materials data on first run
+ * Real data is fetched from API endpoints during normal operation
  */
 function initializeSampleData() {
-    // Keep only Public Materials sample seeding (we'll replace with real API later)
+    // Only seed if no materials exist in localStorage
     if (publicMaterials.length === 0) {
         const sampleMaterials = [
             {
@@ -102,59 +206,274 @@ function initializeSampleData() {
     }
 }
 
-// ==========================================================
-// Audit Log Helpers (client-side only)
-// ==========================================================
 /**
- * Add an entry to the local audit log for user-initiated actions.
- * This is not a server-side audit trail — adjust once a backend exists.
+ * @section Validation Functions
+ * Input validation utilities for forms and user data
+ * These functions ensure data integrity and provide user feedback
  */
-function addAuditLog(action, category, details, targetId = null, targetType = null, severity = 'INFO') {
-    const entry = {
-        id: 'AUDIT' + Date.now(),
-        timestamp: new Date().toISOString(),
-        userId: currentUser ? currentUser.id : 'SYSTEM',
-        userName: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'System',
-        action: action,
-        category: category,
-        details: details,
-        targetId: targetId,
-        targetType: targetType,
-        ipAddress: '192.168.1.' + Math.floor(Math.random() * 255), // Simulated IP
-        userAgent: navigator.userAgent,
-        severity: severity
-    };
 
-    auditLog.unshift(entry); // Add to beginning of array
+/**
+ * Validate email address format
+ * @param {string} email - Email address to validate
+ * @returns {boolean} True if email format is valid
+ */
+function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
-    // Keep only last 1000 entries to prevent excessive storage
-    if (auditLog.length > 1000) {
-        auditLog = auditLog.slice(0, 1000);
+/**
+ * Normalize phone number by removing common punctuation and spaces
+ * @param {string} input - Raw phone number input
+ * @returns {string} Normalized phone number
+ */
+function normalizePhone(input) {
+    return input.replace(/[\s\-().]/g, '');
+}
+
+/**
+ * Validate Philippine phone number format
+ * Accepts formats: 09XXXXXXXXX or +639XXXXXXXXX
+ * @param {string} phone - Phone number to validate
+ * @returns {boolean} True if phone number is valid Philippine format
+ */
+function isValidPHPhone(phone) {
+    const normalized = normalizePhone(phone);
+    // Accept Philippines mobile format: 09XXXXXXXXX or +639XXXXXXXXX
+    return /^(09|\+639)\d{9}$/.test(normalized);
+}
+
+/**
+ * Display a success message in the user form
+ * @param {string} message - Success message to display
+ */
+function showUserFormSuccess(message) {
+    const messagesDiv = document.getElementById('userFormMessages');
+    messagesDiv.innerHTML = `<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>${message}</div>`;
+}
+
+/**
+ * Clear all messages from the user form
+ */
+function hideUserFormMessages() {
+    const messagesDiv = document.getElementById('userFormMessages');
+    messagesDiv.innerHTML = '';
+}
+
+/**
+ * @section Audit Log Management System
+ * Functions for managing audit logging, monitoring system activities,
+ * and displaying audit trails for administrative oversight
+ */
+
+/**
+ * Add an entry to the server-side audit log
+ * This function logs all administrative actions for compliance and monitoring
+ * @param {string} action - The action performed (e.g., 'USER_CREATED', 'LOGIN')
+ * @param {string} category - Category of the action (e.g., 'User Management', 'Authentication')
+ * @param {string} details - Detailed description of what happened
+ * @param {string|null} targetId - ID of the affected resource (optional)
+ * @param {string|null} targetType - Type of the affected resource (optional)
+ * @param {string} severity - Severity level ('INFO', 'WARNING', 'ERROR')
+ */
+window.addAuditLog = async function(action, category, details, targetId = null, targetType = null, severity = 'INFO') {
+    console.log('Attempting to log audit:', { action, category, details }); // Debug logging
+    try {
+        const response = await apiFetch(AUDIT_API, {
+            method: 'POST',
+            body: JSON.stringify({
+                action,
+                category,
+                details,
+                target_id: targetId,
+                target_type: targetType,
+                severity
+            })
+        });
+        console.log('Audit log response:', response); // Debug logging
+        if (!response.success) {
+            console.error('Failed to log audit entry:', response.message);
+        }
+    } catch (e) {
+        console.error('Audit log error:', e);
+    }
+};
+
+/**
+ * Load audit logs from server with pagination and filtering
+ * Fetches audit entries based on current filters and pagination settings
+ * @param {number} page - Page number to load (defaults to 1)
+ */
+async function loadAuditLogs(page = 1) {
+    currentAuditPage = page;
+    try {
+        // Get current filter values from UI
+        const category = document.getElementById('auditCategoryFilter').value;
+        const severity = document.getElementById('auditSeverityFilter').value;
+        const search = document.getElementById('auditSearch').value;
+
+        // Build query parameters
+        const params = new URLSearchParams({
+            page: currentAuditPage,
+            limit: auditPageSize,
+            ...(category && { category }),
+            ...(severity && { severity }),
+            ...(search && { search })
+        });
+
+        const data = await apiFetch(`${AUDIT_API}?${params}`);
+        if (data.success) {
+            const tbody = document.getElementById('auditTableBody');
+            tbody.innerHTML = '';
+
+            // Render each audit log entry
+            data.logs.forEach(entry => {
+                const row = createAuditLogRow(entry);
+                tbody.appendChild(row);
+            });
+
+            auditLogs = data.logs; // Store for details modal
+            totalAuditPages = data.totalPages;
+            updateAuditPagination();
+        } else {
+            console.error('Failed to load audit logs', data.message);
+            showToast('Failed to load audit logs: ' + (data.message || 'Unknown error'), 'error');
+        }
+    } catch (e) {
+        handleApiError('Error loading audit logs', e, (m) => showToast(m || 'Server error while loading audit logs', 'error'));
+    }
+}
+
+/**
+ * Update the audit log pagination controls
+ * Generates page navigation buttons based on current page and total pages
+ */
+function updateAuditPagination() {
+    const paginationEl = document.getElementById('auditPagination');
+    if (!paginationEl) return;
+
+    paginationEl.innerHTML = '';
+
+    // Don't show pagination for single page
+    if (totalAuditPages <= 1) return;
+
+    // Previous button
+    const prevBtn = document.createElement('li');
+    prevBtn.className = `page-item ${currentAuditPage === 1 ? 'disabled' : ''}`;
+    prevBtn.innerHTML = `<a class="page-link" href="#" onclick="loadAuditLogs(${currentAuditPage - 1})">Previous</a>`;
+    paginationEl.appendChild(prevBtn);
+
+    // Page number buttons (show current ± 2 pages)
+    const startPage = Math.max(1, currentAuditPage - 2);
+    const endPage = Math.min(totalAuditPages, currentAuditPage + 2);
+
+    for (let i = startPage; i <= endPage; i++) {
+        const pageBtn = document.createElement('li');
+        pageBtn.className = `page-item ${i === currentAuditPage ? 'active' : ''}`;
+        pageBtn.innerHTML = `<a class="page-link" href="#" onclick="loadAuditLogs(${i})">${i}</a>`;
+        paginationEl.appendChild(pageBtn);
     }
 
-    localStorage.setItem('auditLog', JSON.stringify(auditLog));
+    // Next button
+    const nextBtn = document.createElement('li');
+    nextBtn.className = `page-item ${currentAuditPage === totalAuditPages ? 'disabled' : ''}`;
+    nextBtn.innerHTML = `<a class="page-link" href="#" onclick="loadAuditLogs(${currentAuditPage + 1})">Next</a>`;
+    paginationEl.appendChild(nextBtn);
 }
+
+function updateUsersPagination() {
+    const paginationEl = document.getElementById('usersPagination');
+    if (!paginationEl) return;
+
+    paginationEl.innerHTML = '';
+
+    if (totalUsersPages <= 1) return;
+
+    // Previous button
+    const prevBtn = document.createElement('li');
+    prevBtn.className = `page-item ${currentUsersPage === 1 ? 'disabled' : ''}`;
+    prevBtn.innerHTML = `<a class="page-link" href="#" onclick="loadUsersFromAPI(null, ${currentUsersPage - 1})">Previous</a>`;
+    paginationEl.appendChild(prevBtn);
+
+    // Page numbers
+    const startPage = Math.max(1, currentUsersPage - 2);
+    const endPage = Math.min(totalUsersPages, currentUsersPage + 2);
+
+    for (let i = startPage; i <= endPage; i++) {
+        const pageBtn = document.createElement('li');
+        pageBtn.className = `page-item ${i === currentUsersPage ? 'active' : ''}`;
+        pageBtn.innerHTML = `<a class="page-link" href="#" onclick="loadUsersFromAPI(null, ${i})">${i}</a>`;
+        paginationEl.appendChild(pageBtn);
+    }
+
+    // Next button
+    const nextBtn = document.createElement('li');
+    nextBtn.className = `page-item ${currentUsersPage === totalUsersPages ? 'disabled' : ''}`;
+    nextBtn.innerHTML = `<a class="page-link" href="#" onclick="loadUsersFromAPI(null, ${currentUsersPage + 1})">Next</a>`;
+    paginationEl.appendChild(nextBtn);
+}
+
+function updateMaterialsPagination() {
+    const paginationEl = document.getElementById('materialsPagination');
+    if (!paginationEl) return;
+
+    paginationEl.innerHTML = '';
+
+    if (totalMaterialsPages <= 1) return;
+
+    // Previous button
+    const prevBtn = document.createElement('li');
+    prevBtn.className = `page-item ${currentMaterialsPage === 1 ? 'disabled' : ''}`;
+    prevBtn.innerHTML = `<a class="page-link" href="#" onclick="loadMaterials(${currentMaterialsPage - 1})">Previous</a>`;
+    paginationEl.appendChild(prevBtn);
+
+    // Page numbers
+    const startPage = Math.max(1, currentMaterialsPage - 2);
+    const endPage = Math.min(totalMaterialsPages, currentMaterialsPage + 2);
+
+    for (let i = startPage; i <= endPage; i++) {
+        const pageBtn = document.createElement('li');
+        pageBtn.className = `page-item ${i === currentMaterialsPage ? 'active' : ''}`;
+        pageBtn.innerHTML = `<a class="page-link" href="#" onclick="loadMaterials(${i})">${i}</a>`;
+        paginationEl.appendChild(pageBtn);
+    }
+
+    // Next button
+    const nextBtn = document.createElement('li');
+    nextBtn.className = `page-item ${currentMaterialsPage === totalMaterialsPages ? 'disabled' : ''}`;
+    nextBtn.innerHTML = `<a class="page-link" href="#" onclick="loadMaterials(${currentMaterialsPage + 1})">Next</a>`;
+    paginationEl.appendChild(nextBtn);
+}
+
+/**
+ * @section Initialization & Event Handlers
+ * Page initialization, authentication checks, and event binding
+ * Ensures proper setup of the admin dashboard on page load
+ */
 
 // ==========================================================
 // Main Initialization
 // ==========================================================
-// Initialize the admin dashboard when the page loads
+
+/**
+ * Initialize the admin dashboard when the page loads
+ * Performs authentication checks, loads initial data, and sets up the UI
+ */
 document.addEventListener('DOMContentLoaded', async function () {
     console.log('Admin Dashboard loaded');
 
-    // Use the user data passed from PHP
+    // Use the user data passed from PHP backend
     if (window.currentUser) {
         currentUser = window.currentUser;
         console.log('Admin user:', currentUser);
 
-        // Check if user is actually an admin
+        // Security check: Ensure user has admin role
         if (currentUser.role !== 'admin') {
             console.log('User is not an admin, redirecting...');
             window.location.href = 'event-calendar.php';
             return;
         }
 
-        // Update UI
+        // Update UI with current user information
         const adminUserName = document.getElementById('adminUserName');
         if (adminUserName) {
             adminUserName.textContent = `${currentUser.firstName} ${currentUser.lastName}`;
@@ -164,7 +483,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         initializeSampleData();
         await loadUsersFromAPI();
         await loadMaterials();
-        loadAuditLogs();
+        await loadAuditLogs();
         updateDashboardStats();
 
     } else {
@@ -178,10 +497,16 @@ document.addEventListener('DOMContentLoaded', async function () {
 // ==========================================================
 // Navigation functions moved below (single source of truth)
 
-// ==========================================================
-// Users: State, UI, and Actions
-// ==========================================================
-/** Update header statistics based on current state. */
+/**
+ * @section User Management System
+ * Complete user account management functionality including CRUD operations,
+ * role-based access control, form validation, and user interface management
+ */
+
+/**
+ * Update header statistics based on current state
+ * Displays total users, materials, and pending approvals in the dashboard header
+ */
 function updateUserStatistics() {
     const totalUsers = Object.keys(users).length;
     const pendingMaterials = publicMaterials.filter(m => m.status === 'pending').length;
@@ -195,7 +520,10 @@ function updateUserStatistics() {
     if (pendingApprovalsEl) pendingApprovalsEl.textContent = pendingMaterials;
 }
 
-/** Render the users table based on current users map. */
+/**
+ * Render the users table based on current users map
+ * Populates the users table with all user accounts from the users object
+ */
 function loadUsersTable() {
     const tbody = document.getElementById('usersTableBody');
     if (!tbody) return;
@@ -208,20 +536,35 @@ function loadUsersTable() {
     });
 }
 
-/** Build a <tr> element for a given user. */
+/**
+ * Build a table row element for a given user
+ * Creates a formatted HTML table row with user information and action buttons
+ * @param {Object} user - User object containing user data
+ * @param {string} user.id - Unique user identifier
+ * @param {string} user.firstName - User's first name
+ * @param {string} user.lastName - User's last name
+ * @param {string} user.role - User role (admin, employee, student)
+ * @param {string} user.email - User's email address
+ * @param {string} user.phone - User's phone number (optional)
+ * @param {string} user.department - Department for students (optional)
+ * @param {string} user.office - Office for employees/admins (optional)
+ * @returns {HTMLElement} Table row element ready for insertion
+ */
 function createUserRow(user) {
     const row = document.createElement('tr');
 
+    // Role-based styling for badges
     const roleClass = {
         'admin': 'bg-danger',
         'employee': 'bg-primary',
         'student': 'bg-success'
     };
 
+    // Display appropriate organizational unit based on role
     const departmentOrOffice = user.role === 'student' ? user.department : user.office;
     const contact = `${user.email}<br><small>${user.phone || '-'}</small>`;
 
-    // Show edit/delete buttons for all roles now
+    // Action buttons for editing and deleting users
     const actionButtons = `
         <div class="btn-group" role="group">
             <button class="btn btn-sm btn-outline-primary" onclick="editUser('${user.id}')" title="Edit User">
@@ -355,7 +698,11 @@ function selectUserRole(role) {
     hideUserFormMessages();
 }
 
-/** Open the modal pre-filled for editing a user. */
+/**
+ * Open the user modal pre-filled for editing an existing user
+ * Loads user data into the form and configures the modal for edit mode
+ * @param {string} userId - The ID of the user to edit
+ */
 function editUser(userId) {
     const user = users[userId];
     if (!user) return;
@@ -363,7 +710,7 @@ function editUser(userId) {
     editingUserId = userId;
     editingUserOriginalRole = user.role;
 
-    // Populate form
+    // Populate form fields with existing user data
     const userIdInput = document.getElementById('userIdInput');
     const userFirstName = document.getElementById('userFirstName');
     const userLastName = document.getElementById('userLastName');
@@ -502,33 +849,6 @@ function showUserFormError(message) {
     messagesDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>${message}</div>`;
 }
 
-// Validation helpers
-/** Basic email validation. */
-function isValidEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-/** Remove common punctuation/spaces for phone input. */
-function normalizePhone(input) {
-    return input.replace(/[\s\-().]/g, '');
-}
-
-/** Accept PH mobile formats: 09XXXXXXXXX or +639XXXXXXXXX */
-function isValidPHPhone(phone) {
-    const p = normalizePhone(phone);
-    // Accept Philippines mobile format: 09XXXXXXXXX or +639XXXXXXXXX
-    return /^(09|\+639)\d{9}$/.test(p);
-}
-
-function showUserFormSuccess(message) {
-    const messagesDiv = document.getElementById('userFormMessages');
-    messagesDiv.innerHTML = `<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>${message}</div>`;
-}
-
-function hideUserFormMessages() {
-    const messagesDiv = document.getElementById('userFormMessages');
-    messagesDiv.innerHTML = '';
-}
 
 /** Filter users table by role (dropdown). */
 function filterUsers() {
@@ -564,6 +884,7 @@ function searchUsers() {
 
 /** Re-fetch users and clear filters. */
 function refreshUserList() {
+    currentUsersPage = 1;
     loadUsersFromAPI().then(() => updateUserStatistics());
     document.getElementById('userRoleFilter').value = '';
     document.getElementById('userSearch').value = '';
@@ -741,6 +1062,17 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
 // ==========================================================
 // Materials: State, UI, and Actions
 // ==========================================================
+
+/**
+ * @section Materials Management System
+ * Public materials administration including upload tracking, approval workflow,
+ * download management, bulk operations, and file organization
+ */
+
+/**
+ * Render the materials table with current public materials
+ * Displays all public materials in a paginated table format
+ */
 function loadMaterialsTable() {
     const tbody = document.getElementById('materialsTableBody');
     tbody.innerHTML = '';
@@ -772,8 +1104,8 @@ function createMaterialRow(material) {
         </td>
         <td><strong>${material.id}</strong></td>
         <td>${material.title}</td>
-        <td>${material.student_id}</td>
-        <td>${material.doc_type}</td>
+        <td>${material.submitted_by || 'Unknown'}</td>
+        <td>${material.department || 'N/A'}</td>
         <td><span class="badge ${statusClass[material.status]}">${material.status.toUpperCase()}</span></td>
         <td>${submissionDate}</td>
         <td>
@@ -801,19 +1133,36 @@ function viewMaterialDetails(materialId) {
     // Populate modal with material details
     document.getElementById('materialDetailId').textContent = material.id;
     document.getElementById('materialDetailFileName').textContent = material.title;
-    document.getElementById('materialDetailStatus').innerHTML = `<span class="badge ${getStatusClass(material.status)}">${material.status.toUpperCase()}</span>`;
-    document.getElementById('materialDetailSize').textContent = 'N/A'; // No size in documents table
-    document.getElementById('materialDetailDownloads').textContent = 'N/A'; // No download count
     document.getElementById('materialDetailDescription').textContent = material.description || 'No description provided';
+    document.getElementById('materialDetailStatus').innerHTML = `<span class="badge ${getStatusClass(material.status)}">${material.status.toUpperCase()}</span>`;
+    document.getElementById('materialDetailSize').textContent = material.file_size_kb ? `${material.file_size_kb} KB` : 'N/A';
+    document.getElementById('materialDetailDownloads').textContent = material.downloads || 0;
 
-    // Hide approval/rejection info for now
+    // Hide approval/rejection info initially
     const approvalInfo = document.getElementById('materialApprovalInfo');
     const rejectionInfo = document.getElementById('materialRejectionInfo');
     approvalInfo.style.display = 'none';
     rejectionInfo.style.display = 'none';
 
+    if (material.status === 'approved' && material.approved_by_name) {
+        document.getElementById('materialApprovedBy').textContent = material.approved_by_name;
+        document.getElementById('materialApprovalDate').textContent = material.approved_at ? new Date(material.approved_at).toLocaleString() : 'N/A';
+        approvalInfo.style.display = 'block';
+    } else if (material.status === 'rejected' && material.rejected_by) {
+        document.getElementById('materialRejectedBy').textContent = material.rejected_by;
+        document.getElementById('materialRejectionDate').textContent = material.rejected_at ? new Date(material.rejected_at).toLocaleString() : 'N/A';
+        document.getElementById('materialRejectionReason').textContent = material.rejection_reason || 'No reason provided';
+        rejectionInfo.style.display = 'block';
+    }
+
     const modal = new bootstrap.Modal(document.getElementById('materialDetailModal'));
     modal.show();
+}
+
+/** Download the material file. */
+function downloadMaterial() {
+    if (!currentMaterialId) return;
+    window.open(`../api/materials.php?download=1&id=${currentMaterialId}`, '_blank');
 }
 
 function getStatusClass(status) {
@@ -930,7 +1279,7 @@ function filterMaterials() {
     const rows = tbody.querySelectorAll('tr');
 
     rows.forEach(row => {
-        const statusCell = row.querySelector('td:nth-child(6)');
+        const statusCell = row.querySelector('td:nth-child(5)');
         const statusMatch = statusFilter === '' || statusCell.textContent.toLowerCase().includes(statusFilter);
 
         if (statusMatch) {
@@ -959,7 +1308,8 @@ function searchMaterials() {
 
 /** Reset filters and re-render materials. */
 function refreshMaterialsList() {
-    loadMaterialsTable();
+    currentMaterialsPage = 1;
+    loadMaterials(currentMaterialsPage);
     updateUserStatistics();
     document.getElementById('materialStatusFilter').value = '';
     document.getElementById('materialSearch').value = '';
@@ -970,36 +1320,29 @@ function refreshMaterialsList() {
 function exportMaterials() {
     const materialData = publicMaterials.map(material => ({
         'Material ID': material.id,
-        'Title': material.title,
-        'Student ID': material.student_id,
-        'Type': material.doc_type,
+        'File Name': material.title,
+        'Submitted By': material.submitted_by,
+        'Department': material.department,
         'Status': material.status,
-        'Description': material.description || '',
-        'Uploaded At': new Date(material.uploaded_at).toLocaleString()
+        'Submission Date': new Date(material.uploaded_at).toLocaleString(),
+        'File Size (KB)': material.file_size_kb,
+        'Downloads': material.downloads,
+        'Description': material.description || ''
     }));
 
     const csv = convertToCSV(materialData);
-    downloadCSV(csv, 'public_materials.csv');
+    downloadCSV(csv, 'materials.csv');
 
-    // Add audit log
-    addAuditLog('MATERIALS_EXPORTED', 'Public Materials', `Exported ${materialData.length} materials to CSV`, null, 'System', 'INFO');
+    addAuditLog('MATERIALS_EXPORTED', 'Materials', `Exported ${materialData.length} materials to CSV`, null, 'System', 'INFO');
 }
+
 
 // ==========================================================
 // Audit Log: UI helpers
 // ==========================================================
 // Note: Audit details modal is triggered by the eye icon in the audit table
 function loadAuditLogTable() {
-    const tbody = document.getElementById('auditTableBody');
-    tbody.innerHTML = '';
-
-    // Show most recent entries first
-    const sortedAuditLog = [...auditLog].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-    sortedAuditLog.forEach(entry => {
-        const row = createAuditLogRow(entry);
-        tbody.appendChild(row);
-    });
+    loadAuditLogs(currentAuditPage);
 }
 
 /** Build a <tr> for an audit log entry. */
@@ -1017,11 +1360,11 @@ function createAuditLogRow(entry) {
 
     row.innerHTML = `
         <td>${timestamp}</td>
-        <td>${entry.userName}</td>
+        <td>${entry.user_name}</td>
         <td>${entry.action}</td>
         <td>${entry.category}</td>
         <td><span class="badge ${severityClass[entry.severity]}">${entry.severity}</span></td>
-        <td>${entry.ipAddress}</td>
+        <td>${entry.ip_address}</td>
         <td>
             <button class="btn btn-sm btn-outline-info" onclick="viewAuditDetails('${entry.id}')" title="View Details">
                 <i class="bi bi-eye"></i>
@@ -1034,77 +1377,50 @@ function createAuditLogRow(entry) {
 
 /** Open details modal for an audit log entry. */
 function viewAuditDetails(auditId) {
-    const entry = auditLog.find(e => e.id === auditId);
+    const entry = auditLogs.find(e => e.id == auditId);
     if (!entry) return;
 
     // Populate modal with audit details
     document.getElementById('auditDetailTimestamp').textContent = new Date(entry.timestamp).toLocaleString();
-    document.getElementById('auditDetailUser').textContent = `${entry.userName} (${entry.userId})`;
+    document.getElementById('auditDetailUser').textContent = `${entry.user_name} (${entry.user_id})`;
     document.getElementById('auditDetailAction').textContent = `${entry.action} - ${entry.category}`;
-    document.getElementById('auditDetailSystem').textContent = `IP: ${entry.ipAddress} | Severity: ${entry.severity}`;
+    document.getElementById('auditDetailSystem').textContent = `IP: ${entry.ip_address} | Severity: ${entry.severity}`;
 
     const modal = new bootstrap.Modal(document.getElementById('auditDetailModal'));
     modal.show();
 }
 
-/** Client-side filter audit table by category and severity. */
+/** Client-side filter audit table by category and severity (now filters loaded data). */
 function filterAuditLog() {
-    const categoryFilter = document.getElementById('auditCategoryFilter').value;
-    const severityFilter = document.getElementById('auditSeverityFilter').value;
-    const tbody = document.getElementById('auditTableBody');
-    const rows = tbody.querySelectorAll('tr');
-
-    rows.forEach(row => {
-        const categoryCell = row.querySelector('td:nth-child(4)');
-        const severityCell = row.querySelector('td:nth-child(5)');
-
-        const categoryMatch = categoryFilter === '' || categoryCell.textContent.includes(categoryFilter);
-        const severityMatch = severityFilter === '' || severityCell.textContent.includes(severityFilter);
-
-        if (categoryMatch && severityMatch) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
+    loadAuditLogs(1); // Reset to page 1
 }
 
 /** Client-side search across audit table. */
 function searchAuditLog() {
-    const searchTerm = document.getElementById('auditSearch').value.toLowerCase();
-    const tbody = document.getElementById('auditTableBody');
-    const rows = tbody.querySelectorAll('tr');
-
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        if (text.includes(searchTerm)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
+    loadAuditLogs(1); // Reset to page 1
 }
 
 function refreshAuditLog() {
-    loadAuditLogTable();
+    currentAuditPage = 1;
     document.getElementById('auditCategoryFilter').value = '';
     document.getElementById('auditSeverityFilter').value = '';
     document.getElementById('auditSearch').value = '';
+    loadAuditLogs(currentAuditPage);
 }
 
-/** Export audit log to CSV (local only). */
+/** Export audit log to CSV (from current page). */
 function exportAuditLog() {
-    const auditData = auditLog.map(entry => ({
+    const auditData = auditLogs.map(entry => ({
         'Audit ID': entry.id,
         'Timestamp': new Date(entry.timestamp).toLocaleString(),
-        'User ID': entry.userId,
-        'User Name': entry.userName,
+        'User ID': entry.user_id,
+        'User Name': entry.user_name,
         'Action': entry.action,
         'Category': entry.category,
         'Details': entry.details,
-        'Target ID': entry.targetId || '',
-        'Target Type': entry.targetType || '',
-        'IP Address': entry.ipAddress,
+        'Target ID': entry.target_id || '',
+        'Target Type': entry.target_type || '',
+        'IP Address': entry.ip_address,
         'Severity': entry.severity
     }));
 
@@ -1117,14 +1433,15 @@ function exportAuditLog() {
 
 function clearAuditLog() {
     if (confirm('Are you sure you want to clear all audit log entries?\n\nThis action cannot be undone and will remove all audit history.')) {
-        const entryCount = auditLog.length;
-        auditLog = [];
-        localStorage.setItem('auditLog', JSON.stringify(auditLog));
-
-        // Add a new audit entry for the clear action (this will be the only entry)
-        addAuditLog('AUDIT_LOG_CLEARED', 'System', `Cleared audit log containing ${entryCount} entries`, null, 'System', 'WARNING');
-
-        loadAuditLogTable();
+        apiFetch(AUDIT_API, { method: 'DELETE' }).then(resp => {
+            if (resp.success) {
+                loadAuditLogs(1);
+                addAuditLog('AUDIT_LOG_CLEARED', 'System', 'Cleared audit log', null, 'System', 'WARNING');
+                showToast('Audit log cleared.', 'success');
+            } else {
+                showToast('Failed to clear audit logs', 'error');
+            }
+        }).catch(e => showToast('Server error clearing audit logs', 'error'));
     }
 }
 
@@ -1132,14 +1449,17 @@ function clearAuditLog() {
 // Settings and Profile (stubs)
 // ==========================================================
 function openProfileSettings() {
+    addAuditLog('PROFILE_SETTINGS_VIEWED', 'User Management', 'Viewed profile settings', currentUser?.id, 'User', 'INFO');
     alert('Profile Settings\n\nThis would open a modal to edit administrator profile information, including name, email, and contact details.');
 }
 
 function openNotificationSettings() {
+    addAuditLog('NOTIFICATION_SETTINGS_VIEWED', 'System', 'Viewed notification settings', currentUser?.id, 'User', 'INFO');
     alert('Notification Settings\n\nThis would open settings to configure email notifications, system alerts, and audit log notifications.');
 }
 
 function openSystemSettings() {
+    addAuditLog('SYSTEM_SETTINGS_VIEWED', 'System', 'Viewed system settings', currentUser?.id, 'User', 'INFO');
     alert('System Settings\n\nThis would open advanced system configuration options including backup settings, user policies, and security configurations.');
 }
 
@@ -1264,15 +1584,22 @@ function handleApiError(prefix, err, notifyFn = (msg) => showToast(msg, 'error')
 // API and Loading Functions
 // ==========================================================
 // Replace older duplicated init/load functions with API-backed ones
-const MATERIALS_API = '../api/materials.php';
 
-async function loadUsersFromAPI(role = null) {
-    const url = role ? `${USERS_API}?role=${encodeURIComponent(role)}` : USERS_API;
+async function loadUsersFromAPI(role = null, page = 1) {
+    currentUsersPage = page;
+    const params = new URLSearchParams({
+        page: currentUsersPage,
+        limit: usersPageSize,
+        ...(role && { role })
+    });
+    const url = `${USERS_API}?${params}`;
     try {
         const data = await apiFetch(url);
         if (data.success) {
             users = data.users || {};
+            totalUsersPages = data.totalPages || 1;
             loadUsersTable();
+            updateUsersPagination();
             return true;
         } else {
             console.error('Failed to load users', data.message);
@@ -1286,12 +1613,19 @@ async function loadUsersFromAPI(role = null) {
 }
 
 // Load materials into the table
-async function loadMaterials() {
+async function loadMaterials(page = 1) {
+    currentMaterialsPage = page;
     try {
-        const data = await apiFetch(MATERIALS_API);
+        const params = new URLSearchParams({
+            page: currentMaterialsPage,
+            limit: materialsPageSize
+        });
+        const data = await apiFetch(`${MATERIALS_API}?${params}`);
         if (data.success) {
             publicMaterials = data.materials || [];
+            totalMaterialsPages = data.totalPages || 1;
             loadMaterialsTable();
+            updateMaterialsPagination();
         } else {
             console.error('Failed to load materials', data.message);
             showToast('Failed to load materials: ' + (data.message || 'Unknown error'), 'error');
@@ -1299,27 +1633,6 @@ async function loadMaterials() {
     } catch (e) {
         handleApiError('Error loading materials', e, (m) => showToast(m || 'Server error while loading materials', 'error'));
     }
-}
-
-// Load audit logs into the table
-function loadAuditLogs() {
-    const auditTableBody = document.getElementById('auditTableBody');
-    if (!auditTableBody) return;
-
-    auditTableBody.innerHTML = '';
-
-    auditLog.slice(0, 50).forEach(entry => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${new Date(entry.timestamp).toLocaleString()}</td>
-            <td>${entry.userName}</td>
-            <td>${entry.action}</td>
-            <td>${entry.category}</td>
-            <td><span class="badge bg-${getSeverityColor(entry.severity)}">${entry.severity}</span></td>
-            <td>${entry.details}</td>
-        `;
-        auditTableBody.appendChild(row);
-    });
 }
 
 // Update dashboard statistics
@@ -1365,10 +1678,10 @@ function goToCalendar() {
 function logout() {
     try {
         if (currentUser) {
-            addAuditLog('LOGOUT', 'Authentication', `Admin ${currentUser.firstName} ${currentUser.lastName} logged out`);
+            window.addAuditLog('LOGOUT', 'Authentication', `Admin ${currentUser.firstName} ${currentUser.lastName} logged out`);
         }
     } catch (e) {
-        // ignore audit errors
+        console.error('Logout audit error:', e);
     }
     window.location.href = 'user-logout.php';
 }

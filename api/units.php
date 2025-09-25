@@ -1,4 +1,16 @@
 <?php
+/**
+ * Units API - Academic Units/Departments
+ * ======================================
+ *
+ * Provides information about university units (departments/colleges/offices):
+ * - GET: Retrieve units by type or all units
+ * - Query parameter 'type': 'office', 'college', or omit for all
+ *
+ * Units are used for organizing events, users, and other resources.
+ * Types: 'office' (administrative), 'college' (academic departments)
+ */
+
 header('Content-Type: application/json');
 require_once '../includes/config.php';
 require_once '../includes/auth.php';

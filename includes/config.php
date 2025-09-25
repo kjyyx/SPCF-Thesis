@@ -5,7 +5,7 @@
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
 define('DB_PASS', '');
-define('DB_NAME', 'SPCF_Thesis_db');
+define('DB_NAME', 'spcf_thesis_db');
 
 // Application settings
 define('BASE_URL', 'http://localhost/SPCF-Thesis/');

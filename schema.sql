@@ -73,6 +73,8 @@ ALTER TABLE students
     ADD COLUMN IF NOT EXISTS must_change_password TINYINT(1) NOT NULL DEFAULT 1,
     ADD COLUMN IF NOT EXISTS password_changed_at DATETIME NULL;
 
+ALTER TABLE documents MODIFY COLUMN doc_type ENUM('proposal','saf','facility','communication','material') NOT NULL;
+
 -- Organizational units (offices/colleges)
 CREATE TABLE IF NOT EXISTS units (
     id INT AUTO_INCREMENT PRIMARY KEY,

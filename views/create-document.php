@@ -13,6 +13,12 @@ if (!$currentUser) {
   exit();
 }
 
+// Restrict to students only
+if ($currentUser['role'] !== 'student') {
+    header('Location: user-login.php?error=access_denied');
+    exit();
+}
+
 // Audit log helper function
 function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
     global $currentUser;
@@ -181,6 +187,9 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
             <button id="togglePreviewBtn" class="btn btn-outline-secondary" onclick="togglePreview()">
               <i class="bi bi-eye me-2"></i>Preview
             </button>
+            <button class="btn btn-success" onclick="submitDocument()">
+              <i class="bi bi-check-circle me-2"></i>Create Document
+            </button>
           </div>
 
           <div class="preview-status">
@@ -224,11 +233,12 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                     <select id="prop-department" class="form-select">
                       <option value="">Select Department</option>
                       <option value="engineering">College of Engineering</option>
-                      <option value="business">College of Business Administration</option>
-                      <option value="education">College of Education</option>
-                      <option value="arts">College of Arts & Sciences</option>
-                      <option value="science">College of Computer Science</option>
+                      <option value="business">College of Business</option>
+                      <option value="education">College of Arts, Social Sciences, and Education</option>
+                      <option value="arts">College of Arts, Social Sciences, and Education</option>
+                      <option value="science">College of Computing and Information Sciences</option>
                       <option value="nursing">College of Nursing</option>
+                      <!-- Add more as needed -->
                     </select>
                   </div>
                 </div>

@@ -755,6 +755,33 @@ setTimeout(() => {
     scheduleGenerate();
 }, 300);
 
+// Add a new function to submit the document (call this from a "Create Document" button in create-document.php)
+async function submitDocument() {
+    const data = collectProposalData();
+    try {
+        const response = await fetch('../api/documents.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'create',
+                doc_type: 'proposal',
+                student_id: window.currentUser?.id,
+                data: data
+            })
+        });
+        const result = await response.json();
+        if (result.success) {
+            window.ToastManager?.success('Document created with filled template!', 'Success');
+            // Redirect to track-document for students to track their documents
+            window.location.href = 'track-document.php';
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (e) {
+        window.ToastManager?.error('Failed to create document: ' + e.message, 'Error');
+    }
+}
+
 /**
  * @section DOM Utilities & Error Handling
  * Helper functions for DOM manipulation and error management

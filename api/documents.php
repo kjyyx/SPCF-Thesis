@@ -16,8 +16,55 @@
 require_once '../includes/session.php';
 require_once '../includes/auth.php';
 require_once '../includes/database.php';
+require_once '../vendor/autoload.php';
 
 header('Content-Type: application/json');
+
+// Add this function after existing includes/requires
+function fillDocxTemplate($templatePath, $data) {
+    if (!file_exists($templatePath)) {
+        throw new Exception("Template file not found: $templatePath");
+    }
+    $templateProcessor = new \PhpOffice\PhpWord\TemplateProcessor($templatePath);
+    
+    // Replace simple placeholders
+    foreach ($data as $key => $value) {
+        if (is_array($value)) {
+            if ($key === 'objectives' || $key === 'ilos') {
+                // Simple bulleted list for arrays of strings
+                $value = implode("\n• ", array_map('htmlspecialchars', $value));
+            } elseif ($key === 'program') {
+                // Format program schedule
+                $lines = [];
+                foreach ($value as $item) {
+                    $lines[] = htmlspecialchars("{$item['start']} - {$item['end']}: {$item['act']}");
+                }
+                $value = implode("\n", $lines);
+            } elseif ($key === 'budget') {
+                // Format budget table as text
+                $lines = [];
+                foreach ($value as $item) {
+                    $lines[] = htmlspecialchars("{$item['name']} - {$item['size']} - Qty: {$item['qty']} - Price: ₱{$item['price']} - Total: ₱{$item['total']}");
+                }
+                $value = implode("\n", $lines);
+            } else {
+                $value = implode(", ", array_map('htmlspecialchars', $value));
+            }
+        } elseif (is_string($value)) {
+            $value = htmlspecialchars($value);
+        }
+        $templateProcessor->setValue($key, $value);
+    }
+    
+    // Generate unique filename for filled document
+    $outputDir = '../uploads/';
+    if (!is_dir($outputDir)) {
+        mkdir($outputDir, 0755, true);
+    }
+    $outputPath = $outputDir . 'filled_' . uniqid('doc_', true) . '.docx';
+    $templateProcessor->saveAs($outputPath);
+    return $outputPath;
+}
 
 // Document timeout configuration
 if (!defined('DOC_TIMEOUT_DAYS')) {
@@ -273,6 +320,9 @@ function handlePost()
             case 'reject':
                 rejectDocument($input);
                 break;
+            case 'create':
+                createDocument($input);
+                break;
             default:
                 http_response_code(400);
                 echo json_encode(['success' => false, 'message' => 'Invalid action']);
@@ -281,7 +331,88 @@ function handlePost()
     } catch (Exception $e) {
         error_log("Error processing document action: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Failed to process action']);
+        echo json_encode(['success' => false, 'message' => 'Failed to process action: ' . $e->getMessage()]);
+    }
+}
+
+function createDocument($input)
+{
+    global $db, $currentUser;
+
+    if ($currentUser['role'] !== 'student') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Only students can create documents']);
+        return;
+    }
+
+    $docType = $input['doc_type'] ?? '';
+    $studentId = $input['student_id'] ?? '';
+    $data = $input['data'] ?? [];
+
+    if (!$docType || !$studentId || !$data) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+        return;
+    }
+
+    try {
+        $db->beginTransaction();
+
+        // Insert document
+        $stmt = $db->prepare("INSERT INTO documents (student_id, doc_type, title, description, status, current_step, uploaded_at) VALUES (?, ?, ?, ?, 'submitted', 1, NOW())");
+        $stmt->execute([$studentId, $docType, $data['title'] ?? 'Untitled', $data['rationale'] ?? '']);
+
+        $docId = (int) $db->lastInsertId();
+
+        if ($docType === 'proposal') {
+            // Map department to template file
+            $department = $data['department'] ?? '';
+            $templateMap = [
+                'engineering' => '../assets/templates/Project Proposals/College of Engineering (Project Proposal).docx',
+                'business' => '../assets/templates/Project Proposals/College of Business (Project Proposal).docx',
+                'education' => '../assets/templates/Project Proposals/College of Arts, Social Sciences, and Education (Project Proposal).docx',
+                'arts' => '../assets/templates/Project Proposals/College of Arts, Social Sciences, and Education (Project Proposal).docx',
+                'science' => '../assets/templates/Project Proposals/College of Computing and Information Sciences (Project Proposal).docx',
+                'nursing' => '../assets/templates/Project Proposals/College of Nursing (Project Proposal).docx',
+                // Add more mappings as needed, default to a generic one
+                'default' => '../assets/templates/Project Proposals/Supreme Student Council (Project Proposal).docx'
+            ];
+            $templatePath = $templateMap[$department] ?? $templateMap['default'];
+            
+            try {
+                $filledPath = fillDocxTemplate($templatePath, $data);
+                // Check if file was created
+                if (!file_exists($filledPath)) {
+                    error_log("Filled file not found: $filledPath");
+                    throw new Exception("Failed to create filled document file");
+                }
+                // Update document record with file path
+                $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
+                $stmt->execute([$filledPath, $docId]);
+            } catch (Exception $e) {
+                error_log("Template filling failed: " . $e->getMessage());
+                // Fallback to HTML if needed, but for now, proceed
+            }
+        }
+
+        // For now, create a simple step (this can be expanded for workflow)
+        // Assign to the first available employee (for testing)
+        $empStmt = $db->prepare("SELECT id FROM employees LIMIT 1");
+        $empStmt->execute();
+        $emp = $empStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$emp) {
+            throw new Exception("No employees found to assign the document step");
+        }
+        $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, 1, 'Initial Review', ?, 'pending')");
+        $stmt->execute([$docId, $emp['id']]);
+
+        $db->commit();
+
+        echo json_encode(['success' => true, 'document_id' => $docId]);
+
+    } catch (Exception $e) {
+        $db->rollBack();
+        throw $e;
     }
 }
 

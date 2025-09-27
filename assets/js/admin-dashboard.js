@@ -561,7 +561,14 @@ function createUserRow(user) {
     };
 
     // Display appropriate organizational unit based on role
-    const departmentOrOffice = user.role === 'student' ? user.department : user.office;
+    let departmentOrOffice;
+    if (user.role === 'student') {
+        departmentOrOffice = user.department;
+    } else if (user.role === 'employee') {
+        departmentOrOffice = `${user.office || ''}${user.office && user.department ? ' / ' : ''}${user.department || ''}`;
+    } else {
+        departmentOrOffice = user.office;
+    }
     const contact = `${user.email}<br><small>${user.phone || '-'}</small>`;
 
     // Action buttons for editing and deleting users
@@ -745,8 +752,10 @@ function editUser(userId) {
         if (adminPosition) adminPosition.value = user.position || '';
     } else if (user.role === 'employee') {
         const employeeOffice = document.getElementById('employeeOffice');
+        const employeeDepartment = document.getElementById('employeeDepartment');
         const employeePosition = document.getElementById('employeePosition');
         if (employeeOffice) employeeOffice.value = user.office || '';
+        if (employeeDepartment) employeeDepartment.value = user.department || '';
         if (employeePosition) employeePosition.value = user.position || '';
     } else if (user.role === 'student') {
         const studentDepartment = document.getElementById('studentDepartment');
@@ -777,12 +786,13 @@ function setRoleFieldConstraints(role) {
     const adminOffice = document.getElementById('adminOffice');
     const adminPosition = document.getElementById('adminPosition');
     const employeeOffice = document.getElementById('employeeOffice');
+    const employeeDepartment = document.getElementById('employeeDepartment');
     const employeePosition = document.getElementById('employeePosition');
     const studentDepartment = document.getElementById('studentDepartment');
     const studentPosition = document.getElementById('studentPosition');
 
     // Reset all to not required and disabled when role is null
-    [adminOffice, adminPosition, employeeOffice, employeePosition, studentDepartment, studentPosition]
+    [adminOffice, adminPosition, employeeOffice, employeeDepartment, employeePosition, studentDepartment, studentPosition]
         .forEach(el => { if (el) { el.required = false; el.disabled = true; } });
 
     if (role === 'admin') {
@@ -790,6 +800,7 @@ function setRoleFieldConstraints(role) {
         if (adminPosition) { adminPosition.disabled = false; adminPosition.required = true; }
     } else if (role === 'employee') {
         if (employeeOffice) { employeeOffice.disabled = false; employeeOffice.required = true; }
+        if (employeeDepartment) { employeeDepartment.disabled = false; employeeDepartment.required = true; }
         if (employeePosition) { employeePosition.disabled = false; employeePosition.required = true; }
     } else if (role === 'student') {
         if (studentDepartment) { studentDepartment.disabled = false; studentDepartment.required = true; }
@@ -892,16 +903,27 @@ function refreshUserList() {
 
 /** Export users to CSV (client-side only). */
 function exportUsers() {
-    const userData = Object.values(users).map(user => ({
-        'User ID': user.id,
-        'First Name': user.firstName,
-        'Last Name': user.lastName,
-        'Role': user.role,
-        'Department/Office': user.role === 'student' ? user.department : user.office,
-        'Position': user.position,
-        'Email': user.email,
-        'Phone': user.phone
-    }));
+    const userData = Object.values(users).map(user => {
+        let departmentOrOffice;
+        if (user.role === 'student') {
+            departmentOrOffice = user.department;
+        } else if (user.role === 'employee') {
+            departmentOrOffice = `${user.office || ''}${user.office && user.department ? ' / ' : ''}${user.department || ''}`;
+        } else {
+            departmentOrOffice = user.office;
+        }
+        
+        return {
+            'User ID': user.id,
+            'First Name': user.firstName,
+            'Last Name': user.lastName,
+            'Role': user.role,
+            'Department/Office': departmentOrOffice,
+            'Position': user.position,
+            'Email': user.email,
+            'Phone': user.phone
+        };
+    });
 
     const csv = convertToCSV(userData);
     downloadCSV(csv, 'university_users.csv');
@@ -987,10 +1009,11 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
         }
     } else if (selectedUserRole === 'employee') {
         office = document.getElementById('employeeOffice').value;
+        department = document.getElementById('employeeDepartment').value;
         position = document.getElementById('employeePosition').value;
 
-        if (!office || !position) {
-            showUserFormError('Please select both Office and Employee Position for employees.');
+        if (!office || !department || !position) {
+            showUserFormError('Please select Office, Department, and Employee Position for employees.');
             return;
         }
     } else if (selectedUserRole === 'student') {
@@ -1024,6 +1047,9 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
     } else {
         payload.office = office;
         payload.position = position;
+        if (selectedUserRole === 'employee') {
+            payload.department = department;
+        }
     }
 
     const roleForUpdate = isEdit ? editingUserOriginalRole : selectedUserRole;

@@ -50,7 +50,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Event Management System</title>
+    <link rel="icon" type="image/jpeg" href="../assets/images/sign-um-favicon.jpg">
+    <title>Sign-um - Admin Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/global.css">
@@ -79,7 +80,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         <div class="container-fluid">
             <div class="navbar-brand">
                 <i class="bi bi-shield-check me-2"></i>
-                Admin Dashboard
+                Sign-um | Admin Dashboard
             </div>
 
             <div class="navbar-nav ms-auto d-flex flex-row align-items-center">
@@ -127,9 +128,9 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                     <div class="header-text">
                         <h1 class="admin-title">
                             <i class="bi bi-shield-check"></i>
-                            Administrator Dashboard
+                            Sign-um Admin Panel
                         </h1>
-                        <p class="admin-subtitle">Manage users, public materials, and system audit logs</p>
+                        <p class="admin-subtitle">Manage document workflows, users, and system security</p>
                     </div>
                     <div class="header-stats">
                         <div class="stat-item">
@@ -192,7 +193,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                     <!-- User Controls -->
                     <div class="content-header">
                         <div class="header-actions">
-                            <h3><i class="bi bi-people-fill me-2"></i>User Management</h3>
+                            <h3><i class="bi bi-people-fill me-2"></i>User & Document Management</h3>
                             <div class="action-buttons">
                                 <button class="btn btn-primary" onclick="openAddUserModal()">
                                     <i class="bi bi-person-plus"></i>Add User
@@ -258,7 +259,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                     <!-- Materials Controls -->
                     <div class="content-header">
                         <div class="header-actions">
-                            <h3><i class="bi bi-file-earmark-image me-2"></i>Public Materials</h3>
+                            <h3><i class="bi bi-file-earmark-image me-2"></i>Document Library</h3>
                             <div class="action-buttons">
                                 <button class="btn btn-danger" onclick="bulkDeleteMaterials()" disabled
                                     id="bulkDeleteBtn">
@@ -328,7 +329,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                     <!-- Audit Controls -->
                     <div class="content-header">
                         <div class="header-actions">
-                            <h3><i class="bi bi-clipboard-data me-2"></i>Audit Logs</h3>
+                            <h3><i class="bi bi-clipboard-data me-2"></i>Document Audit Trail</h3>
                             <div class="action-buttons">
                                 <button class="btn btn-warning" onclick="clearAuditLog()">
                                     <i class="bi bi-trash"></i>Clear Logs
@@ -512,7 +513,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                         </div>
                         <div id="employeeFields" class="role-fields" style="display: none;">
                             <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <div class="mb-3">
                                         <label for="employeeOffice" class="form-label">Office</label>
                                         <select class="form-select" id="employeeOffice" required>
@@ -528,7 +529,22 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="employeeDepartment" class="form-label">Department</label>
+                                        <select class="form-select" id="employeeDepartment" required>
+                                            <option value="">Select Department</option>
+                                            <option value="College of Engineering">College of Engineering</option>
+                                            <option value="College of Nursing">College of Nursing</option>
+                                            <option value="College of Business">College of Business</option>
+                                            <option value="College of Criminology">College of Criminology</option>
+                                            <option value="College of Computing and Information Sciences">College of Computing and Information Sciences</option>
+                                            <option value="College of Art and Social Sciences and Education">College of Art and Social Sciences and Education</option>
+                                            <option value="Colleges of Hospitality and Tourism Management">Colleges of Hospitality and Tourism Management</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
                                     <div class="mb-3">
                                         <label for="employeePosition" class="form-label">Employee Position</label>
                                         <select class="form-select" id="employeePosition" required>

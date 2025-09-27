@@ -51,7 +51,8 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Document Creator - <?php echo SITE_NAME; ?></title>
+  <link rel="icon" type="image/jpeg" href="../assets/images/sign-um-favicon.jpg">
+  <title>Sign-um - Document Creator</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
@@ -81,7 +82,7 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
     <div class="container-fluid">
       <div class="navbar-brand">
         <i class="bi bi-file-text me-2"></i>
-        Document Creator
+        Sign-um | Document Creator
       </div>
 
       <div class="navbar-nav ms-auto d-flex flex-row align-items-center">
@@ -128,6 +129,19 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
 
   <!-- Main Content -->
   <div class="main-content">
+    <!-- Page Header -->
+    <div class="page-header-section">
+      <div class="container-fluid">
+        <div class="page-header-content">
+          <h1 class="page-title">
+            <i class="bi bi-file-plus me-3"></i>
+            Create Document for Signing
+          </h1>
+          <p class="page-subtitle">Generate and prepare documents for digital signature workflow</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Document Controls -->
     <div class="document-controls">
       <div class="container-fluid">

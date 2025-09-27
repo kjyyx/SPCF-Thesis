@@ -45,7 +45,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document Notification System</title>
+    <link rel="icon" type="image/jpeg" href="../assets/images/sign-um-favicon.jpg">
+    <title>Sign-um - Document Notifications</title>
     <meta name="description" content="Modern document notification and digital signature system">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
@@ -78,7 +79,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         <div class="container-fluid">
             <div class="navbar-brand">
                 <i class="bi bi-file-earmark-text me-2"></i>
-                Document Notifications
+                Sign-um | Document Notifications
             </div>
 
             <div class="navbar-nav ms-auto d-flex flex-row align-items-center">
@@ -121,6 +122,19 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
 
     <!-- Main Content -->
     <div class="main-content">
+        <!-- Page Header -->
+        <div class="page-header-section">
+            <div class="container-fluid">
+                <div class="page-header-content">
+                    <h1 class="page-title">
+                        <i class="bi bi-bell me-3"></i>
+                        Document Notifications
+                    </h1>
+                    <p class="page-subtitle">Track document approvals, rejections, and signing status updates</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Compact Notification Header -->
         <div class="calendar-header-compact">
             <div class="container-fluid">

@@ -112,8 +112,8 @@ try {
     // ----------------------------------
     if ($method === 'GET') {
         $role = $_GET['role'] ?? null; // optional filter
-        $page = (int)($_GET['page'] ?? 1);
-        $limit = (int)($_GET['limit'] ?? 50);
+        $page = (int) ($_GET['page'] ?? 1);
+        $limit = (int) ($_GET['limit'] ?? 50);
         $offset = ($page - 1) * $limit;
 
         $users = [];

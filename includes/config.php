@@ -9,7 +9,7 @@ define('DB_NAME', 'spcf_thesis_db');
 
 // Application settings
 define('BASE_URL', 'http://localhost/SPCF-Thesis/');
-define('SITE_NAME', 'SPCF Thesis Management');
+define('SITE_NAME', 'Sign-um');
 
 // Environment (change to 'production' when deploying)
 define('ENVIRONMENT', 'development');

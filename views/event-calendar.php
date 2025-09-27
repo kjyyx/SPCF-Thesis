@@ -50,7 +50,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Event Calendar - <?php echo SITE_NAME; ?></title>
+    <link rel="icon" type="image/jpeg" href="../assets/images/sign-um-favicon.jpg">
+    <title>Sign-um - Event Calendar</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/global.css"><!-- Global shared UI styles -->
@@ -77,7 +78,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         <div class="container-fluid">
             <div class="navbar-brand">
                 <i class="bi bi-calendar-event me-2"></i>
-                University Calendar
+                Sign-um | University Calendar
             </div>
 
             <div class="navbar-nav ms-auto d-flex flex-row align-items-center">
@@ -206,6 +207,19 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             <span class="stat-label-compact">Today</span>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Page Header -->
+        <div class="page-header-section">
+            <div class="container-fluid">
+                <div class="page-header-content">
+                    <h1 class="page-title">
+                        <i class="bi bi-calendar-event me-3"></i>
+                        Document Calendar & Events
+                    </h1>
+                    <p class="page-subtitle">Track document deadlines, signing events, and important dates</p>
                 </div>
             </div>
         </div>

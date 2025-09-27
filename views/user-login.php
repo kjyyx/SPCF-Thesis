@@ -82,7 +82,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - <?php echo SITE_NAME; ?></title>
+    <link rel="icon" type="image/jpeg" href="../assets/images/sign-um-favicon.jpg">
+    <title>Sign-um - Login</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/global.css">
@@ -97,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
             <div class="login-icon">
                 <i class="bi bi-calendar-event"></i>
             </div>
-            <h2>University Dashboard</h2>
+            <h2>Sign-um Document Portal</h2>
             <p>Event Management System</p>
         </div>
 

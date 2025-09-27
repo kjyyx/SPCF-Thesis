@@ -51,7 +51,8 @@ error_log("DEBUG upload-publication.php: Session data: " . json_encode($_SESSION
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Upload Publication Materials - University Management System</title>
+  <link rel="icon" type="image/jpeg" href="../assets/images/sign-um-favicon.jpg">
+  <title>Sign-um - Upload Publication Materials</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
@@ -80,7 +81,7 @@ error_log("DEBUG upload-publication.php: Session data: " . json_encode($_SESSION
     <div class="container-fluid">
       <div class="navbar-brand">
         <i class="bi bi-cloud-upload me-2"></i>
-        Upload Materials
+        Sign-um | Upload Materials
       </div>
 
       <div class="navbar-nav ms-auto d-flex flex-row align-items-center">
@@ -119,6 +120,19 @@ error_log("DEBUG upload-publication.php: Session data: " . json_encode($_SESSION
       </div>
     </div>
   </nav>
+
+  <!-- Page Header -->
+  <div class="page-header-section">
+    <div class="container-fluid">
+      <div class="page-header-content">
+        <h1 class="page-title">
+          <i class="bi bi-cloud-upload me-3"></i>
+          Upload Document Materials
+        </h1>
+        <p class="page-subtitle">Submit supporting documents and materials for your signing requests</p>
+      </div>
+    </div>
+  </div>
 
   <!-- Main Content -->
   <div class="container">

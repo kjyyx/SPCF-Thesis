@@ -21,12 +21,13 @@ require_once '../vendor/autoload.php';
 header('Content-Type: application/json');
 
 // Add this function after existing includes/requires
-function fillDocxTemplate($templatePath, $data) {
+function fillDocxTemplate($templatePath, $data)
+{
     if (!file_exists($templatePath)) {
         throw new Exception("Template file not found: $templatePath");
     }
     $templateProcessor = new \PhpOffice\PhpWord\TemplateProcessor($templatePath);
-    
+
     // Replace simple placeholders
     foreach ($data as $key => $value) {
         if (is_array($value)) {
@@ -55,7 +56,7 @@ function fillDocxTemplate($templatePath, $data) {
         }
         $templateProcessor->setValue($key, $value);
     }
-    
+
     // Generate unique filename for filled document
     $outputDir = '../uploads/';
     if (!is_dir($outputDir)) {
@@ -364,9 +365,63 @@ function createDocument($input)
 
         $docId = (int) $db->lastInsertId();
 
+        // Get department
+        $department = $data['department'] ?? '';
+
+        // Department full names
+        $departmentFullMap = [
+            'engineering' => 'College of Engineering',
+            'business' => 'College of Business',
+            'education' => 'College of Arts, Social Sciences, and Education',
+            'arts' => 'College of Arts, Social Sciences, and Education',
+            'science' => 'College of Computing and Information Sciences',
+            'nursing' => 'College of Nursing',
+            'criminology' => 'College of Criminology',
+            'hospitality' => 'College of Hospitality and Tourism Management',
+            'spc' => 'SPCF Miranda',
+            'ssc' => 'Supreme Student Council',
+        ];
+
         if ($docType === 'proposal') {
-            // Map department to template file
-            $department = $data['department'] ?? '';
+
+            $data['departmentFull'] = $departmentFullMap[$department] ?? $department;
+            $data['department'] = $data['departmentFull'];
+
+            // Fetch signatories based on department
+            $signatories = [];
+            $signatoryIds = [];
+
+            // CSC Adviser (Employee)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'CSC Adviser' AND department = ? LIMIT 1");
+            $stmt->execute([$department]);
+            $adviser = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['cscAdviser'] = $adviser ? $adviser['first_name'] . ' ' . $adviser['last_name'] : 'CSC Adviser';
+            $signatoryIds['cscAdviser'] = $adviser ? $adviser['id'] : null;
+
+            // SSC President (Student)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM students WHERE position = 'SSC President' AND department = ? LIMIT 1");
+            $stmt->execute([$department]);
+            $ssc = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['sscPresident'] = $ssc ? $ssc['first_name'] . ' ' . $ssc['last_name'] : 'SSC President';
+            $signatoryIds['sscPresident'] = $ssc ? $ssc['id'] : null;
+
+            // College Dean (Employee)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'Dean' AND department = ? LIMIT 1");
+            $stmt->execute([$department]);
+            $dean = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['collegeDean'] = $dean ? $dean['first_name'] . ' ' . $dean['last_name'] : 'College Dean';
+            $signatoryIds['collegeDean'] = $dean ? $dean['id'] : null;
+
+            // OIC OSA (Employee)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'OIC OSA' LIMIT 1");
+            $stmt->execute([]);
+            $osa = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['oicOsa'] = $osa ? $osa['first_name'] . ' ' . $osa['last_name'] : 'Office of Student Affairs';
+            $signatoryIds['oicOsa'] = $osa ? $osa['id'] : null;
+
+            // Add signatories to data
+            $data = array_merge($data, $signatories);
+
             $templateMap = [
                 'engineering' => '../assets/templates/Project Proposals/College of Engineering (Project Proposal).docx',
                 'business' => '../assets/templates/Project Proposals/College of Business (Project Proposal).docx',
@@ -374,37 +429,121 @@ function createDocument($input)
                 'arts' => '../assets/templates/Project Proposals/College of Arts, Social Sciences, and Education (Project Proposal).docx',
                 'science' => '../assets/templates/Project Proposals/College of Computing and Information Sciences (Project Proposal).docx',
                 'nursing' => '../assets/templates/Project Proposals/College of Nursing (Project Proposal).docx',
-                // Add more mappings as needed, default to a generic one
+                'criminology' => '../assets/templates/Project Proposals/College of Criminology (Project Proposal).docx',
+                'hospitality' => '../assets/templates/Project Proposals/College of Hospitality and Tourism Management (Project Proposal).docx',
+                'spc' => '../assets/templates/Project Proposals/SPCF Miranda (Project Proposal).docx',
+                'ssc' => '../assets/templates/Project Proposals/Supreme Student Council (Project Proposal).docx',
                 'default' => '../assets/templates/Project Proposals/Supreme Student Council (Project Proposal).docx'
             ];
             $templatePath = $templateMap[$department] ?? $templateMap['default'];
-            
+
             try {
                 $filledPath = fillDocxTemplate($templatePath, $data);
-                // Check if file was created
                 if (!file_exists($filledPath)) {
-                    error_log("Filled file not found: $filledPath");
-                    throw new Exception("Failed to create filled document file");
+                    throw new Exception("Filled file not found: $filledPath");
                 }
-                // Update document record with file path
                 $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
                 $stmt->execute([$filledPath, $docId]);
             } catch (Exception $e) {
-                error_log("Template filling failed: " . $e->getMessage());
-                // Fallback to HTML if needed, but for now, proceed
+                error_log("Proposal template filling failed: " . $e->getMessage());
+                // Fallback: Do not set file_path, document can still be viewed as HTML
+            }
+        } elseif ($docType === 'communication') {
+            // Map department to template file for communication letters
+            $department = $data['department'] ?? '';
+
+            $data['departmentFull'] = $departmentFullMap[$department] ?? $department;
+            $data['department'] = $data['departmentFull'];
+
+            // For now, no signatories, just fill template
+
+            $commTemplateMap = [
+                'engineering' => '../assets/templates/Communication Letter/College of Engineering (Comm Letter).docx',
+                'business' => '../assets/templates/Communication Letter/College of Business (Comm Letter).docx',
+                'education' => '../assets/templates/Communication Letter/College of Arts, Social Sciences, and Education (Comm Letter).docx',
+                'arts' => '../assets/templates/Communication Letter/College of Arts, Social Sciences, and Education (Comm Letter).docx',
+                'science' => '../assets/templates/Communication Letter/College of Computing and Information Sciences (Comm Letter).docx',
+                'nursing' => '../assets/templates/Communication Letter/College of Nursing (Comm Letter).docx',
+                'criminology' => '../assets/templates/Communication Letter/College of Criminology (Comm Letter).docx',
+                'hospitality' => '../assets/templates/Communication Letter/College of Hospitality and Tourism Management (Comm Letter).docx',
+                'spc' => '../assets/templates/Communication Letter/SPCF Miranda (Comm Letter).docx',
+                'ssc' => '../assets/templates/Communication Letter/Supreme Student Council (Comm Letter).docx',
+                'default' => '../assets/templates/Communication Letter/Supreme Student Council (Comm Letter).docx'
+            ];
+            $templatePath = $commTemplateMap[$department] ?? $commTemplateMap['default'];
+            $data['content'] = $data['body'];
+
+            try {
+                $filledPath = fillDocxTemplate($templatePath, $data);
+                if (!file_exists($filledPath)) {
+                    throw new Exception("Filled file not found: $filledPath");
+                }
+                $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
+                $stmt->execute([$filledPath, $docId]);
+            } catch (Exception $e) {
+                error_log("Communication template filling failed: " . $e->getMessage());
+                // Fallback: Do not set file_path
+            }
+        } elseif ($docType === 'saf') {
+            $data['departmentFull'] = $departmentFullMap[$department] ?? $department;
+            $templatePath = '../assets/templates/SAF/SAF REQUEST.docx';
+            if (file_exists($templatePath)) {
+                try {
+                    $filledPath = fillDocxTemplate($templatePath, $data);
+                    $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
+                    $stmt->execute([$filledPath, $docId]);
+                } catch (Exception $e) {
+                    error_log("SAF template filling failed: " . $e->getMessage());
+                }
+            }
+        } elseif ($docType === 'facility') {
+            $data['departmentFull'] = $departmentFullMap[$department] ?? $department;
+            $templatePath = '../assets/templates/Facility Request/FACILITY REQUEST.docx';
+            if (file_exists($templatePath)) {
+                try {
+                    $filledPath = fillDocxTemplate($templatePath, $data);
+                    $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
+                    $stmt->execute([$filledPath, $docId]);
+                } catch (Exception $e) {
+                    error_log("Facility template filling failed: " . $e->getMessage());
+                }
             }
         }
 
-        // For now, create a simple step (this can be expanded for workflow)
-        // Assign to the first available employee (for testing)
-        $empStmt = $db->prepare("SELECT id FROM employees LIMIT 1");
-        $empStmt->execute();
-        $emp = $empStmt->fetch(PDO::FETCH_ASSOC);
-        if (!$emp) {
-            throw new Exception("No employees found to assign the document step");
+        // Assign workflow steps
+        if ($docType === 'proposal') {
+            $stepOrder = 1;
+            $stepNames = [
+                'cscAdviser' => 'CSC Adviser Review',
+                'collegeDean' => 'College Dean Approval',
+                'oicOsa' => 'OIC OSA Final Approval'
+            ];
+            foreach (['cscAdviser', 'collegeDean', 'oicOsa'] as $key) {
+                if ($signatoryIds[$key]) {
+                    $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, ?, ?, 'pending')");
+                    $stmt->execute([$docId, $stepOrder, $stepNames[$key], $signatoryIds[$key]]);
+                    $stepOrder++;
+                }
+            }
+        } elseif ($docType === 'communication') {
+            // For communication letters, perhaps assign to CSC Adviser for review
+        } elseif ($docType === 'communication') {
+            $signatoryIds = ['cscAdviser' => 1]; // Assign to first employee or specific
+            if ($signatoryIds['cscAdviser']) {
+                $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, 1, 'Communication Review', ?, 'pending')");
+                $stmt->execute([$docId, $signatoryIds['cscAdviser']]);
+            }
+        } else {
+            // For SAF and Facility, assign to the first available employee
+            $empStmt = $db->prepare("SELECT id FROM employees LIMIT 1");
+            $empStmt->execute();
+            $emp = $empStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$emp) {
+                throw new Exception("No employees found to assign the document step");
+            }
+            $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, 1, 'Initial Review', ?, 'pending')");
+            $stmt->execute([$docId, $emp['id']]);
         }
-        $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, 1, 'Initial Review', ?, 'pending')");
-        $stmt->execute([$docId, $emp['id']]);
 
         $db->commit();
 
@@ -726,13 +865,12 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 
     try {
         $stmt = $db->prepare("
-            INSERT INTO audit_logs (user_id, user_role, action, category, details, target_id, target_type, severity, ip_address, user_agent)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO audit_logs (user_id, action, category, details, target_id, target_type, severity, ip_address, user_agent)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         $stmt->execute([
             $currentUser['id'],
-            $currentUser['role'],
             $action,
             $category,
             $details,

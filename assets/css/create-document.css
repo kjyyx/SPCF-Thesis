@@ -599,15 +599,7 @@ textarea.form-control {
 }
 
 .logo-placeholder {
-    width: 64px;
-    height: 64px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 700;
+    display: none; /* Hide logo placeholders */
 }
 
 /* Enhanced Budget Table */

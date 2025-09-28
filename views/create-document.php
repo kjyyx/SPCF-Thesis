@@ -15,32 +15,32 @@ if (!$currentUser) {
 
 // Restrict to students only
 if ($currentUser['role'] !== 'student') {
-    header('Location: user-login.php?error=access_denied');
-    exit();
+  header('Location: user-login.php?error=access_denied');
+  exit();
 }
 
 // Audit log helper function
-function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
-    global $currentUser;
-    try {
-        $db = new Database();
-        $conn = $db->getConnection();
-        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, severity, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $currentUser['id'],
-            $currentUser['first_name'] . ' ' . $currentUser['last_name'],
-            $action,
-            $category,
-            $details,
-            $targetId,
-            $targetType,
-            $severity,
-            $_SERVER['REMOTE_ADDR'] ?? null,
-            $_SERVER['HTTP_USER_AGENT'] ?? null
-        ]);
-    } catch (Exception $e) {
-        error_log("Failed to add audit log: " . $e->getMessage());
-    }
+function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO')
+{
+  global $currentUser;
+  try {
+    $db = new Database();
+    $conn = $db->getConnection();
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, action, category, details, target_id, target_type, severity, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([
+      $currentUser['id'],
+      $action,
+      $category,
+      $details,
+      $targetId,
+      $targetType,
+      $severity,
+      $_SERVER['REMOTE_ADDR'] ?? null,
+      $_SERVER['HTTP_USER_AGENT'] ?? null
+    ]);
+  } catch (Exception $e) {
+    error_log("Failed to add audit log: " . $e->getMessage());
+  }
 }
 
 // Log page view
@@ -95,10 +95,11 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
         <!-- User Info -->
         <div class="user-info me-3">
           <i class="bi bi-person-circle me-2"></i>
-          <span id="userDisplayName"><?php echo htmlspecialchars($currentUser['first_name'] . ' ' . $currentUser['last_name']); ?></span>
+          <span
+            id="userDisplayName"><?php echo htmlspecialchars($currentUser['first_name'] . ' ' . $currentUser['last_name']); ?></span>
           <span class="badge ms-2 <?php
           echo ($currentUser['role'] === 'admin') ? 'bg-danger' :
-              (($currentUser['role'] === 'employee') ? 'bg-primary' : 'bg-success');
+            (($currentUser['role'] === 'employee') ? 'bg-primary' : 'bg-success');
           ?>" id="userRoleBadge">
             <?php echo strtoupper($currentUser['role']); ?>
           </span>
@@ -122,11 +123,17 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
             <i class="bi bi-gear me-2"></i>Settings
           </button>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="event-calendar.php"><i class="bi bi-calendar-event me-2"></i>Calendar</a></li>
-            <li><a class="dropdown-item" href="track-document.php"><i class="bi bi-file-earmark-check me-2"></i>Track Documents</a></li>
-            <li><a class="dropdown-item" href="upload-publication.php"><i class="bi bi-cloud-upload me-2"></i>Upload Materials</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item text-danger" href="user-logout.php"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+            <li><a class="dropdown-item" href="event-calendar.php"><i class="bi bi-calendar-event me-2"></i>Calendar</a>
+            </li>
+            <li><a class="dropdown-item" href="track-document.php"><i class="bi bi-file-earmark-check me-2"></i>Track
+                Documents</a></li>
+            <li><a class="dropdown-item" href="upload-publication.php"><i class="bi bi-cloud-upload me-2"></i>Upload
+                Materials</a></li>
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <li><a class="dropdown-item text-danger" href="user-logout.php"><i
+                  class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
           </ul>
         </div>
       </div>
@@ -238,7 +245,10 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                       <option value="arts">College of Arts, Social Sciences, and Education</option>
                       <option value="science">College of Computing and Information Sciences</option>
                       <option value="nursing">College of Nursing</option>
-                      <!-- Add more as needed -->
+                      <option value="criminology">College of Criminology</option>
+                      <option value="hospitality">College of Hospitality and Tourism Management</option>
+                      <option value="spc">SPCF Miranda</option>
+                      <option value="ssc">Supreme Student Council</option>
                     </select>
                   </div>
                 </div>
@@ -402,7 +412,19 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                     </label>
                     <input id="saf-date" type="date" class="form-control">
                   </div>
-                  <div class="col-md-8">
+                  <div class="col-md-4">
+                    <label class="form-label">
+                      <i class="bi bi-calendar3"></i>Implementation Date
+                    </label>
+                    <input id="saf-impl-date" type="date" class="form-control">
+                  </div>
+                  <div class="col-md-4">
+                    <!-- Placeholder for future fields -->
+                  </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                  <div class="col-12">
                     <label class="form-label">
                       <i class="bi bi-check-square"></i>Category (check to enable fund row)
                     </label>
@@ -605,31 +627,387 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
               </div>
 
               <!-- === Facility Request === -->
+              <!-- === Facility Request === -->
               <div id="facility-form" class="form-section document-form" style="display:none">
                 <h5 class="mb-3"><i class="bi bi-building me-2"></i>Facility Request</h5>
 
+                <!-- Basic Event Information -->
                 <div class="row g-3">
+                  <div class="col-md-8">
+                    <label class="form-label">Event Name</label>
+                    <input type="text" class="form-control" id="fac-event-name" placeholder="Event Name">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Event Date</label>
+                    <input type="date" class="form-control" id="fac-event-date">
+                  </div>
+                </div>
+
+                <div class="row g-3 mt-2">
                   <div class="col-md-6">
-                    <label class="form-label">Requested By (Name)</label>
-                    <input id="fac-name" class="form-control" placeholder="Name">
+                    <label class="form-label">Department</label>
+                    <select class="form-select" id="fac-dept">
+                      <option value="">Select Department</option>
+                      <option value="College of Engineering">College of Engineering</option>
+                      <option value="College of Business Administration">College of Business Administration</option>
+                      <option value="College of Education">College of Education</option>
+                      <option value="College of Arts & Sciences">College of Arts & Sciences</option>
+                      <option value="College of Computer Science">College of Computer Science</option>
+                      <option value="College of Nursing">College of Nursing</option>
+                      <option value="College of Criminology">College of Criminology</option>
+                      <option value="College of Hospitality and Tourism Management">College of Hospitality and Tourism
+                        Management</option>
+                      <option value="Supreme Student Council">Supreme Student Council</option>
+                    </select>
                   </div>
                   <div class="col-md-6">
-                    <label class="form-label">Date Needed</label>
-                    <input id="fac-date" type="date" class="form-control">
+                    <label class="form-label">Clean and Set-up Committee</label>
+                    <input type="text" class="form-control" id="fac-cleanup-committee" placeholder="Committee name">
+                  </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                  <div class="col-md-6">
+                    <label class="form-label">Contact Person</label>
+                    <input type="text" class="form-control" id="fac-contact-person"
+                      value="<?php echo htmlspecialchars($currentUser['first_name'] . ' ' . $currentUser['last_name']); ?>">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Contact Number</label>
+                    <input type="text" class="form-control" id="fac-contact-number" placeholder="Contact number">
+                  </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                  <div class="col-md-4">
+                    <label class="form-label">Expected No. of Attendees</label>
+                    <input type="number" class="form-control" id="fac-attendees" min="0" placeholder="0">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Guest / Speaker</label>
+                    <input type="text" class="form-control" id="fac-guest-speaker" placeholder="Guest/Speaker name">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Expected No. of Performers</label>
+                    <input type="number" class="form-control" id="fac-performers" min="0" placeholder="0">
                   </div>
                 </div>
 
                 <div class="row g-3 mt-2">
                   <div class="col-12">
-                    <label class="form-label">Facility</label>
-                    <input id="fac-facility" class="form-control" placeholder="Facility">
+                    <label class="form-label">Parking Gate / Plate No.</label>
+                    <input type="text" class="form-control" id="fac-parking" placeholder="Parking information">
                   </div>
                 </div>
 
+                <!-- Facilities Selection -->
+                <div class="mt-4">
+                  <label class="form-label"><i class="bi bi-building-check"></i> Facilities to be Used</label>
+                  <div class="facilities-grid">
+                    <!-- IT Building Facilities -->
+                    <div class="facility-category">
+                      <h6 class="category-title">IT Building</h6>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f1"
+                          value="IT Bldg. Theater">
+                        <label class="form-check-label" for="fac-f1">IT Bldg. Theater</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f2"
+                          value="IT Bldg Theater Lobby">
+                        <label class="form-check-label" for="fac-f2">IT Bldg Theater Lobby</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f3" value="Computer Lab">
+                        <label class="form-check-label" for="fac-f3">Computer Lab</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f4"
+                          value="IT Seminar Room">
+                        <label class="form-check-label" for="fac-f4">IT Seminar Room</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f5" value="IT Case Room">
+                        <label class="form-check-label" for="fac-f5">IT Case Room</label>
+                      </div>
+                    </div>
+
+                    <!-- CHTM Facilities -->
+                    <div class="facility-category">
+                      <h6 class="category-title">CHTM</h6>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f6"
+                          value="CHTM/ Luid Hall">
+                        <label class="form-check-label" for="fac-f6">Luid Hall</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f7"
+                          value="CHTM/ Amphitheater">
+                        <label class="form-check-label" for="fac-f7">Amphitheater</label>
+                      </div>
+                    </div>
+
+                    <!-- Sports Facilities -->
+                    <div class="facility-category">
+                      <h6 class="category-title">Sports & Recreation</h6>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f8" value="Tennis Court">
+                        <label class="form-check-label" for="fac-f8">Tennis Court</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f9" value="Orchard Bar">
+                        <label class="form-check-label" for="fac-f9">Orchard Bar</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f10" value="Andreas">
+                        <label class="form-check-label" for="fac-f10">Andreas</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f11"
+                          value="Gym 1 (Basketball Court)">
+                        <label class="form-check-label" for="fac-f11">Gym 1 (Basketball Court)</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f12"
+                          value="Gym 2 (Volleyball Court)">
+                        <label class="form-check-label" for="fac-f12">Gym 2 (Volleyball Court)</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f13" value="Aquatic">
+                        <label class="form-check-label" for="fac-f13">Aquatic Center</label>
+                      </div>
+                    </div>
+
+                    <!-- COC Facilities -->
+                    <div class="facility-category">
+                      <h6 class="category-title">COC</h6>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f14"
+                          value="COC / Function Room">
+                        <label class="form-check-label" for="fac-f14">Function Room</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f15"
+                          value="COC / Fitness Center">
+                        <label class="form-check-label" for="fac-f15">Fitness Center</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f16"
+                          value="COC / Firing Range">
+                        <label class="form-check-label" for="fac-f16">Firing Range</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f17" value="Classroom">
+                        <label class="form-check-label" for="fac-f17">Classroom</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f18" value="COC Lab">
+                        <label class="form-check-label" for="fac-f18">COC Lab</label>
+                      </div>
+                    </div>
+
+                    <!-- CON Facilities -->
+                    <div class="facility-category">
+                      <h6 class="category-title">CON</h6>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f20" value="Nursing Lab">
+                        <label class="form-check-label" for="fac-f20">Nursing Lab</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f21"
+                          value="CON / Amphitheater">
+                        <label class="form-check-label" for="fac-f21">Amphitheater</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f22"
+                          value="CON / Lecture Room">
+                        <label class="form-check-label" for="fac-f22">Lecture Room</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f23"
+                          value="CON / Chapel">
+                        <label class="form-check-label" for="fac-f23">Chapel</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input facility-check" type="checkbox" id="fac-f24"
+                          value="CON / RVJ Hall">
+                        <label class="form-check-label" for="fac-f24">RVJ Hall</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Specify Fields -->
+                  <div class="row g-3 mt-2">
+                    <div class="col-md-4">
+                      <label class="form-label">Computer Lab Specify</label>
+                      <input type="text" class="form-control" id="fac-s1" placeholder="Specify which computer lab">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Other Facility Specify</label>
+                      <input type="text" class="form-control" id="fac-s2" placeholder="Other facility details">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Classroom Specify</label>
+                      <input type="text" class="form-control" id="fac-s3" placeholder="Specify classroom">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Equipment & Staffing -->
+                <div class="mt-4">
+                  <label class="form-label"><i class="bi bi-tools"></i> Equipment & Staffing Needs</label>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <div class="form-check">
+                        <input class="form-check-input equipment-check" type="checkbox" id="fac-e1" value="Lectern">
+                        <label class="form-check-label" for="fac-e1">Lectern</label>
+                        <input type="number" class="form-control equipment-qty" id="fac-q1" min="0" placeholder="Qty"
+                          style="width: 80px; display: inline-block; margin-left: 10px;">
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input equipment-check" type="checkbox" id="fac-e2"
+                          value="Chorale Raiser">
+                        <label class="form-check-label" for="fac-e2">Chorale Raiser</label>
+                        <input type="number" class="form-control equipment-qty" id="fac-q2" min="0" placeholder="Qty"
+                          style="width: 80px; display: inline-block; margin-left: 10px;">
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input equipment-check" type="checkbox" id="fac-e3" value="Elevator">
+                        <label class="form-check-label" for="fac-e3">Elevator</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input equipment-check" type="checkbox" id="fac-e4" value="Tables">
+                        <label class="form-check-label" for="fac-e4">Tables</label>
+                        <input type="number" class="form-control equipment-qty" id="fac-q3" min="0" placeholder="Qty"
+                          style="width: 80px; display: inline-block; margin-left: 10px;">
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input equipment-check" type="checkbox" id="fac-e5" value="Chairs">
+                        <label class="form-check-label" for="fac-e5">Chairs</label>
+                        <input type="number" class="form-control equipment-qty" id="fac-q4" min="0" placeholder="Qty"
+                          style="width: 80px; display: inline-block; margin-left: 10px;">
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-check">
+                        <input class="form-check-input equipment-check" type="checkbox" id="fac-e6" value="Flag">
+                        <label class="form-check-label" for="fac-e6">Flag</label>
+                        <input type="number" class="form-control equipment-qty" id="fac-q5" min="0" placeholder="Qty"
+                          style="width: 80px; display: inline-block; margin-left: 10px;">
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input equipment-check" type="checkbox" id="fac-e7"
+                          value="Lights and Sounds">
+                        <label class="form-check-label" for="fac-e7">Lights and Sounds</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input equipment-check" type="checkbox" id="fac-e8" value="Microphone">
+                        <label class="form-check-label" for="fac-e8">Microphone</label>
+                        <input type="number" class="form-control equipment-qty" id="fac-q6" min="0" placeholder="Qty"
+                          style="width: 80px; display: inline-block; margin-left: 10px;">
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input equipment-check" type="checkbox" id="fac-e9" value="Projector">
+                        <label class="form-check-label" for="fac-e9">Projector</label>
+                        <input type="number" class="form-control equipment-qty" id="fac-q7" min="0" placeholder="Qty"
+                          style="width: 80px; display: inline-block; margin-left: 10px;">
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input equipment-check" type="checkbox" id="fac-e10" value="Technical">
+                        <label class="form-check-label" for="fac-e10">Technical Staff</label>
+                        <input type="number" class="form-control equipment-qty" id="fac-q8" min="0" placeholder="Qty"
+                          style="width: 80px; display: inline-block; margin-left: 10px;">
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input equipment-check" type="checkbox" id="fac-e11"
+                          value="Ushers / Usherettes">
+                        <label class="form-check-label" for="fac-e11">Ushers / Usherettes</label>
+                        <input type="number" class="form-control equipment-qty" id="fac-q9" min="0" placeholder="Qty"
+                          style="width: 80px; display: inline-block; margin-left: 10px;">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Other Equipment -->
+                  <div class="row g-3 mt-2">
+                    <div class="col-md-6">
+                      <label class="form-label">Other Equipment 1</label>
+                      <input type="text" class="form-control" id="fac-o1" placeholder="Other equipment description">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Other Equipment 2</label>
+                      <input type="text" class="form-control" id="fac-o2" placeholder="Other equipment description">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Event Timeline -->
+                <div class="mt-4">
+                  <label class="form-label"><i class="bi bi-clock"></i> Event Timeline</label>
+                  <div class="row g-3">
+                    <div class="col-md-3">
+                      <label class="form-label">Pre-Event Date</label>
+                      <input type="date" class="form-control" id="fac-pre-event-date">
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Practice Date</label>
+                      <input type="date" class="form-control" id="fac-practice-date">
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Setup Date</label>
+                      <input type="date" class="form-control" id="fac-setup-date">
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Cleanup Date</label>
+                      <input type="date" class="form-control" id="fac-cleanup-date">
+                    </div>
+                  </div>
+
+                  <div class="row g-3 mt-2">
+                    <div class="col-md-3">
+                      <label class="form-label">Pre-Event Start Time</label>
+                      <input type="time" class="form-control" id="fac-pre-event-start">
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Pre-Event End Time</label>
+                      <input type="time" class="form-control" id="fac-pre-event-end">
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Practice Start Time</label>
+                      <input type="time" class="form-control" id="fac-practice-start">
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Practice End Time</label>
+                      <input type="time" class="form-control" id="fac-practice-end">
+                    </div>
+                  </div>
+
+                  <div class="row g-3 mt-2">
+                    <div class="col-md-3">
+                      <label class="form-label">Setup Start Time</label>
+                      <input type="time" class="form-control" id="fac-setup-start">
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Setup End Time</label>
+                      <input type="time" class="form-control" id="fac-setup-end">
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Cleanup Start Time</label>
+                      <input type="time" class="form-control" id="fac-cleanup-start">
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Cleanup End Time</label>
+                      <input type="time" class="form-control" id="fac-cleanup-end">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Other Matters -->
                 <div class="row g-3 mt-2">
                   <div class="col-12">
-                    <label class="form-label">Purpose / Notes</label>
-                    <textarea id="fac-notes" class="form-control" rows="4" placeholder="Purpose"></textarea>
+                    <label class="form-label">Other Matters / Specifications</label>
+                    <textarea class="form-control" id="fac-other-matters" rows="3"
+                      placeholder="Any other specifications or requirements"></textarea>
                   </div>
                 </div>
               </div>
@@ -643,70 +1021,28 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                     <label class="form-label">Date</label>
                     <input id="comm-date" type="date" class="form-control">
                   </div>
-                </div>
-
-                <div class="row g-3 mt-2">
                   <div class="col-md-6">
-                    <label class="form-label">For (Recipients)</label>
-                    <div id="for-list">
-                      <div class="person-entry">
-                        <input class="form-control form-control-sm person-name" placeholder="Recipient name">
-                        <input class="form-control form-control-sm title-input" placeholder="Title (e.g., President)">
-                      </div>
-                    </div>
-                    <div class="mt-1">
-                      <button class="btn btn-sm btn-outline-primary" onclick="addPerson('for-list')"><i
-                          class="bi bi-plus"></i> Add</button>
-                      <button class="btn btn-sm btn-outline-danger" onclick="removePerson('for-list')"><i
-                          class="bi bi-dash"></i> Remove</button>
-                    </div>
-                  </div>
-
-                  <div class="col-md-6">
-                    <label class="form-label">From (Senders)</label>
-                    <div id="from-list">
-                      <div class="person-entry">
-                        <input class="form-control form-control-sm person-name" placeholder="Sender name">
-                        <input class="form-control form-control-sm title-input" placeholder="Title">
-                      </div>
-                    </div>
-                    <div class="mt-1">
-                      <button class="btn btn-sm btn-outline-primary" onclick="addPerson('from-list')"><i
-                          class="bi bi-plus"></i> Add</button>
-                      <button class="btn btn-sm btn-outline-danger" onclick="removePerson('from-list')"><i
-                          class="bi bi-dash"></i> Remove</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="row g-3 mt-2">
-                  <div class="col-md-6">
-                    <label class="form-label">Noted (Optional)</label>
-                    <div id="noted-list"></div>
-                    <div class="mt-1">
-                      <button class="btn btn-sm btn-outline-primary" onclick="addPerson('noted-list')"><i
-                          class="bi bi-plus"></i> Add</button>
-                      <button class="btn btn-sm btn-outline-danger" onclick="removePerson('noted-list')"><i
-                          class="bi bi-dash"></i> Remove</button>
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Approved (Optional)</label>
-                    <div id="approved-list"></div>
-                    <div class="mt-1">
-                      <button class="btn btn-sm btn-outline-primary" onclick="addPerson('approved-list')"><i
-                          class="bi bi-plus"></i> Add</button>
-                      <button class="btn btn-sm btn-outline-danger" onclick="removePerson('approved-list')"><i
-                          class="bi bi-dash"></i> Remove</button>
-                    </div>
+                    <label class="form-label">Department</label>
+                    <select id="comm-department-select" class="form-select">
+                      <option value="">Select Department</option>
+                      <option value="engineering">College of Engineering</option>
+                      <option value="business">College of Business</option>
+                      <option value="education">College of Arts, Social Sciences, and Education</option>
+                      <option value="arts">College of Arts, Social Sciences, and Education</option>
+                      <option value="science">College of Computing and Information Sciences</option>
+                      <option value="nursing">College of Nursing</option>
+                      <option value="criminology">College of Criminology</option>
+                      <option value="hospitality">College of Hospitality and Tourism Management</option>
+                      <option value="spc">SPCF Miranda</option>
+                      <option value="ssc">Supreme Student Council</option>
+                    </select>
                   </div>
                 </div>
 
                 <div class="row g-3 mt-2">
                   <div class="col-12">
-                    <label class="form-label">Subject</label>
-                    <input id="comm-subject" class="form-control" placeholder="Subject">
-                    <div style="height:1px;background:#e9ecef;margin-top:.5rem;margin-bottom:.9rem;width:85%"></div>
+                    <label class="form-label">Project Title</label>
+                    <input id="comm-subject" class="form-control" placeholder="Project Title">
                   </div>
                 </div>
 

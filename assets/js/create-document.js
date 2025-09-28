@@ -328,7 +328,11 @@ function collectSAFData() {
         othersText: document.getElementById('saf-others-text').value || ''
     };
 
-    // Collect fund availability and requests for each category
+    // Map categories to c1-c7
+    const categoryMap = ['ssc', 'csc', 'cca', 'ex', 'osa', 'idev', 'others'];
+    const cValues = categoryMap.map(cat => categories[cat] ? '✓' : '');
+
+    // Funds with balances
     const funds = {
         ssc: { available: parseFloat(document.getElementById('avail-ssc')?.value) || 0, requested: parseFloat(document.getElementById('req-ssc')?.value) || 0 },
         csc: { available: parseFloat(document.getElementById('avail-csc')?.value) || 0, requested: parseFloat(document.getElementById('req-csc')?.value) || 0 },
@@ -339,13 +343,34 @@ function collectSAFData() {
         others: { available: parseFloat(document.getElementById('avail-others')?.value) || 0, requested: parseFloat(document.getElementById('req-others')?.value) || 0 }
     };
 
-    // Return complete SAF data object
+    // Calculate balances
+    const balSSC = funds.ssc.available - funds.ssc.requested;
+    const balCSC = funds.csc.available - funds.csc.requested;
+    const balCCA = funds.cca.available - funds.cca.requested;
+    const balExemplar = funds.ex.available - funds.ex.requested;
+    const balOSA = funds.osa.available - funds.osa.requested;
+    const balIDEV = funds.idev.available - funds.idev.requested;
+    const balOther = funds.others.available - funds.others.requested;
+
     return {
-        dept: document.getElementById('saf-dept').value,
+        department: document.getElementById('saf-dept').value,
         title: document.getElementById('saf-title').value,
-        dateRequested: document.getElementById('saf-date').value,
-        categories,
-        funds
+        reqDate: document.getElementById('saf-date').value,
+        implDate: document.getElementById('saf-impl-date').value,
+        departmentFull: '',  // Will be set in API
+        c1: cValues[0], c2: cValues[1], c3: cValues[2], c4: cValues[3], c5: cValues[4], c6: cValues[5], c7: cValues[6],
+        otherSpecify: categories.othersText,
+        availSSC: funds.ssc.available, reqSSC: funds.ssc.requested, balSSC,
+        availCSC: funds.csc.available, reqCSC: funds.csc.requested, balCSC,
+        availCCA: funds.cca.available, reqCCA: funds.cca.requested, balCCA,
+        availExemplar: funds.ex.available, reqExemplar: funds.ex.requested, balExemplar,
+        availOSA: funds.osa.available, reqOSA: funds.osa.requested, balOSA,
+        availIDEV: funds.idev.available, reqIDEV: funds.idev.requested, balIDEV,
+        availOther: funds.others.available, reqOther: funds.others.requested, balOther,
+        otherFundDesc: categories.othersText,
+        reqByName: window.currentUser?.firstName + ' ' + window.currentUser?.lastName,
+        notedBy: '', recBy: '', appBy: '', relBy: '',  // Set in API if needed
+        notedDate: '', recDate: '', appDate: '', releaseDate: ''  // Set in API if needed
     };
 }
 
@@ -355,11 +380,71 @@ function collectSAFData() {
  * @returns {Object} Facility data object with reservation details
  */
 function collectFacilityData() {
+    // Facilities checkboxes (f1-f24)
+    const facilities = [];
+    for (let i = 1; i <= 24; i++) {
+        facilities.push(document.getElementById(`fac-f${i}`)?.checked ? '✓' : '');
+    }
+
+    // Specify fields (s1-s5)
+    const specifies = [];
+    for (let i = 1; i <= 5; i++) {
+        specifies.push(document.getElementById(`fac-s${i}`)?.value || '');
+    }
+
+    // Equipment checkboxes (e1-e11)
+    const equipment = [];
+    for (let i = 1; i <= 11; i++) {
+        equipment.push(document.getElementById(`fac-e${i}`)?.checked ? '✓' : '');
+    }
+
+    // Quantities (q1-q9)
+    const quantities = [];
+    for (let i = 1; i <= 9; i++) {
+        quantities.push(parseInt(document.getElementById(`fac-q${i}`)?.value) || 0);
+    }
+
+    // Other equipment (o1, o2)
+    const others = [];
+    for (let i = 1; i <= 2; i++) {
+        others.push(document.getElementById(`fac-o${i}`)?.value || '');
+    }
+
     return {
-        name: document.getElementById('fac-name').value,
-        dateNeeded: document.getElementById('fac-date').value,
-        facility: document.getElementById('fac-facility').value,
-        notes: document.getElementById('fac-notes').value
+        department: document.getElementById('fac-dept').value,
+        eventName: document.getElementById('fac-event-name').value,
+        eventDate: document.getElementById('fac-event-date').value,
+        departmentFull: '',  // Set in API
+        cleanSetUpCommittee: document.getElementById('fac-cleanup-committee').value,
+        contactPerson: document.getElementById('fac-contact-person').value,
+        contactNumber: document.getElementById('fac-contact-number').value,
+        expectedAttendees: parseInt(document.getElementById('fac-attendees').value) || 0,
+        guestSpeaker: document.getElementById('fac-guest-speaker').value,
+        expectedPerformers: parseInt(document.getElementById('fac-performers').value) || 0,
+        parkingGatePlateNo: document.getElementById('fac-parking').value,
+        f1: facilities[0], f2: facilities[1], f3: facilities[2], f4: facilities[3], f5: facilities[4], f6: facilities[5], f7: facilities[6], f8: facilities[7], f9: facilities[8], f10: facilities[9], f11: facilities[10], f12: facilities[11], f13: facilities[12], f14: facilities[13], f15: facilities[14], f16: facilities[15], f17: facilities[16], f18: facilities[17], f19: facilities[18], f20: facilities[19], f21: facilities[20], f22: facilities[21], f23: facilities[22], f24: facilities[23],
+        s1: specifies[0], s2: specifies[1], s3: specifies[2], s4: specifies[3], s5: specifies[4],
+        e1: equipment[0], e2: equipment[1], e3: equipment[2], e4: equipment[3], e5: equipment[4], e6: equipment[5], e7: equipment[6], e8: equipment[7], e9: equipment[8], e10: equipment[9], e11: equipment[10],
+        q1: quantities[0], q2: quantities[1], q3: quantities[2], q4: quantities[3], q5: quantities[4], q6: quantities[5], q7: quantities[6], q8: quantities[7], q9: quantities[8],
+        o1: others[0], o2: others[1],
+        preEventDate: document.getElementById('fac-pre-event-date').value,
+        practiceDate: document.getElementById('fac-practice-date').value,
+        setupDate: document.getElementById('fac-setup-date').value,
+        cleanupDate: document.getElementById('fac-cleanup-date').value,
+        preEventStartTime: document.getElementById('fac-pre-event-start').value,
+        practiceStartTime: document.getElementById('fac-practice-start').value,
+        setupStartTime: document.getElementById('fac-setup-start').value,
+        cleanupStartTime: document.getElementById('fac-cleanup-start').value,
+        preEventEndTime: document.getElementById('fac-pre-event-end').value,
+        practiceEndTime: document.getElementById('fac-practice-end').value,
+        setupEndTime: document.getElementById('fac-setup-end').value,
+        cleanupEndTime: document.getElementById('fac-cleanup-end').value,
+        departmentHead: '',  // Set in API
+        otherMattersSpecify: document.getElementById('fac-other-matters').value,
+        receivingRequesteeName: window.currentUser?.firstName + ' ' + window.currentUser?.lastName,
+        receivingDateFiled: new Date().toLocaleDateString(),
+        receivingEventName: document.getElementById('fac-event-name').value,
+        receivingEventDates: document.getElementById('fac-event-date').value
     };
 }
 
@@ -386,11 +471,10 @@ function collectCommunicationData() {
 
     return {
         date: document.getElementById('comm-date').value,
-        forList: readPeople('for-list'),
-        fromList: readPeople('from-list'),
+        department: document.getElementById('comm-department-select').value,
         notedList: readPeople('noted-list'),
         approvedList: readPeople('approved-list'),
-        subject: document.getElementById('comm-subject').value,
+        title: document.getElementById('comm-subject').value,
         body: document.getElementById('comm-body').value
     };
 }
@@ -408,8 +492,8 @@ function collectCommunicationData() {
  * @returns {string} Complete HTML string for the proposal document
  */
 function generateProposalHTML(d) {
-    // Generate document header with logos and title
-    const header = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;"><div class="logo-placeholder">LOGO</div><div style="text-align:center"><div style="font-weight:800">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-size:0.95rem">Project Proposal</div></div><div class="logo-placeholder">LOGO</div></div>`;
+    // Generate document header with title
+    const header = `<div style="text-align:center;margin-bottom:1rem;"><div style="font-weight:800;font-size:1.2rem">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700;font-size:1.1rem">Project Proposal</div></div>`;
 
     // Generate objectives list with HTML escaping for security
     const objectivesHtml = (d.objectives && d.objectives.length) ?
@@ -433,7 +517,7 @@ function generateProposalHTML(d) {
 }
 
 function generateSAFHTML(d) {
-    const header = `<div style="display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:1rem;"><div class="logo-placeholder"></div><div style="text-align:center"><div style="font-weight:800">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700">FUND RELEASE FORM</div></div><div class="logo-placeholder"></div></div>`;
+    const header = `<div style="text-align:center;margin-bottom:1rem;"><div style="font-weight:800;font-size:1.2rem">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700;font-size:1.1rem">FUND RELEASE FORM</div></div>`;
 
     // Build funds table HTML
     const funds = ['ssc', 'csc', 'cca', 'ex', 'osa', 'idev', 'others'];
@@ -445,16 +529,41 @@ function generateSAFHTML(d) {
     }).join('')}</tbody></table>`;
 
     // Signature row HTML
-    const signatureRow = `<div style="margin-top:12px"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #000;padding:8px">Requested by</th><th style="border:1px solid #000;padding:8px">Noted by</th><th style="border:1px solid #000;padding:8px">Recommended by</th><th style="border:1px solid #000;padding:8px">Approved by</th><th style="border:1px solid #000;padding:8px">Released by</th></tr></thead><tbody><tr><td style="border:1px solid #000;padding:18px;text-align:center;vertical-align:bottom"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">Requester</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-size:.95rem">Noted</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">Recommender</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">Approver</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">Accounting</div></td></tr><tr><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ______</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ______</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ______</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ______</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ______</td></tr></tbody></table></div>`;
+    const signatureRow = `<div style="margin-top:12px"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #000;padding:8px">Requested by</th><th style="border:1px solid #000;padding:8px">Noted by</th><th style="border:1px solid #000;padding:8px">Recommended by</th><th style="border:1px solid #000;padding:8px">Approved by</th><th style="border:1px solid #000;padding:8px">Released by</th></tr></thead><tbody><tr><td style="border:1px solid #000;padding:18px;text-align:center;vertical-align:bottom"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.reqByName || 'Requester')}</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-size:.95rem">${escapeHtml(d.notedBy || 'Noted')}</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.recBy || 'Recommender')}</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.appBy || 'Approver')}</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.relBy || 'Accounting')}</div></td></tr><tr><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.notedDate || '______')}</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.notedDate || '______')}</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.recDate || '______')}</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.appDate || '______')}</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.releaseDate || '______')}</td></tr></tbody></table></div>`;
 
     // Assemble final HTML
-    const leftDetails = `<div><strong>College / Department:</strong> ${escapeHtml(d.dept || '')}</div><div style="margin-top:6px"><strong>Project Title:</strong> ${escapeHtml(d.title || '')}</div><div style="margin-top:6px"><strong>Date Requested:</strong> ${formatDate(d.dateRequested)}</div>`;
-    return `<div class="paper-page">${header}<div style="margin-top:8px">${leftDetails}</div>${fundsHtml}${signatureRow}<hr style="border-top:2px dashed #666;margin:16px 0;">${header}<div style="margin-top:8px">${leftDetails}</div>${fundsHtml}${signatureRow}</div>`;
+    const leftDetails = `<div><strong>College / Department:</strong> ${escapeHtml(d.departmentFull || d.department || '')}</div><div style="margin-top:6px"><strong>Project Title:</strong> ${escapeHtml(d.title || '')}</div><div style="margin-top:6px"><strong>Date Requested:</strong> ${formatDate(d.reqDate)}</div><div style="margin-top:6px"><strong>Implementation Date:</strong> ${formatDate(d.implDate)}</div>`;
+    return `<div class="paper-page">${header}<div style="margin-top:8px">${leftDetails}</div>${fundsHtml}${signatureRow}</div>`;
 }
 
 function generateFacilityHTML(d) {
-    const header = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;"><div class="logo-placeholder"></div><div style="text-align:center"><div style="font-weight:800">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-size:0.95rem">Facility Request</div></div><div class="logo-placeholder"></div></div>`;
-    return `<div class="paper-page">${header}<div><strong>Requested By:</strong> ${escapeHtml(d.name || '')}</div><div style="margin-top:6px"><strong>Date Needed:</strong> ${formatDate(d.dateNeeded)}</div><div style="margin-top:6px"><strong>Facility:</strong> ${escapeHtml(d.facility || '')}</div><div style="margin-top:12px"><strong>Purpose / Notes:</strong><div style="border:1px solid #eee;padding:8px;min-height:120px">${(d.notes || '').replace(/\n/g, '<br>') || '&nbsp;'}</div></div></div>`;
+    const header = `<div style="text-align:center;margin-bottom:1rem;"><div style="font-weight:800;font-size:1.2rem">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700;font-size:1.1rem">Facility Request</div></div>`;
+
+    // Facilities list
+    const facilitiesList = [];
+    for (let i = 1; i <= 24; i++) {
+        if (d[`f${i}`] === '✓') {
+            facilitiesList.push(`Facility ${i}`);
+        }
+    }
+    const facilitiesHtml = facilitiesList.length ? `<ul>${facilitiesList.map(f => `<li>${f}</li>`).join('')}</ul>` : '<em>No facilities selected</em>';
+
+    // Equipment list
+    const equipmentList = [];
+    for (let i = 1; i <= 11; i++) {
+        if (d[`e${i}`] === '✓') {
+            equipmentList.push(`Equipment ${i} (Qty: ${d[`q${i}`] || 0})`);
+        }
+    }
+    const equipmentHtml = equipmentList.length ? `<ul>${equipmentList.map(e => `<li>${e}</li>`).join('')}</ul>` : '<em>No equipment selected</em>';
+
+    // Timeline
+    const timelineHtml = `<div style="margin-top:12px"><strong>Event Timeline:</strong><br>Pre-Event: ${formatDate(d.preEventDate)} ${d.preEventStartTime} - ${d.preEventEndTime}<br>Practice: ${formatDate(d.practiceDate)} ${d.practiceStartTime} - ${d.practiceEndTime}<br>Setup: ${formatDate(d.setupDate)} ${d.setupStartTime} - ${d.setupEndTime}<br>Cleanup: ${formatDate(d.cleanupDate)} ${d.cleanupStartTime} - ${d.cleanupEndTime}</div>`;
+
+    // Signatures
+    const signaturesHtml = `<div style="margin-top:12px"><table style="width:100%;border-collapse:collapse"><tbody><tr><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.departmentHead || 'Department Head')}</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.receivingRequesteeName || 'Requestee')}</div></td></tr><tr><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ______</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.receivingDateFiled || '______')}</td></tr></tbody></table></div>`;
+
+    return `<div class="paper-page">${header}<div><strong>Event Name:</strong> ${escapeHtml(d.eventName || '')}</div><div style="margin-top:6px"><strong>Event Date:</strong> ${formatDate(d.eventDate)}</div><div style="margin-top:6px"><strong>Department:</strong> ${escapeHtml(d.departmentFull || d.department || '')}</div><div style="margin-top:6px"><strong>Clean and Set-up Committee:</strong> ${escapeHtml(d.cleanSetUpCommittee || '')}</div><div style="margin-top:6px"><strong>Contact Person:</strong> ${escapeHtml(d.contactPerson || '')}</div><div style="margin-top:6px"><strong>Contact Number:</strong> ${escapeHtml(d.contactNumber || '')}</div><div style="margin-top:6px"><strong>Expected Attendees:</strong> ${d.expectedAttendees || 0}</div><div style="margin-top:6px"><strong>Guest/Speaker:</strong> ${escapeHtml(d.guestSpeaker || '')}</div><div style="margin-top:6px"><strong>Expected Performers:</strong> ${d.expectedPerformers || 0}</div><div style="margin-top:6px"><strong>Parking Gate/Plate No.:</strong> ${escapeHtml(d.parkingGatePlateNo || '')}</div><div style="margin-top:12px"><strong>Facilities:</strong>${facilitiesHtml}</div><div style="margin-top:12px"><strong>Equipment & Staffing:</strong>${equipmentHtml}</div>${timelineHtml}<div style="margin-top:12px"><strong>Other Matters:</strong> ${escapeHtml(d.otherMattersSpecify || '')}</div>${signaturesHtml}</div>`;
 }
 
 function generateCommunicationHTML(d) {
@@ -463,9 +572,9 @@ function generateCommunicationHTML(d) {
         return `<div class="comm-indent">${list.map(p => `<div style="margin-bottom:.35rem"><strong>${escapeHtml(p.name || '__________')}</strong><div style="font-style:italic;text-transform:capitalize">${escapeHtml(p.title || '')}</div></div>`).join('')}</div>`;
     }
 
-    const header = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;"><div class="logo-placeholder"></div><div style="text-align:center"><div style="font-weight:800">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-size:0.95rem">Communication Letter</div></div><div class="logo-placeholder"></div></div>`;
+    const header = `<div style="text-align:center;margin-bottom:1rem;"><div style="font-weight:800;font-size:1.2rem">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700;font-size:1.1rem">Communication Letter</div></div>`;
     const bodyHtml = (d.body || '').replace(/\n/g, '<br>') || '&nbsp;';
-    return `<div class="paper-page">${header}<div><div><strong>Date:</strong> ${formatDate(d.date)}</div><div style="display:flex;gap:2rem;margin-top:12px"><div style="flex:1"><strong>For:</strong>${renderPeople(d.forList)}</div><div style="flex:1"><strong>From:</strong>${renderPeople(d.fromList)}</div></div><div style="display:flex;gap:2rem;margin-top:12px"><div style="flex:1"><strong>Noted:</strong>${renderPeople(d.notedList)}</div><div style="flex:1"><strong>Approved:</strong>${renderPeople(d.approvedList)}</div></div><div style="margin-top:12px"><strong>Subject:</strong> ${escapeHtml(d.subject || '')}<div style="height:1px;background:#e9ecef;margin-top:6px;margin-bottom:8px;width:85%"></div></div><div style="margin-top:12px">${bodyHtml}</div></div></div>`;
+    return `<div class="paper-page">${header}<div style="margin-top:2rem"><div>Date: ${formatDate(d.date)}</div><div style="margin-top:1rem">Department: ${escapeHtml(d.departmentFull || d.department || '')}</div><div style="margin-top:1rem">Project Title: ${escapeHtml(d.title || '')}</div><div style="margin-top:1rem">To: ${renderPeople(d.recipients)}</div><div style="margin-top:1rem">From: ${renderPeople(d.senders)}</div><div style="margin-top:1rem">Subject: ${escapeHtml(d.subject || '')}</div><div style="margin-top:1rem">${bodyHtml}</div><div style="margin-top:2rem;text-align:left">Sincerely,<br>${renderPeople(d.senders)}</div></div></div>`;
 }
 
 /**
@@ -757,21 +866,42 @@ setTimeout(() => {
 
 // Add a new function to submit the document (call this from a "Create Document" button in create-document.php)
 async function submitDocument() {
-    const data = collectProposalData();
+    const currentType = currentDocumentType;  // Use the global variable
+    let data;
+    let docType;
+
+    // Collect data based on type
+    if (currentType === 'proposal') {
+        data = collectProposalData();
+        docType = 'proposal';
+    } else if (currentType === 'saf') {
+        data = collectSAFData();
+        docType = 'saf';
+    } else if (currentType === 'facility') {
+        data = collectFacilityData();
+        docType = 'facility';
+    } else if (currentType === 'communication') {
+        data = collectCommunicationData();
+        docType = 'communication';
+    } else {
+        window.ToastManager?.error('Unknown document type', 'Error');
+        return;
+    }
+
     try {
         const response = await fetch('../api/documents.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 action: 'create',
-                doc_type: 'proposal',
+                doc_type: docType,
                 student_id: window.currentUser?.id,
                 data: data
             })
         });
         const result = await response.json();
         if (result.success) {
-            window.ToastManager?.success('Document created with filled template!', 'Success');
+            window.ToastManager?.success('Document created successfully!', 'Success');
             // Redirect to track-document for students to track their documents
             window.location.href = 'track-document.php';
         } else {

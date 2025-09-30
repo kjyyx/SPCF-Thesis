@@ -888,6 +888,11 @@ async function submitDocument() {
         return;
     }
 
+    if (!window.currentUser || !window.currentUser.id) {
+        window.ToastManager?.error('User not logged in', 'Error');
+        return;
+    }
+
     try {
         const response = await fetch('../api/documents.php', {
             method: 'POST',

@@ -510,39 +510,24 @@ function createDocument($input)
             }
         }
 
-        // Assign workflow steps
-        if ($docType === 'proposal') {
-            $stepOrder = 1;
-            $stepNames = [
-                'cscAdviser' => 'CSC Adviser Review',
-                'collegeDean' => 'College Dean Approval',
-                'oicOsa' => 'OIC OSA Final Approval'
-            ];
-            foreach (['cscAdviser', 'collegeDean', 'oicOsa'] as $key) {
-                if ($signatoryIds[$key]) {
-                    $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, ?, ?, 'pending')");
-                    $stmt->execute([$docId, $stepOrder, $stepNames[$key], $signatoryIds[$key]]);
-                    $stepOrder++;
-                }
-            }
-        } elseif ($docType === 'communication') {
-            // For communication letters, perhaps assign to CSC Adviser for review
-        } elseif ($docType === 'communication') {
-            $signatoryIds = ['cscAdviser' => 1]; // Assign to first employee or specific
-            if ($signatoryIds['cscAdviser']) {
-                $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, 1, 'Communication Review', ?, 'pending')");
-                $stmt->execute([$docId, $signatoryIds['cscAdviser']]);
-            }
+        // Assign to Dean for signing
+        $deanStmt = $db->prepare("SELECT id FROM employees WHERE position = 'Dean' LIMIT 1");
+        $deanStmt->execute();
+        $dean = $deanStmt->fetch(PDO::FETCH_ASSOC);
+        if ($dean) {
+            $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, 1, 'Signing by Dean', ?, 'pending')");
+            $stmt->execute([$docId, $dean['id']]);
         } else {
-            // For SAF and Facility, assign to the first available employee
+            // Fallback: assign to the first available employee
             $empStmt = $db->prepare("SELECT id FROM employees LIMIT 1");
             $empStmt->execute();
             $emp = $empStmt->fetch(PDO::FETCH_ASSOC);
-            if (!$emp) {
+            if ($emp) {
+                $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, 1, 'Initial Review', ?, 'pending')");
+                $stmt->execute([$docId, $emp['id']]);
+            } else {
                 throw new Exception("No employees found to assign the document step");
             }
-            $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, 1, 'Initial Review', ?, 'pending')");
-            $stmt->execute([$docId, $emp['id']]);
         }
 
         $db->commit();
@@ -934,7 +919,7 @@ function generateMockDocument()
         // Prefer existing sample2.pdf for mock preview; fallback to a tiny generated sample.pdf
         $pdfPathAbs2 = $mockDir . DIRECTORY_SEPARATOR . 'sample2.pdf';
         if (file_exists($pdfPathAbs2)) {
-            $pdfWebPath = '../assets/mock/sample2.pdf';
+            $pdfWebPath = '../assets/mock/filled_doc_68da2f23191ac6.16059953.pdf';
         } else {
             // Write a tiny PDF if fallback not present
             $pdfPathAbs = $mockDir . DIRECTORY_SEPARATOR . 'sample.pdf';

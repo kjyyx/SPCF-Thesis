@@ -256,7 +256,7 @@ try {
         $phone = trim($payload['phone'] ?? '');
         $position = trim($payload['position'] ?? '');
         $office = $role !== 'student' ? trim($payload['office'] ?? '') : null;
-        $department = $role === 'student' ? trim($payload['department'] ?? '') : null;
+        $department = $role === 'student' ? trim($payload['department'] ?? '') : ($role === 'employee' ? trim($payload['department'] ?? '') : null);  // Add for employees
 
         if ($role === 'student') {
             $sql = "UPDATE $table SET first_name=:first, last_name=:last, email=:email, department=:department, position=:position, phone=:phone WHERE id=:id";
@@ -270,7 +270,10 @@ try {
                 ':id' => $id
             ];
         } else {
-            $sql = "UPDATE $table SET first_name=:first, last_name=:last, email=:email, office=:office, position=:position, phone=:phone WHERE id=:id";
+            // For employees and admins, include department only for employees
+            $sql = $role === 'employee'
+                ? "UPDATE $table SET first_name=:first, last_name=:last, email=:email, office=:office, department=:department, position=:position, phone=:phone WHERE id=:id"
+                : "UPDATE $table SET first_name=:first, last_name=:last, email=:email, office=:office, position=:position, phone=:phone WHERE id=:id";
             $params = [
                 ':first' => $first,
                 ':last' => $last,
@@ -280,6 +283,9 @@ try {
                 ':phone' => $phone,
                 ':id' => $id
             ];
+            if ($role === 'employee') {
+                $params[':department'] = $department;
+            }
         }
         $stmt = $db->prepare($sql);
         $ok = $stmt->execute($params);

@@ -231,6 +231,226 @@ function handleGet()
             return;
         }
 
+        // New: Handle student document fetching
+        if (isset($_GET['action']) && $_GET['action'] === 'my_documents') {
+            if ($currentUser['role'] !== 'student') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Access denied']);
+                return;
+            }
+
+            // Fetch student's documents with workflow steps and notes
+            $stmt = $db->prepare("
+                SELECT d.id, d.title, d.doc_type, d.description, d.status, d.uploaded_at,
+                       ds.step_order, ds.name AS step_name, ds.status AS step_status, ds.note, ds.acted_at,
+                       e.first_name AS assignee_first, e.last_name AS assignee_last
+                FROM documents d
+                LEFT JOIN document_steps ds ON d.id = ds.document_id
+                LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
+                WHERE d.student_id = ?
+                ORDER BY d.uploaded_at DESC, ds.step_order ASC
+            ");
+            $stmt->execute([$currentUser['id']]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Group by document
+            $documents = [];
+            foreach ($rows as $row) {
+                $docId = $row['id'];
+                if (!isset($documents[$docId])) {
+                    // Determine current location
+                    $current_location = 'Student Council'; // Default
+                    foreach ($rows as $stepRow) {
+                        if ($stepRow['id'] === $docId && ($stepRow['step_status'] === 'in_progress' || $stepRow['step_status'] === 'pending')) {
+                            $current_location = $stepRow['step_name'];
+                            break;
+                        }
+                    }
+
+                    $documents[$docId] = [
+                        'id' => $row['id'],
+                        'document_name' => $row['title'],
+                        'status' => $row['status'],
+                        'current_location' => $current_location,
+                        'created_at' => $row['uploaded_at'],
+                        'updated_at' => $row['uploaded_at'],
+                        'description' => $row['description'],
+                        'workflow_history' => [],
+                        'notes' => []
+                    ];
+                }
+                if ($row['step_order']) {  // Only add if step exists
+                    $documents[$docId]['workflow_history'][] = [
+                        'created_at' => $row['acted_at'] ?: $row['uploaded_at'],
+                        'action' => $row['step_status'] === 'completed' ? 'Approved' : ($row['step_status'] === 'rejected' ? 'Rejected' : 'Pending'),
+                        'office_name' => $row['step_name'],
+                        'from_office' => $row['step_name']
+                    ];
+                }
+            }
+
+            // Fetch notes for all documents
+            if (!empty($documents)) {
+                $docIds = array_keys($documents);
+                $placeholders = str_repeat('?,', count($docIds) - 1) . '?';
+                $notesStmt = $db->prepare("
+                    SELECT n.id, n.note, n.created_at, d.id as document_id,
+                           CASE 
+                               WHEN n.author_role = 'employee' THEN CONCAT(e.first_name, ' ', e.last_name)
+                               WHEN n.author_role = 'student' THEN CONCAT(s.first_name, ' ', s.last_name)
+                               WHEN n.author_role = 'admin' THEN CONCAT(a.first_name, ' ', a.last_name)
+                               ELSE 'Unknown'
+                           END as created_by_name,
+                           NULL as step_status
+                    FROM document_notes n
+                    JOIN documents d ON n.document_id = d.id
+                    LEFT JOIN employees e ON n.author_id = e.id AND n.author_role = 'employee'
+                    LEFT JOIN students s ON n.author_id = s.id AND n.author_role = 'student'
+                    LEFT JOIN administrators a ON n.author_id = a.id AND n.author_role = 'admin'
+                    WHERE n.document_id IN ($placeholders)
+                    
+                    UNION ALL
+                    
+                    SELECT CONCAT('step_', ds.id) as id, ds.note, ds.acted_at as created_at, ds.document_id,
+                           CONCAT(e.first_name, ' ', e.last_name) as created_by_name, ds.status as step_status
+                    FROM document_steps ds
+                    JOIN employees e ON ds.assigned_to_employee_id = e.id
+                    WHERE ds.document_id IN ($placeholders) 
+                    AND ds.note IS NOT NULL 
+                    AND ds.note != ''
+                    
+                    ORDER BY created_at ASC
+                ");
+                $notesStmt->execute(array_merge($docIds, $docIds));
+                $allNotes = $notesStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                // Group notes by document
+                foreach ($allNotes as $note) {
+                    $docId = $note['document_id'];
+                    if (isset($documents[$docId])) {
+                        $isRejection = isset($note['step_status']) && $note['step_status'] === 'rejected';
+                        $documents[$docId]['notes'][] = [
+                            'id' => $note['id'],
+                            'note' => $note['note'],
+                            'created_by_name' => $note['created_by_name'],
+                            'created_at' => $note['created_at'],
+                            'is_rejection' => $isRejection
+                        ];
+                    }
+                }
+            }
+
+            echo json_encode(['success' => true, 'documents' => array_values($documents)]);
+            return;
+        }
+
+        // Handle document details request for modal view
+        if (isset($_GET['action']) && $_GET['action'] === 'document_details' && isset($_GET['id'])) {
+            if ($currentUser['role'] !== 'student') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Access denied']);
+                return;
+            }
+
+            $documentId = (int) $_GET['id'];
+
+            // Verify the document belongs to the current student
+            $docStmt = $db->prepare("SELECT d.*, s.first_name, s.last_name 
+                                     FROM documents d 
+                                     JOIN students s ON d.student_id = s.id 
+                                     WHERE d.id = ? AND d.student_id = ?");
+            $docStmt->execute([$documentId, $currentUser['id']]);
+            $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$doc) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Document not found']);
+                return;
+            }
+
+            // Fetch workflow history
+            $historyStmt = $db->prepare("
+                SELECT ds.*, e.first_name, e.last_name,
+                       CONCAT(e.first_name, ' ', e.last_name) as employee_name
+                FROM document_steps ds
+                LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
+                WHERE ds.document_id = ?
+                ORDER BY ds.step_order ASC
+            ");
+            $historyStmt->execute([$documentId]);
+            $workflow_history = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Fetch notes/comments (both general notes and step notes)
+            $notesStmt = $db->prepare("
+                SELECT n.id, n.note, n.created_at, n.document_id,
+                       CASE
+                           WHEN n.author_role = 'employee' THEN CONCAT(e.first_name, ' ', e.last_name)
+                           WHEN n.author_role = 'student' THEN CONCAT(s.first_name, ' ', s.last_name)
+                           WHEN n.author_role = 'admin' THEN CONCAT(a.first_name, ' ', a.last_name)
+                           ELSE 'Unknown'
+                       END as created_by_name,
+                       NULL as step_status
+                FROM document_notes n
+                LEFT JOIN employees e ON n.author_id = e.id AND n.author_role = 'employee'
+                LEFT JOIN students s ON n.author_id = s.id AND n.author_role = 'student'
+                LEFT JOIN administrators a ON n.author_id = a.id AND n.author_role = 'admin'
+                WHERE n.document_id = ?
+
+                UNION ALL
+
+                SELECT CONCAT('step_', ds.id) as id, ds.note, ds.acted_at as created_at, ds.document_id,
+                       CONCAT(e.first_name, ' ', e.last_name) as created_by_name, ds.status as step_status
+                FROM document_steps ds
+                JOIN employees e ON ds.assigned_to_employee_id = e.id
+                WHERE ds.document_id = ?
+                AND ds.note IS NOT NULL
+                AND ds.note != ''
+
+                ORDER BY created_at ASC
+            ");
+            $notesStmt->execute([$documentId, $documentId]);
+            $notes = $notesStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Determine current location
+            $current_location = 'Student Council'; // Default
+            foreach ($workflow_history as $step) {
+                if ($step['status'] === 'in_progress' || $step['status'] === 'pending') {
+                    $current_location = $step['name'];
+                    break;
+                }
+            }
+
+            $document = [
+                'id' => $doc['id'],
+                'document_name' => $doc['title'],
+                'status' => $doc['status'],
+                'current_location' => $current_location,
+                'created_at' => $doc['uploaded_at'],
+                'updated_at' => $doc['uploaded_at'], // You might want to track last update separately
+                'description' => $doc['description'],
+                'workflow_history' => array_map(function($step) {
+                    return [
+                        'created_at' => $step['acted_at'] ?: $step['created_at'],
+                        'action' => $step['status'] === 'completed' ? 'Approved' : ($step['status'] === 'rejected' ? 'Rejected' : 'Pending'),
+                        'office_name' => $step['name'],
+                        'from_office' => $step['name']
+                    ];
+                }, $workflow_history),
+                'notes' => array_map(function($note) {
+                    return [
+                        'id' => $note['id'],
+                        'note' => $note['note'],
+                        'created_by_name' => $note['created_by_name'],
+                        'created_at' => $note['created_at'] ?? null,
+                        'is_rejection' => ($note['step_status'] === 'rejected')
+                    ];
+                }, $notes)
+            ];
+
+            echo json_encode(['success' => true, 'document' => $document]);
+            return;
+        }
+
         // If a specific document id is requested, return full details for modal view
         if (isset($_GET['id']) && is_numeric($_GET['id'])) {
             $documentId = (int) $_GET['id'];
@@ -440,6 +660,9 @@ function handlePost()
                 break;
             case 'create':
                 createDocument($input);
+                break;
+            case 'update_note':
+                updateNote($input);
                 break;
             default:
                 http_response_code(400);
@@ -1101,6 +1324,51 @@ function generateMockDocument()
         error_log('generateMockDocument error: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'Failed to generate mock document']);
+    }
+}
+
+function updateNote($input)
+{
+    global $db, $currentUser;
+
+    // Only employees can update notes
+    if ($currentUser['role'] !== 'employee') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Only employees can update notes']);
+        return;
+    }
+
+    $docId = $input['document_id'] ?? '';
+    $stepId = $input['step_id'] ?? 0;
+    $note = $input['note'] ?? '';
+
+    if (!$docId || !is_numeric($docId) || !$stepId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Document ID and Step ID are required']);
+        return;
+    }
+
+    try {
+        // Check if user is assigned to this step
+        $stmt = $db->prepare("SELECT id FROM document_steps WHERE id = ? AND assigned_to_employee_id = ? AND status = 'pending'");
+        $stmt->execute([$stepId, $currentUser['id']]);
+        if (!$stmt->fetch()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Not authorized to update this step']);
+            return;
+        }
+
+        // Update note on the step
+        $stmt = $db->prepare("UPDATE document_steps SET note = ? WHERE id = ?");
+        $stmt->execute([$note, $stepId]);
+
+        addAuditLog('NOTE_UPDATED', 'Document Management', "Note updated for document $docId step $stepId", $docId, 'Document', 'INFO');
+
+        echo json_encode(['success' => true, 'message' => 'Note updated successfully']);
+    } catch (Exception $e) {
+        error_log("Error updating note: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Failed to update note: ' . $e->getMessage()]);
     }
 }
 ?>

@@ -515,8 +515,14 @@ class DocumentNotificationSystem {
         // Signature target overlay
         this.renderSignatureOverlay(doc);
 
-        // Rebind notes debounce
+        // Load existing notes into textarea (from pending step)
         const notesInput = document.getElementById('notesInput');
+        if (notesInput) {
+            const pendingStep = doc.workflow?.find(s => s.status === 'pending');
+            notesInput.value = pendingStep?.note || '';
+        }
+
+        // Rebind notes debounce
         if (notesInput) {
             notesInput.removeEventListener('input', this._notesHandler || (() => { }));
             this._notesHandler = this.debounce(() => this.saveNotes(), 500);
@@ -1092,7 +1098,88 @@ class DocumentNotificationSystem {
 
     // Save notes (placeholder)
     saveNotes() {
-        console.log('Saving notes...');
+        if (!this.currentDocument) {
+            console.warn('No current document to save notes for');
+            return;
+        }
+
+        const notesInput = document.getElementById('notesInput');
+        if (!notesInput) {
+            console.warn('Notes input element not found');
+            return;
+        }
+
+        const note = notesInput.value.trim();
+        const pendingStep = this.currentDocument.workflow?.find(s => s.status === 'pending');
+        if (!pendingStep) {
+            console.warn('No pending step found for notes');
+            return;
+        }
+
+        // Don't save empty notes unless there was a previous note
+        if (note === '' && (pendingStep.note || '') === '') {
+            return;
+        }
+
+        // Show saving indicator
+        const saveIndicator = document.getElementById('notesSaveIndicator');
+        if (saveIndicator) {
+            saveIndicator.textContent = 'Saving...';
+            saveIndicator.style.color = '#f59e0b';
+        }
+
+        fetch(this.apiBase, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'update_note',
+                document_id: this.currentDocument.id,
+                step_id: pendingStep.id,
+                note: note
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update local document data
+                pendingStep.note = note;
+
+                // Update save indicator
+                if (saveIndicator) {
+                    saveIndicator.textContent = 'Saved';
+                    saveIndicator.style.color = '#10b981';
+                    setTimeout(() => {
+                        saveIndicator.textContent = '';
+                    }, 2000);
+                }
+
+                // Re-render the document to show updated notes
+                this.renderDocumentDetail(this.currentDocument);
+
+                console.log('Notes saved successfully');
+            } else {
+                throw new Error(data.message || 'Failed to save notes');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving notes:', error);
+            
+            // Update save indicator with error
+            if (saveIndicator) {
+                saveIndicator.textContent = 'Error saving';
+                saveIndicator.style.color = '#ef4444';
+                setTimeout(() => {
+                    saveIndicator.textContent = '';
+                }, 3000);
+            }
+
+            // Show toast notification
+            if (window.ToastManager) {
+                window.ToastManager.error('Failed to save notes: ' + error.message, 'Error');
+            }
+        });
     }
 }
 

@@ -15,6 +15,7 @@
 
 require_once '../includes/session.php';
 require_once '../includes/auth.php';
+require_once '../includes/config.php';
 require_once '../includes/database.php';
 require_once '../vendor/autoload.php';
 
@@ -65,6 +66,103 @@ function fillDocxTemplate($templatePath, $data)
     $outputPath = $outputDir . 'filled_' . uniqid('doc_', true) . '.docx';
     $templateProcessor->saveAs($outputPath);
     return $outputPath;
+}
+
+// Convert DOCX to PDF using CloudConvert
+function convertDocxToPdf($docxPath)
+{
+    $logFile = __DIR__ . '/../conversion.log';
+    $log = date('Y-m-d H:i:s') . " - Starting conversion for: " . $docxPath . "\n";
+    file_put_contents($logFile, $log, FILE_APPEND);
+    
+    $apiKey = $_ENV['CLOUDCONVERT_API_KEY'] ?? null;
+    if (!$apiKey) {
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - ERROR: API key not found\n", FILE_APPEND);
+        return $docxPath; // Return original path if conversion fails
+    }
+    
+    file_put_contents($logFile, date('Y-m-d H:i:s') . " - API key found\n", FILE_APPEND);
+
+    if (!file_exists($docxPath)) {
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - ERROR: DOCX file does not exist: $docxPath\n", FILE_APPEND);
+        return $docxPath;
+    }
+    
+    file_put_contents($logFile, date('Y-m-d H:i:s') . " - DOCX file exists, size: " . filesize($docxPath) . "\n", FILE_APPEND);
+
+    try {
+        $cloudconvert = new \CloudConvert\CloudConvert([
+            'api_key' => $apiKey,
+            'sandbox' => false
+        ]);
+        
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - CloudConvert client created\n", FILE_APPEND);
+
+        $job = (new \CloudConvert\Models\Job())
+            ->addTask(new \CloudConvert\Models\Task('import/upload', 'upload-my-file'))
+            ->addTask(
+                (new \CloudConvert\Models\Task('convert', 'convert-my-file'))
+                    ->set('input', 'upload-my-file')
+                    ->set('output_format', 'pdf')
+            )
+            ->addTask(
+                (new \CloudConvert\Models\Task('export/url', 'export-my-file'))
+                    ->set('input', 'convert-my-file')
+            );
+        
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Creating job\n", FILE_APPEND);
+        $job = $cloudconvert->jobs()->create($job);
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Job created: " . $job->getId() . "\n", FILE_APPEND);
+
+        $uploadTask = $job->getTasks()->whereName('upload-my-file')[0];
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Uploading file\n", FILE_APPEND);
+        $fileContent = file_get_contents($docxPath);
+        $cloudconvert->tasks()->upload($uploadTask, $fileContent, basename($docxPath));
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - File uploaded\n", FILE_APPEND);
+
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Waiting for completion\n", FILE_APPEND);
+        $cloudconvert->jobs()->wait($job);
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Job completed, status: " . $job->getStatus() . "\n", FILE_APPEND);
+
+        if ($job->getStatus() === 'finished') {
+            $exportTask = $job->getTasks()->whereName('export-my-file')[0];
+            $result = $exportTask->getResult();
+            if (isset($result->files) && count($result->files) > 0) {
+                $fileUrl = $result->files[0]->url;
+                file_put_contents($logFile, date('Y-m-d H:i:s') . " - Downloading PDF from: $fileUrl\n", FILE_APPEND);
+                $pdfContent = file_get_contents($fileUrl);
+                $pdfPath = str_replace('.docx', '.pdf', $docxPath);
+                file_put_contents($pdfPath, $pdfContent);
+                file_put_contents($logFile, date('Y-m-d H:i:s') . " - PDF saved to: $pdfPath\n", FILE_APPEND);
+
+                // Clean up DOCX
+                if (file_exists($docxPath)) {
+                    $unlinkResult = unlink($docxPath);
+                    if ($unlinkResult) {
+                        file_put_contents($logFile, date('Y-m-d H:i:s') . " - DOCX cleaned up successfully\n", FILE_APPEND);
+                    } else {
+                        file_put_contents($logFile, date('Y-m-d H:i:s') . " - ERROR: Failed to clean up DOCX\n", FILE_APPEND);
+                    }
+                } else {
+                    file_put_contents($logFile, date('Y-m-d H:i:s') . " - WARNING: DOCX file not found for cleanup\n", FILE_APPEND);
+                }
+
+                file_put_contents($logFile, date('Y-m-d H:i:s') . " - Conversion successful\n", FILE_APPEND);
+                return $pdfPath;
+            } else {
+                file_put_contents($logFile, date('Y-m-d H:i:s') . " - ERROR: No files in result\n", FILE_APPEND);
+            }
+        } else {
+            file_put_contents($logFile, date('Y-m-d H:i:s') . " - ERROR: Job failed with status: " . $job->getStatus() . "\n", FILE_APPEND);
+        }
+
+    } catch (Exception $e) {
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - EXCEPTION: " . $e->getMessage() . "\n", FILE_APPEND);
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Stack trace: " . $e->getTraceAsString() . "\n", FILE_APPEND);
+    }
+
+    file_put_contents($logFile, date('Y-m-d H:i:s') . " - Returning original path: $docxPath\n", FILE_APPEND);
+    return $docxPath; // Return original path if conversion fails
 }
 
 // Document timeout configuration
@@ -175,12 +273,31 @@ function handleGet()
                 ];
             }
 
-            // Optional attachment (first one)
+            // Optional attachment (first one) or generated file
             $filePath = null;
             $attStmt = $db->prepare("SELECT file_path FROM attachments WHERE document_id = ? ORDER BY id ASC LIMIT 1");
             $attStmt->execute([$documentId]);
             if ($att = $attStmt->fetch(PDO::FETCH_ASSOC)) {
                 $filePath = $att['file_path'];
+            }
+            // Use generated file path if no attachment
+            if (!$filePath && $doc['file_path']) {
+                $filePath = $doc['file_path'];
+            }
+            // Convert server path to web URL
+            if ($filePath) {
+                $absPath = realpath(__DIR__ . '/' . $filePath);
+                if ($absPath) {
+                    $basePath = realpath(__DIR__ . '/../');
+                    $filePath = str_replace($basePath, '', $absPath);
+                    $filePath = str_replace('\\', '/', $filePath);
+                    $filePath = '/SPCF-Thesis' . $filePath;
+                    // URL encode the filename to handle spaces and special characters
+                    $pathParts = explode('/', $filePath);
+                    $filename = end($pathParts);
+                    $encodedFilename = rawurlencode($filename);
+                    $filePath = str_replace($filename, $encodedFilename, $filePath);
+                }
             }
 
             $payload = [
@@ -442,8 +559,12 @@ function createDocument($input)
                 if (!file_exists($filledPath)) {
                     throw new Exception("Filled file not found: $filledPath");
                 }
+                error_log("DEBUG: DOCX template filled successfully: " . $filledPath);
+                // Convert DOCX to PDF
+                $pdfPath = convertDocxToPdf($filledPath);
+                error_log("DEBUG: PDF conversion result: " . $pdfPath);
                 $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
-                $stmt->execute([$filledPath, $docId]);
+                $stmt->execute([$pdfPath, $docId]);
             } catch (Exception $e) {
                 error_log("Proposal template filling failed: " . $e->getMessage());
                 // Fallback: Do not set file_path, document can still be viewed as HTML
@@ -473,13 +594,33 @@ function createDocument($input)
             $templatePath = $commTemplateMap[$department] ?? $commTemplateMap['default'];
             $data['content'] = $data['body'];
 
+            // Process personnel lists
+            if (isset($data['notedList']) && is_array($data['notedList'])) {
+                $data['noted'] = implode("\n", array_map(function($p) {
+                    return htmlspecialchars($p['name'] . ' - ' . $p['title']);
+                }, $data['notedList']));
+                unset($data['notedList']);
+            }
+
+            if (isset($data['approvedList']) && is_array($data['approvedList'])) {
+                $data['approved'] = implode("\n", array_map(function($p) {
+                    return htmlspecialchars($p['name'] . ' - ' . $p['title']);
+                }, $data['approvedList']));
+                unset($data['approvedList']);
+            }
+
+            // Clean up unused fields
+            unset($data['body']);
+
             try {
                 $filledPath = fillDocxTemplate($templatePath, $data);
                 if (!file_exists($filledPath)) {
                     throw new Exception("Filled file not found: $filledPath");
                 }
+                // Convert DOCX to PDF
+                $pdfPath = convertDocxToPdf($filledPath);
                 $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
-                $stmt->execute([$filledPath, $docId]);
+                $stmt->execute([$pdfPath, $docId]);
             } catch (Exception $e) {
                 error_log("Communication template filling failed: " . $e->getMessage());
                 // Fallback: Do not set file_path
@@ -490,8 +631,10 @@ function createDocument($input)
             if (file_exists($templatePath)) {
                 try {
                     $filledPath = fillDocxTemplate($templatePath, $data);
+                    // Convert DOCX to PDF
+                    $pdfPath = convertDocxToPdf($filledPath);
                     $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
-                    $stmt->execute([$filledPath, $docId]);
+                    $stmt->execute([$pdfPath, $docId]);
                 } catch (Exception $e) {
                     error_log("SAF template filling failed: " . $e->getMessage());
                 }
@@ -502,8 +645,10 @@ function createDocument($input)
             if (file_exists($templatePath)) {
                 try {
                     $filledPath = fillDocxTemplate($templatePath, $data);
+                    // Convert DOCX to PDF
+                    $pdfPath = convertDocxToPdf($filledPath);
                     $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
-                    $stmt->execute([$filledPath, $docId]);
+                    $stmt->execute([$pdfPath, $docId]);
                 } catch (Exception $e) {
                     error_log("Facility template filling failed: " . $e->getMessage());
                 }
@@ -916,18 +1061,24 @@ function generateMockDocument()
             @mkdir($mockDir, 0775, true);
         }
 
-        // Prefer existing sample2.pdf for mock preview; fallback to a tiny generated sample.pdf
-        $pdfPathAbs2 = $mockDir . DIRECTORY_SEPARATOR . 'sample2.pdf';
-        if (file_exists($pdfPathAbs2)) {
-            $pdfWebPath = '../assets/mock/filled_doc_68da2f23191ac6.16059953.pdf';
+        // Use the SAMPLEPDF.pdf for mock preview
+        $samplePdfPath = __DIR__ . '/../assets/mock/SAMPLEPDF.pdf';
+        if (file_exists($samplePdfPath)) {
+            $pdfWebPath = '../assets/mock/SAMPLEPDF.pdf';
         } else {
-            // Write a tiny PDF if fallback not present
-            $pdfPathAbs = $mockDir . DIRECTORY_SEPARATOR . 'sample.pdf';
-            if (!file_exists($pdfPathAbs)) {
-                $pdfBase64 = 'JVBERi0xLjQKJcTl8uXrp/CgIDAgb2JqCjw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+CmVuZG9iagoyIDAgb2JqCjw8L1R5cGUvUGFnZXMvS2lkc1szIDAgUl0vQ291bnQgMT4+CmVuZG9iagozIDAgb2JqCjw8L1R5cGUvUGFnZS9QYXJlbnQgMiAwIFIvTWVkaWFCb3hbMCAwIDU5NSA4NDJdL0NvbnRlbnRzIDQgMCBSL1Jlc291cmNlczw8L0ZvbnQ8PC9GMCA1IDAgUj4+Pj4+Pj4KZW5kb2JqCjQgMCBvYmoKPDwvTGVuZ3RoIDY3Pj4Kc3RyZWFtCkJUCi9GMCAxMiBUZgoxMDAgNzUwIFRkCihNb2NrIFBERiBmb3IgdGVzdGluZyAmIFNpZ25hdHVyZSBNYXBwaW5nKSBUagoKRVQKZW5kc3RyZWFtCmVuZG9iago1IDAgb2JqCjw8L1R5cGUvRm9udC9TdWJ0eXBlL1R5cGUxL0Jhc2VGb250L0hlbHZldGljYT4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwOTcgMDAwMDAgbiAKMDAwMDAwMDE5NyAwMDAwMCBuIAowMDAwMDAwNDExIDAwMDAwIG4gCjAwMDAwMDAxNDMgMDAwMDAgbiAKMDAwMDAwMDUwMyAwMDAwMCBuIAp0cmFpbGVyCjw8L1NpemUgNi9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjcyNQolJUVPRg==';
-                @file_put_contents($pdfPathAbs, base64_decode($pdfBase64));
+            // Fallback to FACILITY REQUEST.pdf
+            $fallbackPath = __DIR__ . '/../assets/files/FACILITY REQUEST.pdf';
+            if (file_exists($fallbackPath)) {
+                $pdfWebPath = '../assets/files/FACILITY REQUEST.pdf';
+            } else {
+                // Write a tiny PDF if fallback not present
+                $pdfPathAbs = $mockDir . DIRECTORY_SEPARATOR . 'sample.pdf';
+                if (!file_exists($pdfPathAbs)) {
+                    $pdfBase64 = 'JVBERi0xLjQKJcTl8uXrp/CgIDAgb2JqCjw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+CmVuZG9iagoyIDAgb2JqCjw8L1R5cGUvUGFnZXMvS2lkc1szIDAgUl0vQ291bnQgMT4+CmVuZG9iagozIDAgb2JqCjw8L1R5cGUvUGFnZS9QYXJlbnQgMiAwIFIvTWVkaWFCb3hbMCAwIDU5NSA4NDJdL0NvbnRlbnRzIDQgMCBSL1Jlc291cmNlczw8L0ZvbnQ8PC9GMCA1IDAgUj4+Pj4+Pj4KZW5kb2JqCjQgMCBvYmoKPDwvTGVuZ3RoIDY3Pj4Kc3RyZWFtCkJUCi9GMCAxMiBUZgoxMDAgNzUwIFRkCihNb2NrIFBERiBmb3IgdGVzdGluZyAmIFNpZ25hdHVyZSBNYXBwaW5nKSBUagoKRVQKZW5kc3RyZWFtCmVuZG9iago1IDAgb2JqCjw8L1R5cGUvRm9udC9TdWJ0eXBlL1R5cGUxL0Jhc2VGb250L0hlbHZldGljYT4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwOTcgMDAwMDAgbiAKMDAwMDAwMDE5NyAwMDAwMCBuIAowMDAwMDAwNDExIDAwMDAwIG4gCjAwMDAwMDAxNDMgMDAwMDAgbiAKMDAwMDAwMDUwMyAwMDAwMCBuIAp0cmFpbGVyCjw8L1NpemUgNi9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjcyNQolJUVPRg==';
+                    @file_put_contents($pdfPathAbs, base64_decode($pdfBase64));
+                }
+                $pdfWebPath = '../assets/mock/sample.pdf';
             }
-            $pdfWebPath = '../assets/mock/sample.pdf';
         }
 
         // Attach the PDF

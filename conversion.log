@@ -1,0 +1,264 @@
+2025-10-02 17:21:20 - Starting conversion for: ../uploads/filled_doc_68de44106c9888.99984350.docx
+2025-10-02 17:21:20 - API key found
+2025-10-02 17:21:20 - DOCX file exists, size: 2202554
+2025-10-02 17:21:20 - CloudConvert client created
+2025-10-02 17:21:20 - Creating job
+2025-10-02 17:21:21 - Job created: 870b249f-18ea-4d34-946b-c7da5f6e2631
+2025-10-02 17:21:21 - Uploading file
+2025-10-02 17:21:24 - File uploaded
+2025-10-02 17:21:24 - Waiting for completion
+2025-10-02 17:21:25 - Job completed, status: finished
+2025-10-02 17:21:25 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/03b0ee70-48ce-4a2d-8699-75b2051b726f/filled_doc_68de44106c9888.99984350.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20251002%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20251002T092126Z&X-Amz-Expires=86400&X-Amz-Signature=6874e39faa69f8d4bc740b0299817a1b7a6b78c81c149b8b3b406072d865d964&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_68de44106c9888.99984350.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2025-10-02 17:21:26 - PDF saved to: ../uploads/filled_doc_68de44106c9888.99984350.pdf
+2025-10-02 17:21:26 - DOCX cleaned up
+2025-10-02 17:21:26 - Conversion successful
+2025-10-02 17:21:26 - Starting conversion for: ../uploads/filled_doc_68de4416d6f795.84898068.docx
+2025-10-02 17:21:26 - API key found
+2025-10-02 17:21:26 - DOCX file exists, size: 2202554
+2025-10-02 17:21:26 - CloudConvert client created
+2025-10-02 17:21:26 - Creating job
+2025-10-02 17:21:27 - Job created: 0709aaa8-4467-4155-a267-b8a67597d1c8
+2025-10-02 17:21:27 - Uploading file
+2025-10-02 17:21:30 - File uploaded
+2025-10-02 17:21:30 - Waiting for completion
+2025-10-02 17:21:31 - Job completed, status: finished
+2025-10-02 17:21:31 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/e143a1f0-ad37-474c-b731-7d9d9757fcef/filled_doc_68de4416d6f795.84898068.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20251002%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20251002T092132Z&X-Amz-Expires=86400&X-Amz-Signature=64ae8708d35cbdb0bbb58f546272f485398e7f5ad966f9d14508a626e370fb48&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_68de4416d6f795.84898068.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2025-10-02 17:21:33 - PDF saved to: ../uploads/filled_doc_68de4416d6f795.84898068.pdf
+2025-10-02 17:21:33 - DOCX cleaned up
+2025-10-02 17:21:33 - Conversion successful
+2025-10-02 17:26:20 - Starting conversion for: ../uploads/filled_doc_68de453c440887.35002543.docx
+2025-10-02 17:26:20 - API key found
+2025-10-02 17:26:20 - DOCX file exists, size: 156308
+2025-10-02 17:26:20 - CloudConvert client created
+2025-10-02 17:26:20 - Creating job
+2025-10-02 17:26:20 - Job created: b2b2233a-4447-4c2f-83b8-feafec7d25c4
+2025-10-02 17:26:20 - Uploading file
+2025-10-02 17:26:22 - File uploaded
+2025-10-02 17:26:22 - Waiting for completion
+2025-10-02 17:26:23 - Job completed, status: finished
+2025-10-02 17:26:23 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/cd2377f8-1297-45dd-8025-f0387766ba98/filled_doc_68de453c440887.35002543.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20251002%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20251002T092624Z&X-Amz-Expires=86400&X-Amz-Signature=d4a2ebc098851b4b7634e7a7657d9210623122fbf9f58a3352f6f7e8d202f858&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_68de453c440887.35002543.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2025-10-02 17:26:25 - PDF saved to: ../uploads/filled_doc_68de453c440887.35002543.pdf
+2025-10-02 17:26:25 - DOCX cleaned up successfully
+2025-10-02 17:26:25 - Conversion successful
+2025-10-02 17:26:25 - Starting conversion for: ../uploads/filled_doc_68de45411cf9f8.52147244.docx
+2025-10-02 17:26:25 - API key found
+2025-10-02 17:26:25 - DOCX file exists, size: 156308
+2025-10-02 17:26:25 - CloudConvert client created
+2025-10-02 17:26:25 - Creating job
+2025-10-02 17:26:25 - Job created: d20b7887-c57c-4d33-90aa-1739730aea78
+2025-10-02 17:26:25 - Uploading file
+2025-10-02 17:26:27 - File uploaded
+2025-10-02 17:26:27 - Waiting for completion
+2025-10-02 17:26:28 - Job completed, status: finished
+2025-10-02 17:26:28 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/9c071426-05dd-4500-a561-7bea1853a29d/filled_doc_68de45411cf9f8.52147244.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20251002%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20251002T092629Z&X-Amz-Expires=86400&X-Amz-Signature=a2a71f2c83f976f000799af18b77c45ca185ebc0ae304415a4463db3dc31f5ee&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_68de45411cf9f8.52147244.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2025-10-02 17:26:30 - PDF saved to: ../uploads/filled_doc_68de45411cf9f8.52147244.pdf
+2025-10-02 17:26:30 - DOCX cleaned up successfully
+2025-10-02 17:26:30 - Conversion successful
+2025-10-02 17:27:06 - Starting conversion for: ../uploads/filled_doc_68de456a621723.85104477.docx
+2025-10-02 17:27:06 - API key found
+2025-10-02 17:27:06 - DOCX file exists, size: 156308
+2025-10-02 17:27:06 - CloudConvert client created
+2025-10-02 17:27:06 - Creating job
+2025-10-02 17:27:06 - EXCEPTION: Your account has run out of conversion credits
+2025-10-02 17:27:06 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(545): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(423): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2025-10-02 17:27:06 - Returning original path: ../uploads/filled_doc_68de456a621723.85104477.docx
+2025-10-02 17:41:12 - Starting conversion for: ../uploads/filled_doc_68de48b88c0474.08902050.docx
+2025-10-02 17:41:12 - API key found
+2025-10-02 17:41:12 - DOCX file exists, size: 156308
+2025-10-02 17:41:12 - CloudConvert client created
+2025-10-02 17:41:12 - Creating job
+2025-10-02 17:41:13 - EXCEPTION: Your account has run out of conversion credits
+2025-10-02 17:41:13 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(558): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(436): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2025-10-02 17:41:13 - Returning original path: ../uploads/filled_doc_68de48b88c0474.08902050.docx
+2025-10-02 17:41:33 - Starting conversion for: ../uploads/filled_doc_68de48cd3a5583.81459559.docx
+2025-10-02 17:41:33 - API key found
+2025-10-02 17:41:33 - DOCX file exists, size: 94560
+2025-10-02 17:41:33 - CloudConvert client created
+2025-10-02 17:41:33 - Creating job
+2025-10-02 17:41:33 - EXCEPTION: Your account has run out of conversion credits
+2025-10-02 17:41:33 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(611): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(436): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2025-10-02 17:41:33 - Returning original path: ../uploads/filled_doc_68de48cd3a5583.81459559.docx
+2025-10-02 17:42:38 - Starting conversion for: ../uploads/filled_doc_68de490e10d912.07499564.docx
+2025-10-02 17:42:38 - API key found
+2025-10-02 17:42:38 - DOCX file exists, size: 94168
+2025-10-02 17:42:38 - CloudConvert client created
+2025-10-02 17:42:38 - Creating job
+2025-10-02 17:42:38 - EXCEPTION: Your account has run out of conversion credits
+2025-10-02 17:42:38 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(625): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(436): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2025-10-02 17:42:38 - Returning original path: ../uploads/filled_doc_68de490e10d912.07499564.docx
+2025-10-02 17:43:01 - Starting conversion for: ../uploads/filled_doc_68de492540b481.58787139.docx
+2025-10-02 17:43:01 - API key found
+2025-10-02 17:43:01 - DOCX file exists, size: 3028485
+2025-10-02 17:43:01 - CloudConvert client created
+2025-10-02 17:43:01 - Creating job
+2025-10-02 17:43:01 - EXCEPTION: Your account has run out of conversion credits
+2025-10-02 17:43:01 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(597): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(436): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2025-10-02 17:43:01 - Returning original path: ../uploads/filled_doc_68de492540b481.58787139.docx
+2025-10-02 17:44:50 - Starting conversion for: ../uploads/filled_doc_68de4992dfbfb1.15873946.docx
+2025-10-02 17:44:50 - API key found
+2025-10-02 17:44:50 - DOCX file exists, size: 3028485
+2025-10-02 17:44:50 - CloudConvert client created
+2025-10-02 17:44:50 - Creating job
+2025-10-02 17:44:51 - EXCEPTION: Your account has run out of conversion credits
+2025-10-02 17:44:51 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(615): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(436): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2025-10-02 17:44:51 - Returning original path: ../uploads/filled_doc_68de4992dfbfb1.15873946.docx
+2025-10-02 17:45:30 - Starting conversion for: ../uploads/filled_doc_68de49ba46a786.43950637.docx
+2025-10-02 17:45:30 - API key found
+2025-10-02 17:45:30 - DOCX file exists, size: 160724
+2025-10-02 17:45:30 - CloudConvert client created
+2025-10-02 17:45:30 - Creating job
+2025-10-02 17:45:30 - EXCEPTION: Your account has run out of conversion credits
+2025-10-02 17:45:30 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(615): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(436): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2025-10-02 17:45:30 - Returning original path: ../uploads/filled_doc_68de49ba46a786.43950637.docx
+2025-10-03 13:51:09 - Starting conversion for: ../uploads/filled_doc_68df644dbc7b02.42384899.docx
+2025-10-03 13:51:09 - API key found
+2025-10-03 13:51:09 - DOCX file exists, size: 926473
+2025-10-03 13:51:09 - CloudConvert client created
+2025-10-03 13:51:09 - Creating job
+2025-10-03 13:51:10 - EXCEPTION: Your account has run out of conversion credits
+2025-10-03 13:51:10 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(621): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(442): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2025-10-03 13:51:10 - Returning original path: ../uploads/filled_doc_68df644dbc7b02.42384899.docx
+2025-10-03 13:51:27 - Starting conversion for: ../uploads/filled_doc_68df645f1d5d72.46671733.docx
+2025-10-03 13:51:27 - API key found
+2025-10-03 13:51:27 - DOCX file exists, size: 160571
+2025-10-03 13:51:27 - CloudConvert client created
+2025-10-03 13:51:27 - Creating job
+2025-10-03 13:51:27 - EXCEPTION: Your account has run out of conversion credits
+2025-10-03 13:51:27 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(621): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(442): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2025-10-03 13:51:27 - Returning original path: ../uploads/filled_doc_68df645f1d5d72.46671733.docx
+2025-10-03 13:51:38 - Starting conversion for: ../uploads/filled_doc_68df646a9c4824.11294521.docx
+2025-10-03 13:51:38 - API key found
+2025-10-03 13:51:38 - DOCX file exists, size: 160571
+2025-10-03 13:51:38 - CloudConvert client created
+2025-10-03 13:51:38 - Creating job
+2025-10-03 13:51:39 - EXCEPTION: Your account has run out of conversion credits
+2025-10-03 13:51:39 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(621): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(442): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2025-10-03 13:51:39 - Returning original path: ../uploads/filled_doc_68df646a9c4824.11294521.docx
+2025-10-03 13:51:42 - Starting conversion for: ../uploads/filled_doc_68df646e3a1a44.00468930.docx
+2025-10-03 13:51:42 - API key found
+2025-10-03 13:51:42 - DOCX file exists, size: 1598078
+2025-10-03 13:51:42 - CloudConvert client created
+2025-10-03 13:51:42 - Creating job
+2025-10-03 13:51:42 - EXCEPTION: Your account has run out of conversion credits
+2025-10-03 13:51:42 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(621): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(442): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2025-10-03 13:51:42 - Returning original path: ../uploads/filled_doc_68df646e3a1a44.00468930.docx
+2025-10-03 13:51:58 - Starting conversion for: ../uploads/filled_doc_68df647e351293.02485016.docx
+2025-10-03 13:51:58 - API key found
+2025-10-03 13:51:58 - DOCX file exists, size: 3030707
+2025-10-03 13:51:58 - CloudConvert client created
+2025-10-03 13:51:58 - Creating job
+2025-10-03 13:51:58 - EXCEPTION: Your account has run out of conversion credits
+2025-10-03 13:51:58 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(564): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(442): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2025-10-03 13:51:58 - Returning original path: ../uploads/filled_doc_68df647e351293.02485016.docx
+2025-10-03 14:00:50 - Starting conversion for: ../uploads/filled_doc_68df6692b40737.81175733.docx
+2025-10-03 14:00:50 - API key found
+2025-10-03 14:00:50 - DOCX file exists, size: 1599197
+2025-10-03 14:00:50 - CloudConvert client created
+2025-10-03 14:00:50 - Creating job
+2025-10-03 14:00:51 - EXCEPTION: Your account has run out of conversion credits
+2025-10-03 14:00:51 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(638): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(442): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2025-10-03 14:00:51 - Returning original path: ../uploads/filled_doc_68df6692b40737.81175733.docx

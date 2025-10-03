@@ -13,6 +13,12 @@ class DocumentNotificationSystem {
         this.apiBase = '../api/documents.php';
         this.signatureImage = null;
         this.currentSignatureMap = null;
+        this.pdfDoc = null; // PDF.js document
+        this.currentPage = 1;
+        this.totalPages = 1;
+        this.scale = 1.0; // Zoom scale
+        this.canvas = null;
+        this.ctx = null;
     }
 
     // Initialize the application
@@ -39,6 +45,9 @@ class DocumentNotificationSystem {
             dashboard.style.display = 'block';
         }
         this.currentDocument = null;
+        this.pdfDoc = null;
+        this.currentPage = 1;
+        this.scale = 1.0;
     }
 
     // Create a mock document via API then reload list
@@ -159,6 +168,28 @@ class DocumentNotificationSystem {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && document.getElementById('documentView').style.display === 'block') {
                 this.goBack();
+            }
+            // PDF viewer keyboard shortcuts
+            if (this.pdfDoc && document.getElementById('documentView').style.display === 'block') {
+                switch (e.key) {
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        this.prevPage();
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        this.nextPage();
+                        break;
+                    case '+':
+                    case '=':
+                        e.preventDefault();
+                        this.zoomIn();
+                        break;
+                    case '-':
+                        e.preventDefault();
+                        this.zoomOut();
+                        break;
+                }
             }
         });
 
@@ -447,18 +478,14 @@ class DocumentNotificationSystem {
         if (pdfFileName) pdfFileName.textContent = fileName;
         if (pdfTitle) pdfTitle.textContent = doc.description || 'Document content preview';
 
-        // PDF host
+        // PDF host with PDF.js
         const pdfContent = document.getElementById('pdfContent');
         if (pdfContent) {
-            pdfContent.innerHTML = '';
-            pdfContent.style.position = 'relative';
+            pdfContent.innerHTML = '<canvas id="pdfCanvas"></canvas>';
+            this.canvas = document.getElementById('pdfCanvas');
+            this.ctx = this.canvas.getContext('2d');
             if (doc.file_path && /\.pdf(\?|$)/i.test(doc.file_path)) {
-                const obj = document.createElement('object');
-                obj.type = 'application/pdf';
-                obj.data = doc.file_path;
-                obj.className = 'pdf-embed';
-                obj.setAttribute('aria-label', 'PDF Preview');
-                pdfContent.appendChild(obj);
+                this.loadPdf(doc.file_path);
             } else {
                 const ph = document.createElement('div');
                 ph.className = 'pdf-placeholder';
@@ -468,17 +495,19 @@ class DocumentNotificationSystem {
             this.initClickToPlace(pdfContent); // Enable click-to-place
         }
 
-        // Workflow compact list
+        // Modern workflow timeline
         const workflowSteps = document.getElementById('workflowSteps');
         if (workflowSteps) {
             workflowSteps.innerHTML = (doc.workflow || []).map(step => `
-                <div class="workflow-step-compact ${step.status}">
-                    <div class="workflow-icon ${step.status}">
-                        <i class="bi ${step.status === 'completed' ? 'bi-check2-circle' : step.status === 'rejected' ? 'bi-x-circle' : 'bi-hourglass-split'}"></i>
+                <div class="workflow-step-modern">
+                    <div class="step-icon-modern ${step.status}">
+                        <i class="bi ${step.status === 'completed' ? 'bi-check-circle-fill' : step.status === 'rejected' ? 'bi-x-circle-fill' : step.status === 'pending' ? 'bi-hourglass-split' : 'bi-circle'}"></i>
                     </div>
-                    <div class="workflow-content">
-                        <div class="step-name">${step.name}</div>
-                        <div class="step-date">${step.assignee_name || 'Unassigned'}${step.acted_at ? ' • ' + new Date(step.acted_at).toLocaleString() : ''}</div>
+                    <div class="step-info-modern">
+                        <div class="step-name-modern">${this.escapeHtml(step.name)}</div>
+                        <div class="step-assignee-modern">Assigned to: ${this.escapeHtml(step.assignee_name || 'Unassigned')}</div>
+                        ${step.acted_at ? `<div class="step-date-modern">Completed: ${new Date(step.acted_at).toLocaleDateString()}</div>` : '<div class="step-date-modern">Pending action</div>'}
+                        ${step.note ? `<div class="step-note-modern" style="margin-top: 0.5rem; font-size: 0.75rem; color: #64748b; font-style: italic;">"${this.escapeHtml(step.note)}"</div>` : ''}
                     </div>
                 </div>`).join('');
         }
@@ -493,6 +522,139 @@ class DocumentNotificationSystem {
             this._notesHandler = this.debounce(() => this.saveNotes(), 500);
             notesInput.addEventListener('input', this._notesHandler);
         }
+    }
+
+    // Load PDF with PDF.js
+    async loadPdf(url) {
+        const loadingDiv = document.getElementById('pdfLoading');
+        const pdfContent = document.getElementById('pdfContent');
+        if (loadingDiv) loadingDiv.style.display = 'flex';
+        if (pdfContent) pdfContent.style.display = 'none';
+        try {
+            const pdfjsLib = window['pdfjsLib'];
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            this.pdfDoc = await pdfjsLib.getDocument(url).promise;
+            this.totalPages = this.pdfDoc.numPages;
+            this.currentPage = 1;
+            
+            // Create canvas for PDF rendering in modern container
+            const canvas = document.createElement('canvas');
+            canvas.id = 'pdfCanvas';
+            canvas.style.maxWidth = '100%';
+            canvas.style.height = 'auto';
+            canvas.style.boxShadow = '0 10px 30px rgba(15, 23, 42, 0.15)';
+            canvas.style.borderRadius = '12px';
+            this.canvas = canvas;
+            this.ctx = canvas.getContext('2d');
+            
+            // Replace loading content with canvas
+            if (pdfContent) {
+                pdfContent.innerHTML = '';
+                pdfContent.appendChild(canvas);
+                pdfContent.style.display = 'flex';
+            }
+            
+            this.renderPage();
+            this.updatePageControls();
+        } catch (error) {
+            console.error('Error loading PDF:', error);
+            this.showToast({ type: 'error', title: 'Error', message: 'Failed to load PDF' });
+        } finally {
+            if (loadingDiv) loadingDiv.style.display = 'none';
+            if (pdfContent) pdfContent.style.display = 'flex';
+        }
+    }
+
+    // Render current page to canvas
+    async renderPage() {
+        if (!this.pdfDoc || !this.canvas) return;
+        const page = await this.pdfDoc.getPage(this.currentPage);
+        const viewport = page.getViewport({ scale: this.scale });
+        this.canvas.height = viewport.height;
+        this.canvas.width = viewport.width;
+        const renderContext = {
+            canvasContext: this.ctx,
+            viewport: viewport
+        };
+        await page.render(renderContext).promise;
+        this.updatePageControls();
+    }
+
+    // Update page controls
+    updatePageControls() {
+        const pageInput = document.getElementById('pageInput');
+        const pageTotal = document.getElementById('pageTotal');
+        const prevBtn = document.getElementById('prevPageBtn');
+        const nextBtn = document.getElementById('nextPageBtn');
+        if (pageTotal) pageTotal.textContent = this.totalPages;
+        if (pageInput) pageInput.value = this.currentPage;
+        if (prevBtn) prevBtn.disabled = this.currentPage <= 1;
+        if (nextBtn) nextBtn.disabled = this.currentPage >= this.totalPages;
+    }
+
+    // Navigate to previous page
+    prevPage() {
+        if (this.currentPage > 1) {
+            this.currentPage--;
+            this.renderPage();
+        }
+    }
+
+    // Navigate to next page
+    nextPage() {
+        if (this.currentPage < this.totalPages) {
+            this.currentPage++;
+            this.renderPage();
+        }
+    }
+
+    // Go to specific page
+    goToPage(pageNum) {
+        pageNum = parseInt(pageNum);
+        if (pageNum >= 1 && pageNum <= this.totalPages) {
+            this.currentPage = pageNum;
+            this.renderPage();
+        }
+    }
+
+    // Zoom in
+    zoomIn() {
+        this.scale = Math.min(this.scale + 0.25, 3.0);
+        this.renderPage();
+        this.updateZoomIndicator();
+    }
+
+    // Zoom out
+    zoomOut() {
+        this.scale = Math.max(this.scale - 0.25, 0.5);
+        this.renderPage();
+        this.updateZoomIndicator();
+    }
+
+    // Fit to width
+    fitToWidth() {
+        if (!this.pdfDoc) return;
+        const container = document.getElementById('pdfContent');
+        const containerWidth = container.clientWidth - 40; // Padding
+        this.pdfDoc.getPage(this.currentPage).then(page => {
+            const viewport = page.getViewport({ scale: 1 });
+            this.scale = containerWidth / viewport.width;
+            this.renderPage();
+            this.updateZoomIndicator();
+        });
+    }
+
+    // Reset zoom
+    resetZoom() {
+        this.scale = 1.0;
+        this.renderPage();
+        this.updateZoomIndicator();
+    }
+
+    // Update zoom indicator
+    updateZoomIndicator() {
+        const zoomIndicator = document.getElementById('zoomIndicator');
+        if (zoomIndicator) zoomIndicator.textContent = `${Math.round(this.scale * 100)}%`;
     }
 
     // Overlay signature target area based on signature_map (inline)
@@ -679,11 +841,14 @@ class DocumentNotificationSystem {
         if (saveBtn) saveBtn.onclick = () => {
             this.signatureImage = canvas.toDataURL('image/png');
             this.updateSignatureOverlayImage();
+            // Update modern signature status
             const placeholder = document.getElementById('signaturePlaceholder');
-            const applied = document.getElementById('appliedSignature');
-            if (placeholder) placeholder.style.display = 'none';
-            if (applied) applied.style.display = 'flex';
-            this.showToast({ type: 'success', title: 'Signature Saved', message: 'Signature ready to apply.' });
+            const signedStatus = document.getElementById('signedStatus');
+            if (placeholder) placeholder.classList.add('d-none');
+            if (signedStatus) signedStatus.classList.remove('d-none');
+            // Hide signature pad after saving
+            toggleSignaturePad();
+            this.showToast({ type: 'success', title: 'Signature Saved', message: 'Signature ready to apply to document.' });
         };
     }
 
@@ -732,6 +897,31 @@ class DocumentNotificationSystem {
         box.appendChild(img);
     }
 
+    // Apply signature to PDF using PDF-LIB
+    async applySignatureToPdf() {
+        if (!this.pdfDoc || !this.signatureImage || !this.currentSignatureMap) return;
+        try {
+            const pdfBytes = await this.pdfDoc.getData();
+            const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+            const page = pdfDoc.getPage(this.currentPage - 1); // 0-indexed
+            const { x_pct, y_pct, w_pct, h_pct } = this.currentSignatureMap;
+            const pageWidth = page.getWidth();
+            const pageHeight = page.getHeight();
+            const x = x_pct * pageWidth;
+            const y = pageHeight - (y_pct * pageHeight) - (h_pct * pageHeight); // Flip Y
+            const width = w_pct * pageWidth;
+            const height = h_pct * pageHeight;
+            const img = await pdfDoc.embedPng(this.signatureImage);
+            page.drawImage(img, { x, y, width, height });
+            const modifiedPdfBytes = await pdfDoc.save();
+            // Here, you could download or send the modified PDF
+            this.showToast({ type: 'success', title: 'Signature Applied', message: 'Signature embedded in PDF.' });
+        } catch (error) {
+            console.error('Error applying signature:', error);
+            this.showToast({ type: 'error', title: 'Error', message: 'Failed to apply signature.' });
+        }
+    }
+
     // Get action buttons based on document status and user role
     getActionButtons(doc) {
         const currentStep = doc.workflow.find(step => step.status === 'pending');
@@ -770,6 +960,9 @@ class DocumentNotificationSystem {
         if (!confirm('Are you sure you want to sign and approve this document?')) return;
 
         try {
+            // Apply signature to PDF if available
+            await this.applySignatureToPdf();
+
             // Find step id: prefer currentDocument pending step for accuracy
             const doc = this.currentDocument && this.currentDocument.id === docId
                 ? this.currentDocument
@@ -837,8 +1030,8 @@ class DocumentNotificationSystem {
                 this.showToast({
                     type: 'warning',
                     title: 'Document Rejected',
-                    message: 'Document has been rejected.'
-                });
+                    message: 'Document has been rejected.' }
+                );
 
                 // Refresh data and return to dashboard (no modal)
                 await this.loadDocuments();
@@ -900,6 +1093,29 @@ class DocumentNotificationSystem {
     // Save notes (placeholder)
     saveNotes() {
         console.log('Saving notes...');
+    }
+}
+
+// PDF Zoom Functions
+function zoomInPDF(pdfObject) {
+    if (pdfObject && pdfObject.style) {
+        const currentHeight = parseInt(pdfObject.style.height) || 600;
+        const newHeight = Math.min(currentHeight + 100, 1200);
+        pdfObject.style.height = newHeight + 'px';
+    }
+}
+
+function zoomOutPDF(pdfObject) {
+    if (pdfObject && pdfObject.style) {
+        const currentHeight = parseInt(pdfObject.style.height) || 600;
+        const newHeight = Math.max(currentHeight - 100, 300);
+        pdfObject.style.height = newHeight + 'px';
+    }
+}
+
+function resetZoomPDF(pdfObject) {
+    if (pdfObject && pdfObject.style) {
+        pdfObject.style.height = '600px';
     }
 }
 

@@ -205,114 +205,243 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
     </div>
 
-    <!-- Document Detail View (not used by modal flow; kept for future use) -->
+    <!-- Modern Document Detail View -->
     <div id="documentView" class="document-detail" style="display: none;">
-        <div class="document-controls">
+        <!-- Enhanced Header with Better Controls -->
+        <div class="document-header">
             <div class="container-fluid">
-                <div class="controls-actions">
-                    <div class="action-controls">
-                        <button class="btn btn-outline-secondary" onclick="goBack()" title="Back to Dashboard">
-                            <i class="bi bi-arrow-left me-2"></i>Back
+                <div class="header-content">
+                    <div class="header-left">
+                        <button class="back-btn" onclick="goBack()" title="Back to Dashboard">
+                            <i class="bi bi-arrow-left"></i>
+                            <span>Back to Documents</span>
                         </button>
-                        <div class="divider"></div>
-                        <button class="btn btn-outline-primary" onclick="downloadPDF()">
-                            <i class="bi bi-download me-2"></i>Download
-                        </button>
-                        <button class="btn btn-outline-secondary" onclick="printDocument()">
-                            <i class="bi bi-printer me-2"></i>Print
-                        </button>
-                    </div>
-                    <div class="preview-status">
-                        <div class="status-indicator">
-                            <span id="docStatus" class="status-badge">Status</span>
-                            <div class="status-dot"></div>
+                        <div class="document-info">
+                            <h2 id="docTitle" class="document-title">Document Title</h2>
+                            <div class="document-meta">
+                                <span id="docStatus" class="status-badge">Status</span>
+                                <span class="meta-separator">•</span>
+                                <span id="pdfFileName" class="file-name">Document.pdf</span>
+                            </div>
                         </div>
+                    </div>
+                    <div class="header-actions">
+                        <button class="action-btn secondary" onclick="printDocument()" title="Print Document">
+                            <i class="bi bi-printer"></i>
+                            <span>Print</span>
+                        </button>
+                        <button class="action-btn primary" onclick="downloadPDF()" title="Download PDF">
+                            <i class="bi bi-download"></i>
+                            <span>Download</span>
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Document Container -->
-        <div class="document-container">
+        <!-- Modern Layout Container -->
+        <div class="document-layout">
             <div class="container-fluid">
-                <div class="editor-wrapper">
-                    <div class="editor-panel">
-                        <div class="editor-content">
-                            <div class="form-section">
-                                <h5 class="mb-3">
-                                    <i class="bi bi-file-text me-2"></i><span id="docTitle">Document Title</span>
-                                </h5>
-                                <div class="pdf-viewer-container">
-                                    <div class="pdf-viewer-header">
-                                        <div class="pdf-file-info">
-                                            <div class="pdf-file-icon">
-                                                <i class="bi bi-file-earmark-pdf-fill"></i>
-                                            </div>
-                                            <div>
-                                                <div class="fw-semibold" id="pdfFileName">Document.pdf</div>
-                                                <small class="text-muted" id="pdfTitle">Document content preview</small>
-                                            </div>
+                <div class="layout-grid">
+                    <!-- Main PDF Viewer -->
+                    <div class="pdf-section">
+                        <div class="pdf-viewer-modern">
+                            <!-- Enhanced PDF Controls -->
+                            <div class="pdf-toolbar">
+                                <div class="toolbar-group">
+                                    <div class="page-controls">
+                                        <button class="tool-btn" onclick="documentSystem.prevPage()" id="prevPageBtn" 
+                                                title="Previous Page" aria-label="Previous Page">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </button>
+                                        <div class="page-info">
+                                            <input type="number" id="pageInput" min="1" 
+                                                   onchange="documentSystem.goToPage(this.value)" 
+                                                   class="page-input" title="Current Page" />
+                                            <span class="page-separator">/</span>
+                                            <span id="pageTotal" class="page-total">1</span>
                                         </div>
+                                        <button class="tool-btn" onclick="documentSystem.nextPage()" id="nextPageBtn" 
+                                                title="Next Page" aria-label="Next Page">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </button>
                                     </div>
-                                    <div class="pdf-content" id="pdfContent"></div>
+                                </div>
+                                
+                                <div class="toolbar-group">
+                                    <div class="zoom-controls">
+                                        <button class="tool-btn" onclick="documentSystem.zoomOut()" title="Zoom Out">
+                                            <i class="bi bi-dash"></i>
+                                        </button>
+                                        <div class="zoom-info">
+                                            <span id="zoomIndicator" class="zoom-level">100%</span>
+                                        </div>
+                                        <button class="tool-btn" onclick="documentSystem.zoomIn()" title="Zoom In">
+                                            <i class="bi bi-plus"></i>
+                                        </button>
+                                        <div class="toolbar-separator"></div>
+                                        <button class="tool-btn" onclick="documentSystem.fitToWidth()" title="Fit to Width">
+                                            <i class="bi bi-arrows-angle-expand"></i>
+                                        </button>
+                                        <button class="tool-btn" onclick="documentSystem.resetZoom()" title="Reset Zoom">
+                                            <i class="bi bi-arrow-clockwise"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- PDF Canvas Container -->
+                            <div class="pdf-canvas-container" id="pdfContent">
+                                <div id="pdfLoading" class="pdf-loading-modern">
+                                    <div class="loading-spinner">
+                                        <div class="spinner"></div>
+                                    </div>
+                                    <p class="loading-text">Loading document...</p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Compact Actions Panel -->
-                    <div class="compact-actions-panel">
-                        <div class="quick-actions-bar">
-                            <button class="btn btn-success btn-sm" onclick="signDocument()" title="Sign Document">
-                                <i class="bi bi-pen-fill me-1"></i>Sign
-                            </button>
-                            <button class="btn btn-outline-danger btn-sm" onclick="showRejectModal()" title="Reject Document">
-                                <i class="bi bi-x-circle me-1"></i>Reject
-                            </button>
-                            <button class="btn btn-outline-primary btn-sm" onclick="toggleSignaturePad()"
-                                id="applySignatureBtn" title="Draw/Apply Signature">
-                                <i class="bi bi-person-check me-1"></i>Signature Pad
-                            </button>
+                    <!-- Enhanced Sidebar -->
+                    <div class="actions-sidebar">
+                        <!-- Document Actions Card -->
+                        <div class="sidebar-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="bi bi-lightning-charge"></i>
+                                    Quick Actions
+                                </h3>
+                            </div>
+                            <div class="card-content">
+                                <div class="action-buttons">
+                                    <button class="action-btn-full success" onclick="signDocument()" 
+                                            title="Sign this document">
+                                        <div class="btn-icon">
+                                            <i class="bi bi-pen-fill"></i>
+                                        </div>
+                                        <div class="btn-content">
+                                            <span class="btn-title">Sign Document</span>
+                                            <span class="btn-subtitle">Apply your signature</span>
+                                        </div>
+                                        <i class="bi bi-chevron-right btn-arrow"></i>
+                                    </button>
+                                    
+                                    <button class="action-btn-full danger" onclick="showRejectModal()" 
+                                            title="Reject this document">
+                                        <div class="btn-icon">
+                                            <i class="bi bi-x-circle"></i>
+                                        </div>
+                                        <div class="btn-content">
+                                            <span class="btn-title">Reject Document</span>
+                                            <span class="btn-subtitle">Provide rejection reason</span>
+                                        </div>
+                                        <i class="bi bi-chevron-right btn-arrow"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="signature-status-compact">
-                            <div class="signature-placeholder-compact" id="signaturePlaceholder">
-                                <i class="bi bi-pen text-muted"></i>
-                                <span class="text-muted fs-sm">Ready to sign</span>
+                        <!-- Signature Status Card -->
+                        <div class="sidebar-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="bi bi-pen"></i>
+                                    Signature Status
+                                </h3>
                             </div>
-                            <div class="signed-indicator-compact" id="appliedSignature" style="display: none;">
-                                <i class="bi bi-check-circle-fill text-success"></i>
-                                <span class="text-success fs-sm fw-medium">Signature applied</span>
-                            </div>
-                        </div>
+                            <div class="card-content">
+                                <div class="signature-status" id="signatureStatusContainer">
+                                    <div class="signature-placeholder" id="signaturePlaceholder">
+                                        <div class="placeholder-icon">
+                                            <i class="bi bi-pen"></i>
+                                        </div>
+                                        <div class="placeholder-text">
+                                            <span class="status-title">Ready to Sign</span>
+                                            <span class="status-subtitle">Click above to add your signature</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="signed-status d-none" id="signedStatus">
+                                        <div class="status-icon success">
+                                            <i class="bi bi-check-circle-fill"></i>
+                                        </div>
+                                        <div class="status-text">
+                                            <span class="status-title">Document Signed</span>
+                                            <span class="status-subtitle">Signature applied successfully</span>
+                                        </div>
+                                    </div>
+                                </div>
 
-                        <!-- Inline signature pad (no modals) -->
-                        <div id="signaturePadContainer" class="signature-pad d-none">
-                            <canvas id="signatureCanvas"></canvas>
-                            <div class="d-flex justify-content-end gap-2 mt-2">
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="sigClearBtn">
-                                    <i class="bi bi-eraser me-1"></i>Clear
+                                <button class="signature-pad-toggle" onclick="toggleSignaturePad()" 
+                                        id="signaturePadToggle">
+                                    <i class="bi bi-pencil-square me-2"></i>
+                                    Open Signature Pad
                                 </button>
-                                <button type="button" class="btn btn-primary btn-sm" id="sigSaveBtn">
-                                    <i class="bi bi-check2 me-1"></i>Save
-                                </button>
-                            </div>
-                            <div class="small text-muted mt-2">
-                                Tip: Draw your signature. It will appear on the highlighted area.
+
+                                <!-- Enhanced Signature Pad -->
+                                <div id="signaturePadContainer" class="signature-pad-modern d-none">
+                                    <div class="signature-header">
+                                        <span class="signature-title">Draw Your Signature</span>
+                                        <button class="close-signature" onclick="toggleSignaturePad()">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </div>
+                                    <div class="signature-canvas-wrapper">
+                                        <canvas id="signatureCanvas" class="signature-canvas"></canvas>
+                                    </div>
+                                    <div class="signature-actions">
+                                        <button type="button" class="btn-signature clear" id="sigClearBtn">
+                                            <i class="bi bi-eraser"></i>
+                                            Clear
+                                        </button>
+                                        <button type="button" class="btn-signature save" id="sigSaveBtn">
+                                            <i class="bi bi-check2"></i>
+                                            Apply Signature
+                                        </button>
+                                    </div>
+                                    <div class="signature-hint">
+                                        <i class="bi bi-info-circle"></i>
+                                        Draw your signature using your mouse or touch device
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="notes-compact">
-                            <textarea class="form-control form-control-sm" rows="2" placeholder="Add notes..."
-                                id="notesInput"></textarea>
+                        <!-- Notes Card -->
+                        <div class="sidebar-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="bi bi-journal-text"></i>
+                                    Notes & Comments
+                                </h3>
+                            </div>
+                            <div class="card-content">
+                                <div class="notes-container">
+                                    <textarea class="notes-input" id="notesInput" rows="4" 
+                                              placeholder="Add your notes or comments about this document..."></textarea>
+                                    <div class="notes-actions">
+                                        <button class="btn-notes save" onclick="documentSystem.saveNotes()">
+                                            <i class="bi bi-check2"></i>
+                                            Save Notes
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="workflow-compact">
-                            <div class="workflow-header-compact">
-                                <i class="bi bi-diagram-3 text-muted me-1"></i>
-                                <span class="text-muted fs-sm">Workflow</span>
+                        <!-- Workflow Progress Card -->
+                        <div class="sidebar-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="bi bi-diagram-3"></i>
+                                    Workflow Progress
+                                </h3>
                             </div>
-                            <div id="workflowSteps" class="workflow-steps-compact"></div>
+                            <div class="card-content">
+                                <div id="workflowSteps" class="workflow-timeline">
+                                    <!-- Workflow steps will be populated here -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -420,6 +549,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     </div>
 
     <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/toast.js"></script>
     <script src="../assets/js/notifications.js"></script>

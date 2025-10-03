@@ -908,7 +908,7 @@ async function submitDocument() {
         if (result.success) {
             window.ToastManager?.success('Document created successfully!', 'Success');
             // Redirect to track-document for students to track their documents
-            window.location.href = 'track-document.php';
+            // window.location.href = 'track-document.php';
         } else {
             throw new Error(result.message);
         }

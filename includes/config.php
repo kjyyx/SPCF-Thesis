@@ -1,6 +1,11 @@
 <?php
 // includes/config.php - Application configuration
 
+// Load environment variables
+require_once __DIR__ . '/../vendor/autoload.php';
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
+$dotenv->load();
+
 // Database configuration
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');

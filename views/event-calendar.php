@@ -69,6 +69,28 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         echo json_encode($jsUser);
         ?>;
         window.isAdmin = <?php echo ($currentUser['role'] === 'admin') ? 'true' : 'false'; ?>;
+
+        // Load notifications
+        async function loadNotifications() {
+            try {
+                const response = await fetch('../api/notifications.php');
+                const data = await response.json();
+                if (data.success) {
+                    const badge = document.getElementById('notificationCount');
+                    if (badge) {
+                        badge.textContent = data.unread_count;
+                        badge.style.display = data.unread_count > 0 ? 'flex' : 'none';
+                    }
+                    window.notifications = data.notifications; // Store for modal
+                }
+            } catch (error) {
+                console.error('Error loading notifications:', error);
+            }
+        }
+
+        // Poll every 5 minutes
+        setInterval(loadNotifications, 300000);
+        loadNotifications(); // Initial load
     </script>
 </head>
 

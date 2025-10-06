@@ -888,23 +888,29 @@ function logout() {
 
 function showNotifications() {
     const modal = new bootstrap.Modal(document.getElementById('notificationsModal'));
-    
-    // Simple notifications for now
-    const notificationsList = document.getElementById('notificationsList');
-    if (notificationsList) {
-        notificationsList.innerHTML = `
-            <div class="list-group">
+    const list = document.getElementById('notificationsList');
+    if (list && window.notifications) {
+        list.innerHTML = window.notifications.map(n => {
+            let icon = 'bi-bell'; // Default icon
+            if (n.type === 'pending_document' || n.type === 'new_document' || n.type === 'document_status') icon = 'bi-file-earmark-text';
+            else if (n.type === 'upcoming_event' || n.type === 'event_reminder') icon = 'bi-calendar-event';
+            else if (n.type === 'pending_material' || n.type === 'material_status') icon = 'bi-image';
+            else if (n.type === 'new_user') icon = 'bi-person-plus';
+            else if (n.type === 'security_alert') icon = 'bi-shield-exclamation';
+            else if (n.type === 'account') icon = 'bi-key';
+            else if (n.type === 'system') icon = 'bi-gear';
+
+            return `
                 <div class="list-group-item">
                     <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1">Upcoming Events</h6>
-                        <small>Just now</small>
+                        <h6 class="mb-1"><i class="bi ${icon} me-2"></i>${n.title}</h6>
+                        <small>${new Date(n.timestamp).toLocaleDateString()}</small>
                     </div>
-                    <p class="mb-1">You have upcoming events to attend.</p>
+                    <p class="mb-1">${n.message}</p>
                 </div>
-            </div>
-        `;
+            `;
+        }).join('');
     }
-    
     modal.show();
 }
 

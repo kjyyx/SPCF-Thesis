@@ -710,16 +710,15 @@ function createDocument($input)
 
         // Department full names
         $departmentFullMap = [
-            'engineering' => 'College of Engineering',
-            'business' => 'College of Business',
-            'education' => 'College of Arts, Social Sciences, and Education',
-            'arts' => 'College of Arts, Social Sciences, and Education',
-            'science' => 'College of Computing and Information Sciences',
-            'nursing' => 'College of Nursing',
-            'criminology' => 'College of Criminology',
-            'hospitality' => 'College of Hospitality and Tourism Management',
-            'spc' => 'SPCF Miranda',
-            'ssc' => 'Supreme Student Council',
+            'College of Arts, Social Sciences, and Education' => 'College of Arts, Social Sciences, and Education',
+            'College of Business' => 'College of Business',
+            'College of Computing and Information Sciences' => 'College of Computing and Information Sciences',
+            'College of Criminology' => 'College of Criminology',
+            'College of Engineering' => 'College of Engineering',
+            'College of Hospitality and Tourism Management' => 'College of Hospitality and Tourism Management',
+            'College of Nursing' => 'College of Nursing',
+            'SPCF Miranda' => 'SPCF Miranda',
+            'Supreme Student Council' => 'Supreme Student Council',
         ];
 
         if ($docType === 'proposal') {
@@ -731,7 +730,14 @@ function createDocument($input)
             $signatories = [];
             $signatoryIds = [];
 
-            // CSC Adviser (Employee)
+            // CSC President (Student)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM students WHERE position = 'CSC President' AND department = ? LIMIT 1");
+            $stmt->execute([$department]);
+            $cscPresident = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['cscPresident'] = $cscPresident ? $cscPresident['first_name'] . ' ' . $cscPresident['last_name'] : 'CSC President';
+            $signatoryIds['cscPresident'] = $cscPresident ? $cscPresident['id'] : null;
+
+            // Adviser (Employee)
             $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'CSC Adviser' AND department = ? LIMIT 1");
             $stmt->execute([$department]);
             $adviser = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -752,27 +758,19 @@ function createDocument($input)
             $signatories['collegeDean'] = $dean ? $dean['first_name'] . ' ' . $dean['last_name'] : 'College Dean';
             $signatoryIds['collegeDean'] = $dean ? $dean['id'] : null;
 
-            // OIC OSA (Employee)
-            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'OIC OSA' LIMIT 1");
-            $stmt->execute([]);
-            $osa = $stmt->fetch(PDO::FETCH_ASSOC);
-            $signatories['oicOsa'] = $osa ? $osa['first_name'] . ' ' . $osa['last_name'] : 'Office of Student Affairs';
-            $signatoryIds['oicOsa'] = $osa ? $osa['id'] : null;
-
             // Add signatories to data
             $data = array_merge($data, $signatories);
 
             $templateMap = [
-                'engineering' => '../assets/templates/Project Proposals/College of Engineering (Project Proposal).docx',
-                'business' => '../assets/templates/Project Proposals/College of Business (Project Proposal).docx',
-                'education' => '../assets/templates/Project Proposals/College of Arts, Social Sciences, and Education (Project Proposal).docx',
-                'arts' => '../assets/templates/Project Proposals/College of Arts, Social Sciences, and Education (Project Proposal).docx',
-                'science' => '../assets/templates/Project Proposals/College of Computing and Information Sciences (Project Proposal).docx',
-                'nursing' => '../assets/templates/Project Proposals/College of Nursing (Project Proposal).docx',
-                'criminology' => '../assets/templates/Project Proposals/College of Criminology (Project Proposal).docx',
-                'hospitality' => '../assets/templates/Project Proposals/College of Hospitality and Tourism Management (Project Proposal).docx',
-                'spc' => '../assets/templates/Project Proposals/SPCF Miranda (Project Proposal).docx',
-                'ssc' => '../assets/templates/Project Proposals/Supreme Student Council (Project Proposal).docx',
+                'College of Arts, Social Sciences, and Education' => '../assets/templates/Project Proposals/College of Arts, Social Sciences, and Education (Project Proposal).docx',
+                'College of Business' => '../assets/templates/Project Proposals/College of Business (Project Proposal).docx',
+                'College of Computing and Information Sciences' => '../assets/templates/Project Proposals/College of Computing and Information Sciences (Project Proposal).docx',
+                'College of Criminology' => '../assets/templates/Project Proposals/College of Criminology (Project Proposal).docx',
+                'College of Engineering' => '../assets/templates/Project Proposals/College of Engineering (Project Proposal).docx',
+                'College of Hospitality and Tourism Management' => '../assets/templates/Project Proposals/College of Hospitality and Tourism Management (Project Proposal).docx',
+                'College of Nursing' => '../assets/templates/Project Proposals/College of Nursing (Project Proposal).docx',
+                'SPCF Miranda' => '../assets/templates/Project Proposals/SPCF Miranda (Project Proposal).docx',
+                'Supreme Student Council' => '../assets/templates/Project Proposals/Supreme Student Council (Project Proposal).docx',
                 'default' => '../assets/templates/Project Proposals/Supreme Student Council (Project Proposal).docx'
             ];
             $templatePath = $templateMap[$department] ?? $templateMap['default'];
@@ -799,19 +797,51 @@ function createDocument($input)
             $data['departmentFull'] = $departmentFullMap[$department] ?? $department;
             $data['department'] = $data['departmentFull'];
 
-            // For now, no signatories, just fill template
+            // Fetch signatories based on department
+            $signatories = [];
+            $signatoryIds = [];
+
+            // CSC President (Student)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM students WHERE position = 'CSC President' AND department = ? LIMIT 1");
+            $stmt->execute([$department]);
+            $cscPresident = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['cscPresident'] = $cscPresident ? $cscPresident['first_name'] . ' ' . $cscPresident['last_name'] : 'CSC President';
+            $signatoryIds['cscPresident'] = $cscPresident ? $cscPresident['id'] : null;
+
+            // Adviser (Employee)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'CSC Adviser' AND department = ? LIMIT 1");
+            $stmt->execute([$department]);
+            $adviser = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['cscAdviser'] = $adviser ? $adviser['first_name'] . ' ' . $adviser['last_name'] : 'CSC Adviser';
+            $signatoryIds['cscAdviser'] = $adviser ? $adviser['id'] : null;
+
+            // SSC President (Student)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM students WHERE position = 'SSC President' LIMIT 1");
+            $stmt->execute([]);
+            $ssc = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['sscPresident'] = $ssc ? $ssc['first_name'] . ' ' . $ssc['last_name'] : 'SSC President';
+            $signatoryIds['sscPresident'] = $ssc ? $ssc['id'] : null;
+
+            // College Dean (Employee)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'Dean' AND department = ? LIMIT 1");
+            $stmt->execute([$department]);
+            $dean = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['collegeDean'] = $dean ? $dean['first_name'] . ' ' . $dean['last_name'] : 'College Dean';
+            $signatoryIds['collegeDean'] = $dean ? $dean['id'] : null;
+
+            // Add signatories to data
+            $data = array_merge($data, $signatories);
 
             $commTemplateMap = [
-                'engineering' => '../assets/templates/Communication Letter/College of Engineering (Comm Letter).docx',
-                'business' => '../assets/templates/Communication Letter/College of Business (Comm Letter).docx',
-                'education' => '../assets/templates/Communication Letter/College of Arts, Social Sciences, and Education (Comm Letter).docx',
-                'arts' => '../assets/templates/Communication Letter/College of Arts, Social Sciences, and Education (Comm Letter).docx',
-                'science' => '../assets/templates/Communication Letter/College of Computing and Information Sciences (Comm Letter).docx',
-                'nursing' => '../assets/templates/Communication Letter/College of Nursing (Comm Letter).docx',
-                'criminology' => '../assets/templates/Communication Letter/College of Criminology (Comm Letter).docx',
-                'hospitality' => '../assets/templates/Communication Letter/College of Hospitality and Tourism Management (Comm Letter).docx',
-                'spc' => '../assets/templates/Communication Letter/SPCF Miranda (Comm Letter).docx',
-                'ssc' => '../assets/templates/Communication Letter/Supreme Student Council (Comm Letter).docx',
+                'College of Arts, Social Sciences, and Education' => '../assets/templates/Communication Letter/College of Arts, Social Sciences, and Education (Comm Letter).docx',
+                'College of Business' => '../assets/templates/Communication Letter/College of Business (Comm Letter).docx',
+                'College of Computing and Information Sciences' => '../assets/templates/Communication Letter/College of Computing and Information Sciences (Comm Letter).docx',
+                'College of Criminology' => '../assets/templates/Communication Letter/College of Criminology (Comm Letter).docx',
+                'College of Engineering' => '../assets/templates/Communication Letter/College of Engineering (Comm Letter).docx',
+                'College of Hospitality and Tourism Management' => '../assets/templates/Communication Letter/College of Hospitality and Tourism Management (Comm Letter).docx',
+                'College of Nursing' => '../assets/templates/Communication Letter/College of Nursing (Comm Letter).docx',
+                'SPCF Miranda' => '../assets/templates/Communication Letter/SPCF Miranda (Comm Letter).docx',
+                'Supreme Student Council' => '../assets/templates/Communication Letter/Supreme Student Council (Comm Letter).docx',
                 'default' => '../assets/templates/Communication Letter/Supreme Student Council (Comm Letter).docx'
             ];
             $templatePath = $commTemplateMap[$department] ?? $commTemplateMap['default'];
@@ -850,6 +880,77 @@ function createDocument($input)
             }
         } elseif ($docType === 'saf') {
             $data['departmentFull'] = $departmentFullMap[$department] ?? $department;
+
+            // Fetch signatories based on department
+            $signatories = [];
+            $signatoryIds = [];
+
+            // Get the student's position to determine the shared student representative
+            $studentStmt = $db->prepare("SELECT position FROM students WHERE id = ? LIMIT 1");
+            $studentStmt->execute([$studentId]);
+            $student = $studentStmt->fetch(PDO::FETCH_ASSOC);
+            $isCscPresident = $student && $student['position'] === 'CSC President';
+
+            // CSC President (Student) - fetched for logic, but not directly added to data
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM students WHERE position = 'CSC President' AND department = ? LIMIT 1");
+            $stmt->execute([$department]);
+            $cscPresident = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // SSC President (Student) - fetched for logic, but not directly added to data
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM students WHERE position = 'SSC President' LIMIT 1");
+            $stmt->execute([]);
+            $ssc = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // Set the shared student representative placeholder based on creator's role
+            if ($isCscPresident && $cscPresident) {
+                $signatories['studentRepresentative'] = $cscPresident['first_name'] . ' ' . $cscPresident['last_name'];
+                $signatoryIds['studentRepresentative'] = $cscPresident['id'];
+            } elseif ($ssc) {
+                $signatories['studentRepresentative'] = $ssc['first_name'] . ' ' . $ssc['last_name'];
+                $signatoryIds['studentRepresentative'] = $ssc['id'];
+            } else {
+                $signatories['studentRepresentative'] = 'Student Representative';  // Fallback
+                $signatoryIds['studentRepresentative'] = null;
+            }
+
+            // Adviser (Employee)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'CSC Adviser' AND department = ? LIMIT 1");
+            $stmt->execute([$department]);
+            $adviser = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['cscAdviser'] = $adviser ? $adviser['first_name'] . ' ' . $adviser['last_name'] : 'CSC Adviser';
+            $signatoryIds['cscAdviser'] = $adviser ? $adviser['id'] : null;
+
+            // College Dean (Employee)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'Dean' AND department = ? LIMIT 1");
+            $stmt->execute([$department]);
+            $dean = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['collegeDean'] = $dean ? $dean['first_name'] . ' ' . $dean['last_name'] : 'College Dean';
+            $signatoryIds['collegeDean'] = $dean ? $dean['id'] : null;
+
+            // OIC-OSA (Employee)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'OIC OSA' LIMIT 1");
+            $stmt->execute([]);
+            $oicOsa = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['oic-osa'] = $oicOsa ? $oicOsa['first_name'] . ' ' . $oicOsa['last_name'] : 'OIC OSA';
+            $signatoryIds['oic-osa'] = $oicOsa ? $oicOsa['id'] : null;
+
+            // VPAA (Employee)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'VPAA' LIMIT 1");
+            $stmt->execute([]);
+            $vpaa = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['vpaa'] = $vpaa ? $vpaa['first_name'] . ' ' . $vpaa['last_name'] : 'VPAA';
+            $signatoryIds['vpaa'] = $vpaa ? $vpaa['id'] : null;
+
+            // EVP (Employee)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'EVP' LIMIT 1");
+            $stmt->execute([]);
+            $evp = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['evp'] = $evp ? $evp['first_name'] . ' ' . $evp['last_name'] : 'EVP';
+            $signatoryIds['evp'] = $evp ? $evp['id'] : null;
+
+            // Add signatories to data
+            $data = array_merge($data, $signatories);
+
             $templatePath = '../assets/templates/SAF/SAF REQUEST.docx';
             if (file_exists($templatePath)) {
                 try {
@@ -864,6 +965,35 @@ function createDocument($input)
             }
         } elseif ($docType === 'facility') {
             $data['departmentFull'] = $departmentFullMap[$department] ?? $department;
+
+            // Fetch signatories based on department
+            $signatories = [];
+            $signatoryIds = [];
+
+            // CSC President (Student)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM students WHERE position = 'CSC President' AND department = ? LIMIT 1");
+            $stmt->execute([$department]);
+            $cscPresident = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['cscPresident'] = $cscPresident ? $cscPresident['first_name'] . ' ' . $cscPresident['last_name'] : 'CSC President';
+            $signatoryIds['cscPresident'] = $cscPresident ? $cscPresident['id'] : null;
+
+            // EVP O (Employee)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'EVP O' LIMIT 1");
+            $stmt->execute([]);
+            $evpO = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['evpO'] = $evpO ? $evpO['first_name'] . ' ' . $evpO['last_name'] : 'EVP O';
+            $signatoryIds['evpO'] = $evpO ? $evpO['id'] : null;
+
+            // EVP (Employee)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'EVP' LIMIT 1");
+            $stmt->execute([]);
+            $evp = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['evp'] = $evp ? $evp['first_name'] . ' ' . $evp['last_name'] : 'EVP';
+            $signatoryIds['evp'] = $evp ? $evp['id'] : null;
+
+            // Add signatories to data
+            $data = array_merge($data, $signatories);
+
             $templatePath = '../assets/templates/Facility Request/FACILITY REQUEST.docx';
             if (file_exists($templatePath)) {
                 try {
@@ -878,15 +1008,94 @@ function createDocument($input)
             }
         }
 
-        // Assign to Dean for signing
-        $deanStmt = $db->prepare("SELECT id FROM employees WHERE position = 'Dean' LIMIT 1");
-        $deanStmt->execute();
-        $dean = $deanStmt->fetch(PDO::FETCH_ASSOC);
-        if ($dean) {
-            $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, 1, 'Signing by Dean', ?, 'pending')");
-            $stmt->execute([$docId, $dean['id']]);
+        // Create workflow steps based on document type
+        if ($docType === 'proposal' || $docType === 'communication') {
+            // Full workflow for proposal and communication
+            $workflowPositions = [
+                ['position' => 'CSC Adviser', 'department_specific' => true],
+                ['position' => 'SSC President', 'department_specific' => false],
+                ['position' => 'Dean', 'department_specific' => true],
+                ['position' => 'OIC OSA', 'department_specific' => false],
+                ['position' => 'CPAO', 'department_specific' => false],
+                ['position' => 'VPAA', 'department_specific' => false],
+                ['position' => 'EVP', 'department_specific' => false]
+            ];
+
+            $stepOrder = 1;
+            foreach ($workflowPositions as $wp) {
+                $position = $wp['position'];
+                $empQuery = "SELECT id FROM employees WHERE position = ?";
+                $params = [$position];
+                if ($wp['department_specific']) {
+                    $empQuery .= " AND department = ?";
+                    $params[] = $department;
+                }
+                $empStmt = $db->prepare($empQuery);
+                $empStmt->execute($params);
+                $employee = $empStmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($employee) {
+                    $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, ?, ?, 'pending')");
+                    $stmt->execute([$docId, $stepOrder, $position . ' Approval', $employee['id'], 'pending']);
+                }
+                $stepOrder++;
+            }
+        } elseif ($docType === 'saf') {
+            // Updated SAF workflow: College Dean -> OIC-OSA -> VPAA -> EVP
+            $workflowPositions = [
+                ['position' => 'Dean', 'department_specific' => true],
+                ['position' => 'OIC OSA', 'department_specific' => false],
+                ['position' => 'VPAA', 'department_specific' => false],
+                ['position' => 'EVP', 'department_specific' => false],
+            ];
+
+            $stepOrder = 1;
+            foreach ($workflowPositions as $wp) {
+                $query = "SELECT id FROM employees WHERE position = ?";
+                $params = [$wp['position']];
+                if ($wp['department_specific']) {
+                    $query .= " AND department = ?";
+                    $params[] = $department;
+                }
+                $query .= " LIMIT 1";
+                $stmt = $db->prepare($query);
+                $stmt->execute($params);
+                $employee = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($employee) {
+                    $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, ?, ?, 'pending')");
+                    $stmt->execute([$docId, $stepOrder, $wp['position'] . ' Approval', $employee['id']]);
+                }
+                $stepOrder++;
+            }
+        } elseif ($docType === 'facility') {
+            // Updated Facility workflow: College Dean -> OIC-OSA -> EVP O -> EVP
+            $workflowPositions = [
+                ['position' => 'Dean', 'department_specific' => true],
+                ['position' => 'OIC OSA', 'department_specific' => false],
+                ['position' => 'EVP O', 'department_specific' => false],  // EVP O for EVPO
+                ['position' => 'EVP', 'department_specific' => false],
+            ];
+
+            $stepOrder = 1;
+            foreach ($workflowPositions as $wp) {
+                $query = "SELECT id FROM employees WHERE position = ?";
+                $params = [$wp['position']];
+                if ($wp['department_specific']) {
+                    $query .= " AND department = ?";
+                    $params[] = $department;
+                }
+                $query .= " LIMIT 1";
+                $stmt = $db->prepare($query);
+                $stmt->execute($params);
+                $employee = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($employee) {
+                    $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, ?, ?, 'pending')");
+                    $stmt->execute([$docId, $stepOrder, $wp['position'] . ' Approval', $employee['id']]);
+                }
+                $stepOrder++;
+            }
         } else {
-            // Fallback: assign to the first available employee
+            // Fallback for other types
             $empStmt = $db->prepare("SELECT id FROM employees LIMIT 1");
             $empStmt->execute();
             $emp = $empStmt->fetch(PDO::FETCH_ASSOC);

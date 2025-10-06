@@ -1,5 +1,7 @@
 // Login page JavaScript for University Event Management System
 
+console.log('user-login.js loaded');
+
 let selectedLoginType = null;
 
 // Login type selection function
@@ -94,6 +96,24 @@ function hideLoginError() {
     }
 }
 
+// Forgot password error handling functions
+function showForgotPasswordError(message) {
+    const errorDiv = document.getElementById('forgotPasswordError');
+    const errorMessage = document.getElementById('forgotPasswordErrorMessage');
+    
+    if (errorDiv && errorMessage) {
+        errorMessage.textContent = message;
+        errorDiv.classList.remove('d-none');
+    }
+}
+
+function hideForgotPasswordError() {
+    const errorDiv = document.getElementById('forgotPasswordError');
+    if (errorDiv) {
+        errorDiv.classList.add('d-none');
+    }
+}
+
 // Form validation before submission (attach after DOM ready)
 function attachLoginSubmitHandler() {
     const form = document.getElementById('loginForm');
@@ -121,6 +141,7 @@ function attachLoginSubmitHandler() {
 
 // Forgot Password Modal Functions
 function openForgotPassword() {
+    console.log('openForgotPassword called');
     const modal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'));
     modal.show();
 }
@@ -150,26 +171,7 @@ function resetForgotPasswordModal() {
 }
 
 // Handle forgot password form submission
-document.getElementById('forgotPasswordForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-
-    const userId = document.getElementById('forgotUserId').value;
-
-    // Hide previous error
-    document.getElementById('forgotPasswordError').classList.add('d-none');
-
-    // In a real application, you would check against a database
-    // For demo purposes, we'll assume the user exists
-    document.getElementById('forgotPasswordStep1').style.display = 'none';
-    document.getElementById('forgotPasswordStep2').style.display = 'block';
-
-    // Show masked contact info (demo)
-    document.getElementById('maskedEmail').textContent = 'j***@university.edu';
-    document.getElementById('maskedPhone').textContent = '+63-***-***-1234';
-
-    // Start countdown timer
-    startMfaTimer();
-});
+// Moved to DOMContentLoaded below
 
 // MFA Timer
 let mfaTimer;
@@ -195,45 +197,10 @@ function startMfaTimer() {
 }
 
 // Handle MFA verification
-document.getElementById('mfaVerificationForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-
-    const code = document.getElementById('mfaCode').value;
-
-    // Demo: accept any 6-digit code
-    if (code.length === 6 && /^\d+$/.test(code)) {
-        document.getElementById('forgotPasswordStep2').style.display = 'none';
-        document.getElementById('forgotPasswordStep3').style.display = 'block';
-        clearInterval(mfaTimer);
-    } else {
-        document.getElementById('mfaErrorMessage').textContent = 'Invalid verification code. Please enter a 6-digit code.';
-        document.getElementById('mfaError').classList.remove('d-none');
-    }
-});
+// Moved to DOMContentLoaded below
 
 // Handle password reset
-document.getElementById('resetPasswordForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-
-    const newPassword = document.getElementById('newPasswordReset').value;
-    const confirmPassword = document.getElementById('confirmPasswordReset').value;
-
-    if (newPassword !== confirmPassword) {
-        document.getElementById('resetPasswordErrorMessage').textContent = 'Passwords do not match.';
-        document.getElementById('resetPasswordError').classList.remove('d-none');
-        return;
-    }
-
-    if (newPassword.length < 6) {
-        document.getElementById('resetPasswordErrorMessage').textContent = 'Password must be at least 6 characters long.';
-        document.getElementById('resetPasswordError').classList.remove('d-none');
-        return;
-    }
-
-    // Show success
-    document.getElementById('forgotPasswordStep3').style.display = 'none';
-    document.getElementById('forgotPasswordStep4').style.display = 'block';
-});
+// Moved to DOMContentLoaded below
 
 // Navigation functions
 function backToStep1() {
@@ -298,4 +265,133 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (newPasswordToggle) newPasswordToggle.addEventListener('click', function () { togglePasswordVisibility('newPasswordReset'); });
     if (confirmPasswordToggle) confirmPasswordToggle.addEventListener('click', function () { togglePasswordVisibility('confirmPasswordReset'); });
+
+    // Attach forgot password form listener
+    const forgotForm = document.getElementById('forgotPasswordForm');
+    if (forgotForm) {
+        forgotForm.addEventListener('submit', async function (e) {
+            console.log('forgotPasswordForm submit event fired');
+            e.preventDefault();
+            console.log('preventDefault called');
+
+            const userId = document.getElementById('forgotUserId').value.trim();
+            hideForgotPasswordError();
+            console.log('userId:', userId);
+
+            if (!userId) {
+                showForgotPasswordError('Please enter your User ID.');
+                return;
+            }
+
+            try {
+                console.log('Sending fetch request');
+                const response = await fetch('../api/auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'forgot_password', userId })
+                });
+                console.log('Response received:', response);
+                const data = await response.json();
+                console.log('Data:', data);
+
+                if (data.success) {
+                    // Show masked contact info
+                    document.getElementById('maskedEmail').textContent = data.maskedEmail;
+                    document.getElementById('maskedPhone').textContent = data.maskedPhone;
+
+                    // Show demo code alert
+                    const demoAlert = document.createElement('div');
+                    demoAlert.className = 'alert alert-info alert-dismissible fade show';
+                    demoAlert.innerHTML = `
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Demo Mode:</strong> Your verification code is <strong>${data.demoCode}</strong>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    document.getElementById('forgotPasswordStep2').insertBefore(demoAlert, document.getElementById('forgotPasswordStep2').querySelector('form'));
+
+                    // Proceed to MFA step
+                    document.getElementById('forgotPasswordStep1').style.display = 'none';
+                    document.getElementById('forgotPasswordStep2').style.display = 'block';
+                    startMfaTimer();
+                } else {
+                    showForgotPasswordError(data.message || 'User not found.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showForgotPasswordError('Server error. Please try again.');
+            }
+        });
+        console.log('forgotPasswordForm event listener attached');
+    } else {
+        console.log('forgotPasswordForm not found in DOMContentLoaded');
+    }
+
+    // Attach MFA verification form listener
+    const mfaForm = document.getElementById('mfaVerificationForm');
+    if (mfaForm) {
+        mfaForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const code = document.getElementById('mfaCode').value;
+
+            // Demo: accept any 6-digit code
+            if (code.length === 6 && /^\d+$/.test(code)) {
+                document.getElementById('forgotPasswordStep2').style.display = 'none';
+                document.getElementById('forgotPasswordStep3').style.display = 'block';
+                clearInterval(mfaTimer);
+            } else {
+                document.getElementById('mfaErrorMessage').textContent = 'Invalid verification code. Please enter a 6-digit code.';
+                document.getElementById('mfaError').classList.remove('d-none');
+            }
+        });
+        console.log('mfaVerificationForm event listener attached');
+    }
+
+    // Attach password reset form listener
+    const resetForm = document.getElementById('resetPasswordForm');
+    if (resetForm) {
+        resetForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const newPassword = document.getElementById('newPasswordReset').value;
+            const confirmPassword = document.getElementById('confirmPasswordReset').value;
+
+            if (newPassword !== confirmPassword) {
+                document.getElementById('resetPasswordErrorMessage').textContent = 'Passwords do not match.';
+                document.getElementById('resetPasswordError').classList.remove('d-none');
+                return;
+            }
+
+            if (newPassword.length < 8) {
+                document.getElementById('resetPasswordErrorMessage').textContent = 'Password must be at least 8 characters long and meet complexity requirements.';
+                document.getElementById('resetPasswordError').classList.remove('d-none');
+                return;
+            }
+
+            // Get userId from the forgot form
+            const userId = document.getElementById('forgotUserId').value.trim();
+
+            try {
+                const response = await fetch('../api/auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'reset_password', userId, newPassword })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    // Show success
+                    document.getElementById('forgotPasswordStep3').style.display = 'none';
+                    document.getElementById('forgotPasswordStep4').style.display = 'block';
+                } else {
+                    document.getElementById('resetPasswordErrorMessage').textContent = data.message || 'Failed to update password.';
+                    document.getElementById('resetPasswordError').classList.remove('d-none');
+                }
+            } catch (error) {
+                document.getElementById('resetPasswordErrorMessage').textContent = 'Server error. Please try again.';
+                document.getElementById('resetPasswordError').classList.remove('d-none');
+            }
+        });
+        console.log('resetPasswordForm event listener attached');
+    }
 });

@@ -79,6 +79,27 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
     echo json_encode($jsUser);
     ?>;
     window.isAdmin = <?php echo ($currentUser['role'] === 'admin') ? 'true' : 'false'; ?>;
+
+    async function loadNotifications() {
+        try {
+            const response = await fetch('../api/notifications.php');
+            const data = await response.json();
+            if (data.success) {
+                const badge = document.getElementById('notificationCount');
+                if (badge) {
+                    badge.textContent = data.unread_count;
+                    badge.style.display = data.unread_count > 0 ? 'flex' : 'none';
+                }
+                window.notifications = data.notifications;
+            }
+        } catch (error) {
+            console.error('Error loading notifications:', error);
+        }
+    }
+
+    setInterval(loadNotifications, 300000);
+    loadNotifications();
+
   </script>
 </head>
 
@@ -103,6 +124,12 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
           ?>" id="userRoleBadge">
             <?php echo strtoupper($currentUser['role']); ?>
           </span>
+        </div>
+
+        <!-- Notifications -->
+        <div class="notification-bell me-3" onclick="showNotifications()">
+          <i class="bi bi-bell"></i>
+          <span class="notification-badge" id="notificationCount">0</span>
         </div>
 
         <!-- Back to Calendar -->
@@ -239,16 +266,15 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                     </label>
                     <select id="prop-department" class="form-select">
                       <option value="">Select Department</option>
-                      <option value="engineering">College of Engineering</option>
-                      <option value="business">College of Business</option>
-                      <option value="education">College of Arts, Social Sciences, and Education</option>
-                      <option value="arts">College of Arts, Social Sciences, and Education</option>
-                      <option value="science">College of Computing and Information Sciences</option>
-                      <option value="nursing">College of Nursing</option>
-                      <option value="criminology">College of Criminology</option>
-                      <option value="hospitality">College of Hospitality and Tourism Management</option>
-                      <option value="spc">SPCF Miranda</option>
-                      <option value="ssc">Supreme Student Council</option>
+                      <option value="College of Arts, Social Sciences, and Education">College of Arts, Social Sciences, and Education (CASSED)</option>
+                      <option value="College of Business">College of Business (COB)</option>
+                      <option value="College of Computing and Information Sciences">College of Computing and Information Sciences (CCIS)</option>
+                      <option value="College of Criminology">College of Criminology (COC)</option>
+                      <option value="College of Engineering">College of Engineering (COE)</option>
+                      <option value="College of Hospitality and Tourism Management">College of Hospitality and Tourism Management (CHTM)</option>
+                      <option value="College of Nursing">College of Nursing (CON)</option>
+                      <option value="SPCF Miranda">SPCF Miranda (MIRANDA)</option>
+                      <option value="Supreme Student Council">Supreme Student Council (SSC)</option>
                     </select>
                   </div>
                 </div>
@@ -389,12 +415,15 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                     </label>
                     <select id="saf-dept" class="form-select">
                       <option value="">Select Department</option>
-                      <option value="engineering">College of Engineering</option>
-                      <option value="business">College of Business Administration</option>
-                      <option value="education">College of Education</option>
-                      <option value="arts">College of Arts & Sciences</option>
-                      <option value="science">College of Computer Science</option>
-                      <option value="nursing">College of Nursing</option>
+                      <option value="College of Arts, Social Sciences, and Education">College of Arts, Social Sciences, and Education (CASSED)</option>
+                      <option value="College of Business">College of Business (COB)</option>
+                      <option value="College of Computing and Information Sciences">College of Computing and Information Sciences (CCIS)</option>
+                      <option value="College of Criminology">College of Criminology (COC)</option>
+                      <option value="College of Engineering">College of Engineering (COE)</option>
+                      <option value="College of Hospitality and Tourism Management">College of Hospitality and Tourism Management (CHTM)</option>
+                      <option value="College of Nursing">College of Nursing (CON)</option>
+                      <option value="SPCF Miranda">SPCF Miranda (MIRANDA)</option>
+                      <option value="Supreme Student Council">Supreme Student Council (SSC)</option>
                     </select>
                   </div>
                   <div class="col-md-6">
@@ -625,8 +654,7 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                 <div class="small text-muted mt-2">Check categories to enable the inputs. Amount controls change by
                   ₱1,000 per click.</div>
               </div>
-
-              <!-- === Facility Request === -->
+              
               <!-- === Facility Request === -->
               <div id="facility-form" class="form-section document-form" style="display:none">
                 <h5 class="mb-3"><i class="bi bi-building me-2"></i>Facility Request</h5>
@@ -648,16 +676,15 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                     <label class="form-label">Department</label>
                     <select class="form-select" id="fac-dept">
                       <option value="">Select Department</option>
-                      <option value="College of Engineering">College of Engineering</option>
-                      <option value="College of Business Administration">College of Business Administration</option>
-                      <option value="College of Education">College of Education</option>
-                      <option value="College of Arts & Sciences">College of Arts & Sciences</option>
-                      <option value="College of Computer Science">College of Computer Science</option>
-                      <option value="College of Nursing">College of Nursing</option>
-                      <option value="College of Criminology">College of Criminology</option>
-                      <option value="College of Hospitality and Tourism Management">College of Hospitality and Tourism
-                        Management</option>
-                      <option value="Supreme Student Council">Supreme Student Council</option>
+                      <option value="College of Arts, Social Sciences, and Education">College of Arts, Social Sciences, and Education (CASSED)</option>
+                      <option value="College of Business">College of Business (COB)</option>
+                      <option value="College of Computing and Information Sciences">College of Computing and Information Sciences (CCIS)</option>
+                      <option value="College of Criminology">College of Criminology (COC)</option>
+                      <option value="College of Engineering">College of Engineering (COE)</option>
+                      <option value="College of Hospitality and Tourism Management">College of Hospitality and Tourism Management (CHTM)</option>
+                      <option value="College of Nursing">College of Nursing (CON)</option>
+                      <option value="SPCF Miranda">SPCF Miranda (MIRANDA)</option>
+                      <option value="Supreme Student Council">Supreme Student Council (SSC)</option>
                     </select>
                   </div>
                   <div class="col-md-6">
@@ -1025,16 +1052,15 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                     <label class="form-label">Department</label>
                     <select id="comm-department-select" class="form-select">
                       <option value="">Select Department</option>
-                      <option value="engineering">College of Engineering</option>
-                      <option value="business">College of Business</option>
-                      <option value="education">College of Arts, Social Sciences, and Education</option>
-                      <option value="arts">College of Arts, Social Sciences, and Education</option>
-                      <option value="science">College of Computing and Information Sciences</option>
-                      <option value="nursing">College of Nursing</option>
-                      <option value="criminology">College of Criminology</option>
-                      <option value="hospitality">College of Hospitality and Tourism Management</option>
-                      <option value="spc">SPCF Miranda</option>
-                      <option value="ssc">Supreme Student Council</option>
+                      <option value="College of Arts, Social Sciences, and Education">College of Arts, Social Sciences, and Education (CASSED)</option>
+                      <option value="College of Business">College of Business (COB)</option>
+                      <option value="College of Computing and Information Sciences">College of Computing and Information Sciences (CCIS)</option>
+                      <option value="College of Criminology">College of Criminology (COC)</option>
+                      <option value="College of Engineering">College of Engineering (COE)</option>
+                      <option value="College of Hospitality and Tourism Management">College of Hospitality and Tourism Management (CHTM)</option>
+                      <option value="College of Nursing">College of Nursing (CON)</option>
+                      <option value="SPCF Miranda">SPCF Miranda (MIRANDA)</option>
+                      <option value="Supreme Student Council">Supreme Student Council (SSC)</option>
                     </select>
                   </div>
                 </div>
@@ -1096,7 +1122,65 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
         window.location.href = 'event-calendar.php';  // Default to calendar if no referrer
       }
     }
+
+    function showNotifications() {
+      const modal = new bootstrap.Modal(document.getElementById('notificationsModal'));
+      const list = document.getElementById('notificationsList');
+      if (list && window.notifications) {
+        list.innerHTML = window.notifications.map(n => {
+          let icon = 'bi-bell'; // Default icon
+          if (n.type === 'pending_document' || n.type === 'new_document' || n.type === 'document_status') icon = 'bi-file-earmark-text';
+          else if (n.type === 'upcoming_event' || n.type === 'event_reminder') icon = 'bi-calendar-event';
+          else if (n.type === 'pending_material' || n.type === 'material_status') icon = 'bi-image';
+          else if (n.type === 'new_user') icon = 'bi-person-plus';
+          else if (n.type === 'security_alert') icon = 'bi-shield-exclamation';
+          else if (n.type === 'account') icon = 'bi-key';
+          else if (n.type === 'system') icon = 'bi-gear';
+
+          return `
+            <div class="list-group-item">
+              <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1"><i class="bi ${icon} me-2"></i>${n.title}</h6>
+                <small>${new Date(n.timestamp).toLocaleDateString()}</small>
+              </div>
+              <p class="mb-1">${n.message}</p>
+            </div>
+          `;
+        }).join('');
+      } else {
+        if (list) list.innerHTML = '<div class="list-group-item">No notifications available.</div>';
+      }
+      modal.show();
+    }
+
+    function markAllAsRead() {
+      const badge = document.getElementById('notificationCount');
+      if (badge) {
+        badge.textContent = '0';
+        badge.style.display = 'none';
+      }
+      if (window.ToastManager) window.ToastManager.success('All notifications marked as read.', 'Done');
+    }
   </script>
+
+  <!-- Notifications Modal -->
+  <div class="modal fade" id="notificationsModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-bell me-2"></i>Notifications</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="notificationsList"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="markAllAsRead()">Mark All Read</button>
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 
 </html>

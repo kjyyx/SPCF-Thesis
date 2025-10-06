@@ -14,7 +14,8 @@ if (!$currentUser || $currentUser['role'] !== 'admin') {
 }
 
 // Audit log helper function
-function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
+function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO')
+{
     global $currentUser;
     try {
         $db = new Database();
@@ -36,6 +37,7 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
         error_log("Failed to add audit log: " . $e->getMessage());
     }
 }
+
 
 // Log page view
 addAuditLog('ADMIN_DASHBOARD_VIEWED', 'User Management', 'Viewed admin dashboard', $currentUser['id'], 'User', 'INFO');
@@ -70,6 +72,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         ];
         echo json_encode($jsUser);
         ?>;
+
+        // Removed per-view loadNotifications (centralized)
     </script>
 
 </head>
@@ -538,9 +542,12 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                             <option value="College of Nursing">College of Nursing</option>
                                             <option value="College of Business">College of Business</option>
                                             <option value="College of Criminology">College of Criminology</option>
-                                            <option value="College of Computing and Information Sciences">College of Computing and Information Sciences</option>
-                                            <option value="College of Art and Social Sciences and Education">College of Art and Social Sciences and Education</option>
-                                            <option value="Colleges of Hospitality and Tourism Management">Colleges of Hospitality and Tourism Management</option>
+                                            <option value="College of Computing and Information Sciences">College of
+                                                Computing and Information Sciences</option>
+                                            <option value="College of Art and Social Sciences and Education">College of
+                                                Art and Social Sciences and Education</option>
+                                            <option value="Colleges of Hospitality and Tourism Management">Colleges of
+                                                Hospitality and Tourism Management</option>
                                         </select>
                                     </div>
                                 </div>
@@ -911,10 +918,33 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         </div>
     </div>
 
+    <!-- Notifications Modal -->
+    <div class="modal fade" id="notificationsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-bell me-2"></i>Notifications</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="notificationsList"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="markAllAsRead()">Mark All Read</button>
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/toast.js"></script>
+    <script src="../assets/js/global-notifications.js"></script>
     <script src="../assets/js/user-login.js"></script>
     <script src="../assets/js/admin-dashboard.js"></script>
+    <script>
+        function markAllAsRead(){ if(window.markAllAsRead) window.markAllAsRead(); }
+    </script>
 </body>
 
 </html>

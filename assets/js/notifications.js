@@ -69,6 +69,34 @@ class DocumentNotificationSystem {
         }
     }
 
+    showNotifications() {
+        const modal = new bootstrap.Modal(document.getElementById('notificationsModal'));
+        const list = document.getElementById('notificationsList');
+        if (list && window.notifications) {
+            list.innerHTML = window.notifications.map(n => {
+                let icon = 'bi-bell'; // Default icon
+                if (n.type === 'pending_document' || n.type === 'new_document' || n.type === 'document_status') icon = 'bi-file-earmark-text';
+                else if (n.type === 'upcoming_event' || n.type === 'event_reminder') icon = 'bi-calendar-event';
+                else if (n.type === 'pending_material' || n.type === 'material_status') icon = 'bi-image';
+                else if (n.type === 'new_user') icon = 'bi-person-plus';
+                else if (n.type === 'security_alert') icon = 'bi-shield-exclamation';
+                else if (n.type === 'account') icon = 'bi-key';
+                else if (n.type === 'system') icon = 'bi-gear';
+
+                return `
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1"><i class="bi ${icon} me-2"></i>${n.title}</h6>
+                        <small>${new Date(n.timestamp).toLocaleDateString()}</small>
+                    </div>
+                    <p class="mb-1">${n.message}</p>
+                </div>
+            `;
+            }).join('');
+        }
+        modal.show();
+    }
+
     // Load documents from API
     async loadDocuments() {
         try {
@@ -122,41 +150,65 @@ class DocumentNotificationSystem {
                 title: 'Research Proposal: IoT Campus Network',
                 doc_type: 'proposal',
                 description: 'Proposal to deploy IoT sensors across campus for energy efficiency.',
-                status: 'submitted', // Urgent
-                current_step: 1,
-                uploaded_at: daysAgo(1),
+                status: 'in_review',
+                current_step: 4,
+                uploaded_at: daysAgo(5),
                 student: { id: 'STU001', name: 'Juan Dela Cruz', department: 'College of Engineering' },
                 workflow: [
-                    { id: 5001, step_order: 1, name: 'Initial Review', status: 'pending', note: null, acted_at: null, assignee_id: empId, assignee_name: 'You' },
-                    { id: 5002, step_order: 2, name: 'Dean Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP999', assignee_name: 'Dean' }
+                    { id: 5001, step_order: 1, name: 'CSC Adviser Approval', status: 'completed', note: 'Approved by CSC Adviser', acted_at: daysAgo(4), assignee_id: 'EMP002', assignee_name: 'CSC Adviser' },
+                    { id: 5002, step_order: 2, name: 'SSC President Approval', status: 'completed', note: 'Approved by SSC President', acted_at: daysAgo(3), assignee_id: 'EMP003', assignee_name: 'SSC President' },
+                    { id: 5003, step_order: 3, name: 'Dean Approval', status: 'completed', note: 'Approved by Dean', acted_at: daysAgo(2), assignee_id: 'EMP004', assignee_name: 'Dean' },
+                    { id: 5004, step_order: 4, name: 'OIC OSA Approval', status: 'pending', note: null, acted_at: null, assignee_id: empId, assignee_name: 'You' },
+                    { id: 5005, step_order: 5, name: 'CPAO Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP005', assignee_name: 'CPAO' },
+                    { id: 5006, step_order: 6, name: 'VPAA Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP006', assignee_name: 'VPAA' },
+                    { id: 5007, step_order: 7, name: 'EVP Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP007', assignee_name: 'EVP' }
                 ]
             },
             {
                 id: 1002,
-                title: 'Student Activity Form: TechWeek 2025',
-                doc_type: 'saf',
-                description: 'Annual technology week with workshops and hackathons.',
-                status: 'in_review', // High
-                current_step: 2,
-                uploaded_at: daysAgo(3),
+                title: 'Communication Letter: Event Announcement',
+                doc_type: 'communication',
+                description: 'Official communication regarding upcoming university events.',
+                status: 'submitted',
+                current_step: 1,
+                uploaded_at: daysAgo(1),
                 student: { id: 'STU002', name: 'Ana Reyes', department: 'College of Computing and Information Sciences' },
                 workflow: [
-                    { id: 5003, step_order: 1, name: 'Organization Adviser', status: 'completed', note: 'Looks good.', acted_at: daysAgo(2), assignee_id: empId, assignee_name: 'You' },
-                    { id: 5004, step_order: 2, name: 'Student Affairs Office', status: 'pending', note: null, acted_at: null, assignee_id: empId, assignee_name: 'You' }
+                    { id: 5008, step_order: 1, name: 'CSC Adviser Approval', status: 'pending', note: null, acted_at: null, assignee_id: empId, assignee_name: 'You' },
+                    { id: 5009, step_order: 2, name: 'SSC President Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP003', assignee_name: 'SSC President' },
+                    { id: 5010, step_order: 3, name: 'Dean Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP001', assignee_name: 'Dean' },
+                    { id: 5011, step_order: 4, name: 'OIC OSA Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP004', assignee_name: 'OIC OSA' },
+                    { id: 5012, step_order: 5, name: 'CPAO Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP005', assignee_name: 'CPAO' },
+                    { id: 5013, step_order: 6, name: 'VPAA Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP006', assignee_name: 'VPAA' },
+                    { id: 5014, step_order: 7, name: 'EVP Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP007', assignee_name: 'EVP' }
                 ]
             },
             {
                 id: 1003,
+                title: 'Student Activity Form: TechWeek 2025',
+                doc_type: 'saf',
+                description: 'Annual technology week with workshops and hackathons.',
+                status: 'in_review',
+                current_step: 2,
+                uploaded_at: daysAgo(3),
+                student: { id: 'STU002', name: 'Ana Reyes', department: 'College of Computing and Information Sciences' },
+                workflow: [
+                    { id: 5015, step_order: 1, name: 'Organization Adviser', status: 'completed', note: 'Looks good.', acted_at: daysAgo(2), assignee_id: empId, assignee_name: 'You' },
+                    { id: 5016, step_order: 2, name: 'Student Affairs Office', status: 'pending', note: null, acted_at: null, assignee_id: empId, assignee_name: 'You' }
+                ]
+            },
+            {
+                id: 1004,
                 title: 'Facility Request: Auditorium Booking',
                 doc_type: 'facility',
                 description: 'Request to use the main auditorium for orientation.',
-                status: 'approved', // Normal
+                status: 'approved',
                 current_step: 2,
                 uploaded_at: daysAgo(5),
                 student: { id: 'STU003', name: 'Mark Cruz', department: 'College of Business' },
                 workflow: [
-                    { id: 5005, step_order: 1, name: 'Facilities Review', status: 'completed', note: 'Available', acted_at: daysAgo(4), assignee_id: empId, assignee_name: 'You' },
-                    { id: 5006, step_order: 2, name: 'Dean Approval', status: 'completed', note: 'Approved', acted_at: daysAgo(3), assignee_id: empId, assignee_name: 'You' }
+                    { id: 5017, step_order: 1, name: 'Facilities Review', status: 'completed', note: 'Available', acted_at: daysAgo(4), assignee_id: empId, assignee_name: 'You' },
+                    { id: 5018, step_order: 2, name: 'Dean Approval', status: 'completed', note: 'Approved', acted_at: daysAgo(3), assignee_id: empId, assignee_name: 'You' }
                 ]
             }
         ];
@@ -542,7 +594,7 @@ class DocumentNotificationSystem {
             this.pdfDoc = await pdfjsLib.getDocument(url).promise;
             this.totalPages = this.pdfDoc.numPages;
             this.currentPage = 1;
-            
+
             // Create canvas for PDF rendering in modern container
             const canvas = document.createElement('canvas');
             canvas.id = 'pdfCanvas';
@@ -552,14 +604,14 @@ class DocumentNotificationSystem {
             canvas.style.borderRadius = '12px';
             this.canvas = canvas;
             this.ctx = canvas.getContext('2d');
-            
+
             // Replace loading content with canvas
             if (pdfContent) {
                 pdfContent.innerHTML = '';
                 pdfContent.appendChild(canvas);
                 pdfContent.style.display = 'flex';
             }
-            
+
             this.renderPage();
             this.updatePageControls();
         } catch (error) {
@@ -1036,7 +1088,8 @@ class DocumentNotificationSystem {
                 this.showToast({
                     type: 'warning',
                     title: 'Document Rejected',
-                    message: 'Document has been rejected.' }
+                    message: 'Document has been rejected.'
+                }
                 );
 
                 // Refresh data and return to dashboard (no modal)
@@ -1140,46 +1193,46 @@ class DocumentNotificationSystem {
                 note: note
             })
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Update local document data
-                pendingStep.note = note;
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update local document data
+                    pendingStep.note = note;
 
-                // Update save indicator
+                    // Update save indicator
+                    if (saveIndicator) {
+                        saveIndicator.textContent = 'Saved';
+                        saveIndicator.style.color = '#10b981';
+                        setTimeout(() => {
+                            saveIndicator.textContent = '';
+                        }, 2000);
+                    }
+
+                    // Re-render the document to show updated notes
+                    this.renderDocumentDetail(this.currentDocument);
+
+                    console.log('Notes saved successfully');
+                } else {
+                    throw new Error(data.message || 'Failed to save notes');
+                }
+            })
+            .catch(error => {
+                console.error('Error saving notes:', error);
+
+                // Update save indicator with error
                 if (saveIndicator) {
-                    saveIndicator.textContent = 'Saved';
-                    saveIndicator.style.color = '#10b981';
+                    saveIndicator.textContent = 'Error saving';
+                    saveIndicator.style.color = '#ef4444';
                     setTimeout(() => {
                         saveIndicator.textContent = '';
-                    }, 2000);
+                    }, 3000);
                 }
 
-                // Re-render the document to show updated notes
-                this.renderDocumentDetail(this.currentDocument);
-
-                console.log('Notes saved successfully');
-            } else {
-                throw new Error(data.message || 'Failed to save notes');
-            }
-        })
-        .catch(error => {
-            console.error('Error saving notes:', error);
-            
-            // Update save indicator with error
-            if (saveIndicator) {
-                saveIndicator.textContent = 'Error saving';
-                saveIndicator.style.color = '#ef4444';
-                setTimeout(() => {
-                    saveIndicator.textContent = '';
-                }, 3000);
-            }
-
-            // Show toast notification
-            if (window.ToastManager) {
-                window.ToastManager.error('Failed to save notes: ' + error.message, 'Error');
-            }
-        });
+                // Show toast notification
+                if (window.ToastManager) {
+                    window.ToastManager.error('Failed to save notes: ' + error.message, 'Error');
+                }
+            });
     }
 }
 

@@ -10,6 +10,18 @@ let currentSortField = 'updated_at';
 let currentSortDirection = 'desc';
 let documentStats = { total: 0, pending: 0, approved: 0, inProgress: 0, underReview: 0 };
 
+// Document type display mapping
+function getDocumentTypeDisplay(docType) {
+    const typeMap = {
+        'proposal': 'Proposal',
+        'communication': 'Comm Letter',
+        'saf': 'SAF',
+        'facility': 'Facility Request'
+    };
+    
+    return typeMap[docType] || docType || 'Document';
+}
+
 // Toast notification function
 function showToast(message, type = 'info', title = null) {
     if (window.ToastManager) {
@@ -59,14 +71,13 @@ function initializeEventListeners() {
         });
     }
 
-    // Filter functionality with modern chips
+    // Filter functionality with admin-dashboard button groups
     const filterButtons = document.querySelectorAll('input[name="statusFilter"]');
     filterButtons.forEach(button => {
-        button.addEventListener('change', (e) => {
-            // Update active chip visual state
-            document.querySelectorAll('.filter-chip').forEach(chip => chip.classList.remove('active'));
-            e.target.nextElementSibling.classList.add('active');
-            handleFilter();
+        button.addEventListener('change', function() {
+            if (this.checked) {
+                handleFilter();
+            }
         });
     });
 
@@ -200,9 +211,34 @@ async function loadStudentDocuments() {
             showEmptyState();
         }
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error loading documents:', error);
+        hideLoadingState();
+        
+        // Show error state
+        const tbody = document.getElementById('documentsList');
+        const emptyState = document.getElementById('emptyState');
+        
+        if (tbody && emptyState) {
+            tbody.innerHTML = '';
+            emptyState.style.display = 'block';
+            emptyState.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="bi bi-exclamation-triangle text-warning" style="font-size: 4rem; opacity: 0.5;"></i>
+                    <h4 class="text-dark mt-3">Error Loading Documents</h4>
+                    <p class="text-muted mb-4">There was a problem loading your documents. Please try again.</p>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button class="btn btn-primary" onclick="loadStudentDocuments()">
+                            <i class="bi bi-arrow-clockwise me-2"></i>Try Again
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="window.location.reload()">
+                            <i class="bi bi-bootstrap-reboot me-2"></i>Refresh Page
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
         showToast('Failed to load documents. Please try again.', 'error');
-        showEmptyState();
     }
 }
 
@@ -239,16 +275,16 @@ function updateStatisticsDisplay() {
     const inProgressEl = document.getElementById('inProgressDocuments');
     
     if (totalEl) {
-        animateNumber(totalEl, documentStats.total);
+        totalEl.textContent = documentStats.total;
     }
     if (pendingEl) {
-        animateNumber(pendingEl, documentStats.pending);
+        pendingEl.textContent = documentStats.pending;
     }
     if (approvedEl) {
-        animateNumber(approvedEl, documentStats.approved);
+        approvedEl.textContent = documentStats.approved;
     }
     if (inProgressEl) {
-        animateNumber(inProgressEl, documentStats.inProgress);
+        inProgressEl.textContent = documentStats.inProgress;
     }
 }
 
@@ -291,49 +327,60 @@ function renderCurrentPage() {
     const endIndex = Math.min(startIndex + itemsPerPage, totalDocuments);
     const currentPageDocuments = filteredDocuments.slice(startIndex, endIndex);
     
-    // Render documents
+    // Render documents with admin-dashboard styling
     currentPageDocuments.forEach((doc, index) => {
         const row = document.createElement('tr');
         
-        // Add animation classes
-        row.className = 'fade-in';
+        // Add hover effects and animations
+        row.className = 'table-row-hover';
         row.style.animationDelay = `${index * 0.05}s`;
         
-        const statusBadge = getStatusBadgeClass(doc.status);
+        const statusBadge = getStatusBadgeClass(doc.status || doc.current_status);
         const locationBadge = getLocationBadgeClass(doc.current_location);
+        const docType = getDocumentTypeDisplay(doc.document_type || doc.doc_type);
         
         row.innerHTML = `
             <td>
                 <div class="d-flex align-items-center">
-                    <div class="document-icon me-2">
-                        <i class="bi bi-file-earmark-text text-primary"></i>
+                    <div class="document-icon me-3">
+                        <i class="bi bi-file-earmark-text fs-4 text-primary"></i>
                     </div>
                     <div class="document-info">
-                        <div class="document-name fw-semibold">${doc.document_name}</div>
-                        <div class="document-type text-muted small">${doc.doc_type || 'Document'}</div>
+                        <div class="document-name fw-bold text-dark mb-1">${doc.title || doc.document_name}</div>
+                        <div class="document-meta text-muted small">
+                            <i class="bi bi-calendar3 me-1"></i>
+                            Created: ${new Date(doc.created_at).toLocaleDateString()}
+                        </div>
                     </div>
                 </div>
             </td>
             <td>
-                <span class="badge ${statusBadge}">${doc.status}</span>
+                <span class="badge bg-info bg-opacity-10 text-info border border-info">${docType}</span>
+            </td>
+            <td>
+                <span class="badge ${statusBadge}">${doc.status || doc.current_status}</span>
             </td>
             <td>
                 <span class="badge ${locationBadge}">${doc.current_location}</span>
             </td>
             <td>
                 <div class="date-info">
-                    <div class="date-primary">${new Date(doc.updated_at).toLocaleDateString()}</div>
-                    <div class="date-secondary text-muted small">${new Date(doc.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                    <div class="fw-semibold">${new Date(doc.updated_at).toLocaleDateString()}</div>
+                    <div class="text-muted small">${new Date(doc.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                 </div>
             </td>
             <td>
-                <div class="notes-preview">${getNotesPreview(doc.notes || [])}</div>
+                <div class="notes-preview" style="max-width: 200px;">${getNotesPreview(doc.notes || [])}</div>
             </td>
             <td>
-                <button class="modern-action-btn secondary" onclick="viewDetails('${doc.id}')" title="View document details">
-                    <i class="bi bi-eye"></i>
-                    <span>View</span>
-                </button>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-outline-primary btn-sm" onclick="viewDetails('${doc.id}')" title="View Details">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="downloadDocument('${doc.id}')" title="Download">
+                        <i class="bi bi-download"></i>
+                    </button>
+                </div>
             </td>
         `;
         
@@ -430,10 +477,29 @@ function changePage(page) {
     renderCurrentPage();
     
     // Smooth scroll to top of table
-    document.querySelector('.tracker-table-container').scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start' 
-    });
+    const tableContainer = document.querySelector('.table-container') || document.querySelector('.content-body');
+    if (tableContainer) {
+        tableContainer.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+        });
+    }
+}
+
+// Download document function
+function downloadDocument(docId) {
+    showToast('Preparing download...', 'info');
+    
+    // Create download link
+    const downloadUrl = `../api/documents.php?action=download&id=${docId}`;
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = '';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast('Download started', 'success');
 }
 
 // Update pagination info
@@ -501,31 +567,41 @@ function sortDocuments() {
 function applyCurrentFilters() {
     let documents = [...allDocuments];
     
-    // Apply search filter
+    // Apply enhanced search filter
     const searchTerm = document.getElementById('searchInput')?.value.toLowerCase().trim();
     if (searchTerm) {
-        documents = documents.filter(doc => 
-            doc.document_name.toLowerCase().includes(searchTerm) ||
-            doc.status.toLowerCase().includes(searchTerm) ||
-            doc.current_location.toLowerCase().includes(searchTerm) ||
-            (doc.description && doc.description.toLowerCase().includes(searchTerm))
-        );
+        documents = documents.filter(doc => {
+            const searchFields = [
+                doc.title || doc.document_name || '',
+                doc.status || doc.current_status || '',
+                doc.current_location || '',
+                doc.document_type || doc.doc_type || '',
+                doc.description || '',
+                doc.created_by_name || ''
+            ];
+            
+            return searchFields.some(field => 
+                field.toString().toLowerCase().includes(searchTerm)
+            );
+        });
     }
     
-    // Apply status filter
+    // Apply status filter with improved mapping
     const activeFilter = document.querySelector('input[name="statusFilter"]:checked')?.id;
     if (activeFilter && activeFilter !== 'filterAll') {
         const statusMap = {
-            'filterPending': 'pending',
-            'filterProgress': 'progress',
-            'filterReview': 'review',
-            'filterCompleted': 'completed'
+            'filterPending': ['pending', 'submitted'],
+            'filterInProgress': ['in progress', 'processing', 'reviewing'],
+            'filterCompleted': ['completed', 'done'],
+            'filterApproved': ['approved', 'accepted'],
+            'filterRejected': ['rejected', 'denied']
         };
-        const filterStatus = statusMap[activeFilter];
-        if (filterStatus) {
-            documents = documents.filter(doc => 
-                doc.status.toLowerCase().includes(filterStatus)
-            );
+        const filterStatuses = statusMap[activeFilter];
+        if (filterStatuses) {
+            documents = documents.filter(doc => {
+                const docStatus = (doc.status || doc.current_status || '').toLowerCase();
+                return filterStatuses.some(status => docStatus.includes(status));
+            });
         }
     }
     
@@ -545,17 +621,25 @@ function applyCurrentFilters() {
     renderCurrentPage();
 }
 
-// Update results count display
+// Update results count display with enhanced messaging
 function updateResultsCount() {
     const resultsEl = document.getElementById('resultsCount');
+    const lastUpdatedEl = document.getElementById('lastUpdatedTime');
+    
     if (resultsEl) {
         if (totalDocuments === 0) {
-            resultsEl.textContent = 'No documents found';
+            resultsEl.innerHTML = '<i class="bi bi-exclamation-triangle me-1 text-warning"></i>No documents found';
         } else if (totalDocuments === allDocuments.length) {
-            resultsEl.textContent = `Showing ${totalDocuments} document${totalDocuments === 1 ? '' : 's'}`;
+            resultsEl.innerHTML = `<i class="bi bi-check-circle me-1 text-success"></i>Showing all ${totalDocuments} document${totalDocuments === 1 ? '' : 's'}`;
         } else {
-            resultsEl.textContent = `Showing ${totalDocuments} of ${allDocuments.length} documents`;
+            resultsEl.innerHTML = `<i class="bi bi-filter me-1 text-info"></i>Showing ${totalDocuments} of ${allDocuments.length} documents`;
         }
+    }
+    
+    // Update last updated time
+    if (lastUpdatedEl) {
+        const now = new Date();
+        lastUpdatedEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     }
 }
 
@@ -778,4 +862,104 @@ function getStatusColorClass(status) {
 }
 
 // Timeline styles are now handled in CSS file
+// Add loading dots animation
+function addLoadingDotsAnimation() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .loading-dots {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+            margin-top: 1rem;
+        }
+        
+        .loading-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #3b82f6;
+            animation: loadingDots 1.4s infinite ease-in-out;
+        }
+        
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0s; }
+        
+        @keyframes loadingDots {
+            0%, 80%, 100% {
+                transform: scale(0);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .empty-state-icon {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Initialize loading animations on page load
+addLoadingDotsAnimation();
+
+// Add loading dots animation
+function addLoadingDotsAnimation() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .loading-dots {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+            margin-top: 1rem;
+        }
+        
+        .loading-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #3b82f6;
+            animation: loadingDots 1.4s infinite ease-in-out;
+        }
+        
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0s; }
+        
+        @keyframes loadingDots {
+            0%, 80%, 100% {
+                transform: scale(0);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .empty-state-icon {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Initialize loading animations on page load
+addLoadingDotsAnimation();
+
 // Enhanced functionality complete

@@ -102,6 +102,105 @@ if (($method === 'POST' && ($data['action'] ?? '') === 'change_password') || $me
 
 // Default: handle login via POST { userId, password, loginType }
 if ($method === 'POST') {
+    $action = $data['action'] ?? '';
+
+    if ($action === 'forgot_password') {
+        // Demo forgot password: Check user in all tables
+        $userId = $data['userId'] ?? '';
+        if (!$userId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'User ID required']);
+            exit;
+        }
+
+        $db = (new Database())->getConnection();
+        $user = null;
+        $tables = ['students', 'employees', 'administrators'];
+
+        foreach ($tables as $table) {
+            $stmt = $db->prepare("SELECT email, phone FROM $table WHERE id = ?");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($user) break;
+        }
+
+        if (!$user) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'User not found']);
+            exit;
+        }
+
+        // Generate 6-digit code
+        $code = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        // Store in session for demo verification
+        $_SESSION['forgot_password_code'] = $code;
+        $_SESSION['forgot_password_user'] = $userId;
+
+        // Mask email and phone for response
+        $emailParts = explode('@', $user['email']);
+        $maskedEmail = substr($emailParts[0], 0, 1) . str_repeat('*', strlen($emailParts[0]) - 1) . '@' . $emailParts[1];
+        $phone = $user['phone'];
+        $maskedPhone = substr($phone, 0, 4) . str_repeat('*', strlen($phone) - 7) . substr($phone, -3);
+
+        // Log "sent" code for demo
+        error_log("DEMO: Password reset code $code 'sent' to {$user['email']} for user $userId");
+
+        echo json_encode([
+            'success' => true,
+            'maskedEmail' => $maskedEmail,
+            'maskedPhone' => $maskedPhone,
+            'demoCode' => $code // Include for demo display
+        ]);
+        exit;
+    }
+
+    if ($action === 'reset_password') {
+        // Demo reset password: Update password for the user
+        $userId = $data['userId'] ?? '';
+        $newPassword = $data['newPassword'] ?? '';
+
+        if (!$userId || !$newPassword) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'User ID and new password required']);
+            exit;
+        }
+
+        // Enforce password policy
+        $pattern = '/^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/';
+        if (!preg_match($pattern, $newPassword)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Password does not meet complexity requirements.']);
+            exit;
+        }
+
+        // Check if user exists and update
+        $tables = ['students', 'employees', 'administrators'];
+        $updated = false;
+        $db = (new Database())->getConnection();
+
+        foreach ($tables as $table) {
+            $stmt = $db->prepare("UPDATE $table SET password = ?, must_change_password = 0 WHERE id = ?");
+            $hash = password_hash($newPassword, PASSWORD_BCRYPT);
+            $result = $stmt->execute([$hash, $userId]);
+            if ($result && $stmt->rowCount() > 0) {
+                $updated = true;
+                break;
+            }
+        }
+
+        if ($updated) {
+            // Clear session
+            unset($_SESSION['forgot_password_code']);
+            unset($_SESSION['forgot_password_user']);
+            echo json_encode(['success' => true, 'message' => 'Password updated successfully.']);
+        } else {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'User not found or update failed.']);
+        }
+        exit;
+    }
+
     /**
      * User Login Endpoint
      * ===================

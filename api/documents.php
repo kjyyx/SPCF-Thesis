@@ -231,6 +231,12 @@ function handleGet()
             return;
         }
 
+        // Seed mock data for testing signature hierarchy
+        if (isset($_GET['action']) && $_GET['action'] === 'seed_mock_data') {
+            seedMockData();
+            return;
+        }
+
         // New: Handle student document fetching
         if (isset($_GET['action']) && $_GET['action'] === 'my_documents') {
             if ($currentUser['role'] !== 'student') {
@@ -469,16 +475,29 @@ function handleGet()
             }
 
             // Load workflow steps with assignee and signature info
-            $stepsStmt = $db->prepare("SELECT ds.*, e.first_name, e.last_name,
+            $stepsStmt = $db->prepare("SELECT ds.*, e.first_name AS emp_first, e.last_name AS emp_last,
+                                              s.first_name AS stu_first, s.last_name AS stu_last,
                                               dsg.status AS signature_status, dsg.signed_at
                                        FROM document_steps ds
                                        LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
-                                       LEFT JOIN document_signatures dsg ON dsg.step_id = ds.id AND dsg.employee_id = ds.assigned_to_employee_id
+                                       LEFT JOIN students s ON ds.assigned_to_student_id = s.id
+                                       LEFT JOIN document_signatures dsg ON dsg.step_id = ds.id 
+                                           AND ((dsg.employee_id = ds.assigned_to_employee_id AND ds.assigned_to_employee_id IS NOT NULL) 
+                                                OR (dsg.student_id = ds.assigned_to_student_id AND ds.assigned_to_student_id IS NOT NULL))
                                        WHERE ds.document_id = ?
                                        ORDER BY ds.step_order ASC");
             $stepsStmt->execute([$documentId]);
             $steps = [];
             while ($s = $stepsStmt->fetch(PDO::FETCH_ASSOC)) {
+                // Determine assignee info (employee or student)
+                $assignee_id = $s['assigned_to_employee_id'] ?: $s['assigned_to_student_id'];
+                $assignee_name = null;
+                if ($s['assigned_to_employee_id']) {
+                    $assignee_name = ($s['emp_first'] || $s['emp_last']) ? trim($s['emp_first'] . ' ' . $s['emp_last']) : null;
+                } elseif ($s['assigned_to_student_id']) {
+                    $assignee_name = ($s['stu_first'] || $s['stu_last']) ? trim($s['stu_first'] . ' ' . $s['stu_last']) : null;
+                }
+                
                 $steps[] = [
                     'id' => (int) $s['id'],
                     'step_order' => (int) $s['step_order'],
@@ -486,8 +505,9 @@ function handleGet()
                     'status' => $s['status'],
                     'note' => $s['note'],
                     'acted_at' => $s['acted_at'],
-                    'assignee_id' => $s['assigned_to_employee_id'],
-                    'assignee_name' => ($s['first_name'] || $s['last_name']) ? trim($s['first_name'] . ' ' . $s['last_name']) : null,
+                    'assignee_id' => $assignee_id,
+                    'assignee_name' => $assignee_name,
+                    'assignee_type' => $s['assigned_to_employee_id'] ? 'employee' : 'student',
                     'signature_status' => $s['signature_status'],
                     'signed_at' => $s['signed_at']
                 ];
@@ -503,6 +523,10 @@ function handleGet()
             // Use generated file path if no attachment
             if (!$filePath && $doc['file_path']) {
                 $filePath = $doc['file_path'];
+                // Handle backward compatibility: if file_path doesn't start with '../', assume it's in uploads
+                if ($filePath && strpos($filePath, '../') !== 0 && strpos($filePath, 'http') !== 0) {
+                    $filePath = '../uploads/' . $filePath;
+                }
             }
             // Convert server path to web URL
             if ($filePath) {
@@ -553,8 +577,8 @@ function handleGet()
             echo json_encode($payload);
             return;
         }
-        // Get documents assigned to current employee that need action
-        $stmt = $db->prepare("
+        // Get documents assigned to current user (employee or SSC President student) that need action
+        $query = "
             SELECT
                 d.id,
                 d.title,
@@ -573,22 +597,52 @@ function handleGet()
                 ds.note as step_note,
                 ds.acted_at,
                 ds.assigned_to_employee_id,
-                dsg.status as signature_status,
-                dsg.signed_at,
+                ds.assigned_to_student_id,
+                CASE
+                    WHEN ds.assigned_to_employee_id IS NOT NULL THEN dsg.status
+                    WHEN ds.assigned_to_student_id IS NOT NULL THEN dssg.status
+                    ELSE NULL
+                END as signature_status,
+                CASE
+                    WHEN ds.assigned_to_employee_id IS NOT NULL THEN dsg.signed_at
+                    WHEN ds.assigned_to_student_id IS NOT NULL THEN dssg.signed_at
+                    ELSE NULL
+                END as signed_at,
                 e.first_name AS assignee_first,
-                e.last_name AS assignee_last
+                e.last_name AS assignee_last,
+                st.first_name AS student_assignee_first,
+                st.last_name AS student_assignee_last
             FROM documents d
             JOIN students s ON d.student_id = s.id
             JOIN document_steps ds ON d.id = ds.document_id
-            LEFT JOIN document_signatures dsg ON ds.id = dsg.step_id AND dsg.employee_id = ?
+            LEFT JOIN document_signatures dsg ON ds.id = dsg.step_id AND dsg.employee_id = ds.assigned_to_employee_id
             LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
-            WHERE ds.assigned_to_employee_id = ?
+            LEFT JOIN students st ON ds.assigned_to_student_id = st.id
+            LEFT JOIN document_signatures dssg ON ds.id = dssg.step_id AND dssg.student_id = ds.assigned_to_student_id
+            WHERE ";
+
+        $params = [];
+
+        if ($currentUser['role'] === 'employee') {
+            $query .= "ds.assigned_to_employee_id = ?";
+            $params[] = $currentUser['id'];
+        } elseif ($currentUser['role'] === 'student' && $currentUser['position'] === 'SSC President') {
+            $query .= "ds.assigned_to_student_id = ?";
+            $params[] = $currentUser['id'];
+        } else {
+            // No documents for other student roles
+            echo json_encode(['success' => true, 'documents' => []]);
+            return;
+        }
+
+        $query .= "
             AND ds.status = 'pending'
             AND d.status IN ('submitted', 'in_review')
             ORDER BY d.uploaded_at DESC, ds.step_order ASC
-        ");
+        ";
 
-        $stmt->execute([$currentUser['id'], $currentUser['id']]);
+        $stmt = $db->prepare($query);
+        $stmt->execute($params);
         $documents = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Group by document and organize workflow
@@ -622,8 +676,10 @@ function handleGet()
                 'status' => $doc['step_status'],
                 'note' => $doc['step_note'],
                 'acted_at' => $doc['acted_at'],
-                'assignee_id' => $doc['assigned_to_employee_id'],
-                'assignee_name' => trim(($doc['assignee_first'] ?? '') . ' ' . ($doc['assignee_last'] ?? '')) ?: null,
+                'assignee_id' => $doc['assigned_to_employee_id'] ?: $doc['assigned_to_student_id'],
+                'assignee_name' => $doc['assigned_to_employee_id'] ?
+                    trim(($doc['assignee_first'] ?? '') . ' ' . ($doc['assignee_last'] ?? '')) :
+                    trim(($doc['student_assignee_first'] ?? '') . ' ' . ($doc['student_assignee_last'] ?? '')),
                 'signature_status' => $doc['signature_status'],
                 'signed_at' => $doc['signed_at']
             ];
@@ -645,6 +701,41 @@ function handlePost()
 {
     global $db, $currentUser;
 
+    // Check if this is a FormData request (for file uploads)
+    $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+    if (strpos($contentType, 'multipart/form-data') !== false) {
+        // Handle FormData requests
+        $action = $_POST['action'] ?? '';
+        try {
+            // Enforce timeouts on stale documents before processing actions
+            enforceTimeouts();
+            switch ($action) {
+                case 'sign':
+                    signDocument($_POST, $_FILES);
+                    break;
+                case 'reject':
+                    rejectDocument($_POST);
+                    break;
+                case 'create':
+                    createDocument($_POST);
+                    break;
+                case 'update_note':
+                    updateNote($_POST);
+                    break;
+                default:
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'message' => 'Invalid action']);
+                    break;
+            }
+        } catch (Exception $e) {
+            error_log("Error processing document action: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Failed to process action: ' . $e->getMessage()]);
+        }
+        return;
+    }
+
+    // Handle JSON requests (legacy)
     $input = json_decode(file_get_contents('php://input'), true);
     $action = $input['action'] ?? '';
 
@@ -1012,46 +1103,52 @@ function createDocument($input)
         if ($docType === 'proposal' || $docType === 'communication') {
             // Full workflow for proposal and communication
             $workflowPositions = [
-                ['position' => 'CSC Adviser', 'department_specific' => true],
-                ['position' => 'SSC President', 'department_specific' => false],
-                ['position' => 'Dean', 'department_specific' => true],
-                ['position' => 'OIC OSA', 'department_specific' => false],
-                ['position' => 'CPAO', 'department_specific' => false],
-                ['position' => 'VPAA', 'department_specific' => false],
-                ['position' => 'EVP', 'department_specific' => false]
+                ['position' => 'CSC Adviser', 'table' => 'employees', 'department_specific' => true],
+                ['position' => 'SSC President', 'table' => 'students', 'department_specific' => false],
+                ['position' => 'Dean', 'table' => 'employees', 'department_specific' => true],
+                ['position' => 'OIC OSA', 'table' => 'employees', 'department_specific' => false],
+                ['position' => 'CPAO', 'table' => 'employees', 'department_specific' => false],
+                ['position' => 'VPAA', 'table' => 'employees', 'department_specific' => false],
+                ['position' => 'EVP', 'table' => 'employees', 'department_specific' => false]
             ];
 
             $stepOrder = 1;
             foreach ($workflowPositions as $wp) {
                 $position = $wp['position'];
-                $empQuery = "SELECT id FROM employees WHERE position = ?";
+                $table = $wp['table'];
+                $query = "SELECT id FROM {$table} WHERE position = ?";
                 $params = [$position];
                 if ($wp['department_specific']) {
-                    $empQuery .= " AND department = ?";
+                    $query .= " AND department = ?";
                     $params[] = $department;
                 }
-                $empStmt = $db->prepare($empQuery);
-                $empStmt->execute($params);
-                $employee = $empStmt->fetch(PDO::FETCH_ASSOC);
+                $query .= " LIMIT 1";
+                $stmt = $db->prepare($query);
+                $stmt->execute($params);
+                $assignee = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                if ($employee) {
-                    $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, ?, ?, 'pending')");
-                    $stmt->execute([$docId, $stepOrder, $position . ' Approval', $employee['id'], 'pending']);
+                if ($assignee) {
+                    $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, 'pending')");
+                    if ($table === 'employees') {
+                        $stmt->execute([$docId, $stepOrder, $position . ' Approval', $assignee['id'], null]);
+                    } else {
+                        $stmt->execute([$docId, $stepOrder, $position . ' Approval', null, $assignee['id']]);
+                    }
                 }
                 $stepOrder++;
             }
         } elseif ($docType === 'saf') {
             // Updated SAF workflow: College Dean -> OIC-OSA -> VPAA -> EVP
             $workflowPositions = [
-                ['position' => 'Dean', 'department_specific' => true],
-                ['position' => 'OIC OSA', 'department_specific' => false],
-                ['position' => 'VPAA', 'department_specific' => false],
-                ['position' => 'EVP', 'department_specific' => false],
+                ['position' => 'Dean', 'table' => 'employees', 'department_specific' => true],
+                ['position' => 'OIC OSA', 'table' => 'employees', 'department_specific' => false],
+                ['position' => 'VPAA', 'table' => 'employees', 'department_specific' => false],
+                ['position' => 'EVP', 'table' => 'employees', 'department_specific' => false],
             ];
 
             $stepOrder = 1;
             foreach ($workflowPositions as $wp) {
-                $query = "SELECT id FROM employees WHERE position = ?";
+                $query = "SELECT id FROM {$wp['table']} WHERE position = ?";
                 $params = [$wp['position']];
                 if ($wp['department_specific']) {
                     $query .= " AND department = ?";
@@ -1060,25 +1157,29 @@ function createDocument($input)
                 $query .= " LIMIT 1";
                 $stmt = $db->prepare($query);
                 $stmt->execute($params);
-                $employee = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($employee) {
-                    $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, ?, ?, 'pending')");
-                    $stmt->execute([$docId, $stepOrder, $wp['position'] . ' Approval', $employee['id']]);
+                $assignee = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($assignee) {
+                    $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, 'pending')");
+                    if ($wp['table'] === 'employees') {
+                        $stmt->execute([$docId, $stepOrder, $wp['position'] . ' Approval', $assignee['id'], null]);
+                    } else {
+                        $stmt->execute([$docId, $stepOrder, $wp['position'] . ' Approval', null, $assignee['id']]);
+                    }
                 }
                 $stepOrder++;
             }
         } elseif ($docType === 'facility') {
             // Updated Facility workflow: College Dean -> OIC-OSA -> EVP O -> EVP
             $workflowPositions = [
-                ['position' => 'Dean', 'department_specific' => true],
-                ['position' => 'OIC OSA', 'department_specific' => false],
-                ['position' => 'EVP O', 'department_specific' => false],  // EVP O for EVPO
-                ['position' => 'EVP', 'department_specific' => false],
+                ['position' => 'Dean', 'table' => 'employees', 'department_specific' => true],
+                ['position' => 'OIC OSA', 'table' => 'employees', 'department_specific' => false],
+                ['position' => 'EVP O', 'table' => 'employees', 'department_specific' => false],  // EVP O for EVPO
+                ['position' => 'EVP', 'table' => 'employees', 'department_specific' => false],
             ];
 
             $stepOrder = 1;
             foreach ($workflowPositions as $wp) {
-                $query = "SELECT id FROM employees WHERE position = ?";
+                $query = "SELECT id FROM {$wp['table']} WHERE position = ?";
                 $params = [$wp['position']];
                 if ($wp['department_specific']) {
                     $query .= " AND department = ?";
@@ -1087,10 +1188,14 @@ function createDocument($input)
                 $query .= " LIMIT 1";
                 $stmt = $db->prepare($query);
                 $stmt->execute($params);
-                $employee = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($employee) {
-                    $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, ?, ?, 'pending')");
-                    $stmt->execute([$docId, $stepOrder, $wp['position'] . ' Approval', $employee['id']]);
+                $assignee = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($assignee) {
+                    $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, 'pending')");
+                    if ($wp['table'] === 'employees') {
+                        $stmt->execute([$docId, $stepOrder, $wp['position'] . ' Approval', $assignee['id'], null]);
+                    } else {
+                        $stmt->execute([$docId, $stepOrder, $wp['position'] . ' Approval', null, $assignee['id']]);
+                    }
                 }
                 $stepOrder++;
             }
@@ -1117,7 +1222,7 @@ function createDocument($input)
     }
 }
 
-function signDocument($input)
+function signDocument($input, $files = null)
 {
     global $db, $currentUser;
 
@@ -1132,10 +1237,20 @@ function signDocument($input)
         return;
     }
 
-    // If stepId not provided, infer the current pending step assigned to this employee
+    // If stepId not provided, infer the current pending step assigned to this user (employee or SSC President student)
     if (!$stepId) {
-        $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
-        $q->execute([$documentId, $currentUser['id']]);
+        if ($currentUser['role'] === 'employee') {
+            $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
+            $q->execute([$documentId, $currentUser['id']]);
+        } elseif ($currentUser['role'] === 'student' && $currentUser['position'] === 'SSC President') {
+            $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_student_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
+            $q->execute([$documentId, $currentUser['id']]);
+        } else {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No pending step assigned to you for this document']);
+            return;
+        }
+
         $row = $q->fetch(PDO::FETCH_ASSOC);
         if (!$row) {
             http_response_code(403);
@@ -1143,6 +1258,52 @@ function signDocument($input)
             return;
         }
         $stepId = (int) $row['id'];
+    }
+
+    // Get current document info for file path
+    $docStmt = $db->prepare("SELECT file_path FROM documents WHERE id = ?");
+    $docStmt->execute([$documentId]);
+    $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$doc) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'Document not found']);
+        return;
+    }
+
+    // Handle signed PDF upload
+    if (isset($files['signed_pdf']) && $files['signed_pdf']['error'] === UPLOAD_ERR_OK) {
+        $uploadDir = '../uploads/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        // Archive or delete old file (optional: move to archive folder)
+        $oldFilePath = $uploadDir . basename($doc['file_path']);
+        if (file_exists($oldFilePath)) {
+            $archiveDir = $uploadDir . 'archive/';
+            if (!is_dir($archiveDir)) {
+                mkdir($archiveDir, 0755, true);
+            }
+            $archivedPath = $archiveDir . basename($oldFilePath) . '.old';
+            if (!rename($oldFilePath, $archivedPath)) {
+                error_log("Failed to archive old file: $oldFilePath to $archivedPath");
+            }
+        }
+
+        // Save new signed PDF
+        $newFileName = 'signed_doc_' . $documentId . '_' . time() . '.pdf';
+        $newPath = $uploadDir . $newFileName;
+        if (move_uploaded_file($files['signed_pdf']['tmp_name'], $newPath)) {
+            // Update database with new file path (store full relative path)
+            $relativePath = '../uploads/' . $newFileName;
+            $updateStmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
+            $updateStmt->execute([$relativePath, $documentId]);
+        } else {
+            error_log("Failed to move uploaded file to: $newPath");
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Failed to save signed document']);
+            return;
+        }
     }
 
     // Optional signature image data URL -> save as PNG
@@ -1174,21 +1335,40 @@ function signDocument($input)
 
     try {
         // Update document signature (store signature image path if provided)
-        $stmt = $db->prepare("
-            INSERT INTO document_signatures (document_id, step_id, employee_id, status, signed_at, signature_path)
-            VALUES (?, ?, ?, 'signed', NOW(), ?)
-            ON DUPLICATE KEY UPDATE
-            status = 'signed', signed_at = NOW(), signature_path = VALUES(signature_path)
-        ");
-        $stmt->execute([$documentId, $stepId, $currentUser['id'], $signaturePathForDB]);
+        if ($currentUser['role'] === 'employee') {
+            $stmt = $db->prepare("
+                INSERT INTO document_signatures (document_id, step_id, employee_id, status, signed_at, signature_path)
+                VALUES (?, ?, ?, 'signed', NOW(), ?)
+                ON DUPLICATE KEY UPDATE
+                status = 'signed', signed_at = NOW(), signature_path = VALUES(signature_path)
+            ");
+            $stmt->execute([$documentId, $stepId, $currentUser['id'], $signaturePathForDB]);
+        } elseif ($currentUser['role'] === 'student') {
+            $stmt = $db->prepare("
+                INSERT INTO document_signatures (document_id, step_id, student_id, status, signed_at, signature_path)
+                VALUES (?, ?, ?, 'signed', NOW(), ?)
+                ON DUPLICATE KEY UPDATE
+                status = 'signed', signed_at = NOW(), signature_path = VALUES(signature_path)
+            ");
+            $stmt->execute([$documentId, $stepId, $currentUser['id'], $signaturePathForDB]);
+        }
 
         // Update document step
-        $stmt = $db->prepare("
-            UPDATE document_steps
-            SET status = 'completed', acted_at = NOW(), note = ?
-            WHERE id = ? AND assigned_to_employee_id = ?
-        ");
-        $stmt->execute([$notes, $stepId, $currentUser['id']]);
+        if ($currentUser['role'] === 'employee') {
+            $stmt = $db->prepare("
+                UPDATE document_steps
+                SET status = 'completed', acted_at = NOW(), note = ?
+                WHERE id = ? AND assigned_to_employee_id = ?
+            ");
+            $stmt->execute([$notes, $stepId, $currentUser['id']]);
+        } elseif ($currentUser['role'] === 'student') {
+            $stmt = $db->prepare("
+                UPDATE document_steps
+                SET status = 'completed', acted_at = NOW(), note = ?
+                WHERE id = ? AND assigned_to_student_id = ?
+            ");
+            $stmt->execute([$notes, $stepId, $currentUser['id']]);
+        }
 
         // Persist signature mapping (percent-based) if provided
         if (is_array($signatureMap)) {
@@ -1251,7 +1431,7 @@ function signDocument($input)
 
         echo json_encode([
             'success' => true,
-            'message' => 'Document signed successfully',
+            'message' => 'Document signed successfully. The updated file has been saved and passed to the next signer.',
             'step_id' => $stepId
         ]);
 
@@ -1275,22 +1455,40 @@ function rejectDocument($input)
         return;
     }
 
-    // If stepId not provided, infer a step assigned to this employee
+    // If stepId not provided, infer a step assigned to this user (employee or SSC President student)
     if (!$stepId) {
-        // Prefer a pending step owned by this employee
-        $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
-        $q->execute([$documentId, $currentUser['id']]);
-        $row = $q->fetch(PDO::FETCH_ASSOC);
-        if (!$row) {
-            // Otherwise, allow any step assigned to this employee (any status)
-            $q2 = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? ORDER BY step_order ASC LIMIT 1");
-            $q2->execute([$documentId, $currentUser['id']]);
-            $row = $q2->fetch(PDO::FETCH_ASSOC);
+        if ($currentUser['role'] === 'employee') {
+            // Prefer a pending step owned by this employee
+            $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
+            $q->execute([$documentId, $currentUser['id']]);
+            $row = $q->fetch(PDO::FETCH_ASSOC);
             if (!$row) {
-                http_response_code(403);
-                echo json_encode(['success' => false, 'message' => 'No step assigned to you for this document']);
-                return;
+                // Otherwise, allow any step assigned to this employee (any status)
+                $q2 = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? ORDER BY step_order ASC LIMIT 1");
+                $q2->execute([$documentId, $currentUser['id']]);
+                $row = $q2->fetch(PDO::FETCH_ASSOC);
             }
+        } elseif ($currentUser['role'] === 'student' && $currentUser['position'] === 'SSC President') {
+            // Prefer a pending step owned by this student
+            $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_student_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
+            $q->execute([$documentId, $currentUser['id']]);
+            $row = $q->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                // Otherwise, allow any step assigned to this student (any status)
+                $q2 = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_student_id = ? ORDER BY step_order ASC LIMIT 1");
+                $q2->execute([$documentId, $currentUser['id']]);
+                $row = $q2->fetch(PDO::FETCH_ASSOC);
+            }
+        } else {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No step assigned to you for this document']);
+            return;
+        }
+
+        if (!$row) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No step assigned to you for this document']);
+            return;
         }
         $stepId = (int) $row['id'];
     }
@@ -1299,21 +1497,40 @@ function rejectDocument($input)
 
     try {
         // Update document signature to rejected
-        $stmt = $db->prepare("
-            INSERT INTO document_signatures (document_id, step_id, employee_id, status, signed_at)
-            VALUES (?, ?, ?, 'rejected', NOW())
-            ON DUPLICATE KEY UPDATE
-            status = 'rejected', signed_at = NOW()
-        ");
-        $stmt->execute([$documentId, $stepId, $currentUser['id']]);
+        if ($currentUser['role'] === 'employee') {
+            $stmt = $db->prepare("
+                INSERT INTO document_signatures (document_id, step_id, employee_id, status, signed_at)
+                VALUES (?, ?, ?, 'rejected', NOW())
+                ON DUPLICATE KEY UPDATE
+                status = 'rejected', signed_at = NOW()
+            ");
+            $stmt->execute([$documentId, $stepId, $currentUser['id']]);
+        } elseif ($currentUser['role'] === 'student') {
+            $stmt = $db->prepare("
+                INSERT INTO document_signatures (document_id, step_id, student_id, status, signed_at)
+                VALUES (?, ?, ?, 'rejected', NOW())
+                ON DUPLICATE KEY UPDATE
+                status = 'rejected', signed_at = NOW()
+            ");
+            $stmt->execute([$documentId, $stepId, $currentUser['id']]);
+        }
 
         // Update document step to rejected
-        $stmt = $db->prepare("
-            UPDATE document_steps
-            SET status = 'rejected', acted_at = NOW(), note = ?
-            WHERE id = ? AND assigned_to_employee_id = ?
-        ");
-        $stmt->execute([$reason, $stepId, $currentUser['id']]);
+        if ($currentUser['role'] === 'employee') {
+            $stmt = $db->prepare("
+                UPDATE document_steps
+                SET status = 'rejected', acted_at = NOW(), note = ?
+                WHERE id = ? AND assigned_to_employee_id = ?
+            ");
+            $stmt->execute([$reason, $stepId, $currentUser['id']]);
+        } elseif ($currentUser['role'] === 'student') {
+            $stmt = $db->prepare("
+                UPDATE document_steps
+                SET status = 'rejected', acted_at = NOW(), note = ?
+                WHERE id = ? AND assigned_to_student_id = ?
+            ");
+            $stmt->execute([$reason, $stepId, $currentUser['id']]);
+        }
 
         // Update document status to rejected
         $stmt = $db->prepare("
@@ -1578,6 +1795,145 @@ function updateNote($input)
         error_log("Error updating note: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'Failed to update note: ' . $e->getMessage()]);
+    }
+}
+
+// Seed mock data for testing signature hierarchy
+function seedMockData()
+{
+    global $db, $currentUser;
+
+    // Only admins can seed data
+    if ($currentUser['role'] !== 'admin') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Only admins can seed mock data']);
+        return;
+    }
+
+    $departments = [
+        'College of Arts, Social Sciences, and Education',
+        'College of Business',
+        'College of Computing and Information Sciences',
+        'College of Criminology',
+        'College of Engineering',
+        'College of Hospitality and Tourism Management',
+        'College of Nursing',
+        'SPCF Miranda'
+    ];
+
+    // Proper names for advisers and deans
+    $adviserNames = [
+        'Dr. Maria Santos',
+        'Dr. Jose Reyes',
+        'Dr. Ana Garcia',
+        'Dr. Roberto Cruz',
+        'Dr. Elena Mendoza',
+        'Dr. Carlos Fernandez',
+        'Dr. Sofia Ramirez',
+        'Dr. Miguel Torres'
+    ];
+
+    $deanNames = [
+        'Dr. Juan dela Cruz',
+        'Dr. Patricia Lopez',
+        'Dr. Ricardo Bautista',
+        'Dr. Carmen Aquino',
+        'Dr. Antonio Villanueva',
+        'Dr. Rosa Morales',
+        'Dr. Eduardo Castillo',
+        'Dr. Lourdes Rivera'
+    ];
+
+    $cscPresidentNames = [
+        'Mark Angelo Reyes',
+        'Samantha Louise Cruz',
+        'Gabriel Antonio Santos',
+        'Isabella Marie Garcia',
+        'Rafael Jose Mendoza',
+        'Camille Andrea Lopez',
+        'Daniel Patrick Fernandez',
+        'Sophia Rose Ramirez'
+    ];
+
+    try {
+        $db->beginTransaction();
+
+        // Seed Employees
+        $empIdCounter = 1;
+
+        // CSC Advisers and College Deans per department
+        foreach ($departments as $index => $dept) {
+            $adviserName = explode(' ', $adviserNames[$index]);
+            $deanName = explode(' ', $deanNames[$index]);
+
+            // CSC Adviser
+            $empId = 'EMP' . str_pad($empIdCounter++, 3, '0', STR_PAD_LEFT);
+            $email = 'adviser.' . strtolower(str_replace([' ', ','], ['.', ''], $dept)) . '@university.edu';
+            $stmt = $db->prepare("INSERT INTO employees (id, first_name, last_name, email, password, office, department, position, phone, must_change_password, created_at)
+                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())
+                                  ON DUPLICATE KEY UPDATE id=id");
+            $stmt->execute([$empId, $adviserName[1], $adviserName[2] ?? $adviserName[1], $email, password_hash('password', PASSWORD_BCRYPT), 'Student Affairs', $dept, 'CSC Adviser', '09123456789']);
+
+            // College Dean
+            $empId = 'EMP' . str_pad($empIdCounter++, 3, '0', STR_PAD_LEFT);
+            $email = 'dean.' . strtolower(str_replace([' ', ','], ['.', ''], $dept)) . '@university.edu';
+            $stmt->execute([$empId, $deanName[1], $deanName[2] ?? $deanName[1], $email, password_hash('password', PASSWORD_BCRYPT), 'Academic Affairs', $dept, 'Dean', '09123456790']);
+        }
+
+        // University-wide employees
+        $universityEmployees = [
+            ['Dr. Francisco Alvarez', 'OIC OSA', 'Office of Student Affairs', 'University', 'Officer-in-Charge, Office of Student Affairs'],
+            ['Prof. Regina Bautista', 'CPAO', 'Center for Performing Arts Organization', 'University', 'Center for Performing Arts Organization'],
+            ['Dr. Emmanuel Santos', 'VPAA', 'Academic Affairs', 'University', 'Vice President for Academic Affairs'],
+            ['Dr. Victoria Mendoza', 'EVP', 'Student Services', 'University', 'Executive Vice-President/Student Services']
+        ];
+
+        foreach ($universityEmployees as $emp) {
+            $empId = 'EMP' . str_pad($empIdCounter++, 3, '0', STR_PAD_LEFT);
+            $email = strtolower(str_replace([' ', ','], ['.', ''], $emp[1])) . '@university.edu';
+            $stmt = $db->prepare("INSERT INTO employees (id, first_name, last_name, email, password, office, department, position, phone, must_change_password, created_at)
+                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())
+                                  ON DUPLICATE KEY UPDATE id=id");
+            $stmt->execute([$empId, explode(' ', $emp[0])[1], explode(' ', $emp[0])[2] ?? explode(' ', $emp[0])[1], $email, password_hash('password', PASSWORD_BCRYPT), $emp[2], $emp[3], $emp[1], '09123456791']);
+        }
+
+        // Seed Students
+        $stuIdCounter = 1;
+
+        // CSC Presidents per department
+        foreach ($departments as $index => $dept) {
+            $stuName = explode(' ', $cscPresidentNames[$index]);
+            $stuId = 'STU' . str_pad($stuIdCounter++, 3, '0', STR_PAD_LEFT);
+            $email = 'csc.president.' . strtolower(str_replace([' ', ','], ['.', ''], $dept)) . '@university.edu';
+            $stmt = $db->prepare("INSERT INTO students (id, first_name, last_name, email, password, department, position, phone, must_change_password, created_at)
+                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())
+                                  ON DUPLICATE KEY UPDATE id=id");
+            $stmt->execute([$stuId, $stuName[0], $stuName[1] . ' ' . ($stuName[2] ?? ''), $email, password_hash('password', PASSWORD_BCRYPT), $dept, 'CSC President', '09123456792']);
+        }
+
+        // SSC President
+        $stuId = 'STU' . str_pad($stuIdCounter++, 3, '0', STR_PAD_LEFT);
+        $email = 'ssc.president@university.edu';
+        $stmt = $db->prepare("INSERT INTO students (id, first_name, last_name, email, password, department, position, phone, must_change_password, created_at)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())
+                              ON DUPLICATE KEY UPDATE id=id");
+        $stmt->execute([$stuId, 'Supreme', 'President', $email, password_hash('password', PASSWORD_BCRYPT), 'Supreme Student Council', 'SSC President', '09123456793']);
+
+        // Seed Admin
+        $stmt = $db->prepare("INSERT INTO administrators (id, first_name, last_name, email, password, must_change_password, created_at)
+                              VALUES (?, ?, ?, ?, ?, 0, NOW())
+                              ON DUPLICATE KEY UPDATE id=id");
+        $stmt->execute(['ADM001', 'System', 'Administrator', 'admin@university.edu', password_hash('password', PASSWORD_BCRYPT)]);
+
+        $db->commit();
+
+        echo json_encode(['success' => true, 'message' => 'Mock data seeded successfully']);
+
+    } catch (Exception $e) {
+        $db->rollBack();
+        error_log("Error seeding mock data: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Failed to seed mock data: ' . $e->getMessage()]);
     }
 }
 ?>

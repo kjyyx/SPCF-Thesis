@@ -1538,16 +1538,31 @@ document.getElementById('changePasswordForm').addEventListener('submit', async f
 
 // Notification function
 function showNotifications() {
-    const pendingMaterials = publicMaterials.filter(m => m.status === 'pending').length;
-    const recentAudits = auditLog.filter(a => new Date(a.timestamp) > new Date(Date.now() - 24 * 60 * 60 * 1000)).length;
+    const modal = new bootstrap.Modal(document.getElementById('notificationsModal'));
+    const list = document.getElementById('notificationsList');
+    if (list && window.notifications) {
+        list.innerHTML = window.notifications.map(n => {
+            let icon = 'bi-bell'; // Default icon
+            if (n.type === 'pending_document' || n.type === 'new_document' || n.type === 'document_status') icon = 'bi-file-earmark-text';
+            else if (n.type === 'upcoming_event' || n.type === 'event_reminder') icon = 'bi-calendar-event';
+            else if (n.type === 'pending_material' || n.type === 'material_status') icon = 'bi-image';
+            else if (n.type === 'new_user') icon = 'bi-person-plus';
+            else if (n.type === 'security_alert') icon = 'bi-shield-exclamation';
+            else if (n.type === 'account') icon = 'bi-key';
+            else if (n.type === 'system') icon = 'bi-gear';
 
-    alert(`📢 Admin Notifications\n\n` +
-        `🔔 Recent Activity:\n` +
-        `• ${pendingMaterials} pending material approvals\n` +
-        `• ${recentAudits} audit entries in last 24h\n` +
-        `• ${Object.keys(users).length} total system users\n` +
-        `• System running normally\n\n` +
-        `This would show a detailed notification panel with real-time alerts.`);
+            return `
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1"><i class="bi ${icon} me-2"></i>${n.title}</h6>
+                        <small>${new Date(n.timestamp).toLocaleDateString()}</small>
+                    </div>
+                    <p class="mb-1">${n.message}</p>
+                </div>
+            `;
+        }).join('');
+    }
+    modal.show();
 }
 
 // ==========================================================

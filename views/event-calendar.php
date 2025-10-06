@@ -66,6 +66,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         $jsUser['firstName'] = $currentUser['first_name'];
         $jsUser['lastName'] = $currentUser['last_name'];
         $jsUser['must_change_password'] = isset($currentUser['must_change_password']) ? (int)$currentUser['must_change_password'] : ((int)($_SESSION['must_change_password'] ?? 0));
+        $jsUser['position'] = $currentUser['position'] ?? '';
         echo json_encode($jsUser);
         ?>;
         window.isAdmin = <?php echo ($currentUser['role'] === 'admin') ? 'true' : 'false'; ?>;

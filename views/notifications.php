@@ -1,14 +1,22 @@
 <?php
 require_once '../includes/session.php';
 require_once '../includes/auth.php';
-requireAuth();
-requireRole(['employee']); // restrict to employees only
+requireAuth(); // Requires login
 
+// Get current user first to check role
 $auth = new Auth();
 $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 if (!$currentUser) {
     logoutUser();
     header('Location: user-login.php');
+    exit();
+}
+
+// Allow employees and SSC President students only
+if ($currentUser['role'] === 'employee' || ($currentUser['role'] === 'student' && $currentUser['position'] === 'SSC President')) {
+    // Access granted
+} else {
+    header('Location: user-login.php?error=access_denied');
     exit();
 }
 
@@ -434,8 +442,9 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             <div class="card-header">
                                 <h3 class="card-title">
                                     <i class="bi bi-diagram-3"></i>
-                                    Workflow Progress
+                                    Approval Hierarchy
                                 </h3>
+                                <p class="card-subtitle">Document routing through organizational levels</p>
                             </div>
                             <div class="card-content">
                                 <div id="workflowSteps" class="workflow-timeline">
@@ -554,6 +563,18 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/toast.js"></script>
     <script src="../assets/js/notifications.js"></script>
+
+    <script>
+        // Pass user data to JavaScript
+        window.currentUser = <?php
+        // Convert snake_case to camelCase for JavaScript
+        $jsUser = $currentUser;
+        $jsUser['firstName'] = $currentUser['first_name'];
+        $jsUser['lastName'] = $currentUser['last_name'];
+        $jsUser['position'] = $currentUser['position'] ?? '';
+        echo json_encode($jsUser);
+        ?>;
+    </script>
 
     <script>
         // Populate user info on load

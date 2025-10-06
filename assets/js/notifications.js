@@ -23,8 +23,8 @@ class DocumentNotificationSystem {
 
     // Initialize the application
     async init() {
-        // Employee-only guard (defense-in-depth; server already restricts)
-        if (!this.currentUser || this.currentUser.role !== 'employee') {
+        // Allow employees and SSC President students only
+        if (!this.currentUser || (this.currentUser.role !== 'employee' && !(this.currentUser.role === 'student' && this.currentUser.position === 'SSC President'))) {
             window.location.href = 'event-calendar.php';
             return;
         }
@@ -537,7 +537,19 @@ class DocumentNotificationSystem {
             this.canvas = document.getElementById('pdfCanvas');
             this.ctx = this.canvas.getContext('2d');
             if (doc.file_path && /\.pdf(\?|$)/i.test(doc.file_path)) {
-                this.loadPdf(doc.file_path);
+                // Handle absolute paths, relative paths, and filenames for backward compatibility
+                let pdfUrl = doc.file_path;
+                if (pdfUrl.startsWith('/')) {
+                    // Absolute path from server root, use as is
+                } else if (pdfUrl.startsWith('../')) {
+                    // Already relative to views directory
+                } else if (pdfUrl.startsWith('http')) {
+                    // Full URL
+                } else {
+                    // Just filename, assume in uploads directory
+                    pdfUrl = '../uploads/' + pdfUrl;
+                }
+                this.loadPdf(pdfUrl);
             } else {
                 const ph = document.createElement('div');
                 ph.className = 'pdf-placeholder';
@@ -547,21 +559,67 @@ class DocumentNotificationSystem {
             this.initClickToPlace(pdfContent); // Enable click-to-place
         }
 
-        // Modern workflow timeline
+        // Modern workflow timeline with enhanced hierarchy display
         const workflowSteps = document.getElementById('workflowSteps');
         if (workflowSteps) {
-            workflowSteps.innerHTML = (doc.workflow || []).map(step => `
-                <div class="workflow-step-modern">
-                    <div class="step-icon-modern ${step.status}">
-                        <i class="bi ${step.status === 'completed' ? 'bi-check-circle-fill' : step.status === 'rejected' ? 'bi-x-circle-fill' : step.status === 'pending' ? 'bi-hourglass-split' : 'bi-circle'}"></i>
-                    </div>
-                    <div class="step-info-modern">
-                        <div class="step-name-modern">${this.escapeHtml(step.name)}</div>
-                        <div class="step-assignee-modern">Assigned to: ${this.escapeHtml(step.assignee_name || 'Unassigned')}</div>
-                        ${step.acted_at ? `<div class="step-date-modern">Completed: ${new Date(step.acted_at).toLocaleDateString()}</div>` : '<div class="step-date-modern">Pending action</div>'}
-                        ${step.note ? `<div class="step-note-modern" style="margin-top: 0.5rem; font-size: 0.75rem; color: #64748b; font-style: italic;">"${this.escapeHtml(step.note)}"</div>` : ''}
-                    </div>
-                </div>`).join('');
+            const steps = doc.workflow || [];
+            const currentStepIndex = steps.findIndex(step => step.status === 'pending');
+
+            workflowSteps.innerHTML = steps.map((step, index) => {
+                const isCompleted = step.status === 'completed';
+                const isPending = step.status === 'pending';
+                const isRejected = step.status === 'rejected';
+                const isWaiting = step.status === 'waiting';
+                const isCurrent = index === currentStepIndex;
+
+                // Determine role hierarchy level
+                const hierarchyLevel = this.getHierarchyLevel(step.name);
+                const hierarchyIcon = this.getHierarchyIcon(hierarchyLevel);
+
+                // Status-specific styling and messages
+                let statusClass = 'waiting';
+                let statusMessage = 'Waiting for previous steps';
+                let statusIcon = 'bi-circle';
+
+                if (isCompleted) {
+                    statusClass = 'completed';
+                    statusMessage = 'Approved and signed';
+                    statusIcon = 'bi-check-circle-fill';
+                } else if (isRejected) {
+                    statusClass = 'rejected';
+                    statusMessage = 'Rejected - requires revision';
+                    statusIcon = 'bi-x-circle-fill';
+                } else if (isPending) {
+                    statusClass = 'pending';
+                    statusMessage = 'Awaiting your approval';
+                    statusIcon = 'bi-hourglass-split';
+                }
+
+                return `
+                    <div class="workflow-step-modern ${statusClass} ${isCurrent ? 'current-step' : ''}" data-step="${index + 1}">
+                        <div class="step-icon-modern ${statusClass}">
+                            <i class="bi ${statusIcon}"></i>
+                        </div>
+                        <div class="step-info-modern">
+                            <div class="step-name-modern">
+                                ${hierarchyIcon} ${this.escapeHtml(step.name)}
+                                ${isCurrent ? '<span class="current-indicator">← Current</span>' : ''}
+                            </div>
+                            <div class="step-assignee-modern">
+                                ${this.escapeHtml(step.assignee_name || 'Unassigned')}
+                                ${hierarchyLevel > 0 ? `<span class="hierarchy-badge level-${hierarchyLevel}">Level ${hierarchyLevel}</span>` : ''}
+                            </div>
+                            <div class="step-date-modern">
+                                ${isCompleted ? `Completed: ${new Date(step.acted_at).toLocaleDateString()}` :
+                                  isPending ? 'Pending action required' :
+                                  isRejected ? `Rejected: ${new Date(step.acted_at).toLocaleDateString()}` :
+                                  'Not started yet'}
+                            </div>
+                            ${step.note ? `<div class="step-note-modern">"${this.escapeHtml(step.note)}"</div>` : ''}
+                            <div class="step-status-message ${statusClass}">${statusMessage}</div>
+                        </div>
+                    </div>`;
+            }).join('');
         }
 
         // Signature target overlay
@@ -580,6 +638,65 @@ class DocumentNotificationSystem {
             this._notesHandler = this.debounce(() => this.saveNotes(), 500);
             notesInput.addEventListener('input', this._notesHandler);
         }
+
+        // Show/hide approval buttons based on user permissions
+        this.updateApprovalButtonsVisibility(doc);
+    }
+
+    // Update visibility of approval buttons based on current user and document workflow
+    updateApprovalButtonsVisibility(doc) {
+        const signBtn = document.querySelector('.action-btn-full.success');
+        const rejectBtn = document.querySelector('.action-btn-full.danger');
+        const signaturePadToggle = document.getElementById('signaturePadToggle');
+        const signatureStatusContainer = document.getElementById('signatureStatusContainer');
+
+        if (!signBtn || !rejectBtn || !signaturePadToggle || !signatureStatusContainer) return;
+
+        // Find the pending step
+        const pendingStep = doc.workflow?.find(step => step.status === 'pending');
+        
+        if (!pendingStep) {
+            // No pending steps, hide all approval UI
+            signBtn.style.display = 'none';
+            rejectBtn.style.display = 'none';
+            signaturePadToggle.style.display = 'none';
+            signatureStatusContainer.style.display = 'none';
+            return;
+        }
+
+        // Check if current user is assigned to the pending step
+        const currentUser = this.currentUser;
+        const isAssigned = this.isUserAssignedToStep(currentUser, pendingStep);
+
+        if (isAssigned) {
+            // User can approve, show approval buttons
+            signBtn.style.display = 'flex';
+            rejectBtn.style.display = 'flex';
+            signaturePadToggle.style.display = 'block';
+            signatureStatusContainer.style.display = 'block';
+        } else {
+            // User cannot approve, hide approval buttons
+            signBtn.style.display = 'none';
+            rejectBtn.style.display = 'none';
+            signaturePadToggle.style.display = 'none';
+            signatureStatusContainer.style.display = 'none';
+        }
+    }
+
+    // Check if the current user is assigned to the given workflow step
+    isUserAssignedToStep(user, step) {
+        if (!user || !step || !step.assignee_id) return false;
+
+        // Check if the assignee matches the current user
+        if (step.assignee_type === 'employee' && user.role === 'employee' && step.assignee_id === user.id) {
+            return true;
+        }
+
+        if (step.assignee_type === 'student' && user.role === 'student' && step.assignee_id === user.id) {
+            return true;
+        }
+
+        return false;
     }
 
     // Load PDF with PDF.js
@@ -732,18 +849,12 @@ class DocumentNotificationSystem {
             content.appendChild(box);
             this.makeDraggable(box, content);
             this.makeResizable(box, content);
-            box.addEventListener('click', () => {
-                const pad = document.getElementById('signaturePadContainer');
-                if (pad && pad.classList.contains('d-none')) {
-                    pad.classList.remove('d-none');
-                    this.initSignaturePad();
-                }
-            });
+            // Removed click listener to prevent accidental reopening of signature pad
         }
 
         const rect = content.getBoundingClientRect();
         const cw = rect.width || content.clientWidth || 800;
-        const ch = content.clientHeight || 600;
+        const ch = rect.height || content.clientHeight || 600;
         box.style.left = (cw * x_pct) + 'px';
         box.style.top = (ch * y_pct) + 'px';
         box.style.width = (cw * w_pct) + 'px';
@@ -777,9 +888,13 @@ class DocumentNotificationSystem {
             let newY = initialY + dy;
             const containerRect = container.getBoundingClientRect();
             const elementRect = element.getBoundingClientRect();
-            // Constrain to container bounds
-            newX = Math.max(0, Math.min(newX, containerRect.width - elementRect.width));
-            newY = Math.max(0, Math.min(newY, containerRect.height - elementRect.height));
+            // Constrain to container bounds, but also ensure it doesn't go outside the PDF canvas area
+            const pdfCanvas = document.getElementById('pdf-canvas-container') || container;
+            const pdfRect = pdfCanvas.getBoundingClientRect();
+            const maxX = Math.min(containerRect.width - elementRect.width, pdfRect.width - elementRect.width);
+            const maxY = Math.min(containerRect.height - elementRect.height, pdfRect.height - elementRect.height);
+            newX = Math.max(0, Math.min(newX, maxX));
+            newY = Math.max(0, Math.min(newY, maxY));
             element.style.left = newX + 'px';
             element.style.top = newY + 'px';
         });
@@ -862,13 +977,7 @@ class DocumentNotificationSystem {
                 container.appendChild(box);
                 this.makeDraggable(box, container);
                 this.makeResizable(box, container);
-                box.addEventListener('click', () => {
-                    const pad = document.getElementById('signaturePadContainer');
-                    if (pad && pad.classList.contains('d-none')) {
-                        pad.classList.remove('d-none');
-                        this.initSignaturePad();
-                    }
-                });
+                // Removed click listener to prevent accidental reopening of signature pad
             }
             box.style.left = x + 'px';
             box.style.top = y + 'px';
@@ -884,6 +993,10 @@ class DocumentNotificationSystem {
         const container = document.getElementById('signaturePadContainer');
         const canvas = document.getElementById('signatureCanvas');
         if (!container || !canvas) return;
+
+        // Prevent re-initialization if already set up
+        if (canvas.dataset.initialized) return;
+        canvas.dataset.initialized = 'true';
 
         const width = container.clientWidth ? Math.min(container.clientWidth - 16, 560) : 560;
         canvas.width = width;
@@ -955,9 +1068,9 @@ class DocumentNotificationSystem {
         box.appendChild(img);
     }
 
-    // Apply signature to PDF using PDF-LIB
+    // Apply signature to PDF using PDF-LIB and return blob for upload
     async applySignatureToPdf() {
-        if (!this.pdfDoc || !this.signatureImage || !this.currentSignatureMap) return;
+        if (!this.pdfDoc || !this.signatureImage || !this.currentSignatureMap) return null;
         try {
             const pdfBytes = await this.pdfDoc.getData();
             const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
@@ -972,11 +1085,11 @@ class DocumentNotificationSystem {
             const img = await pdfDoc.embedPng(this.signatureImage);
             page.drawImage(img, { x, y, width, height });
             const modifiedPdfBytes = await pdfDoc.save();
-            // Here, you could download or send the modified PDF
-            this.showToast({ type: 'success', title: 'Signature Applied', message: 'Signature embedded in PDF.' });
+            // Return blob for upload
+            return new Blob([modifiedPdfBytes], { type: 'application/pdf' });
         } catch (error) {
             console.error('Error applying signature:', error);
-            this.showToast({ type: 'error', title: 'Error', message: 'Failed to apply signature.' });
+            throw error;
         }
     }
 
@@ -1019,7 +1132,7 @@ class DocumentNotificationSystem {
 
         try {
             // Apply signature to PDF if available
-            await this.applySignatureToPdf();
+            const signedPdfBlob = await this.applySignatureToPdf();
 
             // Find step id: prefer currentDocument pending step for accuracy
             const doc = this.currentDocument && this.currentDocument.id === docId
@@ -1027,14 +1140,19 @@ class DocumentNotificationSystem {
                 : this.documents.find(d => d.id === docId);
             const pendingStep = doc?.workflow?.find(s => s.status === 'pending');
             const stepId = pendingStep?.id || undefined;
-            const body = { action: 'sign', document_id: docId, step_id: stepId };
-            if (this.signatureImage) body.signature_image = this.signatureImage;
-            if (this.currentSignatureMap) body.signature_map = this.currentSignatureMap; // Include updated map
+
+            // Prepare form data for file upload
+            const formData = new FormData();
+            formData.append('action', 'sign');
+            formData.append('document_id', docId);
+            formData.append('step_id', stepId);
+            if (this.signatureImage) formData.append('signature_image', this.signatureImage);
+            if (this.currentSignatureMap) formData.append('signature_map', JSON.stringify(this.currentSignatureMap));
+            if (signedPdfBlob) formData.append('signed_pdf', signedPdfBlob, 'signed_document.pdf');
 
             const response = await fetch('../api/documents.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                body: formData  // Use FormData for file upload
             });
             const result = await response.json();
 
@@ -1042,7 +1160,7 @@ class DocumentNotificationSystem {
                 this.showToast({
                     type: 'success',
                     title: 'Document Signed',
-                    message: 'Document has been successfully signed and approved.'
+                    message: 'Document has been successfully signed and approved. The updated file has been saved and passed to the next signer.'
                 });
 
                 // Refresh data and return to dashboard (no modal)
@@ -1147,6 +1265,31 @@ class DocumentNotificationSystem {
         } else {
             alert(`${options.title}: ${options.message}`);
         }
+    }
+
+    // Get hierarchy level for visual indication
+    getHierarchyLevel(stepName) {
+        const name = stepName.toLowerCase();
+        if (name.includes('adviser') || name.includes('organization')) return 1;
+        if (name.includes('president') || name.includes('dean')) return 2;
+        if (name.includes('osa') || name.includes('affairs')) return 3;
+        if (name.includes('cpao') || name.includes('planning')) return 4;
+        if (name.includes('vpaa') || name.includes('academic')) return 5;
+        if (name.includes('evp') || name.includes('executive')) return 6;
+        return 0;
+    }
+
+    // Get hierarchy icon based on level
+    getHierarchyIcon(level) {
+        const icons = {
+            1: '🎓', // Student/Adviser level
+            2: '👨‍🏫', // Faculty level
+            3: '🏛️', // Administrative level
+            4: '📋', // Operations level
+            5: '🎓', // Academic leadership
+            6: '👑'  // Executive level
+        };
+        return icons[level] || '📄';
     }
 
     // Save notes (placeholder)

@@ -184,6 +184,46 @@ if ($currentUser['role'] === 'employee') {
         ];
         $unreadCount++;
     }
+
+    // Pending documents to sign (assigned to student)
+    $stmt = $db->prepare("
+        SELECT d.id, d.title, 'pending_document' as type, d.created_at as timestamp
+        FROM documents d
+        JOIN document_steps ds ON d.id = ds.document_id
+        WHERE ds.assigned_to_student_id = ? AND ds.status = 'pending'
+    ");
+    $stmt->execute([$currentUser['id']]);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $notifications[] = [
+            'id' => $row['id'],
+            'type' => $row['type'],
+            'title' => 'Pending Document: ' . $row['title'],
+            'message' => 'You have a document awaiting your signature.',
+            'timestamp' => $row['timestamp'],
+            'read' => false
+        ];
+        $unreadCount++;
+    }
+
+    // New documents submitted for approval (assigned to this student)
+    $stmt = $db->prepare("
+        SELECT d.id, d.title, 'new_document' as type, d.created_at as timestamp
+        FROM documents d
+        JOIN document_steps ds ON d.id = ds.document_id
+        WHERE ds.assigned_to_student_id = ? AND ds.step_order = 1 AND d.status = 'submitted'
+    ");
+    $stmt->execute([$currentUser['id']]);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $notifications[] = [
+            'id' => $row['id'],
+            'type' => $row['type'],
+            'title' => 'New Document Submitted: ' . $row['title'],
+            'message' => 'A new document has been submitted and requires your approval.',
+            'timestamp' => $row['timestamp'],
+            'read' => false
+        ];
+        $unreadCount++;
+    }
 } elseif ($currentUser['role'] === 'admin') {
     // New user registrations
     $stmt = $db->prepare("

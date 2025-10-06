@@ -122,12 +122,14 @@ CREATE TABLE IF NOT EXISTS document_steps (
     step_order INT NOT NULL,
     name VARCHAR(150) NOT NULL,
     assigned_to_employee_id VARCHAR(20) NULL,
+    assigned_to_student_id VARCHAR(20) NULL,
     status ENUM('pending','completed','rejected','skipped') NOT NULL DEFAULT 'pending',
     acted_at DATETIME NULL,
     note TEXT NULL,
     creates_event TINYINT(1) NOT NULL DEFAULT 0,
     CONSTRAINT fk_steps_document FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
-    CONSTRAINT fk_steps_assignee FOREIGN KEY (assigned_to_employee_id) REFERENCES employees(id) ON DELETE SET NULL,
+    CONSTRAINT fk_steps_employee FOREIGN KEY (assigned_to_employee_id) REFERENCES employees(id) ON DELETE SET NULL,
+    CONSTRAINT fk_steps_student FOREIGN KEY (assigned_to_student_id) REFERENCES students(id) ON DELETE SET NULL,
     UNIQUE KEY uq_doc_step (document_id, step_order)
 );
 
@@ -136,14 +138,16 @@ CREATE TABLE IF NOT EXISTS document_signatures (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     document_id BIGINT NOT NULL,
     step_id BIGINT NOT NULL,
-    employee_id VARCHAR(20) NOT NULL,
+    employee_id VARCHAR(20) NULL,
+    student_id VARCHAR(20) NULL,
     status ENUM('pending','signed','rejected') NOT NULL DEFAULT 'pending',
     signed_at DATETIME NULL,
     signature_path VARCHAR(255) NULL,
     CONSTRAINT fk_sig_document FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
     CONSTRAINT fk_sig_step FOREIGN KEY (step_id) REFERENCES document_steps(id) ON DELETE CASCADE,
-    CONSTRAINT fk_sig_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
-    UNIQUE KEY uq_doc_step_signer (document_id, step_id, employee_id)
+    CONSTRAINT fk_sig_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL,
+    CONSTRAINT fk_sig_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL,
+    UNIQUE KEY uq_doc_step_signer (document_id, step_id, employee_id, student_id)
 );
 
 -- Free-form notes (rework/remarks)

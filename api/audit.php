@@ -184,11 +184,11 @@ switch ($method) {
             $details,
             $targetId,
             $targetType,
-            $_SERVER['REMOTE_ADDR'] ?? null, // Client IP address
-            $_SERVER['HTTP_USER_AGENT'] ?? null, // Browser/client info
+            $_SERVER['REMOTE_ADDR'] ?? null, // Keep IP for security auditing
+            null, // Set user_agent to null to avoid storing PII
             $severity
         ]);
-
+        
         echo json_encode(['success' => true]);
         break;
 

@@ -275,28 +275,6 @@ function hideUserFormMessages() {
  * @param {string|null} targetType - Type of the affected resource (optional)
  * @param {string} severity - Severity level ('INFO', 'WARNING', 'ERROR')
  */
-window.addAuditLog = async function(action, category, details, targetId = null, targetType = null, severity = 'INFO') {
-    console.log('Attempting to log audit:', { action, category, details }); // Debug logging
-    try {
-        const response = await apiFetch(AUDIT_API, {
-            method: 'POST',
-            body: JSON.stringify({
-                action,
-                category,
-                details,
-                target_id: targetId,
-                target_type: targetType,
-                severity
-            })
-        });
-        console.log('Audit log response:', response); // Debug logging
-        if (!response.success) {
-            console.error('Failed to log audit entry:', response.message);
-        }
-    } catch (e) {
-        console.error('Audit log error:', e);
-    }
-};
 
 /**
  * Load audit logs from server with pagination and filtering
@@ -1383,10 +1361,11 @@ function createAuditLogRow(entry) {
     };
 
     const timestamp = new Date(entry.timestamp).toLocaleString();
+    const userDisplay = entry.user_name ? `${entry.user_name} (${entry.user_id || 'N/A'})` : `Unknown User (${entry.user_id || 'N/A'})`;
 
     row.innerHTML = `
         <td>${timestamp}</td>
-        <td>${entry.user_name}</td>
+        <td>${userDisplay}</td>
         <td>${entry.action}</td>
         <td>${entry.category}</td>
         <td><span class="badge ${severityClass[entry.severity]}">${entry.severity}</span></td>

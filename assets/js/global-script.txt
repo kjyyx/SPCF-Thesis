@@ -218,32 +218,8 @@ if (auditLog.length === 0) {
     localStorage.setItem('auditLog', JSON.stringify(auditLog));
 }
 
-// Function to add audit log entry
-function addAuditLog(action, category, details, targetId = null, targetType = null, severity = 'INFO') {
-    const entry = {
-        id: 'AUDIT' + Date.now(),
-        timestamp: new Date().toISOString(),
-        userId: currentUser ? currentUser.id : 'SYSTEM',
-        userName: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'System',
-        action: action,
-        category: category,
-        details: details,
-        targetId: targetId,
-        targetType: targetType,
-        ipAddress: '192.168.1.' + Math.floor(Math.random() * 255), // Simulated IP
-        userAgent: navigator.userAgent,
-        severity: severity
-    };
-
-    auditLog.unshift(entry); // Add to beginning of array
-
-    // Keep only last 1000 entries to prevent excessive storage
-    if (auditLog.length > 1000) {
-        auditLog = auditLog.slice(0, 1000);
-    }
-
-    localStorage.setItem('auditLog', JSON.stringify(auditLog));
-}
+// Audit log system (now handled globally in toast.js)
+// let auditLog = JSON.parse(localStorage.getItem('auditLog')) || [];
 
 // User database with MFA settings
 const users = {
@@ -409,7 +385,7 @@ function showDashboard() {
 function logout() {
     // Add audit log entry for logout
     if (currentUser) {
-        addAuditLog('LOGOUT', 'Authentication', `User ${currentUser.firstName} ${currentUser.lastName} logged out`, currentUser.id, 'User', 'INFO');
+        window.addAuditLog('LOGOUT', 'Authentication', `User ${currentUser.firstName} ${currentUser.lastName} logged out`, currentUser.id, 'User', 'INFO');
     }
 
     localStorage.removeItem('currentUser');
@@ -1361,7 +1337,7 @@ function deleteSingleMaterial() {
     localStorage.setItem('publicMaterials', JSON.stringify(publicMaterials));
 
     // Add audit log
-    addAuditLog('MATERIAL_DELETED', 'Public Materials', `Deleted public material: ${material.fileName}`, currentMaterialId, 'PublicMaterial', 'INFO');
+    window.addAuditLog('MATERIAL_DELETED', 'Public Materials', `Deleted public material: ${material.fileName}`, currentMaterialId, 'PublicMaterial', 'INFO');
 
     // Close modal and refresh table
     const modal = bootstrap.Modal.getInstance(document.getElementById('materialDetailModal'));
@@ -1420,7 +1396,7 @@ function confirmBulkDelete() {
     localStorage.setItem('publicMaterials', JSON.stringify(publicMaterials));
 
     // Add audit log
-    addAuditLog('MATERIALS_BULK_DELETED', 'Public Materials', `Bulk deleted ${selectedMaterials.length} materials: ${deletedMaterials.join(', ')}`, null, 'PublicMaterial', 'INFO');
+    window.addAuditLog('MATERIALS_BULK_DELETED', 'Public Materials', `Bulk deleted ${selectedMaterials.length} materials: ${deletedMaterials.join(', ')}`, null, 'PublicMaterial', 'INFO');
 
     // Close modal and refresh
     const modal = bootstrap.Modal.getInstance(document.getElementById('bulkDeleteModal'));
@@ -1496,7 +1472,7 @@ function exportMaterials() {
     downloadCSV(csv, 'public_materials.csv');
 
     // Add audit log
-    addAuditLog('MATERIALS_EXPORTED', 'Public Materials', `Exported ${materialData.length} materials to CSV`, null, 'System', 'INFO');
+    window.addAuditLog('MATERIALS_EXPORTED', 'Public Materials', `Exported ${materialData.length} materials to CSV`, null, 'System', 'INFO');
 }
 
 // Audit Log Management Functions
@@ -1636,7 +1612,7 @@ function exportAuditLog() {
     downloadCSV(csv, 'audit_log.csv');
 
     // Add audit log entry for export
-    addAuditLog('AUDIT_LOG_EXPORTED', 'System', `Exported ${auditData.length} audit log entries to CSV`, null, 'System', 'INFO');
+    window.addAuditLog('AUDIT_LOG_EXPORTED', 'System', `Exported ${auditData.length} audit log entries to CSV`, null, 'System', 'INFO');
 }
 
 function clearAuditLog() {
@@ -1646,7 +1622,7 @@ function clearAuditLog() {
         localStorage.setItem('auditLog', JSON.stringify(auditLog));
 
         // Add a new audit entry for the clear action (this will be the only entry)
-        addAuditLog('AUDIT_LOG_CLEARED', 'System', `Cleared audit log containing ${entryCount} entries`, null, 'System', 'WARNING');
+        window.addAuditLog('AUDIT_LOG_CLEARED', 'System', `Cleared audit log containing ${entryCount} entries`, null, 'System', 'WARNING');
 
         loadAuditLogTable();
     }
@@ -1824,7 +1800,7 @@ function confirmDeleteUser() {
     delete users[editingUserId];
 
     // Add audit log
-    addAuditLog('USER_DELETED', 'User Management', `Deleted user account: ${deletedUser.firstName} ${deletedUser.lastName} (${deletedUser.id})`, deletedUser.id, 'User', 'WARNING');
+    window.addAuditLog('USER_DELETED', 'User Management', `Deleted user account: ${deletedUser.firstName} ${deletedUser.lastName} (${deletedUser.id})`, deletedUser.id, 'User', 'WARNING');
 
     // Close modals
     const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal'));
@@ -2003,14 +1979,14 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
         showUserFormSuccess('User updated successfully!');
 
         // Add audit log
-        addAuditLog('USER_UPDATED', 'User Management', `Updated user account: ${userData.firstName} ${userData.lastName} (${userData.id})`, userData.id, 'User', 'INFO');
+        window.addAuditLog('USER_UPDATED', 'User Management', `Updated user account: ${userData.firstName} ${userData.lastName} (${userData.id})`, userData.id, 'User', 'INFO');
     } else {
         // Add new user
         users[userId] = userData;
         showUserFormSuccess(`User created successfully! Default password: temp123 (User must change on first login)`);
 
         // Add audit log
-        addAuditLog('USER_CREATED', 'User Management', `Created new user account: ${userData.firstName} ${userData.lastName} (${userData.id}) with temporary password`, userData.id, 'User', 'INFO');
+        window.addAuditLog('USER_CREATED', 'User Management', `Created new user account: ${userData.firstName} ${userData.lastName} (${userData.id}) with temporary password`, userData.id, 'User', 'INFO');
     }
 
     // Refresh table

@@ -362,3 +362,31 @@
 2025-10-06 15:48:01 - PDF saved to: ../uploads/filled_doc_68e374262dae44.95221115.pdf
 2025-10-06 15:48:01 - DOCX cleaned up successfully
 2025-10-06 15:48:01 - Conversion successful
+2025-10-06 21:23:22 - Starting conversion for: ../uploads/filled_doc_68e3c2cabc9e70.15711244.docx
+2025-10-06 21:23:22 - API key found
+2025-10-06 21:23:22 - DOCX file exists, size: 160113
+2025-10-06 21:23:22 - CloudConvert client created
+2025-10-06 21:23:22 - Creating job
+2025-10-06 21:23:23 - Job created: f7b90cc6-6aed-4705-9dbd-37f8e3699618
+2025-10-06 21:23:23 - Uploading file
+2025-10-06 21:23:24 - File uploaded
+2025-10-06 21:23:24 - Waiting for completion
+2025-10-06 21:23:27 - Job completed, status: finished
+2025-10-06 21:23:27 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/f6789ff3-caea-46d5-92c6-0acdb354f83e/filled_doc_68e3c2cabc9e70.15711244.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20251006%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20251006T132326Z&X-Amz-Expires=86400&X-Amz-Signature=f54a475de0419e8ea221bbb918d0657f626cd3fd0df8b741d2f9a71615321aba&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_68e3c2cabc9e70.15711244.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2025-10-06 21:23:29 - PDF saved to: ../uploads/filled_doc_68e3c2cabc9e70.15711244.pdf
+2025-10-06 21:23:29 - DOCX cleaned up successfully
+2025-10-06 21:23:29 - Conversion successful
+2025-10-06 21:39:46 - Starting conversion for: ../uploads/filled_doc_68e3c6a2317b85.36283777.docx
+2025-10-06 21:39:46 - API key found
+2025-10-06 21:39:46 - DOCX file exists, size: 156430
+2025-10-06 21:39:46 - CloudConvert client created
+2025-10-06 21:39:46 - Creating job
+2025-10-06 21:39:48 - Job created: b4bbec2e-4cf5-4c79-a19c-6f000e110914
+2025-10-06 21:39:48 - Uploading file
+2025-10-06 21:39:49 - File uploaded
+2025-10-06 21:39:49 - Waiting for completion
+2025-10-06 21:39:50 - Job completed, status: finished
+2025-10-06 21:39:50 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/56944df4-a4a6-4ba9-91e5-111e1aaf2806/filled_doc_68e3c6a2317b85.36283777.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20251006%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20251006T133950Z&X-Amz-Expires=86400&X-Amz-Signature=022aea49daacba843bd15de11b9e79ca340c83984f346440ac29a005a8c8d350&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_68e3c6a2317b85.36283777.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2025-10-06 21:39:52 - PDF saved to: ../uploads/filled_doc_68e3c6a2317b85.36283777.pdf
+2025-10-06 21:39:52 - DOCX cleaned up successfully
+2025-10-06 21:39:52 - Conversion successful

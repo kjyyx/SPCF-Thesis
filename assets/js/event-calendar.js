@@ -18,29 +18,7 @@ let events = {};
 let editingEventId = null;
 let currentUser = null; // Declare currentUser globally
 
-// Audit log system
-let auditLog = JSON.parse(localStorage.getItem('auditLog')) || [];
-
-// Function to add audit log entry
-function addAuditLog(action, category, details, targetId = null, targetType = null, severity = 'INFO') {
-    if (window.addAuditLog) {
-        window.addAuditLog(action, category, details, targetId, targetType, severity);
-    } else {
-        // Fallback to API directly
-        fetch('../api/audit.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action,
-                category,
-                details,
-                target_id: targetId,
-                target_type: targetType,
-                severity
-            })
-        }).catch(e => console.error('Audit error:', e));
-    }
-}
+// Audit log system (now handled globally)
 
 class CalendarApp {
     constructor() {
@@ -745,7 +723,7 @@ class CalendarApp {
         .then(r => r.json())
         .then(res => {
             if (res.success) {
-                addAuditLog(isUpdate ? 'EVENT_UPDATED' : 'EVENT_CREATED', 'Event Management', `${isUpdate ? 'Updated' : 'Created'} event: ${title}`, isUpdate ? editingEventId : res.id, 'Event');
+                window.addAuditLog(isUpdate ? 'EVENT_UPDATED' : 'EVENT_CREATED', 'Event Management', `${isUpdate ? 'Updated' : 'Created'} event: ${title}`, isUpdate ? editingEventId : res.id, 'Event');
                 // Refresh list
                 this.loadEvents();
                 const modal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
@@ -774,7 +752,7 @@ class CalendarApp {
             .then(r => r.json())
             .then(res => {
                 if (res.success) {
-                    addAuditLog('EVENT_DELETED', 'Event Management', `Deleted event: ${event.title}`, editingEventId, 'Event');
+                    window.addAuditLog('EVENT_DELETED', 'Event Management', `Deleted event: ${event.title}`, editingEventId, 'Event');
                     this.loadEvents();
                     const modal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
                     modal?.hide();
@@ -854,7 +832,7 @@ document.getElementById('changePasswordForm').addEventListener('submit', async f
         }).then(r => r.json());
 
         if (resp.success) {
-            addAuditLog('PASSWORD_CHANGED', 'Security', 'Password changed', currentUser?.id || null, 'User', 'INFO');
+            window.addAuditLog('PASSWORD_CHANGED', 'Security', 'Password changed', currentUser?.id || null, 'User', 'INFO');
             // Clear must_change_password flag on the client if present
             if (window.currentUser) {
                 window.currentUser.must_change_password = 0;
@@ -877,7 +855,7 @@ document.getElementById('changePasswordForm').addEventListener('submit', async f
 // Utility functions from original script.js
 function logout() {
     if (currentUser) {
-        addAuditLog('LOGOUT', 'Authentication', `User logged out: ${currentUser.firstName} ${currentUser.lastName}`);
+        window.addAuditLog('LOGOUT', 'Authentication', `User logged out: ${currentUser.firstName} ${currentUser.lastName}`);
     }
 
     localStorage.removeItem('currentUser');

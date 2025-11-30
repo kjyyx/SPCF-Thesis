@@ -198,3 +198,29 @@ class ToastManager {
 // Global instance
 window.ToastManager = window.ToastManager || new ToastManager();
 window.showToast = (options) => window.ToastManager.show(options);
+
+// Global audit logging function
+window.addAuditLog = async function(action, category, details, targetId = null, targetType = null, severity = 'INFO') {
+    try {
+        const response = await fetch('../api/audit.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action,
+                category,
+                details,
+                target_id: targetId,
+                target_type: targetType,
+                severity
+            })
+        });
+        const result = await response.json();
+        if (!result.success) {
+            console.error('Failed to log audit entry:', result.message);
+        }
+    } catch (e) {
+        console.error('Audit log error:', e);
+    }
+};

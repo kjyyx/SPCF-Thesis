@@ -50,6 +50,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load student documents
     loadStudentDocuments();
 
+    // Log page view
+    if (window.addAuditLog) {
+        window.addAuditLog('TRACK_DOCUMENT_VIEWED', 'Document Management', 'Viewed document tracking page', null, 'Page', 'INFO');
+    }
+
     // Add smooth animations to header
     animatePageLoad();
 });

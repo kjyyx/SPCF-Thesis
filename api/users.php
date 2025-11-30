@@ -20,6 +20,29 @@ require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/database.php';
 require_once __DIR__ . '/../includes/session.php';
 
+// Audit log helper function
+function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO')
+{
+    global $db;
+    try {
+        $stmt = $db->prepare("INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $_SESSION['user_id'] ?? null,
+            'Unknown User', // Admin user name not fetched here for simplicity
+            $action,
+            $category,
+            $details,
+            $targetId,
+            $targetType,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            null, // Set user_agent to null to avoid storing PII
+            $severity
+        ]);
+    } catch (Exception $e) {
+        error_log("Failed to add audit log: " . $e->getMessage());
+    }
+}
+
 // --------------------------------------
 // Guard: Require authentication + admin role
 // --------------------------------------
@@ -219,6 +242,7 @@ try {
         }
 
         if ($ok) {
+            addAuditLog('USER_CREATED', 'User Management', "Created new $role: $first $last ($id) with temporary password", $id, 'User', 'INFO');
             json_response([
                 'success' => true,
                 'message' => 'User created',
@@ -289,6 +313,9 @@ try {
         }
         $stmt = $db->prepare($sql);
         $ok = $stmt->execute($params);
+        if ($ok) {
+            addAuditLog('USER_UPDATED', 'User Management', "Updated $role: $first $last ($id)", $id, 'User', 'INFO');
+        }
         json_response(['success' => $ok, 'message' => $ok ? 'User updated' : 'Update failed']);
     }
 
@@ -309,6 +336,9 @@ try {
 
         $stmt = $db->prepare("DELETE FROM $table WHERE id=:id");
         $ok = $stmt->execute([':id' => $id]);
+        if ($ok) {
+            addAuditLog('USER_DELETED', 'User Management', "Deleted $role: $id", $id, 'User', 'WARNING');
+        }
         json_response(['success' => $ok, 'message' => $ok ? 'User deleted' : 'Delete failed']);
     }
 

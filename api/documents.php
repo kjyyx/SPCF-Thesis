@@ -1214,6 +1214,16 @@ function createDocument($input)
 
         $db->commit();
 
+        // Add audit log
+        addAuditLog(
+            'DOCUMENT_CREATED',
+            'Document Management',
+            "Document created by {$currentUser['first_name']} {$currentUser['last_name']}: {$docType} - " . (isset($data['title']) ? $data['title'] : 'Untitled'),
+            $docId,
+            'Document',
+            'INFO'
+        );
+
         echo json_encode(['success' => true, 'document_id' => $docId]);
 
     } catch (Exception $e) {
@@ -1644,20 +1654,21 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 
     try {
         $stmt = $db->prepare("
-            INSERT INTO audit_logs (user_id, action, category, details, target_id, target_type, severity, ip_address, user_agent)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         $stmt->execute([
             $currentUser['id'],
+            $currentUser['first_name'] . ' ' . $currentUser['last_name'],
             $action,
             $category,
             $details,
             $targetId,
             $targetType,
-            $severity,
             $_SERVER['REMOTE_ADDR'] ?? null,
-            $_SERVER['HTTP_USER_AGENT'] ?? null
+            null, // Set user_agent to null to avoid storing PII
+            $severity
         ]);
     } catch (Exception $e) {
         error_log("Failed to add audit log: " . $e->getMessage());

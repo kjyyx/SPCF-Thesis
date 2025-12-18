@@ -763,9 +763,10 @@ body {
     color: #16a34a;
     font-weight: 600;
     transition: transform .15s ease, box-shadow .15s ease;
-    min-width: 50px;
-    min-height: 30px;
+    min-width: 80px;
+    min-height: 50px;
     user-select: none;
+    z-index: 10;
 }
 
 .signature-target:hover {
@@ -783,12 +784,13 @@ body {
     position: absolute;
     bottom: 0;
     right: 0;
-    width: 15px;
-    height: 15px;
+    width: 20px;
+    height: 20px;
     background: #16a34a;
-    cursor: nw-resize;
+    cursor: se-resize;
     border-radius: 50%;
     border: 2px solid white;
+    box-shadow: 0 0 0 1px #16a34a;
 }
 
 .resize-handle:hover {
@@ -1676,6 +1678,45 @@ body {
     background: #fff;
     border: 1px solid var(--border-color);
     border-radius: 8px;
+}
+
+/* Completed signature overlays */
+.completed-signature-container {
+    pointer-events: none; /* Don't interfere with interactions */
+    z-index: 10;
+}
+
+.signature-timestamp {
+    font-family: 'Inter', sans-serif;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(4px);
+}
+
+.blurred-signature {
+    position: relative;
+    overflow: hidden;
+    filter: blur(2px);
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.blurred-signature::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
 }
 
 

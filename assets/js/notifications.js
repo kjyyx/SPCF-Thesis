@@ -34,6 +34,11 @@ class DocumentNotificationSystem {
         this.renderDocuments();
         this.setupEventListeners();
         this.updateStatsDisplay();
+
+        // Add resize listener for fit to width
+        window.addEventListener('resize', () => {
+            if (this.pdfDoc) this.fitToWidth();
+        });
     }
 
     // Navigate back to dashboard from detail view
@@ -622,9 +627,6 @@ class DocumentNotificationSystem {
             }).join('');
         }
 
-        // Signature target overlay
-        this.renderSignatureOverlay(doc);
-
         // Load existing notes into textarea (from pending step)
         const notesInput = document.getElementById('notesInput');
         if (notesInput) {
@@ -729,8 +731,13 @@ class DocumentNotificationSystem {
                 pdfContent.style.display = 'flex';
             }
 
-            this.renderPage();
-            this.updatePageControls();
+            // Auto-fit to width when PDF loads
+            this.fitToWidth();
+
+            // Render signature overlay after PDF is loaded
+            if (this.currentDocument) {
+                this.renderSignatureOverlay(this.currentDocument);
+            }
         } catch (error) {
             console.error('Error loading PDF:', error);
             this.showToast({ type: 'error', title: 'Error', message: 'Failed to load PDF' });
@@ -834,34 +841,129 @@ class DocumentNotificationSystem {
 
     // Overlay signature target area based on signature_map (inline)
     renderSignatureOverlay(doc) {
-        if (!doc || !doc.signature_map) return;
-        const { x_pct, y_pct, w_pct, h_pct, label } = doc.signature_map;
         const content = document.getElementById('pdfContent');
         if (!content) return;
 
         content.style.position = 'relative';
 
-        let box = content.querySelector('.signature-target');
-        if (!box) {
-            box = document.createElement('div');
-            box.className = 'signature-target draggable';
-            box.title = 'Drag to move, resize handle to adjust size';
-            content.appendChild(box);
-            this.makeDraggable(box, content);
-            this.makeResizable(box, content);
-            // Removed click listener to prevent accidental reopening of signature pad
+        // First, render completed signatures as blurred overlays
+        this.renderCompletedSignatures(doc, content);
+
+        // Then render the current signature target if applicable
+        const hasPendingStep = doc.workflow?.some(step => step.status === 'pending');
+        const isCurrentUserAssigned = this.isUserAssignedToPendingStep(doc);
+
+        if (hasPendingStep && isCurrentUserAssigned && doc.signature_map) {
+            const { x_pct, y_pct, w_pct, h_pct, label } = doc.signature_map;
+
+            let box = content.querySelector('.signature-target');
+            if (!box) {
+                box = document.createElement('div');
+                box.className = 'signature-target draggable';
+                box.title = 'Drag to move, resize handle to adjust size';
+                content.appendChild(box);
+                this.makeDraggable(box, content);
+                this.makeResizable(box, content);
+                // Removed click listener to prevent accidental reopening of signature pad
+            }
+
+            const rect = content.getBoundingClientRect();
+            const style = window.getComputedStyle(content);
+            const paddingLeft = parseFloat(style.paddingLeft);
+            const paddingTop = parseFloat(style.paddingTop);
+            const cw = content.clientWidth || 800;
+            const ch = content.clientHeight || 600;
+            const canvasHeight = this.canvas ? this.canvas.height : ch;
+            const canvasWidth = this.canvas ? this.canvas.width : cw;
+            box.style.left = (paddingLeft + (cw - canvasWidth) / 2 + canvasWidth * x_pct) + 'px';
+            box.style.top = (paddingTop + (ch - canvasHeight) / 2 + canvasHeight * y_pct) + 'px';
+            box.style.width = (canvasWidth * w_pct) + 'px';
+            box.style.height = (canvasHeight * h_pct) + 'px';
+            box.textContent = label || 'Sign here';
+
+            if (this.signatureImage) this.updateSignatureOverlayImage();
         }
+    }
+
+    // Render completed signatures as blurred overlays with timestamps
+    renderCompletedSignatures(doc, content) {
+        if (!doc.workflow) return;
 
         const rect = content.getBoundingClientRect();
-        const cw = rect.width || content.clientWidth || 800;
-        const ch = rect.height || content.clientHeight || 600;
-        box.style.left = (cw * x_pct) + 'px';
-        box.style.top = (ch * y_pct) + 'px';
-        box.style.width = (cw * w_pct) + 'px';
-        box.style.height = (ch * h_pct) + 'px';
-        box.textContent = label || 'Sign here';
+        const style = window.getComputedStyle(content);
+        const paddingLeft = parseFloat(style.paddingLeft);
+        const paddingTop = parseFloat(style.paddingTop);
+        const cw = content.clientWidth || 800;
+        const ch = content.clientHeight || 600;
+        const canvasHeight = this.canvas ? this.canvas.height : ch;
+        const canvasWidth = this.canvas ? this.canvas.width : cw;
 
-        if (this.signatureImage) this.updateSignatureOverlayImage();
+        // Use signature_map if available, otherwise use default position
+        const signatureMap = doc.signature_map || { x_pct: 0.62, y_pct: 0.78, w_pct: 0.28, h_pct: 0.1 };
+        const { x_pct, y_pct, w_pct, h_pct, page } = signatureMap;
+
+        // Only show blur on the page where signed
+        if (page && page !== this.currentPage) return;
+
+        // Find completed steps with signatures
+        const completedSignatures = doc.workflow.filter(step =>
+            step.status === 'completed' && step.signed_at
+        );
+
+        completedSignatures.forEach((step, index) => {
+            // Create container for timestamp and blurred signature
+            const signatureContainer = document.createElement('div');
+            signatureContainer.className = 'completed-signature-container';
+            signatureContainer.style.position = 'absolute';
+
+            // Position at the same place as the signature target
+            signatureContainer.style.left = (paddingLeft + (cw - canvasWidth) / 2 + canvasWidth * x_pct) + 'px';
+            signatureContainer.style.top = (paddingTop + (ch - canvasHeight) / 2 + canvasHeight * y_pct) + 'px';
+            signatureContainer.style.width = (canvasWidth * w_pct) + 'px';
+            signatureContainer.style.height = (canvasHeight * h_pct) + 'px';
+
+            // Create timestamp display
+            const timestamp = document.createElement('div');
+            timestamp.className = 'signature-timestamp';
+            timestamp.textContent = new Date(step.signed_at).toLocaleString();
+            timestamp.style.fontSize = '10px';
+            timestamp.style.color = '#666';
+            timestamp.style.textAlign = 'center';
+            timestamp.style.marginBottom = '2px';
+            timestamp.style.fontWeight = '500';
+
+            // Create blurred signature placeholder
+            const blurredSignature = document.createElement('div');
+            blurredSignature.className = 'blurred-signature';
+            blurredSignature.style.width = '100%';
+            blurredSignature.style.height = '100%';
+            blurredSignature.style.backgroundColor = 'rgba(128, 128, 128, 0.8)';
+            blurredSignature.style.color = 'white';
+            blurredSignature.style.fontWeight = 'bold';
+            blurredSignature.style.display = 'flex';
+            blurredSignature.style.alignItems = 'center';
+            blurredSignature.style.justifyContent = 'center';
+            blurredSignature.style.borderRadius = '4px';
+            blurredSignature.textContent = 'Signature Hidden';
+            blurredSignature.style.color = '#999';
+            blurredSignature.style.fontSize = '12px';
+            blurredSignature.style.fontStyle = 'italic';
+            blurredSignature.textContent = 'Signed';
+
+            signatureContainer.appendChild(timestamp);
+            signatureContainer.appendChild(blurredSignature);
+            content.appendChild(signatureContainer);
+        });
+    }
+
+    // Check if current user is assigned to any pending step
+    isUserAssignedToPendingStep(doc) {
+        if (!doc.workflow || !this.currentUser) return false;
+
+        const pendingStep = doc.workflow.find(step => step.status === 'pending');
+        if (!pendingStep) return false;
+
+        return this.isUserAssignedToStep(this.currentUser, pendingStep);
     }
 
     // Make signature target draggable
@@ -910,33 +1012,89 @@ class DocumentNotificationSystem {
 
     // Make signature target resizable
     makeResizable(element, container) {
-        const handle = document.createElement('div');
-        handle.className = 'resize-handle';
-        element.appendChild(handle);
+        const handleBR = document.createElement('div');
+        handleBR.className = 'resize-handle';
+        handleBR.style.bottom = '0';
+        handleBR.style.right = '0';
+        handleBR.style.cursor = 'se-resize';
+        element.appendChild(handleBR);
+
+        const handleBL = document.createElement('div');
+        handleBL.className = 'resize-handle';
+        handleBL.style.bottom = '0';
+        handleBL.style.left = '0';
+        handleBL.style.cursor = 'sw-resize';
+        element.appendChild(handleBL);
+
+        const handleTR = document.createElement('div');
+        handleTR.className = 'resize-handle';
+        handleTR.style.top = '0';
+        handleTR.style.right = '0';
+        handleTR.style.cursor = 'ne-resize';
+        element.appendChild(handleTR);
+
+        const handleTL = document.createElement('div');
+        handleTL.className = 'resize-handle';
+        handleTL.style.top = '0';
+        handleTL.style.left = '0';
+        handleTL.style.cursor = 'nw-resize';
+        element.appendChild(handleTL);
 
         let isResizing = false;
-        let startX, startY, startWidth, startHeight;
+        let resizeMode = null;
+        let startX, startY, startWidth, startHeight, startLeft, startTop;
 
-        handle.addEventListener('mousedown', (e) => {
+        const startResize = (e, mode) => {
             isResizing = true;
+            resizeMode = mode;
             startX = e.clientX;
             startY = e.clientY;
             startWidth = element.offsetWidth;
             startHeight = element.offsetHeight;
+            startLeft = element.offsetLeft;
+            startTop = element.offsetTop;
             e.preventDefault();
             e.stopPropagation();
-        });
+        };
+
+        handleBR.addEventListener('mousedown', (e) => startResize(e, 'br'));
+        handleBL.addEventListener('mousedown', (e) => startResize(e, 'bl'));
+        handleTR.addEventListener('mousedown', (e) => startResize(e, 'tr'));
+        handleTL.addEventListener('mousedown', (e) => startResize(e, 'tl'));
 
         document.addEventListener('mousemove', (e) => {
             if (!isResizing) return;
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
-            let newWidth = startWidth + dx;
-            let newHeight = startHeight + dy;
+            let newWidth = startWidth;
+            let newHeight = startHeight;
+            let newLeft = startLeft;
+            let newTop = startTop;
+
+            if (resizeMode === 'br') {
+                newWidth = startWidth + dx;
+                newHeight = startHeight + dy;
+            } else if (resizeMode === 'bl') {
+                newWidth = startWidth - dx;
+                newHeight = startHeight + dy;
+                newLeft = startLeft + dx;
+            } else if (resizeMode === 'tr') {
+                newWidth = startWidth + dx;
+                newHeight = startHeight - dy;
+                newTop = startTop + dy;
+            } else if (resizeMode === 'tl') {
+                newWidth = startWidth - dx;
+                newHeight = startHeight - dy;
+                newLeft = startLeft + dx;
+                newTop = startTop + dy;
+            }
+
             const containerRect = container.getBoundingClientRect();
-            // Constrain to container bounds
-            newWidth = Math.max(50, Math.min(newWidth, containerRect.width - element.offsetLeft));
-            newHeight = Math.max(30, Math.min(newHeight, containerRect.height - element.offsetTop));
+            newWidth = Math.max(80, Math.min(newWidth, containerRect.width - newLeft));
+            newHeight = Math.max(50, Math.min(newHeight, containerRect.height - newTop));
+
+            element.style.left = newLeft + 'px';
+            element.style.top = newTop + 'px';
             element.style.width = newWidth + 'px';
             element.style.height = newHeight + 'px';
         });
@@ -944,7 +1102,8 @@ class DocumentNotificationSystem {
         document.addEventListener('mouseup', () => {
             if (isResizing) {
                 isResizing = false;
-                this.updateSignatureMap(element, container); // Save size
+                resizeMode = null;
+                this.updateSignatureMap(element, container);
             }
         });
     }
@@ -952,14 +1111,21 @@ class DocumentNotificationSystem {
     // Update signature map with current position/size (fix: relative to container)
     updateSignatureMap(element, container) {
         const rect = container.getBoundingClientRect();
-        const cw = rect.width || container.clientWidth || 1;
-        const ch = rect.height || container.clientHeight || 1;
+        const style = window.getComputedStyle(container);
+        const paddingLeft = parseFloat(style.paddingLeft);
+        const paddingTop = parseFloat(style.paddingTop);
+        const cw = container.clientWidth || 1;
+        const ch = container.clientHeight || 1;
+        const canvasHeight = this.canvas ? this.canvas.height : ch;
+        const canvasWidth = this.canvas ? this.canvas.width : cw;
+        const canvasTop = rect.top + paddingTop + (ch - canvasHeight) / 2;
+        const canvasLeft = rect.left + paddingLeft + (cw - canvasWidth) / 2;
         const elRect = element.getBoundingClientRect();
-        const x_pct = (elRect.left - rect.left) / cw;
-        const y_pct = (elRect.top - rect.top) / ch;
-        const w_pct = elRect.width / cw;
-        const h_pct = elRect.height / ch;
-        this.currentSignatureMap = { x_pct, y_pct, w_pct, h_pct, label: 'Sign here' };
+        const x_pct = (elRect.left - canvasLeft) / canvasWidth;
+        const y_pct = (elRect.top - canvasTop) / canvasHeight;
+        const w_pct = elRect.width / canvasWidth;
+        const h_pct = elRect.height / canvasHeight;
+        this.currentSignatureMap = { x_pct, y_pct, w_pct, h_pct, label: 'Sign here', page: this.currentPage };
     }
 
     // Allow click-to-place new signature target
@@ -981,8 +1147,8 @@ class DocumentNotificationSystem {
             }
             box.style.left = x + 'px';
             box.style.top = y + 'px';
-            box.style.width = '100px'; // Default size
-            box.style.height = '50px';
+            box.style.width = '120px'; // Default size
+            box.style.height = '60px';
             box.textContent = 'Sign here';
             this.updateSignatureMap(box, container);
         });
@@ -1101,7 +1267,8 @@ class DocumentNotificationSystem {
         try {
             const pdfBytes = await this.pdfDoc.getData();
             const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
-            const page = pdfDoc.getPage(this.currentPage - 1); // 0-indexed
+            const pageIndex = (this.currentSignatureMap.page || this.currentPage) - 1; // 0-indexed
+            const page = pdfDoc.getPage(pageIndex);
             const { x_pct, y_pct, w_pct, h_pct } = this.currentSignatureMap;
             const pageWidth = page.getWidth();
             const pageHeight = page.getHeight();

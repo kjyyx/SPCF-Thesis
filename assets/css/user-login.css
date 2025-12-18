@@ -13,6 +13,33 @@ body {
     align-items: center;
     justify-content: center;
     padding: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url('/SPCF-Thesis/assets/images/2f6efc6ff35273df8149d3a4e1563b4b.jpg'); /* Absolute path from root */
+    background-size: cover;
+    background-position: center;
+    filter: blur(3px);
+    z-index: -2;
+}
+
+body::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(59, 130, 246, 0.4);
+    z-index: -1;
 }
 
 .login-container {
@@ -24,6 +51,8 @@ body {
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
     overflow: hidden;
     animation: slideUp 0.6s ease-out;
+    position: relative;
+    z-index: 1;
 }
 
 @keyframes slideUp {
@@ -87,94 +116,6 @@ body {
 .form-label i {
     color: #6b7280;
     margin-right: 0.5rem;
-}
-
-.login-type-buttons {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-}
-
-.login-type-buttons .admin-btn {
-    grid-column: 1 / -1;
-}
-
-.type-btn {
-    padding: 0.875rem 1rem;
-    border: 2px solid #e5e7eb;
-    background: white;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: #6b7280;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.type-btn i {
-    font-size: 1rem;
-}
-
-.type-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.type-btn.employee {
-    border-color: #2196f3;
-    background: #f8fbff;
-}
-
-.type-btn.employee:hover {
-    background: #e3f2fd;
-    color: #1976d2;
-}
-
-.type-btn.employee.active {
-    border-color: #2196f3;
-    background: #2196f3;
-    color: white;
-    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
-}
-
-.type-btn.student {
-    border-color: #4caf50;
-    background: #f8fff8;
-}
-
-.type-btn.student:hover {
-    background: #e8f5e8;
-    color: #2e7d32;
-}
-
-.type-btn.student.active {
-    border-color: #4caf50;
-    background: #4caf50;
-    color: white;
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
-}
-
-.type-btn.admin {
-    border-color: #f44336;
-    background: #fff8f8;
-}
-
-.type-btn.admin:hover {
-    background: #fde8e8;
-    color: #d32f2f;
-}
-
-.type-btn.admin.active {
-    border-color: #f44336;
-    background: #f44336;
-    color: white;
-    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
 }
 
 .form-control {
@@ -313,61 +254,6 @@ body {
 .forgot-password button:hover {
     color: #1d4ed8;
     text-decoration: underline;
-}
-
-.demo-accounts {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 1rem;
-}
-
-.demo-accounts h6 {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 0.75rem;
-    text-align: center;
-}
-
-.demo-account {
-    margin-bottom: 0.5rem;
-    padding: 0.5rem;
-    background: white;
-    border-radius: 6px;
-    border-left: 3px solid transparent;
-}
-
-.demo-account:last-child {
-    margin-bottom: 0;
-}
-
-.demo-account.admin {
-    border-left-color: #ef4444;
-}
-
-.demo-account.employee {
-    border-left-color: #3b82f6;
-}
-
-.demo-account.student {
-    border-left-color: #10b981;
-}
-
-.account-title {
-    font-weight: 500;
-    font-size: 0.85rem;
-    color: #374151;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.25rem;
-}
-
-.account-credentials {
-    font-size: 0.75rem;
-    color: #6b7280;
-    font-family: 'Monaco', 'Menlo', monospace;
 }
 
 /* Modal Styles */
@@ -563,9 +449,5 @@ body {
     
     .login-body {
         padding: 1.5rem;
-    }
-    
-    .login-type-buttons {
-        grid-template-columns: 1fr;
     }
 }

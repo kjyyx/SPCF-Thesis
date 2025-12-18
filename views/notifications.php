@@ -389,13 +389,30 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                 <!-- Enhanced Signature Pad -->
                                 <div id="signaturePadContainer" class="signature-pad-modern d-none">
                                     <div class="signature-header">
-                                        <span class="signature-title">Draw Your Signature</span>
+                                        <span class="signature-title">Add Your Signature</span>
                                         <button class="close-signature" onclick="toggleSignaturePad()">
                                             <i class="bi bi-x"></i>
                                         </button>
                                     </div>
-                                    <div class="signature-canvas-wrapper">
-                                        <canvas id="signatureCanvas" class="signature-canvas"></canvas>
+                                    <div class="signature-upload-section">
+                                        <label for="signatureUpload" class="upload-label">
+                                            <i class="bi bi-upload me-2"></i>
+                                            Upload Signature Image
+                                        </label>
+                                        <input type="file" id="signatureUpload" accept="image/*" class="signature-upload-input">
+                                        <div class="upload-hint">
+                                            <i class="bi bi-info-circle"></i>
+                                            Upload a PNG, JPG, or GIF image of your signature
+                                        </div>
+                                    </div>
+                                    <div class="signature-divider">
+                                        <span>or</span>
+                                    </div>
+                                    <div class="signature-draw-section">
+                                        <div class="draw-header">Draw Your Signature</div>
+                                        <div class="signature-canvas-wrapper">
+                                            <canvas id="signatureCanvas" class="signature-canvas"></canvas>
+                                        </div>
                                     </div>
                                     <div class="signature-actions">
                                         <button type="button" class="btn-signature clear" id="sigClearBtn">
@@ -404,12 +421,12 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                         </button>
                                         <button type="button" class="btn-signature save" id="sigSaveBtn">
                                             <i class="bi bi-check2"></i>
-                                            Apply Signature
+                                            Use Signature
                                         </button>
                                     </div>
                                     <div class="signature-hint">
                                         <i class="bi bi-info-circle"></i>
-                                        Draw your signature using your mouse or touch device
+                                        Upload an image or draw your signature using your mouse or touch device
                                     </div>
                                 </div>
                             </div>

@@ -289,6 +289,7 @@ class CalendarApp {
     // Department color mapping function
     getDepartmentColor(department) {
         // Map known unit names (aligned with schema.sql seed data) to bootstrap color classes
+        // EDIT: PPFO & ADMIN
         const colorMap = {
             // Offices
             'Administration Office': 'bg-secondary',

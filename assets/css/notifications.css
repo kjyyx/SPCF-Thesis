@@ -2553,6 +2553,78 @@ body {
     min-height: 220px;
 }
 
+.signature-upload-section {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+.upload-label {
+    display: inline-block;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    color: #334155;
+    border: 1px solid rgba(203, 213, 225, 0.6);
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    margin-bottom: 0.5rem;
+}
+
+.upload-label:hover {
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    border-color: #3b82f6;
+}
+
+.signature-upload-input {
+    display: none;
+}
+
+.upload-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-top: 0.5rem;
+}
+
+.signature-divider {
+    text-align: center;
+    margin: 1rem 0;
+    position: relative;
+}
+
+.signature-divider span {
+    background: white;
+    padding: 0 1rem;
+    color: #64748b;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.signature-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: rgba(226, 232, 240, 0.6);
+}
+
+.signature-draw-section {
+    padding: 1rem;
+}
+
+.draw-header {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
 .signature-canvas {
     border: 2px dashed rgba(203, 213, 225, 0.8);
     border-radius: 8px;

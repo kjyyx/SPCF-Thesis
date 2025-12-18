@@ -1006,6 +1006,33 @@ class DocumentNotificationSystem {
 
         this._initCanvasDrawing(canvas);
 
+        // Handle signature upload
+        const uploadInput = document.getElementById('signatureUpload');
+        if (uploadInput) {
+            uploadInput.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            // Clear canvas and draw uploaded image
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            // Calculate scaling to fit canvas while maintaining aspect ratio
+                            const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                            const scaledWidth = img.width * scale;
+                            const scaledHeight = img.height * scale;
+                            const x = (canvas.width - scaledWidth) / 2;
+                            const y = (canvas.height - scaledHeight) / 2;
+                            ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+                        };
+                        img.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+        }
+
         const clearBtn = document.getElementById('sigClearBtn');
         const saveBtn = document.getElementById('sigSaveBtn');
         if (clearBtn) clearBtn.onclick = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); };
@@ -1146,7 +1173,7 @@ class DocumentNotificationSystem {
             formData.append('action', 'sign');
             formData.append('document_id', docId);
             formData.append('step_id', stepId);
-            if (this.signatureImage) formData.append('signature_image', this.signatureImage);
+            // Note: signature_image is not sent to avoid saving it on the server
             if (this.currentSignatureMap) formData.append('signature_map', JSON.stringify(this.currentSignatureMap));
             if (signedPdfBlob) formData.append('signed_pdf', signedPdfBlob, 'signed_document.pdf');
 
@@ -1162,6 +1189,10 @@ class DocumentNotificationSystem {
                     title: 'Document Signed',
                     message: 'Document has been successfully signed and approved. The updated file has been saved and passed to the next signer.'
                 });
+
+                // Clear signature from memory after successful signing
+                this.signatureImage = null;
+                this.currentSignatureMap = null;
 
                 // Refresh data and return to dashboard (no modal)
                 await this.loadDocuments();

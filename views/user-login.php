@@ -43,32 +43,45 @@ $successMessage = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     $userId = $_POST['userId'] ?? '';
     $password = $_POST['password'] ?? '';
-    $loginType = $_POST['loginType'] ?? '';
 
-    if (!empty($userId) && !empty($password) && !empty($loginType)) {
-        $auth = new Auth();
-        $user = $auth->login($userId, $password, $loginType);
-
-        if ($user) {
-            // Login successful
-            loginUser($user);
-
-            // ADD AUDIT LOG FOR SUCCESSFUL LOGIN
-            addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in", $user['id'], 'User', 'INFO');
-
-            // Redirect based on role
-            if ($user['role'] === 'admin') {
-                header('Location: admin-dashboard.php');
-            } else {
-                header('Location: event-calendar.php');
-            }
-            exit();
+    if (!empty($userId) && !empty($password)) {
+        // Automatic user role detection based on user ID prefix
+        $loginType = '';
+        if (substr($userId, 0, 3) === 'ADM') {
+            $loginType = 'admin';
+        } elseif (substr($userId, 0, 3) === 'EMP') {
+            $loginType = 'employee';
+        } elseif (substr($userId, 0, 3) === 'STU') {
+            $loginType = 'student';
         } else {
-            // Login failed
-            $error = 'Invalid credentials. Please try again.';
+            $error = 'Invalid User ID format. User ID must start with ADM, EMP, or STU.';
+        }
 
-            // ADD AUDIT LOG FOR FAILED LOGIN
-            addAuditLog('LOGIN_FAILED', 'Security', "Failed login attempt for user: {$userId}", null, 'User', 'WARNING');
+        if ($loginType) {
+            $auth = new Auth();
+            $user = $auth->login($userId, $password, $loginType);
+
+            if ($user) {
+                // Login successful
+                loginUser($user);
+
+                // ADD AUDIT LOG FOR SUCCESSFUL LOGIN
+                addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in", $user['id'], 'User', 'INFO');
+
+                // Redirect based on role
+                if ($user['role'] === 'admin') {
+                    header('Location: admin-dashboard.php');
+                } else {
+                    header('Location: event-calendar.php');
+                }
+                exit();
+            } else {
+                // Login failed
+                $error = 'Invalid credentials. Please try again.';
+
+                // ADD AUDIT LOG FOR FAILED LOGIN
+                addAuditLog('LOGIN_FAILED', 'Security', "Failed login attempt for user: {$userId}", null, 'User', 'WARNING');
+            }
         }
     } else {
         $error = 'Please fill in all fields.';
@@ -105,34 +118,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
         <!-- Login Body -->
         <div class="login-body">
             <form id="loginForm" method="POST" action="">
-                <input type="hidden" name="loginType" id="loginTypeInput" value="">
                 <input type="hidden" name="login" value="1">
 
                 <!-- Show error if exists -->
                 <?php if (!empty($error)): ?>
                     <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
                 <?php endif; ?>
-
-                <!-- Login Type Selection -->
-                <div class="form-group">
-                    <label class="form-label">
-                        <i class="bi bi-person-badge"></i>Login As
-                    </label>
-                    <div class="login-type-buttons">
-                        <button type="button" class="type-btn employee" id="employeeBtn"
-                            onclick="selectLoginType('employee')">
-                            <i class="bi bi-briefcase"></i>Employee
-                        </button>
-                        <button type="button" class="type-btn student" id="studentBtn"
-                            onclick="selectLoginType('student')">
-                            <i class="bi bi-mortarboard"></i>Student
-                        </button>
-                        <button type="button" class="type-btn admin admin-btn" id="adminBtn"
-                            onclick="selectLoginType('admin')">
-                            <i class="bi bi-shield-lock"></i>Administrator
-                        </button>
-                    </div>
-                </div>
 
                 <!-- User ID -->
                 <div class="form-group">
@@ -176,9 +167,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                 <?php endif; ?>
 
                 <!-- Login Button -->
-                <button type="submit" class="login-btn" id="loginButton" disabled>
-                    <i class="bi bi-box-arrow-in-right"></i>
-                    Select Login Type First
+                <button type="submit" class="login-btn" id="loginButton">
+                    <i class="bi bi-box-arrow-in-right"></i>Sign In
                 </button>
 
                 <!-- Forgot Password -->
@@ -256,101 +246,101 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                         <form id="mfaVerificationForm">
                             <div class="form-group">
                                 <label for="mfaCode" class="form-label">Enter 6-Digit Verification Code</label>
-                                <input type="text" class="form-control mfa-code-input" id="mfaCode" placeholder="000000"
-                                    maxlength="6" pattern="[0-9]{6}" required>
-                                <div class="timer-text">Code expires in <span id="codeTimer">5:00</span></div>
-                            </div>
-
-                            <div id="mfaError" class="alert alert-danger d-none" role="alert">
-                                <i class="bi bi-exclamation-triangle"></i>
-                                <span id="mfaErrorMessage"></span>
-                            </div>
-
-                            <div class="text-center mb-3">
-                                <button type="button" class="btn-link" id="resendCodeBtn" onclick="resendMfaCode()">
-                                    <i class="bi bi-arrow-clockwise"></i>Resend Code
-                                </button>
-                            </div>
-
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-secondary" onclick="backToStep1()">
-                                    <i class="bi bi-arrow-left"></i>Back
-                                </button>
-                                <button type="submit" class="btn btn-info flex-fill">
-                                    <i class="bi bi-check-circle"></i>Verify Code
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-
-                    <!-- Step 3: Reset Password -->
-                    <div id="forgotPasswordStep3" style="display: none;">
-                        <div class="step-content">
-                            <div class="step-icon bg-success bg-opacity-10 text-success">
-                                <i class="bi bi-shield-check"></i>
-                            </div>
-                            <h6 class="step-title">Reset Your Password</h6>
-                            <p class="step-description">Create a new secure password for your account</p>
+                            <input type="text" class="form-control mfa-code-input" id="mfaCode" placeholder="000000"
+                                maxlength="6" pattern="[0-9]{6}" required>
+                            <div class="timer-text">Code expires in <span id="codeTimer">5:00</span></div>
                         </div>
 
-                        <form id="resetPasswordForm">
-                            <div class="form-group">
-                                <label for="newPasswordReset" class="form-label">New Password</label>
-                                <div class="password-wrapper">
-                                    <input type="password" class="form-control" id="newPasswordReset" required
-                                        minlength="6">
-                                    <button type="button" class="password-toggle" id="newPasswordResetToggle">
-                                        <i class="bi bi-eye" id="newPasswordResetIcon"></i>
-                                    </button>
-                                </div>
-                                <div class="timer-text">Password must be at least 6 characters long</div>
-                            </div>
+                        <div id="mfaError" class="alert alert-danger d-none" role="alert">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <span id="mfaErrorMessage"></span>
+                        </div>
 
-                            <div class="form-group">
-                                <label for="confirmPasswordReset" class="form-label">Confirm New Password</label>
-                                <div class="password-wrapper">
-                                    <input type="password" class="form-control" id="confirmPasswordReset" required>
-                                    <button type="button" class="password-toggle" id="confirmPasswordResetToggle">
-                                        <i class="bi bi-eye" id="confirmPasswordResetIcon"></i>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div id="resetPasswordError" class="alert alert-danger d-none" role="alert">
-                                <i class="bi bi-exclamation-triangle"></i>
-                                <span id="resetPasswordErrorMessage"></span>
-                            </div>
-
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-secondary" onclick="backToStep2()">
-                                    <i class="bi bi-arrow-left"></i>Back
-                                </button>
-                                <button type="submit" class="btn btn-success flex-fill">
-                                    <i class="bi bi-check-lg"></i>Reset Password
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-
-                    <!-- Step 4: Success -->
-                    <div id="forgotPasswordStep4" style="display: none;">
-                        <div class="step-content">
-                            <div class="step-icon bg-success bg-opacity-10 text-success"
-                                style="width: 100px; height: 100px; font-size: 3rem;">
-                                <i class="bi bi-check-circle"></i>
-                            </div>
-                            <h5 class="step-title text-success">Password Reset Successful!</h5>
-                            <p class="step-description">Your password has been successfully updated. You can now log in
-                                with your new password.</p>
-                            <button type="button" class="btn btn-success" onclick="closeForgotPasswordModal()">
-                                <i class="bi bi-box-arrow-in-right"></i>Return to Login
+                        <div class="text-center mb-3">
+                            <button type="button" class="btn-link" id="resendCodeBtn" onclick="resendMfaCode()">
+                                <i class="bi bi-arrow-clockwise"></i>Resend Code
                             </button>
                         </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-secondary" onclick="backToStep1()">
+                                <i class="bi bi-arrow-left"></i>Back
+                            </button>
+                            <button type="submit" class="btn btn-info flex-fill">
+                                <i class="bi bi-check-circle"></i>Verify Code
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Step 3: Reset Password -->
+                <div id="forgotPasswordStep3" style="display: none;">
+                    <div class="step-content">
+                        <div class="step-icon bg-success bg-opacity-10 text-success">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                        <h6 class="step-title">Reset Your Password</h6>
+                        <p class="step-description">Create a new secure password for your account</p>
+                    </div>
+
+                    <form id="resetPasswordForm">
+                        <div class="form-group">
+                            <label for="newPasswordReset" class="form-label">New Password</label>
+                            <div class="password-wrapper">
+                                <input type="password" class="form-control" id="newPasswordReset" required
+                                    minlength="6">
+                                <button type="button" class="password-toggle" id="newPasswordResetToggle">
+                                    <i class="bi bi-eye" id="newPasswordResetIcon"></i>
+                                </button>
+                            </div>
+                            <div class="timer-text">Password must be at least 6 characters long</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="confirmPasswordReset" class="form-label">Confirm New Password</label>
+                            <div class="password-wrapper">
+                                <input type="password" class="form-control" id="confirmPasswordReset" required>
+                                <button type="button" class="password-toggle" id="confirmPasswordResetToggle">
+                                    <i class="bi bi-eye" id="confirmPasswordResetIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="resetPasswordError" class="alert alert-danger d-none" role="alert">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <span id="resetPasswordErrorMessage"></span>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-secondary" onclick="backToStep2()">
+                                <i class="bi bi-arrow-left"></i>Back
+                            </button>
+                            <button type="submit" class="btn btn-success flex-fill">
+                                <i class="bi bi-check-lg"></i>Reset Password
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Step 4: Success -->
+                <div id="forgotPasswordStep4" style="display: none;">
+                    <div class="step-content">
+                        <div class="step-icon bg-success bg-opacity-10 text-success"
+                            style="width: 100px; height: 100px; font-size: 3rem;">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                        <h5 class="step-title text-success">Password Reset Successful!</h5>
+                        <p class="step-description">Your password has been successfully updated. You can now log in
+                            with your new password.</p>
+                        <button type="button" class="btn btn-success" onclick="closeForgotPasswordModal()">
+                            <i class="bi bi-box-arrow-in-right"></i>Return to Login
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>

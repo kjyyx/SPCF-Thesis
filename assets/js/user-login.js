@@ -2,50 +2,6 @@
 
 console.log('user-login.js loaded');
 
-let selectedLoginType = null;
-
-// Login type selection function
-function selectLoginType(type) {
-    selectedLoginType = type;
-
-    // Reset all buttons
-    document.querySelectorAll('.type-btn').forEach(btn => btn.classList.remove('active'));
-
-    const loginButton = document.getElementById('loginButton');
-    const loginTypeInput = document.getElementById('loginTypeInput');
-    const selectedBtn = document.getElementById(type + 'Btn');
-
-    // Add active state to selected button
-    selectedBtn.classList.add('active');
-    
-    // Set the hidden input value for form submission
-    loginTypeInput.value = type;
-
-    // Update login button based on selection
-    if (type === 'employee') {
-        loginButton.innerHTML = '<i class="bi bi-briefcase"></i>Sign In as Employee';
-        loginButton.className = 'login-btn employee';
-        loginButton.disabled = false;
-    } else if (type === 'student') {
-        loginButton.innerHTML = '<i class="bi bi-mortarboard"></i>Sign In as Student';
-        loginButton.className = 'login-btn student';
-        loginButton.disabled = false;
-    } else if (type === 'admin') {
-        loginButton.innerHTML = '<i class="bi bi-shield-lock"></i>Sign In as Administrator';
-        loginButton.className = 'login-btn admin';
-        loginButton.disabled = false;
-    }
-
-    // Hide any login errors when user changes selection
-    hideLoginError();
-
-    // Add smooth transition effect
-    loginButton.style.transform = 'scale(0.95)';
-    setTimeout(() => {
-        loginButton.style.transform = 'scale(1)';
-    }, 100);
-}
-
 // Password visibility toggle (global so inline onclick can call it)
 function togglePasswordVisibility(fieldId) {
     const field = document.getElementById(fieldId);
@@ -119,11 +75,6 @@ function attachLoginSubmitHandler() {
     const form = document.getElementById('loginForm');
     if (!form) return;
     form.addEventListener('submit', function (e) {
-        if (!selectedLoginType) {
-            e.preventDefault();
-            showLoginError('Please select whether you are logging in as an Employee, Student, or Administrator.');
-            return;
-        }
         const userId = document.getElementById('userId').value;
         const password = document.getElementById('password').value;
         if (!userId || !password) {
@@ -251,12 +202,6 @@ document.addEventListener('DOMContentLoaded', function () {
         setTimeout(() => {
             hideLoginError();
         }, 5000);
-    }
-
-    // If a login type was previously selected, restore it
-    const loginTypeInput = document.getElementById('loginTypeInput');
-    if (loginTypeInput && loginTypeInput.value) {
-        selectLoginType(loginTypeInput.value);
     }
 
     // Add event listeners for forgot password modal toggles

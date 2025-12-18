@@ -1316,51 +1316,26 @@ function signDocument($input, $files = null)
         }
     }
 
-    // Optional signature image data URL -> save as PNG
-    $signaturePathForDB = null;
-    if (!empty($input['signature_image']) && is_string($input['signature_image'])) {
-        $prefix = 'data:image/png;base64,';
-        if (strpos($input['signature_image'], $prefix) === 0) {
-            $base64 = substr($input['signature_image'], strlen($prefix));
-            $bin = base64_decode($base64);
-            if ($bin !== false) {
-                $sigDir = realpath(__DIR__ . '/../assets');
-                if (!$sigDir) {
-                    $sigDir = __DIR__ . '/../assets';
-                }
-                $sigDir = rtrim($sigDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'signatures';
-                if (!is_dir($sigDir)) {
-                    @mkdir($sigDir, 0775, true);
-                }
-                $fn = 'signature_doc' . $documentId . '_emp' . $currentUser['id'] . '_' . time() . '.png';
-                $abs = $sigDir . DIRECTORY_SEPARATOR . $fn;
-                if (@file_put_contents($abs, $bin) !== false) {
-                    $signaturePathForDB = '../assets/signatures/' . $fn; // web-relative path
-                }
-            }
-        }
-    }
-
     $db->beginTransaction();
 
     try {
-        // Update document signature (store signature image path if provided)
+        // Update document signature
         if ($currentUser['role'] === 'employee') {
             $stmt = $db->prepare("
-                INSERT INTO document_signatures (document_id, step_id, employee_id, status, signed_at, signature_path)
-                VALUES (?, ?, ?, 'signed', NOW(), ?)
+                INSERT INTO document_signatures (document_id, step_id, employee_id, status, signed_at)
+                VALUES (?, ?, ?, 'signed', NOW())
                 ON DUPLICATE KEY UPDATE
-                status = 'signed', signed_at = NOW(), signature_path = VALUES(signature_path)
+                status = 'signed', signed_at = NOW()
             ");
-            $stmt->execute([$documentId, $stepId, $currentUser['id'], $signaturePathForDB]);
+            $stmt->execute([$documentId, $stepId, $currentUser['id']]);
         } elseif ($currentUser['role'] === 'student') {
             $stmt = $db->prepare("
-                INSERT INTO document_signatures (document_id, step_id, student_id, status, signed_at, signature_path)
-                VALUES (?, ?, ?, 'signed', NOW(), ?)
+                INSERT INTO document_signatures (document_id, step_id, student_id, status, signed_at)
+                VALUES (?, ?, ?, 'signed', NOW())
                 ON DUPLICATE KEY UPDATE
-                status = 'signed', signed_at = NOW(), signature_path = VALUES(signature_path)
+                status = 'signed', signed_at = NOW()
             ");
-            $stmt->execute([$documentId, $stepId, $currentUser['id'], $signaturePathForDB]);
+            $stmt->execute([$documentId, $stepId, $currentUser['id']]);
         }
 
         // Update document step

@@ -118,6 +118,8 @@ class CalendarApp {
             document.getElementById('addEventBtn')?.addEventListener('click', () => this.openEventModal());
             document.getElementById('saveEventBtn')?.addEventListener('click', () => this.saveEvent());
             document.getElementById('deleteBtn')?.addEventListener('click', () => this.deleteEvent());
+            document.getElementById('approveBtn')?.addEventListener('click', () => this.approveEvent());
+            document.getElementById('disapproveBtn')?.addEventListener('click', () => this.disapproveEvent());
         }
         
         // Event form submission
@@ -137,13 +139,17 @@ class CalendarApp {
                 (data.events || []).forEach(ev => {
                     const date = ev.event_date;
                     if (!map[date]) map[date] = [];
+                    const isApproved = ev.approved == 1;
+                    const isPencilBooked = !isApproved;
                     map[date].push({
                         id: String(ev.id),
                         title: ev.title,
                         time: ev.event_time || '',
                         description: ev.description || '',
                         department: ev.department || '',
-                        color: this.getDepartmentColor(ev.department || '')
+                        isApproved: isApproved,
+                        isPencilBooked: isPencilBooked,
+                        color: isApproved ? this.getDepartmentColor(ev.department || '') : 'bg-secondary' // Gray for pencil-booked
                     });
                 });
                 this.events = map;
@@ -404,7 +410,7 @@ class CalendarApp {
                 const dayEvents = this.events[dateStr] || [];
                 dayEvents.slice(0, 3).forEach(event => {
                     const eventElement = document.createElement('div');
-                    const eventColor = event.department ? this.getDepartmentColor(event.department) : (event.color || 'bg-primary');
+                    const eventColor = event.color || 'bg-primary';
                     eventElement.className = `event-item ${eventColor}`;
                     eventElement.dataset.eventId = event.id;
                     eventElement.dataset.date = dateStr;
@@ -412,7 +418,8 @@ class CalendarApp {
                     // Tooltip shows time and department when available
                     const timeStr = event.time ? `${event.time} - ` : '';
                     const deptStr = event.department ? ` (${event.department})` : '';
-                    eventElement.title = `${timeStr}${event.title}${deptStr}`;
+                    const statusStr = event.isPencilBooked ? ' [Pencil-booked]' : ' [Approved]';
+                    eventElement.title = `${timeStr}${event.title}${deptStr}${statusStr}`;
                     
                     // Add click handler
                     eventElement.addEventListener('click', (e) => {
@@ -561,7 +568,7 @@ class CalendarApp {
             day: 'numeric'
         });
         
-        const deptBg = this.getDepartmentColor(event.department || '');
+        const deptBg = event.color || 'bg-primary';
         const deptText = this.getTextColorForBg(deptBg);
         eventDiv.innerHTML = `
             <div class="event-list-header">
@@ -650,6 +657,11 @@ class CalendarApp {
         }
         document.getElementById('deleteBtn').style.display = 'inline-block';
 
+        // Show approve/disapprove buttons for EVP
+        const isEVP = currentUser && currentUser.role === 'employee' && (currentUser.position === 'EVP' || currentUser.position === 'Executive Vice President');
+        document.getElementById('approveBtn').style.display = isEVP ? 'inline-block' : 'none';
+        document.getElementById('disapproveBtn').style.display = isEVP ? 'inline-block' : 'none';
+
         const modal = new bootstrap.Modal(document.getElementById('eventModal'));
         modal.show();
     }
@@ -671,6 +683,7 @@ class CalendarApp {
         document.getElementById('viewEventDate').textContent = formattedDate;
         document.getElementById('viewEventTime').textContent = event.time;
         document.getElementById('viewEventDepartment').textContent = event.department || 'University';
+        document.getElementById('viewEventStatus').textContent = event.isApproved ? 'Approved Event' : 'Pencil-booked Event';
 
         const modal = new bootstrap.Modal(document.getElementById('viewEventModal'));
         modal.show();
@@ -763,6 +776,52 @@ class CalendarApp {
                 }
             })
             .catch(err => { console.error(err); this.showToast('Server error deleting event', 'error'); });
+    }
+    
+    approveEvent() {
+        if (!editingEventId) return;
+
+        fetch(`../api/events.php?id=${encodeURIComponent(editingEventId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'approve' })
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    window.addAuditLog('EVENT_APPROVED', 'Event Management', `Approved event ID: ${editingEventId}`, editingEventId, 'Event');
+                    this.loadEvents();
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
+                    modal?.hide();
+                    this.showToast('Event approved successfully', 'success');
+                } else {
+                    this.showToast(res.message || 'Approval failed', 'error');
+                }
+            })
+            .catch(err => { console.error(err); this.showToast('Server error approving event', 'error'); });
+    }
+    
+    disapproveEvent() {
+        if (!editingEventId) return;
+
+        fetch(`../api/events.php?id=${encodeURIComponent(editingEventId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'disapprove' })
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    window.addAuditLog('EVENT_DISAPPROVED', 'Event Management', `Disapproved event ID: ${editingEventId}`, editingEventId, 'Event');
+                    this.loadEvents();
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
+                    modal?.hide();
+                    this.showToast('Event disapproved successfully', 'success');
+                } else {
+                    this.showToast(res.message || 'Disapproval failed', 'error');
+                }
+            })
+            .catch(err => { console.error(err); this.showToast('Server error disapproving event', 'error'); });
     }
     
     isToday(date) {

@@ -216,6 +216,21 @@ if ($method === 'POST') {
     // DEBUG: Log API request
     error_log("DEBUG api/auth.php: API login request - userId=$userId, loginType=$loginType, password_length=" . strlen($password));
 
+    // Check for brute force cooldown
+    $db = (new Database())->getConnection();
+    $stmt = $db->prepare("SELECT attempts, locked_until FROM login_attempts WHERE user_id = ?");
+    $stmt->execute([$userId]);
+    $attemptData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $now = new DateTime();
+    if ($attemptData && $attemptData['locked_until'] && new DateTime($attemptData['locked_until']) > $now) {
+        $remaining = $now->diff(new DateTime($attemptData['locked_until']));
+        $minutes = $remaining->i;
+        $seconds = $remaining->s;
+        echo json_encode(['success' => false, 'message' => "Too many failed attempts. Try again in {$minutes}m {$seconds}s.", 'cooldown' => true]);
+        exit;
+    }
+
     $auth = new Auth();
     $user = $auth->login($userId, $password, $loginType);
 
@@ -223,10 +238,24 @@ if ($method === 'POST') {
     error_log("DEBUG api/auth.php: Auth->login returned: " . ($user ? 'SUCCESS' : 'FAILED'));
 
     if ($user) {
+        // Reset attempts on success
+        $stmt = $db->prepare("DELETE FROM login_attempts WHERE user_id = ?");
+        $stmt->execute([$userId]);
+
         loginUser($user);
         error_log("DEBUG api/auth.php: User logged in via API - id=" . $user['id'] . ", role=" . $user['role']);
         echo json_encode(['success' => true, 'user' => $user]);
     } else {
+        // Increment attempts on failure
+        $attempts = ($attemptData ? $attemptData['attempts'] : 0) + 1;
+        $lockedUntil = null;
+        if ($attempts >= 5) {
+            $lockedUntil = $now->add(new DateInterval('PT1M'))->format('Y-m-d H:i:s'); // 1 minute lock
+            $attempts = 0; // Reset after lock
+        }
+        $stmt = $db->prepare("INSERT INTO login_attempts (user_id, attempts, locked_until) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE attempts = ?, locked_until = ?");
+        $stmt->execute([$userId, $attempts, $lockedUntil, $attempts, $lockedUntil]);
+
         error_log("DEBUG api/auth.php: API login failed");
         echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
     }

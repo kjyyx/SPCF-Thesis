@@ -16,15 +16,19 @@ function togglePasswordVisibility(fieldId) {
     }
 }
 
-// Login error handling functions
-function showLoginError(message) {
+// Cooldown timer variables
+let cooldownTimer;
+let cooldownEndTime;
+
+// Show cooldown message with live countdown
+function showCooldownMessage(message) {
     const errorDiv = document.getElementById('loginError');
     const errorMessage = document.getElementById('loginErrorMessage');
     
     if (errorDiv && errorMessage) {
         errorMessage.textContent = message;
         errorDiv.classList.remove('d-none', 'alert-success');
-        errorDiv.classList.add('alert-danger');
+        errorDiv.classList.add('alert-warning'); // Use warning color for cooldown
 
         // Smooth slide-in animation
         errorDiv.style.opacity = '0';
@@ -34,11 +38,61 @@ function showLoginError(message) {
             errorDiv.style.transform = 'translateY(0)';
         }, 10);
 
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
-            hideLoginError();
-        }, 5000);
+        // Start countdown timer
+        startCooldownTimer();
     }
+}
+
+// Start live countdown for cooldown
+function startCooldownTimer() {
+    // Parse initial message to get total seconds (assuming format "Try again in Xm Ys")
+    const message = document.getElementById('loginErrorMessage').textContent;
+    const match = message.match(/Try again in (\d+)m (\d+)s/);
+    if (match) {
+        const minutes = parseInt(match[1]);
+        const seconds = parseInt(match[2]);
+        const totalSeconds = minutes * 60 + seconds;
+        cooldownEndTime = Date.now() + totalSeconds * 1000;
+
+        // Clear any existing timer
+        if (cooldownTimer) clearInterval(cooldownTimer);
+
+        cooldownTimer = setInterval(updateCooldownDisplay, 1000);
+        updateCooldownDisplay(); // Initial update
+    }
+}
+
+// Update cooldown display every second
+function updateCooldownDisplay() {
+    const now = Date.now();
+    const remainingMs = cooldownEndTime - now;
+    
+    if (remainingMs <= 0) {
+        // Cooldown expired
+        clearInterval(cooldownTimer);
+        hideLoginError();
+        enableFormAfterCooldown();
+        return;
+    }
+
+    const remainingSeconds = Math.ceil(remainingMs / 1000);
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = remainingSeconds % 60;
+    
+    const errorMessage = document.getElementById('loginErrorMessage');
+    if (errorMessage) {
+        errorMessage.textContent = `Too many failed attempts. Try again in ${minutes}m ${seconds}s.`;
+    }
+}
+
+// Enable form after cooldown
+function enableFormAfterCooldown() {
+    const form = document.getElementById('loginForm');
+    const inputs = form.querySelectorAll('input');
+    const button = document.getElementById('loginButton');
+    inputs.forEach(input => input.disabled = false);
+    button.disabled = false;
+    button.innerHTML = '<i class="bi bi-box-arrow-in-right"></i>Sign In';
 }
 
 function hideLoginError() {
@@ -74,20 +128,70 @@ function hideForgotPasswordError() {
 function attachLoginSubmitHandler() {
     const form = document.getElementById('loginForm');
     if (!form) return;
-    form.addEventListener('submit', function (e) {
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault(); // Prevent default form submission
+
         const userId = document.getElementById('userId').value;
         const password = document.getElementById('password').value;
         if (!userId || !password) {
-            e.preventDefault();
             showLoginError('Please enter both User ID and Password.');
             return;
         }
+
         const loginButton = document.getElementById('loginButton');
         const loginContainer = document.querySelector('.login-container');
         loginContainer.classList.add('loading');
         loginButton.innerHTML = '<i class="bi bi-hourglass-split"></i>Signing In...';
         loginButton.disabled = true;
+
+        try {
+            const response = await fetch('../api/auth.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, password, loginType: detectLoginType(userId) })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                // Successful login
+                window.location.href = data.user.role === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php';
+            } else {
+                // Handle cooldown
+                if (data.cooldown) {
+                    showCooldownMessage(data.message);
+                    disableFormForCooldown(); // Disable form during cooldown
+                } else {
+                    showLoginError(data.message || 'Invalid credentials. Please try again.');
+                }
+            }
+        } catch (error) {
+            showLoginError('Server error. Please try again.');
+        } finally {
+            loginContainer.classList.remove('loading');
+            loginButton.innerHTML = '<i class="bi bi-box-arrow-in-right"></i>Sign In';
+            loginButton.disabled = false;
+        }
     });
+}
+
+// Helper to detect login type
+function detectLoginType(userId) {
+    if (userId.startsWith('ADM')) return 'admin';
+    if (userId.startsWith('EMP')) return 'employee';
+    if (userId.startsWith('STU')) return 'student';
+    return '';
+}
+
+// Disable form during cooldown
+function disableFormForCooldown() {
+    const form = document.getElementById('loginForm');
+    const inputs = form.querySelectorAll('input');
+    const button = document.getElementById('loginButton');
+    inputs.forEach(input => input.disabled = true);
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-clock"></i>Cooldown Active';
+
+    // Note: Form will be re-enabled by the countdown timer when cooldown expires
 }
 
 // Forgot Password Modal Functions
@@ -198,11 +302,19 @@ document.addEventListener('DOMContentLoaded', function () {
     // Check if there's a PHP error message to display
     const errorDiv = document.getElementById('loginError');
     if (errorDiv && !errorDiv.classList.contains('d-none')) {
-        // Make error message auto-hide after 5 seconds
-        setTimeout(() => {
-            hideLoginError();
-        }, 5000);
+        // Check if it's a cooldown message
+        const errorMessage = document.getElementById('loginErrorMessage');
+        if (errorMessage && errorMessage.textContent.includes('Try again in')) {
+            errorDiv.classList.remove('alert-danger');
+            errorDiv.classList.add('alert-warning');
+            startCooldownTimer();
+            disableFormForCooldown();
+        }
     }
+    // Make error message auto-hide after 5 seconds
+    setTimeout(() => {
+        hideLoginError();
+    }, 5000);
 
     // Add event listeners for forgot password modal toggles
     const newPasswordToggle = document.getElementById('newPasswordResetToggle');

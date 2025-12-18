@@ -33,6 +33,7 @@ try {
     // Only employees/admins can modify events
     $role = $_SESSION['user_role'] ?? null;
     $userId = $_SESSION['user_id'] ?? null;
+    $currentUser = getUser($userId, $role);
 
     switch ($method) {
         case 'GET':
@@ -44,12 +45,14 @@ try {
              * Events are ordered by date and time.
              */
 
-            // Join units to expose readable department name for UI
+            // Join units and documents to expose readable department name and approval status for UI
             $query = "SELECT e.id, e.title, e.description, e.event_date, e.event_time, e.unit_id,
-                             e.created_by, e.created_by_role, e.created_at, e.updated_at,
-                             u.name AS department
+                             e.created_by, e.created_by_role, e.created_at, e.updated_at, e.source_document_id,
+                             e.approved, e.approved_by, e.approved_at,
+                             u.name AS department, d.status AS document_status
                       FROM events e
                       LEFT JOIN units u ON e.unit_id = u.id
+                      LEFT JOIN documents d ON e.source_document_id = d.id
                       ORDER BY e.event_date, e.event_time";
             $stmt = $db->prepare($query);
             $stmt->execute();
@@ -112,6 +115,32 @@ try {
             break;
 
         case 'PUT':
+            $data = json_decode(file_get_contents('php://input'), true);
+            $action = $data['action'] ?? null;
+
+            if ($action === 'approve' || $action === 'disapprove') {
+                // Approval action - only EVP or admin
+                if (!in_array($role, ['admin']) && !($role === 'employee' && strpos($currentUser['position'] ?? '', 'EVP') !== false)) {
+                    echo json_encode(['success' => false, 'message' => 'Not authorized to approve events']);
+                    exit();
+                }
+
+                parse_str($_SERVER['QUERY_STRING'] ?? '', $qs);
+                $id = isset($qs['id']) ? (int) $qs['id'] : 0;
+                if ($id <= 0) {
+                    echo json_encode(['success' => false, 'message' => 'Missing id']);
+                    exit();
+                }
+
+                $approved = $action === 'approve' ? 1 : 0;
+                $stmt = $db->prepare("UPDATE events SET approved = ?, approved_by = ?, approved_at = NOW() WHERE id = ?");
+                $ok = $stmt->execute([$approved, $userId, $id]);
+
+                echo json_encode(['success' => $ok, 'message' => $ok ? 'Event ' . ($approved ? 'approved' : 'disapproved') : 'Update failed']);
+                break;
+            }
+
+            // Regular update
             if (!in_array($role, ['admin', 'employee'])) {
                 echo json_encode(['success' => false, 'message' => 'Not authorized']);
                 exit();
@@ -123,8 +152,6 @@ try {
                 echo json_encode(['success' => false, 'message' => 'Missing id']);
                 exit();
             }
-
-            $data = json_decode(file_get_contents('php://input'), true);
 
             // Admin can edit any; employee can edit only own
             if ($role === 'employee') {

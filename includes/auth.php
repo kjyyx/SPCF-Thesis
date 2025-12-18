@@ -102,4 +102,12 @@ class Auth {
         }
     }
 }
+
+
+// Global helper function for API files
+function getUser($userId, $role) {
+    $auth = new Auth();
+    return $auth->getUser($userId, $role);
+}
+
 ?>

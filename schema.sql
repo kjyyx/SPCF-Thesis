@@ -47,7 +47,8 @@ INSERT IGNORE INTO administrators (id, first_name, last_name, email, password, o
 ('ADM001', 'System', 'Administrator', 'admin@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'IT Department', 'System Administrator');
 
 INSERT IGNORE INTO employees (id, first_name, last_name, email, password, office, position) VALUES
-('EMP001', 'Maria', 'Santos', 'maria.santos@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administration Office', 'Dean');
+('EMP001', 'Maria', 'Santos', 'maria.santos@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administration Office', 'Dean'),
+('EMP002', 'Antonio', 'Rodriguez', 'antonio.rodriguez@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administration Office', 'Executive Vice President');
 
 INSERT IGNORE INTO students (id, first_name, last_name, email, password, department, position) VALUES
 ('STU001', 'Juan', 'Dela Cruz', 'juan.delacruz@student.university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'College of Engineering', 'Student');
@@ -97,6 +98,9 @@ CREATE TABLE IF NOT EXISTS events (
     source_document_id BIGINT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL DEFAULT NULL,
+    approved TINYINT(1) DEFAULT 0,
+    approved_by VARCHAR(20) NULL,
+    approved_at TIMESTAMP NULL,
     CONSTRAINT fk_events_unit FOREIGN KEY (unit_id) REFERENCES units(id) ON DELETE SET NULL
 );
 
@@ -207,6 +211,16 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     INDEX idx_audit_ts (timestamp),
     INDEX idx_audit_user (user_role, user_id),
     INDEX idx_audit_cat (category, action)
+);
+
+-- Login attempts tracking for brute force prevention
+CREATE TABLE IF NOT EXISTS login_attempts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id VARCHAR(20) NOT NULL,
+    attempts INT DEFAULT 0,
+    last_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    locked_until TIMESTAMP NULL,
+    UNIQUE KEY unique_user (user_id)
 );
 
 -- Password reset tokens

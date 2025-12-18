@@ -390,6 +390,12 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                     <button type="button" class="btn btn-danger" id="deleteBtn" style="display: none;">
                         <i class="bi bi-trash me-1"></i>Delete
                     </button>
+                    <button type="button" class="btn btn-success" id="approveBtn" style="display: none;">
+                        <i class="bi bi-check-circle me-1"></i>Approve
+                    </button>
+                    <button type="button" class="btn btn-warning" id="disapproveBtn" style="display: none;">
+                        <i class="bi bi-x-circle me-1"></i>Disapprove
+                    </button>
                     <button type="button" class="btn btn-primary" id="saveEventBtn">
                         <i class="bi bi-check-circle me-1"></i>Save Event
                     </button>
@@ -433,6 +439,10 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                         <div class="detail-group">
                             <label class="detail-label">Department/College</label>
                             <div class="detail-value" id="viewEventDepartment">-</div>
+                        </div>
+                        <div class="detail-group">
+                            <label class="detail-label">Status</label>
+                            <div class="detail-value" id="viewEventStatus">-</div>
                         </div>
                     </div>
                 </div>

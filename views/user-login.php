@@ -58,29 +58,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
         }
 
         if ($loginType) {
-            $auth = new Auth();
-            $user = $auth->login($userId, $password, $loginType);
+            // Check for brute force cooldown
+            $db = new Database();
+            $conn = $db->getConnection();
+            $stmt = $conn->prepare("SELECT attempts, locked_until FROM login_attempts WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $attemptData = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if ($user) {
-                // Login successful
-                loginUser($user);
-
-                // ADD AUDIT LOG FOR SUCCESSFUL LOGIN
-                addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in", $user['id'], 'User', 'INFO');
-
-                // Redirect based on role
-                if ($user['role'] === 'admin') {
-                    header('Location: admin-dashboard.php');
-                } else {
-                    header('Location: event-calendar.php');
-                }
-                exit();
+            $now = new DateTime();
+            if ($attemptData && $attemptData['locked_until'] && new DateTime($attemptData['locked_until']) > $now) {
+                $remaining = $now->diff(new DateTime($attemptData['locked_until']));
+                $minutes = $remaining->i;
+                $seconds = $remaining->s;
+                $error = "Too many failed attempts. Try again in {$minutes}m {$seconds}s.";
             } else {
-                // Login failed
-                $error = 'Invalid credentials. Please try again.';
+                $auth = new Auth();
+                $user = $auth->login($userId, $password, $loginType);
 
-                // ADD AUDIT LOG FOR FAILED LOGIN
-                addAuditLog('LOGIN_FAILED', 'Security', "Failed login attempt for user: {$userId}", null, 'User', 'WARNING');
+                if ($user) {
+                    // Login successful
+                    loginUser($user);
+
+                    // ADD AUDIT LOG FOR SUCCESSFUL LOGIN
+                    addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in", $user['id'], 'User', 'INFO');
+
+                    // Reset attempts on success
+                    $stmt = $conn->prepare("DELETE FROM login_attempts WHERE user_id = ?");
+                    $stmt->execute([$userId]);
+
+                    // Redirect based on role
+                    if ($user['role'] === 'admin') {
+                        header('Location: admin-dashboard.php');
+                    } else {
+                        header('Location: event-calendar.php');
+                    }
+                    exit();
+                } else {
+                    // Login failed
+                    $error = 'Invalid credentials. Please try again.';
+
+                    // ADD AUDIT LOG FOR FAILED LOGIN
+                    addAuditLog('LOGIN_FAILED', 'Security', "Failed login attempt for user: {$userId}", null, 'User', 'WARNING');
+
+                    // Increment attempts on failure
+                    $attempts = ($attemptData ? $attemptData['attempts'] : 0) + 1;
+                    $lockedUntil = null;
+                    if ($attempts >= 5) {
+                        $lockedUntil = $now->add(new DateInterval('PT1M'))->format('Y-m-d H:i:s'); // 1 minute lock
+                        $attempts = 0; // Reset after lock
+                    }
+                    $stmt = $conn->prepare("INSERT INTO login_attempts (user_id, attempts, locked_until) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE attempts = ?, locked_until = ?");
+                    $stmt->execute([$userId, $attempts, $lockedUntil, $attempts, $lockedUntil]);
+                }
             }
         }
     } else {

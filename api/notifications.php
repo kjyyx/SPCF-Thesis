@@ -20,7 +20,7 @@ $db = $database->getConnection();
 $notifications = [];
 $unreadCount = 0;
 
-if ($currentUser['role'] === 'employee') {
+if ($currentUser['role'] === 'employee' || ($currentUser['role'] === 'student' && $currentUser['position'] === 'SSC President')) {
     // Pending documents to sign
     $stmt = $db->prepare("
         SELECT d.id, d.title, 'pending_document' as type, d.created_at as timestamp

@@ -25,18 +25,19 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 {
     global $db;
     try {
-        $stmt = $db->prepare("INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO audit_logs (user_id, user_role, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $_SESSION['user_id'] ?? null,
+            'admin',
             'Unknown User', // Admin user name not fetched here for simplicity
             $action,
             $category,
             $details,
             $targetId,
             $targetType,
+            $severity,
             $_SERVER['REMOTE_ADDR'] ?? null,
             null, // Set user_agent to null to avoid storing PII
-            $severity
         ]);
     } catch (Exception $e) {
         error_log("Failed to add audit log: " . $e->getMessage());

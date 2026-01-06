@@ -55,15 +55,17 @@ class CalendarApp {
         const studentInfoCompact = document.getElementById('studentInfoCompact');
         const employeeInfoCompact = document.getElementById('employeeInfoCompact');
         const addEventBtn = document.getElementById('addEventBtn');
-        
+        const approvalsBtn = document.getElementById('approvalsBtn'); // Add Approvals button reference
+    
         // Hide all role-specific sections first
         if (studentInfoCompact) studentInfoCompact.style.display = 'none';
         if (employeeInfoCompact) employeeInfoCompact.style.display = 'none';
-        
-        if (currentUser.role === 'student') {
-            // Show student info section for students
+        if (approvalsBtn) approvalsBtn.style.display = 'none'; // Hide by default
+    
+        if (currentUser.role === 'student' && currentUser.position === 'SSC President') {
+            // Show student info section for SSC President
             if (studentInfoCompact) studentInfoCompact.style.display = 'flex';
-            if (addEventBtn) addEventBtn.style.display = 'none';
+            if (approvalsBtn) approvalsBtn.style.display = 'inline-flex'; // Show Approvals button
         } else if (currentUser.role === 'employee') {
             // Show employee info section for employees
             if (employeeInfoCompact) employeeInfoCompact.style.display = 'flex';
@@ -72,7 +74,7 @@ class CalendarApp {
             // Admins don't show either section but can add events
             if (addEventBtn) addEventBtn.style.display = 'inline-flex';
         }
-        
+    
         this.updateUserInfo();
     }
     

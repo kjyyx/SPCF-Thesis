@@ -404,3 +404,17 @@
 2025-12-18 22:02:25 - PDF saved to: ../uploads/filled_doc_69440966797127.12595965.pdf
 2025-12-18 22:02:25 - DOCX cleaned up successfully
 2025-12-18 22:02:25 - Conversion successful
+2026-01-05 20:20:08 - Starting conversion for: ../uploads/filled_doc_695bac781439b7.56098059.docx
+2026-01-05 20:20:08 - API key found
+2026-01-05 20:20:08 - DOCX file exists, size: 156437
+2026-01-05 20:20:08 - CloudConvert client created
+2026-01-05 20:20:08 - Creating job
+2026-01-05 20:20:11 - Job created: 58467ed1-fcc1-4095-bed0-8665394df603
+2026-01-05 20:20:11 - Uploading file
+2026-01-05 20:20:13 - File uploaded
+2026-01-05 20:20:13 - Waiting for completion
+2026-01-05 20:20:14 - Job completed, status: finished
+2026-01-05 20:20:14 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/fe546742-87b9-48b8-86cd-78cc4b85f340/filled_doc_695bac781439b7.56098059.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260105%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260105T122015Z&X-Amz-Expires=86400&X-Amz-Signature=3f9ba6a56854a4293213aea72a918c8dfc547d127484942499f6e36956d1d252&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_695bac781439b7.56098059.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-01-05 20:20:15 - PDF saved to: ../uploads/filled_doc_695bac781439b7.56098059.pdf
+2026-01-05 20:20:15 - DOCX cleaned up successfully
+2026-01-05 20:20:15 - Conversion successful

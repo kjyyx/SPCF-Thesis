@@ -1203,45 +1203,197 @@ body {
     }
 }
 
-/* Utility Classes */
-.d-none {
-    display: none !important;
+/* Notification Styles - Specific to Admin Dashboard */
+#notificationsModal .modal-content {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 24px;
+    box-shadow: 0 25px 50px rgba(15, 23, 42, 0.15);
+    overflow: hidden;
 }
 
-.text-center {
-    text-align: center !important;
+#notificationsModal .modal-header {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 24px 24px 0 0;
+    padding: 1.5rem;
 }
 
-.text-muted {
-    color: #6b7280 !important;
+#notificationsModal .modal-title {
+    font-weight: 700;
+    background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-size: 1.25rem;
 }
 
-.text-danger {
-    color: #dc2626 !important;
+#notificationsModal .modal-body {
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.8);
+    max-height: 60vh;
+    overflow-y: auto;
 }
 
-.text-success {
+#notificationsModal .modal-footer {
+    border-top: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 0 0 24px 24px;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+/* Notification List Items */
+#notificationsList .list-group-item {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    padding: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+#notificationsList .list-group-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12);
+    border-color: #3b82f6;
+}
+
+#notificationsList .list-group-item h6 {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+}
+
+#notificationsList .list-group-item h6 i {
+    color: #3b82f6;
+    font-size: 1rem;
+}
+
+#notificationsList .list-group-item p {
+    color: #475569;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin-bottom: 0.25rem;
+}
+
+#notificationsList .list-group-item small {
+    color: #64748b;
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+
+/* Empty Notifications State */
+.notification-empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 2px dashed rgba(148, 163, 184, 0.4);
+    border-radius: 16px;
+    color: #64748b;
+    margin-bottom: 0;
+}
+
+.empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.7;
+}
+
+.empty-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 0.5rem;
+}
+
+.empty-message {
+    font-size: 0.875rem;
+    color: #64748b;
+    font-style: italic;
+}
+
+/* Notification Item Enhancements */
+.notification-item {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    padding: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.notification-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12);
+    border-color: #3b82f6;
+}
+
+.notification-item h6 {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+}
+
+.notification-item h6 i {
+    color: #3b82f6;
+    font-size: 1rem;
+}
+
+.notification-message {
+    color: #475569;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin-bottom: 0.25rem;
+}
+
+.notification-date {
+    color: #64748b;
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+
+/* Notification Type Icons */
+.notification-icon-document,
+.notification-icon-new-document,
+.notification-icon-document-status {
     color: #059669 !important;
 }
 
-.text-warning {
+.notification-icon-event,
+.notification-icon-upcoming-event,
+.notification-icon-event-reminder {
+    color: #dc2626 !important;
+}
+
+.notification-icon-material,
+.notification-icon-pending-material,
+.notification-icon-material-status {
     color: #d97706 !important;
 }
 
-.text-primary {
-    color: #3b82f6 !important;
+.notification-icon-user,
+.notification-icon-new-user {
+    color: #7c3aed !important;
 }
 
-.mb-0 { margin-bottom: 0 !important; }
-.mb-1 { margin-bottom: 0.25rem !important; }
-.mb-2 { margin-bottom: 0.5rem !important; }
-.mb-3 { margin-bottom: 1rem !important; }
-.mb-4 { margin-bottom: 1.5rem !important; }
-.mb-5 { margin-bottom: 3rem !important; }
+.notification-icon-security,
+.notification-icon-security-alert {
+    color: #dc2626 !important;
+}
 
-.mt-0 { margin-top: 0 !important; }
-.mt-1 { margin-top: 0.25rem !important; }
-.mt-2 { margin-top: 0.5rem !important; }
-.mt-3 { margin-top: 1rem !important; }
-.mt-4 { margin-top: 1.5rem !important; }
-.mt-5 { margin-top: 3rem !important; }
+.notification-icon-account {
+    color: #0891b2 !important;
+}
+
+.notification-icon-system {
+    color: #64748b !important;
+}
+
+.notification-icon-default {
+    color: #3b82f6 !important;
+}

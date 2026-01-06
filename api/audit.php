@@ -151,6 +151,7 @@ switch ($method) {
 
         // Get current user information
         $userId = $_SESSION['user_id'];
+        $userRole = $_SESSION['user_role'];
 
         // Fetch user name from database (union of all user tables)
         $userStmt = $conn->prepare("
@@ -175,9 +176,10 @@ switch ($method) {
         $severity = $data['severity'] ?? 'INFO';
 
         // Insert new audit log entry
-        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_role, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $userId,
+            $userRole,
             $userName,
             $action,
             $category,

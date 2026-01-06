@@ -63,8 +63,7 @@
  * These variables track the current state of the admin interface
  */
 let currentUser = null; // Current logged-in admin user (set by PHP on page load)
-let auditLog = JSON.parse(localStorage.getItem('auditLog')) || []; // Local audit log cache (client-side only)
-let publicMaterials = JSON.parse(localStorage.getItem('publicMaterials')) || []; // Cached materials list (replaced by API)
+let publicMaterials = []; // Materials list (loaded from API)
 
 /**
  * @section User Management State
@@ -144,69 +143,6 @@ function showToast(message, type = 'info', title = null) {
 }
 
 /**
- * Initialize sample data for demonstration purposes
- * Seeds localStorage with sample materials data on first run
- * Real data is fetched from API endpoints during normal operation
- */
-function initializeSampleData() {
-    // Only seed if no materials exist in localStorage
-    if (publicMaterials.length === 0) {
-        const sampleMaterials = [
-            {
-                id: 'MAT001',
-                fileName: 'engineering_symposium_poster.png',
-                fileType: 'image/png',
-                fileSize: '2.4 MB',
-                submittedBy: 'STU001',
-                submitterName: 'Juan Dela Cruz',
-                department: 'College of Engineering',
-                submissionDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-                status: 'approved',
-                description: 'Poster for the upcoming Engineering Symposium event',
-                approvedBy: 'EMP001',
-                approvalDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-                downloadCount: 15,
-                lastDownloaded: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
-            },
-            {
-                id: 'MAT002',
-                fileName: 'nursing_competition_flyer.jpeg',
-                fileType: 'image/jpeg',
-                fileSize: '1.8 MB',
-                submittedBy: 'STU002',
-                submitterName: 'Maria Santos',
-                department: 'College of Nursing',
-                submissionDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-                status: 'pending',
-                description: 'Promotional flyer for nursing skills competition',
-                downloadCount: 0,
-                lastDownloaded: null
-            },
-            {
-                id: 'MAT003',
-                fileName: 'business_plan_template.png',
-                fileType: 'image/png',
-                fileSize: '3.1 MB',
-                submittedBy: 'STU003',
-                submitterName: 'Carlos Rodriguez',
-                department: 'College of Business',
-                submissionDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-                status: 'rejected',
-                description: 'Template design for business plan presentations',
-                rejectedBy: 'EMP001',
-                rejectionDate: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-                rejectionReason: 'Does not meet university branding guidelines',
-                downloadCount: 3,
-                lastDownloaded: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString()
-            }
-        ];
-
-        publicMaterials = sampleMaterials;
-        localStorage.setItem('publicMaterials', JSON.stringify(publicMaterials));
-    }
-}
-
-/**
  * @section Validation Functions
  * Input validation utilities for forms and user data
  * These functions ensure data integrity and provide user feedback
@@ -275,6 +211,32 @@ function hideUserFormMessages() {
  * @param {string|null} targetType - Type of the affected resource (optional)
  * @param {string} severity - Severity level ('INFO', 'WARNING', 'ERROR')
  */
+window.addAuditLog = async function(action, category, details, targetId = null, targetType = null, severity = 'INFO') {
+    console.log('Adding audit log:', {action, category, details, targetId, targetType, severity});
+    try {
+        const response = await fetch('../api/audit.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action,
+                category,
+                details,
+                target_id: targetId,
+                target_type: targetType,
+                severity
+            })
+        });
+        const result = await response.json();
+        console.log('Audit log response:', result);
+        if (!result.success) {
+            console.error('Failed to log audit entry:', result.message);
+        }
+    } catch (e) {
+        console.error('Audit log error:', e);
+    }
+};
 
 /**
  * Load audit logs from server with pagination and filtering
@@ -283,6 +245,7 @@ function hideUserFormMessages() {
  */
 async function loadAuditLogs(page = 1) {
     currentAuditPage = page;
+    console.log('loadAuditLogs called for page:', page);
     try {
         // Get current filter values from UI
         const category = document.getElementById('auditCategoryFilter').value;
@@ -298,9 +261,12 @@ async function loadAuditLogs(page = 1) {
             ...(search && { search })
         });
 
+        console.log('Fetching audit logs with params:', params.toString());
         const data = await apiFetch(`${AUDIT_API}?${params}`);
+        console.log('Audit API response:', data);
         if (data.success) {
             const tbody = document.getElementById('auditTableBody');
+            console.log('auditTableBody element:', tbody);
             tbody.innerHTML = '';
 
             // Render each audit log entry
@@ -312,11 +278,13 @@ async function loadAuditLogs(page = 1) {
             auditLogs = data.logs; // Store for details modal
             totalAuditPages = data.totalPages;
             updateAuditPagination();
+            console.log('Audit logs loaded successfully, count:', data.logs.length);
         } else {
             console.error('Failed to load audit logs', data.message);
             showToast('Failed to load audit logs: ' + (data.message || 'Unknown error'), 'error');
         }
     } catch (e) {
+        console.error('Error in loadAuditLogs:', e);
         handleApiError('Error loading audit logs', e, (m) => showToast(m || 'Server error while loading audit logs', 'error'));
     }
 }
@@ -438,6 +406,7 @@ function updateMaterialsPagination() {
  */
 document.addEventListener('DOMContentLoaded', async function () {
     console.log('Admin Dashboard loaded');
+    console.log('window.currentUser:', window.currentUser);
 
     // Use the user data passed from PHP backend
     if (window.currentUser) {
@@ -458,7 +427,6 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
 
         // Initialize dashboard
-        initializeSampleData();
         await loadUsersFromAPI();
         await loadMaterials();
         await loadAuditLogs();
@@ -1351,6 +1319,7 @@ function loadAuditLogTable() {
 
 /** Build a <tr> for an audit log entry. */
 function createAuditLogRow(entry) {
+    console.log('Creating audit log row for entry:', entry);
     const row = document.createElement('tr');
 
     const severityClass = {
@@ -1361,15 +1330,16 @@ function createAuditLogRow(entry) {
     };
 
     const timestamp = new Date(entry.timestamp).toLocaleString();
-    const userDisplay = entry.user_name ? `${entry.user_name} (${entry.user_id || 'N/A'})` : `Unknown User (${entry.user_id || 'N/A'})`;
 
     row.innerHTML = `
         <td>${timestamp}</td>
-        <td>${userDisplay}</td>
+        <td>${entry.user_name || 'Unknown'}</td>
+        <td>${entry.user_id || 'N/A'}</td>
+        <td>${entry.user_role || 'system'}</td>
         <td>${entry.action}</td>
         <td>${entry.category}</td>
         <td><span class="badge ${severityClass[entry.severity]}">${entry.severity}</span></td>
-        <td>${entry.ip_address}</td>
+        <td>${entry.ip_address || 'N/A'}</td>
         <td>
             <button class="btn btn-sm btn-outline-info" onclick="viewAuditDetails('${entry.id}')" title="View Details">
                 <i class="bi bi-eye"></i>
@@ -1387,9 +1357,9 @@ function viewAuditDetails(auditId) {
 
     // Populate modal with audit details
     document.getElementById('auditDetailTimestamp').textContent = new Date(entry.timestamp).toLocaleString();
-    document.getElementById('auditDetailUser').textContent = `${entry.user_name} (${entry.user_id})`;
+    document.getElementById('auditDetailUser').textContent = `${entry.user_name} (${entry.user_id}) - ${entry.user_role}`;
     document.getElementById('auditDetailAction').textContent = `${entry.action} - ${entry.category}`;
-    document.getElementById('auditDetailSystem').textContent = `IP: ${entry.ip_address} | Severity: ${entry.severity}`;
+    document.getElementById('auditDetailSystem').textContent = `IP: ${entry.ip_address || 'N/A'} | Severity: ${entry.severity}`;
 
     const modal = new bootstrap.Modal(document.getElementById('auditDetailModal'));
     modal.show();

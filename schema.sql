@@ -200,6 +200,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     user_id VARCHAR(20) NULL,
     user_role ENUM('admin','employee','student','system') NOT NULL DEFAULT 'system',
+    user_name VARCHAR(100) NULL,
     action VARCHAR(100) NOT NULL,
     category VARCHAR(100) NOT NULL,
     details TEXT NULL,

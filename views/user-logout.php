@@ -7,18 +7,19 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
     try {
         $db = new Database();
         $conn = $db->getConnection();
-        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, severity, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_role, user_name, action, category, details, target_id, target_type, severity, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $_SESSION['user_id'] ?? null,
+            'system',
             'Unknown User',
             $action,
             $category,
             $details,
             $targetId,
             $targetType,
+            $severity,
             $_SERVER['REMOTE_ADDR'] ?? null,
             null, // Set user_agent to null to avoid storing PII
-            $severity
         ]);
     } catch (Exception $e) {
         error_log("Failed to add audit log: " . $e->getMessage());

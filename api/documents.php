@@ -225,17 +225,6 @@ function handleGet()
     try {
         // Enforce timeouts on stale documents before responding
         enforceTimeouts();
-        // Generate a mock document with sample PDF and signature mapping
-        if (isset($_GET['action']) && $_GET['action'] === 'generate_mock') {
-            generateMockDocument();
-            return;
-        }
-
-        // Seed mock data for testing signature hierarchy
-        if (isset($_GET['action']) && $_GET['action'] === 'seed_mock_data') {
-            seedMockData();
-            return;
-        }
 
         // New: Handle student document fetching
         if (isset($_GET['action']) && $_GET['action'] === 'my_documents') {
@@ -447,7 +436,7 @@ function handleGet()
                         'id' => $note['id'],
                         'note' => $note['note'],
                         'created_by_name' => $note['created_by_name'],
-                        'created_at' => $note['created_at'] ?? null,
+                        'created_at' => $note['created_at'],
                         'is_rejection' => ($note['step_status'] === 'rejected')
                     ];
                 }, $notes)
@@ -1629,12 +1618,13 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 
     try {
         $stmt = $db->prepare("
-            INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO audit_logs (user_id, user_role, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         $stmt->execute([
             $currentUser['id'],
+            $currentUser['role'],
             $currentUser['first_name'] . ' ' . $currentUser['last_name'],
             $action,
             $category,
@@ -1647,279 +1637,6 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
         ]);
     } catch (Exception $e) {
         error_log("Failed to add audit log: " . $e->getMessage());
-    }
-}
-
-// Seed a mock document with a sample PDF and signature mapping JSON
-function generateMockDocument()
-{
-    global $db, $currentUser;
-
-    if (!$currentUser || $currentUser['role'] !== 'employee') {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'Forbidden']);
-        return;
-    }
-
-    try {
-        // Ensure demo student exists
-        $studentId = 'STU101';
-        $q = $db->prepare("SELECT id FROM students WHERE id = ?");
-        $q->execute([$studentId]);
-        if (!$q->fetch()) {
-            $ins = $db->prepare("INSERT INTO students (id, first_name, last_name, email, password, department, position) VALUES (?,?,?,?,?,'College of Engineering','Student')");
-            // Use a unique email to avoid violating UNIQUE(email)
-            $ins->execute([$studentId, 'Juan', 'Dela Cruz', 'mock.student101@university.edu', password_hash('password', PASSWORD_BCRYPT)]);
-        }
-
-        // Create document
-        $stmt = $db->prepare("INSERT INTO documents (student_id, doc_type, title, description, status, current_step, uploaded_at) VALUES (?,?,?,?, 'submitted', 1, NOW())");
-        $stmt->execute([
-            $studentId,
-            'proposal',
-            'Mock Research Proposal: Energy Efficiency',
-            'Auto-generated mock for testing PDF preview and e-signature placement.'
-        ]);
-        $docId = (int) $db->lastInsertId();
-
-        // Create a pending step assigned to current employee
-        $st = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status, acted_at, note) VALUES (?,?,?,?, 'pending', NULL, NULL)");
-        $st->execute([$docId, 1, 'Initial Review', $currentUser['id']]);
-
-        // Ensure mock dir exists
-        $assetsDir = realpath(__DIR__ . '/../assets');
-        if (!$assetsDir) {
-            $assetsDir = __DIR__ . '/../assets';
-        }
-        $mockDir = rtrim($assetsDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'mock';
-        if (!is_dir($mockDir)) {
-            @mkdir($mockDir, 0775, true);
-        }
-
-        // Use the SAMPLEPDF.pdf for mock preview
-        $samplePdfPath = __DIR__ . '/../assets/mock/SAMPLEPDF.pdf';
-        if (file_exists($samplePdfPath)) {
-            $pdfWebPath = '../assets/mock/SAMPLEPDF.pdf';
-        } else {
-            // Fallback to FACILITY REQUEST.pdf
-            $fallbackPath = __DIR__ . '/../assets/files/FACILITY REQUEST.pdf';
-            if (file_exists($fallbackPath)) {
-                $pdfWebPath = '../assets/files/FACILITY REQUEST.pdf';
-            } else {
-                // Write a tiny PDF if fallback not present
-                $pdfPathAbs = $mockDir . DIRECTORY_SEPARATOR . 'sample.pdf';
-                if (!file_exists($pdfPathAbs)) {
-                    $pdfBase64 = 'JVBERi0xLjQKJcTl8uXrp/CgIDAgb2JqCjw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+CmVuZG9iagoyIDAgb2JqCjw8L1R5cGUvUGFnZXMvS2lkc1szIDAgUl0vQ291bnQgMT4+CmVuZG9iagozIDAgb2JqCjw8L1R5cGUvUGFnZS9QYXJlbnQgMiAwIFIvTWVkaWFCb3hbMCAwIDU5NSA4NDJdL0NvbnRlbnRzIDQgMCBSL1Jlc291cmNlczw8L0ZvbnQ8PC9GMCA1IDAgUj4+Pj4+Pj4KZW5kb2JqCjQgMCBvYmoKPDwvTGVuZ3RoIDY3Pj4Kc3RyZWFtCkJUCi9GMCAxMiBUZgoxMDAgNzUwIFRkCihNb2NrIFBERiBmb3IgdGVzdGluZyAmIFNpZ25hdHVyZSBNYXBwaW5nKSBUagoKRVQKZW5kc3RyZWFtCmVuZG9iago1IDAgb2JqCjw8L1R5cGUvRm9udC9TdWJ0eXBlL1R5cGUxL0Jhc2VGb250L0hlbHZldGljYT4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwOTcgMDAwMDAgbiAKMDAwMDAwMDE5NyAwMDAwMCBuIAowMDAwMDAwNDExIDAwMDAwIG4gCjAwMDAwMDAxNDMgMDAwMDAgbiAKMDAwMDAwMDUwMyAwMDAwMCBuIAp0cmFpbGVyCjw8L1NpemUgNi9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjcyNQolJUVPRg==';
-                    @file_put_contents($pdfPathAbs, base64_decode($pdfBase64));
-                }
-                $pdfWebPath = '../assets/mock/sample.pdf';
-            }
-        }
-
-        // Attach the PDF
-        $att = $db->prepare("INSERT INTO attachments (document_id, file_path, file_type, file_size_kb) VALUES (?,?, 'application/pdf', 12)");
-        $att->execute([$docId, $pdfWebPath]);
-
-        // Signature mapping JSON (percent-based coords relative to rendered box)
-        $map = [
-            'page' => 1,
-            'x_pct' => 0.62,
-            'y_pct' => 0.78,
-            'w_pct' => 0.28,
-            'h_pct' => 0.10,
-            'label' => 'Sign here'
-        ];
-        @file_put_contents($mockDir . DIRECTORY_SEPARATOR . 'signature_map_' . $docId . '.json', json_encode($map));
-
-        echo json_encode(['success' => true, 'document_id' => $docId]);
-    } catch (Exception $e) {
-        error_log('generateMockDocument error: ' . $e->getMessage());
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Failed to generate mock document']);
-    }
-}
-
-function updateNote($input)
-{
-    global $db, $currentUser;
-
-    // Only employees can update notes
-    if ($currentUser['role'] !== 'employee') {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'Only employees can update notes']);
-        return;
-    }
-
-    $docId = $input['document_id'] ?? '';
-    $stepId = $input['step_id'] ?? 0;
-    $note = $input['note'] ?? '';
-
-    if (!$docId || !is_numeric($docId) || !$stepId) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Document ID and Step ID are required']);
-        return;
-    }
-
-    try {
-        // Check if user is assigned to this step
-        $stmt = $db->prepare("SELECT id FROM document_steps WHERE id = ? AND assigned_to_employee_id = ? AND status = 'pending'");
-        $stmt->execute([$stepId, $currentUser['id']]);
-        if (!$stmt->fetch()) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'Not authorized to update this step']);
-            return;
-        }
-
-        // Update note on the step
-        $stmt = $db->prepare("UPDATE document_steps SET note = ? WHERE id = ?");
-        $stmt->execute([$note, $stepId]);
-
-        addAuditLog('NOTE_UPDATED', 'Document Management', "Note updated for document $docId step $stepId", $docId, 'Document', 'INFO');
-
-        echo json_encode(['success' => true, 'message' => 'Note updated successfully']);
-    } catch (Exception $e) {
-        error_log("Error updating note: " . $e->getMessage());
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Failed to update note: ' . $e->getMessage()]);
-    }
-}
-
-// Seed mock data for testing signature hierarchy
-function seedMockData()
-{
-    global $db, $currentUser;
-
-    // Only admins can seed data
-    if ($currentUser['role'] !== 'admin') {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'Only admins can seed mock data']);
-        return;
-    }
-
-    $departments = [
-        'College of Arts, Social Sciences, and Education',
-        'College of Business',
-        'College of Computing and Information Sciences',
-        'College of Criminology',
-        'College of Engineering',
-        'College of Hospitality and Tourism Management',
-        'College of Nursing',
-        'SPCF Miranda'
-    ];
-
-    // Proper names for advisers and deans
-    $adviserNames = [
-        'Dr. Maria Santos',
-        'Dr. Jose Reyes',
-        'Dr. Ana Garcia',
-        'Dr. Roberto Cruz',
-        'Dr. Elena Mendoza',
-        'Dr. Carlos Fernandez',
-        'Dr. Sofia Ramirez',
-        'Dr. Miguel Torres'
-    ];
-
-    $deanNames = [
-        'Dr. Juan dela Cruz',
-        'Dr. Patricia Lopez',
-        'Dr. Ricardo Bautista',
-        'Dr. Carmen Aquino',
-        'Dr. Antonio Villanueva',
-        'Dr. Rosa Morales',
-        'Dr. Eduardo Castillo',
-        'Dr. Lourdes Rivera'
-    ];
-
-    $cscPresidentNames = [
-        'Mark Angelo Reyes',
-        'Samantha Louise Cruz',
-        'Gabriel Antonio Santos',
-        'Isabella Marie Garcia',
-        'Rafael Jose Mendoza',
-        'Camille Andrea Lopez',
-        'Daniel Patrick Fernandez',
-        'Sophia Rose Ramirez'
-    ];
-
-    try {
-        $db->beginTransaction();
-
-        // Seed Employees
-        $empIdCounter = 1;
-
-        // CSC Advisers and College Deans per department
-        foreach ($departments as $index => $dept) {
-            $adviserName = explode(' ', $adviserNames[$index]);
-            $deanName = explode(' ', $deanNames[$index]);
-
-            // CSC Adviser
-            $empId = 'EMP' . str_pad($empIdCounter++, 3, '0', STR_PAD_LEFT);
-            $email = 'adviser.' . strtolower(str_replace([' ', ','], ['.', ''], $dept)) . '@university.edu';
-            $stmt = $db->prepare("INSERT INTO employees (id, first_name, last_name, email, password, office, department, position, phone, must_change_password, created_at)
-                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())
-                                  ON DUPLICATE KEY UPDATE id=id");
-            $stmt->execute([$empId, $adviserName[1], $adviserName[2] ?? $adviserName[1], $email, password_hash('password', PASSWORD_BCRYPT), 'Student Affairs', $dept, 'CSC Adviser', '09123456789']);
-
-            // College Dean
-            $empId = 'EMP' . str_pad($empIdCounter++, 3, '0', STR_PAD_LEFT);
-            $email = 'dean.' . strtolower(str_replace([' ', ','], ['.', ''], $dept)) . '@university.edu';
-            $stmt->execute([$empId, $deanName[1], $deanName[2] ?? $deanName[1], $email, password_hash('password', PASSWORD_BCRYPT), 'Academic Affairs', $dept, 'Dean', '09123456790']);
-        }
-
-        // University-wide employees
-        $universityEmployees = [
-            ['Dr. Francisco Alvarez', 'OIC OSA', 'Office of Student Affairs', 'University', 'Officer-in-Charge, Office of Student Affairs'],
-            ['Prof. Regina Bautista', 'CPAO', 'Center for Performing Arts Organization', 'University', 'Center for Performing Arts Organization'],
-            ['Dr. Emmanuel Santos', 'VPAA', 'Academic Affairs', 'University', 'Vice President for Academic Affairs'],
-            ['Dr. Victoria Mendoza', 'EVP', 'Student Services', 'University', 'Executive Vice-President/Student Services']
-        ];
-
-        foreach ($universityEmployees as $emp) {
-            $empId = 'EMP' . str_pad($empIdCounter++, 3, '0', STR_PAD_LEFT);
-            $email = strtolower(str_replace([' ', ','], ['.', ''], $emp[1])) . '@university.edu';
-            $stmt = $db->prepare("INSERT INTO employees (id, first_name, last_name, email, password, office, department, position, phone, must_change_password, created_at)
-                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())
-                                  ON DUPLICATE KEY UPDATE id=id");
-            $stmt->execute([$empId, explode(' ', $emp[0])[1], explode(' ', $emp[0])[2] ?? explode(' ', $emp[0])[1], $email, password_hash('password', PASSWORD_BCRYPT), $emp[2], $emp[3], $emp[1], '09123456791']);
-        }
-
-        // Seed Students
-        $stuIdCounter = 1;
-
-        // CSC Presidents per department
-        foreach ($departments as $index => $dept) {
-            $stuName = explode(' ', $cscPresidentNames[$index]);
-            $stuId = 'STU' . str_pad($stuIdCounter++, 3, '0', STR_PAD_LEFT);
-            $email = 'csc.president.' . strtolower(str_replace([' ', ','], ['.', ''], $dept)) . '@university.edu';
-            $stmt = $db->prepare("INSERT INTO students (id, first_name, last_name, email, password, department, position, phone, must_change_password, created_at)
-                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())
-                                  ON DUPLICATE KEY UPDATE id=id");
-            $stmt->execute([$stuId, $stuName[0], $stuName[1] . ' ' . ($stuName[2] ?? ''), $email, password_hash('password', PASSWORD_BCRYPT), $dept, 'CSC President', '09123456792']);
-        }
-
-        // SSC President
-        $stuId = 'STU' . str_pad($stuIdCounter++, 3, '0', STR_PAD_LEFT);
-        $email = 'ssc.president@university.edu';
-        $stmt = $db->prepare("INSERT INTO students (id, first_name, last_name, email, password, department, position, phone, must_change_password, created_at)
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())
-                              ON DUPLICATE KEY UPDATE id=id");
-        $stmt->execute([$stuId, 'Supreme', 'President', $email, password_hash('password', PASSWORD_BCRYPT), 'Supreme Student Council', 'SSC President', '09123456793']);
-
-        // Seed Admin
-        $stmt = $db->prepare("INSERT INTO administrators (id, first_name, last_name, email, password, must_change_password, created_at)
-                              VALUES (?, ?, ?, ?, ?, 0, NOW())
-                              ON DUPLICATE KEY UPDATE id=id");
-        $stmt->execute(['ADM001', 'System', 'Administrator', 'admin@university.edu', password_hash('password', PASSWORD_BCRYPT)]);
-
-        $db->commit();
-
-        echo json_encode(['success' => true, 'message' => 'Mock data seeded successfully']);
-
-    } catch (Exception $e) {
-        $db->rollBack();
-        error_log("Error seeding mock data: " . $e->getMessage());
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Failed to seed mock data: ' . $e->getMessage()]);
     }
 }
 ?>

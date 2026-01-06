@@ -6,8 +6,12 @@ requireAuth(); // Requires login
 // Get current user
 $auth = new Auth();
 $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
+error_log("DEBUG admin-dashboard.php: Current user: " . json_encode($currentUser));
+error_log("DEBUG admin-dashboard.php: Session user_id: " . ($_SESSION['user_id'] ?? 'null'));
+error_log("DEBUG admin-dashboard.php: Session user_role: " . ($_SESSION['user_role'] ?? 'null'));
 
 if (!$currentUser || $currentUser['role'] !== 'admin') {
+    error_log("DEBUG admin-dashboard.php: Redirecting - no user or not admin");
     logoutUser();
     header('Location: user-login.php');
     exit();
@@ -20,9 +24,10 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
     try {
         $db = new Database();
         $conn = $db->getConnection();
-        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_role, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $currentUser['id'],
+            $currentUser['role'],
             $currentUser['first_name'] . ' ' . $currentUser['last_name'],
             $action,
             $category,
@@ -159,7 +164,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
             <div class="container-fluid">
                 <ul class="nav nav-pills admin-tabs" id="adminTabs" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="users-tab" data-bs-toggle="pill"
+                        <button class="nav-link" id="users-tab" data-bs-toggle="pill"
                             data-bs-target="#users-panel" type="button" role="tab">
                             <i class="bi bi-people-fill"></i>
                             <span>User Management</span>
@@ -173,7 +178,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="audit-tab" data-bs-toggle="pill" data-bs-target="#audit-panel"
+                        <button class="nav-link active" id="audit-tab" data-bs-toggle="pill" data-bs-target="#audit-panel"
                             type="button" role="tab">
                             <i class="bi bi-clipboard-data"></i>
                             <span>Audit Logs</span>
@@ -192,7 +197,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         <!-- Admin Tab Content -->
         <div class="tab-content admin-content" id="adminTabContent">
             <!-- User Management Panel -->
-            <div class="tab-pane fade show active" id="users-panel" role="tabpanel">
+            <div class="tab-pane fade" id="users-panel" role="tabpanel">
                 <div class="container-fluid">
                     <!-- User Controls -->
                     <div class="content-header">
@@ -328,7 +333,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
             </div>
 
             <!-- Audit Log Panel -->
-            <div class="tab-pane fade" id="audit-panel" role="tabpanel">
+            <div class="tab-pane fade show active" id="audit-panel" role="tabpanel">
                 <div class="container-fluid">
                     <!-- Audit Controls -->
                     <div class="content-header">
@@ -385,6 +390,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                         <tr>
                                             <th>Timestamp</th>
                                             <th>User</th>
+                                            <th>User ID</th>
+                                            <th>User Role</th>
                                             <th>Action</th>
                                             <th>Category</th>
                                             <th>Severity</th>

@@ -26,9 +26,10 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
   try {
     $db = new Database();
     $conn = $db->getConnection();
-    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_role, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
       $currentUser['id'],
+      $currentUser['role'],
       $currentUser['first_name'] . ' ' . $currentUser['last_name'],
       $action,
       $category,
@@ -81,27 +82,11 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
     ?>;
     window.isAdmin = <?php echo ($currentUser['role'] === 'admin') ? 'true' : 'false'; ?>;
 
-    async function loadNotifications() {
-        try {
-            const response = await fetch('../api/notifications.php');
-            const data = await response.json();
-            if (data.success) {
-                const badge = document.getElementById('notificationCount');
-                if (badge) {
-                    badge.textContent = data.unread_count;
-                    badge.style.display = data.unread_count > 0 ? 'flex' : 'none';
-                }
-                window.notifications = data.notifications;
-            }
-        } catch (error) {
-            console.error('Error loading notifications:', error);
-        }
-    }
-
-    setInterval(loadNotifications, 300000);
-    loadNotifications();
-
+    // REMOVE: Duplicate loadNotifications function and interval (handled by global-notifications.js)
   </script>
+
+  <!-- ADD: Include global notifications module -->
+  <script src="../assets/js/global-notifications.js"></script>
 </head>
 
 <body class="with-fixed-navbar">
@@ -1122,45 +1107,6 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
       } else {
         window.location.href = 'event-calendar.php';  // Default to calendar if no referrer
       }
-    }
-
-    function showNotifications() {
-      const modal = new bootstrap.Modal(document.getElementById('notificationsModal'));
-      const list = document.getElementById('notificationsList');
-      if (list && window.notifications) {
-        list.innerHTML = window.notifications.map(n => {
-          let icon = 'bi-bell'; // Default icon
-          if (n.type === 'pending_document' || n.type === 'new_document' || n.type === 'document_status') icon = 'bi-file-earmark-text';
-          else if (n.type === 'upcoming_event' || n.type === 'event_reminder') icon = 'bi-calendar-event';
-          else if (n.type === 'pending_material' || n.type === 'material_status') icon = 'bi-image';
-          else if (n.type === 'new_user') icon = 'bi-person-plus';
-          else if (n.type === 'security_alert') icon = 'bi-shield-exclamation';
-          else if (n.type === 'account') icon = 'bi-key';
-          else if (n.type === 'system') icon = 'bi-gear';
-
-          return `
-            <div class="list-group-item">
-              <div class="d-flex w-100 justify-content-between">
-                <h6 class="mb-1"><i class="bi ${icon} me-2"></i>${n.title}</h6>
-                <small>${new Date(n.timestamp).toLocaleDateString()}</small>
-              </div>
-              <p class="mb-1">${n.message}</p>
-            </div>
-          `;
-        }).join('');
-      } else {
-        if (list) list.innerHTML = '<div class="list-group-item">No notifications available.</div>';
-      }
-      modal.show();
-    }
-
-    function markAllAsRead() {
-      const badge = document.getElementById('notificationCount');
-      if (badge) {
-        badge.textContent = '0';
-        badge.style.display = 'none';
-      }
-      if (window.ToastManager) window.ToastManager.success('All notifications marked as read.', 'Done');
     }
   </script>
 

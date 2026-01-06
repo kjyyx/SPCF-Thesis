@@ -25,6 +25,12 @@ function getCurrentUser()
     return null;
 }
 
+function redirectTo404()
+{
+    header('Location: ../views/404.php');
+    exit();
+}
+
 function requireAuth()
 {
     if (!isLoggedIn()) {

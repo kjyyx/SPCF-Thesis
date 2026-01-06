@@ -26,18 +26,19 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
     try {
         $db = new Database();
         $conn = $db->getConnection();
-        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_name, action, category, details, target_id, target_type, severity, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_role, user_name, action, category, details, target_id, target_type, severity, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $currentUser['id'],
+            $currentUser['role'],
             $currentUser['first_name'] . ' ' . $currentUser['last_name'],
             $action,
             $category,
             $details,
             $targetId,
             $targetType,
+            $severity,
             $_SERVER['REMOTE_ADDR'] ?? null,
             null, // Set user_agent to null to avoid storing PII
-            $severity
         ]);
     } catch (Exception $e) {
         error_log("Failed to add audit log: " . $e->getMessage());
@@ -185,14 +186,13 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             <i class="bi bi-list-ul"></i>
                             <span>All</span>
                         </button>
-                        <button class="action-button" onclick="markAllAsRead()" title="Mark All Read">
-                            <i class="bi bi-check2-all"></i>
-                            <span>Mark Read</span>
+                        <button class="action-button" onclick="filterDocuments('approved')" title="Show Done">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <span>Done</span>
                         </button>
-                        <!-- Create a mock document for testing -->
-                        <button class="action-button" onclick="createMockDocument()" title="Create Mock Document">
-                            <i class="bi bi-file-earmark-plus"></i>
-                            <span>Create Mock</span>
+                        <button class="action-button" onclick="filterDocuments('rejected')" title="Show Rejected">
+                            <i class="bi bi-x-circle-fill"></i>
+                            <span>Rejected</span>
                         </button>
                     </div>
                 </div>
@@ -579,6 +579,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/toast.js"></script>
+    <script src="../assets/js/global-notifications.js"></script>
     <script src="../assets/js/notifications.js"></script>
 
     <script>
@@ -607,23 +608,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         });
 
         // Navbar + actions bindings to controller
-        function showNotifications() {
-            const modal = new bootstrap.Modal(document.getElementById('notificationsModal'));
-            const list = document.getElementById('notificationsList');
-            if (list) {
-                list.innerHTML = `
-                    <div class="list-group">
-                        <div class="list-group-item">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">Pending Documents</h6>
-                                <small>Just now</small>
-                            </div>
-                            <p class="mb-1">You have documents awaiting your signature.</p>
-                        </div>
-                    </div>`;
-            }
-            modal.show();
-        }
+        // REMOVE: Conflicting showNotifications function (handled by global-notifications.js)
+        // function showNotifications() { ... }
 
         function openProfileSettings() {
             if (window.ToastManager) window.ToastManager.info('Profile settings are not available yet.', 'Info');
@@ -634,14 +620,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
             modal.show();
         }
 
-        function markAllAsRead() {
-            const badge = document.getElementById('notificationCount');
-            if (badge) {
-                badge.textContent = '0';
-                badge.style.display = 'none';
-            }
-            if (window.ToastManager) window.ToastManager.success('All notifications marked as read.', 'Done');
-        }
+        // REMOVE: Conflicting markAllAsRead function (handled by global-notifications.js)
+        // function markAllAsRead() { ... }
 
         // Document actions routed to the controller
         function filterDocuments(status) {

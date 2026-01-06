@@ -112,111 +112,14 @@ class DocumentNotificationSystem {
             const data = await response.json();
             if (data.success) {
                 this.documents = data.documents || [];
-                if (this.documents.length === 0 && this.isMockMode()) {
-                    this.documents = this.generateMockDocuments();
-                }
             } else {
                 console.error('Failed to load documents:', data.message);
-                if (this.isMockMode()) {
-                    this.documents = this.generateMockDocuments();
-                } else {
-                    this.showToast({ type: 'error', title: 'Error', message: 'Failed to load documents' });
-                }
+                this.showToast({ type: 'error', title: 'Error', message: 'Failed to load documents' });
             }
         } catch (error) {
             console.error('Error loading documents:', error);
-            if (this.isMockMode()) {
-                this.documents = this.generateMockDocuments();
-            } else {
-                this.showToast({ type: 'error', title: 'Error', message: 'Error loading documents' });
-            }
+            this.showToast({ type: 'error', title: 'Error', message: 'Error loading documents' });
         }
-    }
-
-    // Detect mock mode via query string (?mock=1) or global flag
-    isMockMode() {
-        try {
-            const params = new URLSearchParams(window.location.search);
-            return params.get('mock') === '1' || window.USE_MOCK_DATA === true;
-        } catch (e) {
-            return false;
-        }
-    }
-
-    // Create three mock documents for testing UI
-    generateMockDocuments() {
-        const empId = this.currentUser?.id || 'EMP001';
-        const now = new Date();
-        const daysAgo = (d) => new Date(now.getTime() - d * 86400000).toISOString();
-
-        return [
-            {
-                id: 1001,
-                title: 'Research Proposal: IoT Campus Network',
-                doc_type: 'proposal',
-                description: 'Proposal to deploy IoT sensors across campus for energy efficiency.',
-                status: 'in_review',
-                current_step: 4,
-                uploaded_at: daysAgo(5),
-                student: { id: 'STU001', name: 'Juan Dela Cruz', department: 'College of Engineering' },
-                workflow: [
-                    { id: 5001, step_order: 1, name: 'CSC Adviser Approval', status: 'completed', note: 'Approved by CSC Adviser', acted_at: daysAgo(4), assignee_id: 'EMP002', assignee_name: 'CSC Adviser' },
-                    { id: 5002, step_order: 2, name: 'SSC President Approval', status: 'completed', note: 'Approved by SSC President', acted_at: daysAgo(3), assignee_id: 'EMP003', assignee_name: 'SSC President' },
-                    { id: 5003, step_order: 3, name: 'Dean Approval', status: 'completed', note: 'Approved by Dean', acted_at: daysAgo(2), assignee_id: 'EMP004', assignee_name: 'Dean' },
-                    { id: 5004, step_order: 4, name: 'OIC OSA Approval', status: 'pending', note: null, acted_at: null, assignee_id: empId, assignee_name: 'You' },
-                    { id: 5005, step_order: 5, name: 'CPAO Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP005', assignee_name: 'CPAO' },
-                    { id: 5006, step_order: 6, name: 'VPAA Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP006', assignee_name: 'VPAA' },
-                    { id: 5007, step_order: 7, name: 'EVP Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP007', assignee_name: 'EVP' }
-                ]
-            },
-            {
-                id: 1002,
-                title: 'Communication Letter: Event Announcement',
-                doc_type: 'communication',
-                description: 'Official communication regarding upcoming university events.',
-                status: 'submitted',
-                current_step: 1,
-                uploaded_at: daysAgo(1),
-                student: { id: 'STU002', name: 'Ana Reyes', department: 'College of Computing and Information Sciences' },
-                workflow: [
-                    { id: 5008, step_order: 1, name: 'CSC Adviser Approval', status: 'pending', note: null, acted_at: null, assignee_id: empId, assignee_name: 'You' },
-                    { id: 5009, step_order: 2, name: 'SSC President Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP003', assignee_name: 'SSC President' },
-                    { id: 5010, step_order: 3, name: 'Dean Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP001', assignee_name: 'Dean' },
-                    { id: 5011, step_order: 4, name: 'OIC OSA Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP004', assignee_name: 'OIC OSA' },
-                    { id: 5012, step_order: 5, name: 'CPAO Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP005', assignee_name: 'CPAO' },
-                    { id: 5013, step_order: 6, name: 'VPAA Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP006', assignee_name: 'VPAA' },
-                    { id: 5014, step_order: 7, name: 'EVP Approval', status: 'pending', note: null, acted_at: null, assignee_id: 'EMP007', assignee_name: 'EVP' }
-                ]
-            },
-            {
-                id: 1003,
-                title: 'Student Activity Form: TechWeek 2025',
-                doc_type: 'saf',
-                description: 'Annual technology week with workshops and hackathons.',
-                status: 'in_review',
-                current_step: 2,
-                uploaded_at: daysAgo(3),
-                student: { id: 'STU002', name: 'Ana Reyes', department: 'College of Computing and Information Sciences' },
-                workflow: [
-                    { id: 5015, step_order: 1, name: 'Organization Adviser', status: 'completed', note: 'Looks good.', acted_at: daysAgo(2), assignee_id: empId, assignee_name: 'You' },
-                    { id: 5016, step_order: 2, name: 'Student Affairs Office', status: 'pending', note: null, acted_at: null, assignee_id: empId, assignee_name: 'You' }
-                ]
-            },
-            {
-                id: 1004,
-                title: 'Facility Request: Auditorium Booking',
-                doc_type: 'facility',
-                description: 'Request to use the main auditorium for orientation.',
-                status: 'approved',
-                current_step: 2,
-                uploaded_at: daysAgo(5),
-                student: { id: 'STU003', name: 'Mark Cruz', department: 'College of Business' },
-                workflow: [
-                    { id: 5017, step_order: 1, name: 'Facilities Review', status: 'completed', note: 'Available', acted_at: daysAgo(4), assignee_id: empId, assignee_name: 'You' },
-                    { id: 5018, step_order: 2, name: 'Dean Approval', status: 'completed', note: 'Approved', acted_at: daysAgo(3), assignee_id: empId, assignee_name: 'You' }
-                ]
-            }
-        ];
     }
 
     // Setup event listeners
@@ -932,23 +835,20 @@ class DocumentNotificationSystem {
             timestamp.style.marginBottom = '2px';
             timestamp.style.fontWeight = '500';
 
-            // Create blurred signature placeholder
+            // Create blurred signature placeholder with hierarchy details
             const blurredSignature = document.createElement('div');
             blurredSignature.className = 'blurred-signature';
             blurredSignature.style.width = '100%';
             blurredSignature.style.height = '100%';
             blurredSignature.style.backgroundColor = 'rgba(128, 128, 128, 0.8)';
             blurredSignature.style.color = 'white';
-            blurredSignature.style.fontWeight = 'bold';
             blurredSignature.style.display = 'flex';
             blurredSignature.style.alignItems = 'center';
             blurredSignature.style.justifyContent = 'center';
             blurredSignature.style.borderRadius = '4px';
-            blurredSignature.textContent = 'Signature Hidden';
-            blurredSignature.style.color = '#999';
+            blurredSignature.style.fontWeight = 'bold';
             blurredSignature.style.fontSize = '12px';
-            blurredSignature.style.fontStyle = 'italic';
-            blurredSignature.textContent = 'Signed';
+            blurredSignature.textContent = `Signed by ${step.assignee_name || 'Unknown'} (${step.name || 'Unknown Role'} - Level ${this.getHierarchyLevel(step.name)})`;
 
             signatureContainer.appendChild(timestamp);
             signatureContainer.appendChild(blurredSignature);
@@ -1361,11 +1261,22 @@ class DocumentNotificationSystem {
                 this.signatureImage = null;
                 this.currentSignatureMap = null;
 
-                // Refresh data and return to dashboard (no modal)
+                // Update local document status to 'approved' and step to 'completed'
+                if (doc) {
+                    doc.status = 'approved';
+                    if (pendingStep) {
+                        pendingStep.status = 'completed';
+                        pendingStep.acted_at = new Date().toISOString();
+                        pendingStep.signed_at = new Date().toISOString();
+                    }
+                }
+
+                // Re-render the detail view to show updated status and signatures (do NOT go back to dashboard)
+                this.renderDocumentDetail(doc);
+
+                // Refresh data in background for dashboard (but stay on current view)
                 await this.loadDocuments();
-                this.renderDocuments();
-                this.updateStatsDisplay();
-                this.goBack();
+                // Do not call renderDocuments() or goBack() here
             } else {
                 throw new Error(result.message || 'Failed to sign document');
             }
@@ -1408,11 +1319,22 @@ class DocumentNotificationSystem {
                 }
                 );
 
-                // Refresh data and return to dashboard (no modal)
+                // Update local document status to 'rejected' and step to 'rejected'
+                if (doc) {
+                    doc.status = 'rejected';
+                    if (pendingStep) {
+                        pendingStep.status = 'rejected';
+                        pendingStep.acted_at = new Date().toISOString();
+                        pendingStep.note = reason.trim();
+                    }
+                }
+
+                // Re-render the detail view to show updated status (do NOT go back to dashboard)
+                this.renderDocumentDetail(doc);
+
+                // Refresh data in background for dashboard (but stay on current view)
                 await this.loadDocuments();
-                this.renderDocuments();
-                this.updateStatsDisplay();
-                this.goBack();
+                // Do not call renderDocuments() or goBack() here
             } else {
                 throw new Error(result.message || 'Failed to reject document');
             }

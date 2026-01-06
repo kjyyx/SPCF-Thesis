@@ -56,21 +56,28 @@
 
     function buildListHTML() {
         if (!cache.length) {
-            return '<div class="list-group-item">No notifications available.</div>';
+            return `
+                <div class="notification-empty-state">
+                    <div class="empty-icon">📭</div>
+                    <div class="empty-title">No notifications yet</div>
+                    <div class="empty-message">You're all caught up! Check back later for updates.</div>
+                </div>
+            `;
         }
         return cache.map(n => {
             const icon = ICONS[n.type] || 'bi-bell';
+            const iconClass = `notification-icon-${n.type.replace(/_/g, '-')}`;
             const dt = new Date(n.timestamp);
             const dateStr = isNaN(dt.getTime()) ? '' : dt.toLocaleDateString();
             return `
-                <div class="list-group-item">
+                <div class="list-group-item notification-item">
                     <div class="d-flex w-100 justify-content-between">
                         <h6 class="mb-1">
-                            <i class="bi ${icon} me-2"></i>${escapeHtml(n.title || 'Notification')}
+                            <i class="bi ${icon} me-2 ${iconClass}"></i>${escapeHtml(n.title || 'Notification')}
                         </h6>
-                        <small>${dateStr}</small>
+                        <small class="notification-date">${dateStr}</small>
                     </div>
-                    <p class="mb-1">${escapeHtml(n.message || '')}</p>
+                    <p class="mb-1 notification-message">${escapeHtml(n.message || '')}</p>
                 </div>
             `;
         }).join('');

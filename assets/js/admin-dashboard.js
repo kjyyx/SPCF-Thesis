@@ -31,6 +31,7 @@
  * - Bootstrap (modal dialogs, UI components)
  * - PHP Backend APIs (users.php, materials.php, audit.php)
  * - Local Storage API (for temporary data persistence)
+ * - QRCode library for 2FA setup
  *
  * @security
  * - All sensitive operations are handled server-side
@@ -55,8 +56,9 @@
  * // No manual initialization required - uses DOMContentLoaded event
  */
 
-// === Global Variables & Configuration ===
+// QRCode library loaded via CDN in admin-dashboard.php
 
+// === Global Variables & Configuration ===
 /**
  * @section Global State Variables
  * Core application state that persists across function calls
@@ -211,8 +213,8 @@ function hideUserFormMessages() {
  * @param {string|null} targetType - Type of the affected resource (optional)
  * @param {string} severity - Severity level ('INFO', 'WARNING', 'ERROR')
  */
-window.addAuditLog = async function(action, category, details, targetId = null, targetType = null, severity = 'INFO') {
-    console.log('Adding audit log:', {action, category, details, targetId, targetType, severity});
+window.addAuditLog = async function (action, category, details, targetId = null, targetType = null, severity = 'INFO') {
+    console.log('Adding audit log:', { action, category, details, targetId, targetType, severity });
     try {
         const response = await fetch('../api/audit.php', {
             method: 'POST',
@@ -858,7 +860,7 @@ function exportUsers() {
         } else {
             departmentOrOffice = user.office;
         }
-        
+
         return {
             'User ID': user.id,
             'First Name': user.firstName,
@@ -1029,7 +1031,15 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
             showUserFormError(resp.message || 'Operation failed');
         }
     }).catch(err => handleApiError('User save error', err, showUserFormError));
+
+    // In the user creation success handler (around line 1024), replace QR code logic
+    if (result.success) {
+        // No QR code here - user will set up 2FA on login
+        showToast(`User created successfully! Default password: ${defaultPassword || 'ChangeMe123!'}. User must set up 2FA on first login.`, 'success');
+    }
 });
+
+
 
 // ==========================================================
 // Materials: State, UI, and Actions

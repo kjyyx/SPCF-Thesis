@@ -961,6 +961,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         </div>
 
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
         <script src="../assets/js/toast.js"></script>
         <script src="../assets/js/global-notifications.js"></script>
         <script src="../assets/js/user-login.js"></script>

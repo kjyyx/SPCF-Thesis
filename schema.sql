@@ -265,3 +265,8 @@ INSERT IGNORE INTO units(name, code, type) VALUES
  ('College of Computing and Information Sciences','CCIS','college'),
  ('College of Art and Social Sciences and Education','CASSE','college'),
  ('College of Hospitality and Tourism Management','CHTM','college');
+
+-- Add 2FA secret columns for TOTP authentication
+ALTER TABLE administrators ADD COLUMN IF NOT EXISTS 2fa_secret VARCHAR(32) DEFAULT NULL;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS 2fa_secret VARCHAR(32) DEFAULT NULL;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS 2fa_secret VARCHAR(32) DEFAULT NULL;

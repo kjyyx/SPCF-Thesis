@@ -18,6 +18,9 @@ require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/session.php';
 require_once __DIR__ . '/../includes/database.php';
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../includes/utilities.php';
+use PragmaRX\Google2FA\Google2FA;
 
 // Utility: map session role to table
 function _auth_table_by_role($role) {
@@ -26,6 +29,30 @@ function _auth_table_by_role($role) {
         case 'employee': return 'employees';
         case 'student': return 'students';
         default: return null;
+    }
+}
+
+// Audit log helper function
+function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
+    try {
+        $db = new Database();
+        $conn = $db->getConnection();
+        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_role, user_name, action, category, details, target_id, target_type, severity, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $_SESSION['user_id'] ?? null,
+            $_SESSION['user_role'] ?? 'system',
+            $_SESSION['first_name'] ?? 'Unknown User',
+            $action,
+            $category,
+            $details,
+            $targetId,
+            $targetType,
+            $severity,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            null, // Set user_agent to null to avoid storing PII
+        ]);
+    } catch (Exception $e) {
+        error_log("Failed to add audit log: " . $e->getMessage());
     }
 }
 
@@ -102,9 +129,10 @@ if (($method === 'POST' && ($data['action'] ?? '') === 'change_password') || $me
 
 // Default: handle login via POST { userId, password, loginType }
 if ($method === 'POST') {
-    $action = $data['action'] ?? '';
+    try {
+        $action = $data['action'] ?? '';
 
-    if ($action === 'forgot_password') {
+        if ($action === 'forgot_password') {
         // Demo forgot password: Check user in all tables
         $userId = $data['userId'] ?? '';
         if (!$userId) {
@@ -201,6 +229,111 @@ if ($method === 'POST') {
         exit;
     }
 
+    // Add new endpoint for 2FA verification
+    if ($action === 'verify_2fa') {
+        $userId = $data['user_id'] ?? '';
+        $code = $data['code'] ?? '';
+        $db = (new Database())->getConnection();
+        
+        if (!$userId || !$code) {
+            echo json_encode(['success' => false, 'message' => 'Missing user_id or code']);
+            exit();
+        }
+        
+        // Fetch user and secret
+        $user = null;
+        $tables = ['administrators', 'employees', 'students'];
+        foreach ($tables as $table) {
+            $stmt = $db->prepare("SELECT * FROM $table WHERE id = ?");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($user) {
+                // Add role based on table
+                if ($table === 'students') {
+                    $user['role'] = 'student';
+                } elseif ($table === 'employees') {
+                    $user['role'] = 'employee';
+                } elseif ($table === 'administrators') {
+                    $user['role'] = 'admin';
+                }
+                break;
+            }
+        }
+        
+        if (!$user || empty($user['2fa_secret'])) {
+            echo json_encode(['success' => false, 'message' => 'Invalid user or 2FA not enabled']);
+            exit();
+        }
+        
+        $google2fa = new Google2FA();
+        if ($google2fa->verifyKey($user['2fa_secret'], $code)) {
+            // Reset attempts on success
+            $stmt = $db->prepare("DELETE FROM login_attempts WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            
+            loginUser($user);
+            addAuditLog('LOGIN_2FA', 'Authentication', "User {$user['first_name']} {$user['last_name']} completed 2FA login", $user['id'], 'User', 'INFO');
+            error_log("DEBUG api/auth.php: 2FA verification successful for user $userId, redirecting to " . ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php'));
+            echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php')]);
+        } else {
+            error_log("DEBUG api/auth.php: 2FA verification failed for user $userId - invalid code");
+            echo json_encode(['success' => false, 'message' => 'Invalid 2FA code']);
+        }
+        exit();
+    }
+
+    // Add 2FA setup endpoint
+    if ($action === 'setup_2fa') {
+        $userId = $data['user_id'] ?? '';
+        $code = $data['code'] ?? '';
+        $db = (new Database())->getConnection();
+        
+        if (!$userId || !$code) {
+            echo json_encode(['success' => false, 'message' => 'Missing user_id or code']);
+            exit();
+        }
+        
+        // Fetch user
+        $user = null;
+        $tables = ['students', 'employees', 'administrators'];
+        foreach ($tables as $table) {
+            $stmt = $db->prepare("SELECT * FROM $table WHERE id = ?");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($user) {
+                // Add role based on table
+                if ($table === 'students') {
+                    $user['role'] = 'student';
+                } elseif ($table === 'employees') {
+                    $user['role'] = 'employee';
+                } elseif ($table === 'administrators') {
+                    $user['role'] = 'admin';
+                }
+                break;
+            }
+        }
+        
+        if (!$user || empty($user['2fa_secret'])) {
+            echo json_encode(['success' => false, 'message' => 'Invalid user or 2FA not configured']);
+            exit();
+        }
+        
+        $google2fa = new Google2FA();
+        if ($google2fa->verifyKey($user['2fa_secret'], $code)) {
+            // Mark as enabled
+            $stmt = $db->prepare("UPDATE $table SET 2fa_enabled = 1 WHERE id = ?");
+            $stmt->execute([$userId]);
+            loginUser($user);
+            addAuditLog('2FA_SETUP', 'Authentication', "User {$user['first_name']} {$user['last_name']} set up 2FA", $user['id'], 'User', 'INFO');
+            error_log("DEBUG api/auth.php: 2FA setup successful for user $userId, redirecting to " . ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php'));
+            echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php')]);
+        } else {
+            error_log("DEBUG api/auth.php: 2FA setup failed for user $userId - invalid code");
+            echo json_encode(['success' => false, 'message' => 'Invalid 2FA code']);
+        }
+        exit();
+    }
+
     /**
      * User Login Endpoint
      * ===================
@@ -234,33 +367,62 @@ if ($method === 'POST') {
     $auth = new Auth();
     $user = $auth->login($userId, $password, $loginType);
 
-    // DEBUG: Log API result
-    error_log("DEBUG api/auth.php: Auth->login returned: " . ($user ? 'SUCCESS' : 'FAILED'));
+        // DEBUG: Log API result
+        error_log("DEBUG api/auth.php: Auth->login returned: " . ($user ? 'SUCCESS' : 'FAILED'));
 
-    if ($user) {
-        // Reset attempts on success
-        $stmt = $db->prepare("DELETE FROM login_attempts WHERE user_id = ?");
-        $stmt->execute([$userId]);
+        if ($user) {
+            error_log("DEBUG api/auth.php: User authenticated successfully: {$user['id']} ({$user['role']}), 2fa_secret=" . ($user['2fa_secret'] ?? 'NULL') . ", 2fa_enabled=" . ($user['2fa_enabled'] ?? 'NULL'));
+            
+            // Check if user has 2FA secret
+            if (!empty($user['2fa_secret'])) {
+                if ($user['2fa_enabled'] == 1) {
+                    // 2FA is set up, require code
+                    error_log("DEBUG api/auth.php: User has 2FA enabled, requiring verification");
+                    echo json_encode(['success' => true, 'requires_2fa' => true, 'user_id' => $user['id']]);
+                } else {
+                    // 2FA secret exists but not set up - prompt for setup
+                    error_log("DEBUG api/auth.php: User has 2FA secret but not enabled, prompting setup");
+                    echo json_encode(['success' => true, 'requires_2fa_setup' => true, 'user_id' => $user['id'], 'secret' => $user['2fa_secret']]);
+                }
+            } else {
+                // No 2FA - proceed (or enforce for students)
+                if ($user['role'] === 'student') {
+                    // Generate secret for students
+                    error_log("DEBUG api/auth.php: Student without 2FA secret, generating one");
+                    $google2fa = new Google2FA();
+                    $secret = $google2fa->generateSecretKey();
+                    $stmt = $db->prepare("UPDATE students SET 2fa_secret = ? WHERE id = ?");
+                    $stmt->execute([$secret, $user['id']]);
+                    error_log("DEBUG api/auth.php: Generated secret for student {$user['id']}: $secret");
+                    echo json_encode(['success' => true, 'requires_2fa_setup' => true, 'user_id' => $user['id'], 'secret' => $secret]);
+                } else {
+                    error_log("DEBUG api/auth.php: Non-student user without 2FA, proceeding with normal login");
+                    loginUser($user);
+                    addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in", $user['id'], 'User', 'INFO');
+                    echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php')]);
+                }
+            }
+            exit();
+        } else {
+            // Increment attempts on failure
+            $attempts = ($attemptData ? $attemptData['attempts'] : 0) + 1;
+            $lockedUntil = null;
+            if ($attempts >= 5) {
+                $lockedUntil = $now->add(new DateInterval('PT1M'))->format('Y-m-d H:i:s'); // 1 minute lock
+                $attempts = 0; // Reset after lock
+            }
+            $stmt = $db->prepare("INSERT INTO login_attempts (user_id, attempts, locked_until) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE attempts = ?, locked_until = ?");
+            $stmt->execute([$userId, $attempts, $lockedUntil, $attempts, $lockedUntil]);
 
-        loginUser($user);
-        error_log("DEBUG api/auth.php: User logged in via API - id=" . $user['id'] . ", role=" . $user['role']);
-        echo json_encode(['success' => true, 'user' => $user]);
-    } else {
-        // Increment attempts on failure
-        $attempts = ($attemptData ? $attemptData['attempts'] : 0) + 1;
-        $lockedUntil = null;
-        if ($attempts >= 5) {
-            $lockedUntil = $now->add(new DateInterval('PT1M'))->format('Y-m-d H:i:s'); // 1 minute lock
-            $attempts = 0; // Reset after lock
+            error_log("DEBUG api/auth.php: API login failed");
+            echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
         }
-        $stmt = $db->prepare("INSERT INTO login_attempts (user_id, attempts, locked_until) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE attempts = ?, locked_until = ?");
-        $stmt->execute([$userId, $attempts, $lockedUntil, $attempts, $lockedUntil]);
-
-        error_log("DEBUG api/auth.php: API login failed");
-        echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
+    } catch (Exception $e) {
+        error_log("ERROR api/auth.php: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);  // For debugging; remove in production
     }
 } else {
-    error_log("DEBUG api/auth.php: Invalid request method: " . $_SERVER['REQUEST_METHOD']);
+    error_log("DEBUG api/auth.php: Invalid method: $method");
     echo json_encode(['success' => false, 'message' => 'Invalid request method']);
 }
 ?>

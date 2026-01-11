@@ -44,9 +44,13 @@ $error = '';
 $userId = '';
 $errorMessage = '';
 $successMessage = '';
+$requires2fa = false;
+$requires2faSetup = false;
+$twoFactorSecret = '';
+$twoFactorUserId = '';
 
-// Process login form
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
+// Process login form if submitted - DISABLED: Using JavaScript API instead
+// if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     $userId = $_POST['userId'] ?? '';
     $password = $_POST['password'] ?? '';
 
@@ -82,23 +86,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                 $user = $auth->login($userId, $password, $loginType);
 
                 if ($user) {
-                    // Login successful
-                    loginUser($user);
-
-                    // ADD AUDIT LOG FOR SUCCESSFUL LOGIN
-                    addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in", $user['id'], 'User', 'INFO');
-
-                    // Reset attempts on success
-                    $stmt = $conn->prepare("DELETE FROM login_attempts WHERE user_id = ?");
-                    $stmt->execute([$userId]);
-
-                    // Redirect based on role
-                    if ($user['role'] === 'admin') {
-                        header('Location: admin-dashboard.php');
+                    // Check 2FA status
+                    if (!empty($user['2fa_secret'])) {
+                        if ($user['2fa_enabled'] == 1) {
+                            // 2FA is set up, require code
+                            $requires2fa = true;
+                            $twoFactorUserId = $user['id'];
+                        } else {
+                            // 2FA secret exists but not set up - prompt for setup
+                            $requires2faSetup = true;
+                            $twoFactorUserId = $user['id'];
+                            $twoFactorSecret = $user['2fa_secret'];
+                        }
                     } else {
-                        header('Location: event-calendar.php');
+                        // No 2FA - proceed (or enforce for students)
+                        if ($user['role'] === 'student') {
+                            // Generate secret for students
+                            require_once __DIR__ . '/../vendor/autoload.php';
+                            $google2fa = new PragmaRX\Google2FA\Google2FA();
+                            $secret = $google2fa->generateSecretKey();
+                            $stmt = $conn->prepare("UPDATE students SET 2fa_secret = ? WHERE id = ?");
+                            $stmt->execute([$secret, $user['id']]);
+                            $requires2faSetup = true;
+                            $twoFactorUserId = $user['id'];
+                            $twoFactorSecret = $secret;
+                        } else {
+                            // Normal login for non-students
+                            loginUser($user);
+                            addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in", $user['id'], 'User', 'INFO');
+
+                            // Reset attempts on success
+                            $stmt = $conn->prepare("DELETE FROM login_attempts WHERE user_id = ?");
+                            $stmt->execute([$userId]);
+
+                            // Redirect based on role
+                            if ($user['role'] === 'admin') {
+                                header('Location: admin-dashboard.php');
+                            } else {
+                                header('Location: event-calendar.php');
+                            }
+                            exit();
+                        }
                     }
-                    exit();
+
+                    // Reset attempts on success (for 2FA cases)
+                    if ($requires2fa || $requires2faSetup) {
+                        $stmt = $conn->prepare("DELETE FROM login_attempts WHERE user_id = ?");
+                        $stmt->execute([$userId]);
+                    }
                 } else {
                     // Login failed
                     $error = 'Invalid credentials. Please try again.';
@@ -121,8 +156,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     } else {
         $error = 'Please fill in all fields.';
     }
-}
+// }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -152,9 +188,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
 
         <!-- Login Body -->
         <div class="login-body">
-            <form id="loginForm" method="POST" action="">
-                <input type="hidden" name="login" value="1">
-
+            <form id="loginForm">
+                <input type="hidden" id="requires2fa" value="<?php echo $requires2fa ? 'true' : 'false'; ?>">
+                <input type="hidden" id="requires2faSetup" value="<?php echo $requires2faSetup ? 'true' : 'false'; ?>">
+                <input type="hidden" id="twoFactorSecret" value="<?php echo htmlspecialchars($twoFactorSecret); ?>">
+                <input type="hidden" id="twoFactorUserId" value="<?php echo htmlspecialchars($twoFactorUserId); ?>">
                 <!-- Show error if exists -->
                 <?php if (!empty($error)): ?>
                     <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
@@ -183,23 +221,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                     </div>
                 </div>
 
+                <!-- 2FA elements moved to modals below -->
+
                 <!-- Error/Success Message -->
-                <?php if ($errorMessage): ?>
-                    <div id="loginError" class="alert alert-danger" role="alert">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        <span id="loginErrorMessage"><?= $errorMessage ?></span>
-                    </div>
-                <?php elseif ($successMessage): ?>
-                    <div id="loginSuccess" class="alert alert-success" role="alert">
-                        <i class="bi bi-check-circle"></i>
-                        <span id="loginSuccessMessage"><?= $successMessage ?></span>
-                    </div>
-                <?php else: ?>
-                    <div id="loginError" class="alert alert-danger d-none" role="alert">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        <span id="loginErrorMessage"></span>
-                    </div>
-                <?php endif; ?>
+                <div id="loginError" class="alert alert-danger d-none" role="alert">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <span id="loginErrorMessage"></span>
+                </div>
+                <div id="loginSuccess" class="alert alert-success d-none" role="alert">
+                    <i class="bi bi-check-circle"></i>
+                    <span id="loginSuccessMessage"></span>
+                </div>
 
                 <!-- Login Button -->
                 <button type="submit" class="login-btn" id="loginButton">
@@ -214,6 +246,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- 2FA Verification Modal -->
+    <div class="modal fade" id="2faVerificationModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-shield-lock-fill me-2"></i>Two-Factor Authentication
+                    </h5>
+                </div>
+                <div class="modal-body text-center py-5">
+                    <div class="mb-4">
+                        <div class="step-icon bg-primary mx-auto">
+                            <i class="bi bi-shield-check" style="font-size: 2.5rem; color: white;"></i>
+                        </div>
+                    </div>
+                    <h5 class="mb-2 fw-bold" style="color: #1f2937;">Enter Authentication Code</h5>
+                    <p class="text-muted mb-4" style="font-size: 0.95rem;">Open your authenticator app and enter the 6-digit code</p>
+                    
+                    <div class="mb-4 px-md-5">
+                        <input type="text" class="form-control form-control-lg text-center" id="2faCode" 
+                               placeholder="000000" maxlength="6" pattern="[0-9]{6}" 
+                               inputmode="numeric" autocomplete="one-time-code">
+                    </div>
+
+                    <div id="2faVerifyError" class="alert alert-danger d-none mx-md-4" role="alert">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <span id="2faVerifyErrorMessage"></span>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-center border-0 pb-4">
+                    <button type="button" class="btn btn-lg btn-primary px-5" id="verify2faBtn">
+                        <i class="bi bi-check-circle me-2"></i>Verify Code
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2FA Setup Modal -->
+    <div class="modal fade" id="2faSetupModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-shield-plus me-2"></i>Set Up Two-Factor Authentication
+                    </h5>
+                </div>
+                <div class="modal-body py-4">
+                    <div class="row g-0">
+                        <div class="col-md-6 text-center border-end">
+                            <div class="px-3">
+                                <h6 class="mb-3"><i class="bi bi-qr-code me-2"></i>Step 1: Scan QR Code</h6>
+                                <p class="text-muted small mb-3">Use your authenticator app to scan this code</p>
+                                <div id="qrCodeContainer" class="mx-auto"></div>
+                                <div class="mt-3">
+                                    <p class="text-muted small mb-2" style="font-size: 0.8rem;"><i class="bi bi-phone me-1"></i>Recommended Apps:</p>
+                                    <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                        <span class="badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">Google Authenticator</span>
+                                        <span class="badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">Microsoft Authenticator</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="px-3">
+                                <h6 class="mb-3"><i class="bi bi-123 me-2"></i>Step 2: Verify Code</h6>
+                                <p class="text-muted small mb-3">After scanning, enter the 6-digit code from your app</p>
+                                <div class="mb-3">
+                                    <input type="text" class="form-control form-control-lg text-center" id="2faSetupCode" 
+                                           placeholder="000000" maxlength="6" pattern="[0-9]{6}"
+                                           inputmode="numeric" autocomplete="one-time-code">
+                                </div>
+
+                                <div id="2faSetupError" class="alert alert-danger d-none" role="alert">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    <span id="2faSetupErrorMessage"></span>
+                                </div>
+
+                                <div class="alert alert-info border-0">
+                                    <div class="d-flex align-items-start">
+                                        <i class="bi bi-info-circle me-2 mt-1"></i>
+                                        <small style="line-height: 1.6;">This adds an extra layer of security to your account. You'll need your authenticator app each time you log in.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-center border-0 pb-4 pt-3">
+                    <button type="button" class="btn btn-lg btn-success px-5" id="complete2faSetupBtn">
+                        <i class="bi bi-check-circle me-2"></i>Complete Setup
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 

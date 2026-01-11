@@ -19,6 +19,8 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/database.php';
 require_once __DIR__ . '/../includes/session.php';
+require_once __DIR__ . '/../vendor/autoload.php';
+use PragmaRX\Google2FA\Google2FA;
 
 // Audit log helper function
 function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO')
@@ -243,10 +245,18 @@ try {
         }
 
         if ($ok) {
-            addAuditLog('USER_CREATED', 'User Management', "Created new $role: $first $last ($id) with temporary password", $id, 'User', 'INFO');
+            // Generate TOTP secret for 2FA
+            $google2fa = new Google2FA();
+            $secret = $google2fa->generateSecretKey();
+
+            // Update user with 2FA secret and mark as not enabled
+            $updateStmt = $db->prepare("UPDATE $table SET 2fa_secret = ?, 2fa_enabled = 0 WHERE id = ?");
+            $updateStmt->execute([$secret, $id]);
+
+            addAuditLog('USER_CREATED', 'User Management', "Created new $role: $first $last ($id) with temporary password and 2FA pending setup", $id, 'User', 'INFO');
             json_response([
                 'success' => true,
-                'message' => 'User created',
+                'message' => 'User created successfully. User must set up 2FA on first login.',
                 'user' => [
                     'id' => $id,
                     'firstName' => $first,

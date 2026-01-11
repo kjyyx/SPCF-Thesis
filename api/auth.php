@@ -133,55 +133,182 @@ if ($method === 'POST') {
         $action = $data['action'] ?? '';
 
         if ($action === 'forgot_password') {
-        // Demo forgot password: Check user in all tables
-        $userId = $data['userId'] ?? '';
-        if (!$userId) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'User ID required']);
+            // Forgot password: Check user in all tables and send real email
+            $userId = $data['userId'] ?? '';
+            if (!$userId) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'User ID required']);
+                exit;
+            }
+
+            $db = (new Database())->getConnection();
+            $user = null;
+            $tables = ['students', 'employees', 'administrators'];
+
+            foreach ($tables as $table) {
+                $stmt = $db->prepare("SELECT email, phone, first_name, last_name FROM $table WHERE id = ?");
+                $stmt->execute([$userId]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($user) break;
+            }
+
+            if (!$user) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'User not found']);
+                exit;
+            }
+
+            // Generate 6-digit code
+            $code = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+
+            // Store code securely in session with expiration (5 minutes)
+            $_SESSION['forgot_password_code'] = password_hash($code, PASSWORD_DEFAULT); // Hash for security
+            $_SESSION['forgot_password_user'] = $userId;
+            $_SESSION['forgot_password_expires'] = time() + 300; // 5 minutes
+
+            // Send email using Gmail SMTP
+            require_once __DIR__ . '/../vendor/autoload.php'; // Ensure PHPMailer is loaded
+            $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+
+            try {
+                // Server settings
+                $mail->isSMTP();
+                $mail->Host = 'smtp.gmail.com';
+                $mail->SMTPAuth = true;
+                $mail->Username = 'signumsystem2025@gmail.com';
+                $mail->Password = 'kilm dprk lwou xhad';
+                $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+                $mail->Port = 465;
+
+                // Recipients
+                $mail->setFrom('signumsystem2025@gmail.com', 'Sign-um System');
+                $mail->addAddress($user['email'], $user['first_name'] . ' ' . $user['last_name']); // Assuming first_name/last_name are available; adjust if needed
+
+                // Content
+                $mail->isHTML(true);
+                $mail->Subject = 'Password Recovery - Sign-um System';
+                
+                // Professional HTML email template
+                $currentYear = date('Y');
+                
+                // Embed the header image
+                $mail->addEmbeddedImage(__DIR__ . '/../assets/images/Email_background.jpg', 'header_image', 'Email_background.jpg', 'base64', 'image/jpeg');
+                
+                $mail->Body = "
+                <!DOCTYPE html>
+                <html lang='en'>
+                <head>
+                    <meta charset='UTF-8'>
+                    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+                    <title>Password Recovery</title>
+                </head>
+                <body style='margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif; background-color: #f4f7fa;'>
+                    <table role='presentation' style='width: 100%; border-collapse: collapse; background-color: #f4f7fa;'>
+                        <tr>
+                            <td align='center' style='padding: 40px 0;'>
+                                <!-- Main Container -->
+                                <table role='presentation' style='width: 600px; max-width: 90%; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+                                    <!-- Header with Background Image -->
+                                    <tr>
+                                        <td style='padding: 0; text-align: center; border-radius: 8px 8px 0 0; overflow: hidden;'>
+                                            <img src='cid:header_image' alt='Sign-um System' style='width: 100%; max-width: 700px; height: auto; display: block; margin: 0 auto;' />
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Content -->
+                                    <tr>
+                                        <td style='padding: 40px 30px;'>
+                                            <h2 style='color: #333333; margin: 0 0 20px 0; font-size: 22px; font-weight: 600;'>Password Recovery Request</h2>
+                                            
+                                            <p style='color: #555555; line-height: 1.6; margin: 0 0 20px 0; font-size: 15px;'>
+                                                Hello <strong>{$user['first_name']} {$user['last_name']}</strong>,
+                                            </p>
+                                            
+                                            <p style='color: #555555; line-height: 1.6; margin: 0 0 20px 0; font-size: 15px;'>
+                                                We received a request to reset your password. Use the verification code below to proceed with resetting your password:
+                                            </p>
+                                            
+                                            <!-- Verification Code Box -->
+                                            <table role='presentation' style='width: 100%; border-collapse: collapse; margin: 30px 0;'>
+                                                <tr>
+                                                    <td align='center' style='background-color: #f8f9fa; border: 2px dashed #2a5298; border-radius: 6px; padding: 25px;'>
+                                                        <p style='margin: 0 0 10px 0; color: #666666; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;'>Your Verification Code</p>
+                                                        <p style='margin: 0; color: #1e3c72; font-size: 36px; font-weight: bold; letter-spacing: 8px; font-family: \"Courier New\", monospace;'>$code</p>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                            
+                                            <!-- Important Notice -->
+                                            <table role='presentation' style='width: 100%; border-collapse: collapse; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; margin: 20px 0;'>
+                                                <tr>
+                                                    <td style='padding: 15px;'>
+                                                        <p style='margin: 0; color: #856404; font-size: 14px; line-height: 1.5;'>
+                                                            <strong>⚠️ Important:</strong> This code will expire in <strong>5 minutes</strong>. If you did not request this password reset, please ignore this email and your password will remain unchanged.
+                                                        </p>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                            
+                                            <p style='color: #555555; line-height: 1.6; margin: 20px 0 0 0; font-size: 15px;'>
+                                                For security reasons, never share this code with anyone. Our support team will never ask for your verification code.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Footer -->
+                                    <tr>
+                                        <td style='background-color: #f8f9fa; padding: 25px 30px; border-radius: 0 0 8px 8px; border-top: 1px solid #e9ecef;'>
+                                            <p style='margin: 0 0 10px 0; color: #6c757d; font-size: 13px; line-height: 1.5;'>
+                                                If you have any questions or need assistance, please contact our support team.
+                                            </p>
+                                            <p style='margin: 0; color: #6c757d; font-size: 12px;'>
+                                                &copy; $currentYear Sign-um System. All rights reserved.<br>
+                                                Systems Plus College Foundation | Angeles City
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+                                
+                                <!-- Footer Text -->
+                                <table role='presentation' style='width: 600px; max-width: 90%; margin-top: 20px;'>
+                                    <tr>
+                                        <td align='center'>
+                                            <p style='color: #999999; font-size: 12px; line-height: 1.5; margin: 0;'>
+                                                This is an automated message, please do not reply to this email.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+                </html>
+                ";
+                
+                $mail->AltBody = "Password Recovery - Sign-um System\n\nHello {$user['first_name']} {$user['last_name']},\n\nWe received a request to reset your password. Your verification code is: $code\n\nThis code expires in 5 minutes. If you did not request this password reset, please ignore this email.\n\nFor security reasons, never share this code with anyone.\n\n© $currentYear Sign-um System. All rights reserved.\nSt. Paul College Foundation, Dumaguete City";
+
+                $mail->send();
+                error_log("Password recovery email sent to {$user['email']} for user $userId");
+
+                // Mask email and phone for response (no demo code sent to client)
+                $emailParts = explode('@', $user['email']);
+                $maskedEmail = substr($emailParts[0], 0, 1) . str_repeat('*', strlen($emailParts[0]) - 1) . '@' . $emailParts[1];
+                $phone = $user['phone'];
+                $maskedPhone = substr($phone, 0, 4) . str_repeat('*', strlen($phone) - 7) . substr($phone, -3);
+
+                echo json_encode([
+                    'success' => true,
+                    'maskedEmail' => $maskedEmail,
+                    'maskedPhone' => $maskedPhone
+                ]);
+            } catch (Exception $e) {
+                error_log("Email sending failed: {$mail->ErrorInfo}");
+                http_response_code(500);
+                echo json_encode(['success' => false, 'message' => 'Failed to send recovery email. Please try again.']);
+            }
             exit;
         }
-
-        $db = (new Database())->getConnection();
-        $user = null;
-        $tables = ['students', 'employees', 'administrators'];
-
-        foreach ($tables as $table) {
-            $stmt = $db->prepare("SELECT email, phone FROM $table WHERE id = ?");
-            $stmt->execute([$userId]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($user) break;
-        }
-
-        if (!$user) {
-            http_response_code(404);
-            echo json_encode(['success' => false, 'message' => 'User not found']);
-            exit;
-        }
-
-        // Generate 6-digit code
-        $code = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
-
-        // Store in session for demo verification
-        $_SESSION['forgot_password_code'] = $code;
-        $_SESSION['forgot_password_user'] = $userId;
-
-        // Mask email and phone for response
-        $emailParts = explode('@', $user['email']);
-        $maskedEmail = substr($emailParts[0], 0, 1) . str_repeat('*', strlen($emailParts[0]) - 1) . '@' . $emailParts[1];
-        $phone = $user['phone'];
-        $maskedPhone = substr($phone, 0, 4) . str_repeat('*', strlen($phone) - 7) . substr($phone, -3);
-
-        // Log "sent" code for demo
-        error_log("DEMO: Password reset code $code 'sent' to {$user['email']} for user $userId");
-
-        echo json_encode([
-            'success' => true,
-            'maskedEmail' => $maskedEmail,
-            'maskedPhone' => $maskedPhone,
-            'demoCode' => $code // Include for demo display
-        ]);
-        exit;
-    }
 
     if ($action === 'reset_password') {
         // Demo reset password: Update password for the user
@@ -238,6 +365,23 @@ if ($method === 'POST') {
         if (!$userId || !$code) {
             echo json_encode(['success' => false, 'message' => 'Missing user_id or code']);
             exit();
+        }
+        
+        // Check if this is for forgot password verification
+        if (isset($_SESSION['forgot_password_code']) && isset($_SESSION['forgot_password_expires'])) {
+            if (time() > $_SESSION['forgot_password_expires']) {
+                echo json_encode(['success' => false, 'message' => 'Code expired']);
+                exit();
+            }
+            if (password_verify($code, $_SESSION['forgot_password_code'])) {
+                // Code is valid - proceed to password reset
+                unset($_SESSION['forgot_password_code'], $_SESSION['forgot_password_user'], $_SESSION['forgot_password_expires']);
+                echo json_encode(['success' => true, 'message' => 'Code verified for password reset']);
+                exit();
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Invalid code']);
+                exit();
+            }
         }
         
         // Fetch user and secret

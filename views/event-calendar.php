@@ -112,23 +112,26 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                 <!-- Settings Dropdown -->
                 <div class="dropdown me-3">
                     <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button"
-                        data-bs-toggle="dropdown">
+                        data-bs-toggle="dropdown" aria-expanded="false" title="Account Settings">
                         <i class="bi bi-gear me-2"></i>Settings
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="#" onclick="openProfileSettings()"><i
-                                    class="bi bi-person-gear me-2"></i>Profile</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="openChangePassword()"><i
-                                    class="bi bi-key me-2"></i>Change Password</a></li>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg">
+                        <li><a class="dropdown-item" href="#" onclick="openProfileSettings()" title="Edit your profile information">
+                                <i class="bi bi-person-gear me-2"></i>Profile Settings</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="openChangePassword()" title="Change your password">
+                                <i class="bi bi-key me-2"></i>Change Password</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="openPreferences()" title="Customize your preferences">
+                                <i class="bi bi-sliders me-2"></i>Preferences</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="openHelp()" title="Get help and support">
+                                <i class="bi bi-question-circle me-2"></i>Help & Support</a></li>
                         <?php if ($currentUser['role'] === 'admin'): ?>
-                            <li><a class="dropdown-item" href="admin-dashboard.php"><i
-                                        class="bi bi-shield-check me-2"></i>Admin Dashboard</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="admin-dashboard.php" title="Access admin dashboard">
+                                    <i class="bi bi-shield-check me-2"></i>Admin Dashboard</a></li>
                         <?php endif; ?>
-                        <li>
-                            <hr class="dropdown-divider">
-                        </li>
-                        <li><a class="dropdown-item text-danger" href="user-logout.php"><i
-                                    class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="user-logout.php" title="Sign out of your account">
+                                <i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
                     </ul>
                 </div>
             </div>
@@ -495,6 +498,184 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                         <button type="submit" class="btn btn-primary">Update Password</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Settings Modal -->
+    <div class="modal fade" id="profileSettingsModal" tabindex="-1" aria-labelledby="profileSettingsLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="profileSettingsLabel">
+                        <i class="bi bi-person-gear me-2"></i>Profile Settings
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="profileSettingsForm">
+                    <div class="modal-body">
+                        <div id="profileSettingsMessages"></div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="profileFirstName" class="form-label">First Name</label>
+                                    <input type="text" class="form-control" id="profileFirstName" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="profileLastName" class="form-label">Last Name</label>
+                                    <input type="text" class="form-control" id="profileLastName" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="profileEmail" class="form-label">Email Address</label>
+                            <input type="email" class="form-control" id="profileEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="profilePhone" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="profilePhone">
+                        </div>
+                        <?php if ($currentUser['role'] === 'student'): ?>
+                        <div class="mb-3">
+                            <label for="profilePosition" class="form-label">Position/Role</label>
+                            <input type="text" class="form-control" id="profilePosition" readonly>
+                        </div>
+                        <?php endif; ?>
+                        <div class="mb-3">
+                            <label class="form-label">Theme Preference</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="darkModeToggle">
+                                <label class="form-check-label" for="darkModeToggle">
+                                    Enable Dark Mode
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preferences Modal -->
+    <div class="modal fade" id="preferencesModal" tabindex="-1" aria-labelledby="preferencesLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="preferencesLabel">
+                        <i class="bi bi-sliders me-2"></i>Preferences
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="preferencesMessages"></div>
+                    <div class="mb-3">
+                        <label class="form-label">Notification Settings</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
+                            <label class="form-check-label" for="emailNotifications">
+                                Email notifications for events
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="browserNotifications" checked>
+                            <label class="form-check-label" for="browserNotifications">
+                                Browser notifications
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="defaultView" class="form-label">Default Calendar View</label>
+                        <select class="form-select" id="defaultView">
+                            <option value="month">Month</option>
+                            <option value="week">Week</option>
+                            <option value="list">List</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="timezone" class="form-label">Timezone</label>
+                        <select class="form-select" id="timezone">
+                            <option value="Asia/Manila">Asia/Manila (GMT+8)</option>
+                            <option value="UTC">UTC</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="savePreferences()">Save Preferences</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help & Support Modal -->
+    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="helpLabel">
+                        <i class="bi bi-question-circle me-2"></i>Help & Support
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="accordion" id="helpAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#gettingStarted">
+                                    Getting Started
+                                </button>
+                            </h2>
+                            <div id="gettingStarted" class="accordion-collapse collapse show" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <p>Welcome to Sign-um Document Portal! Here's how to get started:</p>
+                                    <ul>
+                                        <li><strong>Students:</strong> View events, create documents, track progress</li>
+                                        <li><strong>Employees:</strong> Manage events, approve documents</li>
+                                        <li><strong>Admins:</strong> Full system management</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#calendarFeatures">
+                                    Calendar Features
+                                </button>
+                            </h2>
+                            <div id="calendarFeatures" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <p><strong>Viewing Events:</strong> Click on any date to see events.</p>
+                                    <p><strong>Adding Events:</strong> Use the "Add Event" button (employees/admins only).</p>
+                                    <p><strong>Managing Events:</strong> Click on events to edit or delete them.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#contactSupport">
+                                    Contact Support
+                                </button>
+                            </h2>
+                            <div id="contactSupport" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <p>For technical support, please contact:</p>
+                                    <p><strong>Email:</strong> support@signum.edu.ph</p>
+                                    <p><strong>Phone:</strong> (02) 123-4567</p>
+                                    <p><strong>Office Hours:</strong> Monday-Friday, 8:00 AM - 5:00 PM</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>

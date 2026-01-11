@@ -6,7 +6,8 @@
         "symfony/http-client": "^7.3",
         "nyholm/psr7": "^1.8",
         "pragmarx/google2fa": "^9.0",
-        "endroid/qr-code": "^6.0"
+        "endroid/qr-code": "^6.0",
+        "phpmailer/phpmailer": "^7.0"
     },
     "config": {
         "allow-plugins": {

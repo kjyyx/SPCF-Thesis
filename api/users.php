@@ -132,6 +132,62 @@ function unify_user_row(array $row, string $role): array
 try {
     $db = (new Database())->getConnection();
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $payload = get_json_payload();
+    $action = $payload['action'] ?? '';
+
+    // ----------------------------------
+    // UPDATE PROFILE: Allow users to update their own profile
+    // ----------------------------------
+    if ($method === 'POST' && $action === 'update_profile') {
+        // Require authentication
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role'])) {
+            json_error('Authentication required', 401);
+        }
+
+        $userId = $_SESSION['user_id'];
+        $role = $_SESSION['user_role'];
+        $table = get_table_by_role($role);
+        
+        if (!$table) {
+            json_error('Invalid user role', 400);
+        }
+
+        $firstName = trim($payload['first_name'] ?? '');
+        $lastName = trim($payload['last_name'] ?? '');
+        $email = trim($payload['email'] ?? '');
+        $phone = trim($payload['phone'] ?? '');
+
+        if (!$firstName || !$lastName || !$email) {
+            json_error('First name, last name, and email are required', 400);
+        }
+
+        // Check if email is already used by another user
+        $emailCheckSql = "SELECT id FROM $table WHERE email = :email AND id != :userId";
+        $emailCheck = $db->prepare($emailCheckSql);
+        $emailCheck->execute([':email' => $email, ':userId' => $userId]);
+        
+        if ($emailCheck->fetch()) {
+            json_error('Email address is already in use', 409);
+        }
+
+        // Update user profile
+        $updateSql = "UPDATE $table SET first_name = :firstName, last_name = :lastName, email = :email, phone = :phone WHERE id = :userId";
+        $update = $db->prepare($updateSql);
+        $result = $update->execute([
+            ':firstName' => $firstName,
+            ':lastName' => $lastName,
+            ':email' => $email,
+            ':phone' => $phone,
+            ':userId' => $userId
+        ]);
+
+        if ($result) {
+            addAuditLog('PROFILE_UPDATED', 'User Management', 'User updated their profile', $userId, 'User', 'INFO');
+            json_response(['success' => true, 'message' => 'Profile updated successfully']);
+        } else {
+            json_error('Failed to update profile', 500);
+        }
+    }
 
     // ----------------------------------
     // READ: List users (optionally by role) with pagination
@@ -182,7 +238,7 @@ try {
     // ----------------------------------
     // CREATE: Create a user
     // ----------------------------------
-    if ($method === 'POST') {
+    if ($method === 'POST' && $action === 'create') {
         $role = $payload['role'] ?? '';
         $table = get_table_by_role($role);
         if (!$table) {

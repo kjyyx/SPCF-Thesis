@@ -82,8 +82,7 @@ error_log("DEBUG upload-publication.php: Session data: " . json_encode($_SESSION
   <script src="../assets/js/global-notifications.js"></script>
       </head>
 
-      < body class=" with- fixed - navbar" >
-  < !--Navigation Bar-- >
+  <body class="with-fixed-navbar">
   <nav class="navbar navbar-expand-lg fixed-top">
     <div class="container-fluid">
       <div class="navbar-brand">

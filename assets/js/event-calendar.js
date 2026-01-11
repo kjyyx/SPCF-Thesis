@@ -954,6 +954,150 @@ function showNotifications() {
     modal.show();
 }
 
+// Profile Settings Functions
+function openProfileSettings() {
+    // Populate form with current user data
+    if (currentUser) {
+        document.getElementById('profileFirstName').value = currentUser.first_name || '';
+        document.getElementById('profileLastName').value = currentUser.last_name || '';
+        document.getElementById('profileEmail').value = currentUser.email || '';
+        document.getElementById('profilePhone').value = currentUser.phone || '';
+        if (currentUser.role === 'student') {
+            document.getElementById('profilePosition').value = 'Student';
+        }
+        
+        // Load theme preference from localStorage
+        const darkMode = localStorage.getItem('darkMode') === 'true';
+        document.getElementById('darkModeToggle').checked = darkMode;
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('profileSettingsModal'));
+    modal.show();
+}
+
+function openPreferences() {
+    // Load preferences from localStorage
+    const emailNotifications = localStorage.getItem('emailNotifications') !== 'false'; // default true
+    const browserNotifications = localStorage.getItem('browserNotifications') !== 'false'; // default true
+    const defaultView = localStorage.getItem('defaultView') || 'month';
+    const timezone = localStorage.getItem('timezone') || 'Asia/Manila';
+    
+    document.getElementById('emailNotifications').checked = emailNotifications;
+    document.getElementById('browserNotifications').checked = browserNotifications;
+    document.getElementById('defaultView').value = defaultView;
+    document.getElementById('timezone').value = timezone;
+    
+    const modal = new bootstrap.Modal(document.getElementById('preferencesModal'));
+    modal.show();
+}
+
+function openHelp() {
+    const modal = new bootstrap.Modal(document.getElementById('helpModal'));
+    modal.show();
+}
+
+function savePreferences() {
+    const emailNotifications = document.getElementById('emailNotifications').checked;
+    const browserNotifications = document.getElementById('browserNotifications').checked;
+    const defaultView = document.getElementById('defaultView').value;
+    const timezone = document.getElementById('timezone').value;
+    
+    // Save to localStorage
+    localStorage.setItem('emailNotifications', emailNotifications);
+    localStorage.setItem('browserNotifications', browserNotifications);
+    localStorage.setItem('defaultView', defaultView);
+    localStorage.setItem('timezone', timezone);
+    
+    // Show success message
+    const messagesDiv = document.getElementById('preferencesMessages');
+    if (messagesDiv) {
+        messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Preferences saved successfully!</div>';
+        setTimeout(() => {
+            messagesDiv.innerHTML = '';
+            bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
+        }, 2000);
+    }
+    
+    // Apply theme if changed
+    applyTheme();
+}
+
+// Handle profile settings form
+document.getElementById('profileSettingsForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const firstName = document.getElementById('profileFirstName').value;
+    const lastName = document.getElementById('profileLastName').value;
+    const email = document.getElementById('profileEmail').value;
+    const phone = document.getElementById('profilePhone').value;
+    const darkMode = document.getElementById('darkModeToggle').checked;
+    const messagesDiv = document.getElementById('profileSettingsMessages');
+
+    const show = (html) => { if (messagesDiv) messagesDiv.innerHTML = html; };
+    const ok = (msg) => `<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>${msg}</div>`;
+    const err = (msg) => `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>${msg}</div>`;
+
+    if (!firstName || !lastName || !email) { 
+        show(err('First name, last name, and email are required.')); 
+        return; 
+    }
+
+    try {
+        const resp = await fetch('../api/users.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                action: 'update_profile', 
+                first_name: firstName, 
+                last_name: lastName, 
+                email: email, 
+                phone: phone 
+            })
+        }).then(r => r.json());
+
+        if (resp.success) {
+            // Update local user data
+            currentUser.first_name = firstName;
+            currentUser.last_name = lastName;
+            currentUser.email = email;
+            currentUser.phone = phone;
+            
+            // Update display name in navbar
+            const displayNameEl = document.getElementById('userDisplayName');
+            if (displayNameEl) {
+                displayNameEl.textContent = `${firstName} ${lastName}`;
+            }
+            
+            // Save theme preference
+            localStorage.setItem('darkMode', darkMode);
+            applyTheme();
+            
+            window.addAuditLog('PROFILE_UPDATED', 'User Management', 'Profile information updated', currentUser.id, 'User', 'INFO');
+            show(ok('Profile updated successfully!'));
+            
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('profileSettingsModal')).hide();
+                show('');
+            }, 2000);
+        } else {
+            show(err(resp.message || 'Failed to update profile.'));
+        }
+    } catch (error) {
+        console.error('Profile update error:', error);
+        show(err('An error occurred while updating your profile.'));
+    }
+});
+
+// Theme application function
+function applyTheme() {
+    const darkMode = localStorage.getItem('darkMode') === 'true';
+    document.body.classList.toggle('dark-theme', darkMode);
+    
+    // Update toggle state if modal is open
+    const toggle = document.getElementById('darkModeToggle');
+    if (toggle) toggle.checked = darkMode;
+}
+
 // Initialize the calendar app when the page loads
 document.addEventListener('DOMContentLoaded', function () {
     console.log('DOM loaded, checking for user data...');
@@ -965,6 +1109,9 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('User data found:', currentUser);
         console.log('Initializing CalendarApp...');
         new CalendarApp();
+        
+        // Apply saved theme
+        applyTheme();
     } else {
         console.log('No user data found, redirecting to login...');
         // If no user data, redirect to login

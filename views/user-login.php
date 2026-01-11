@@ -50,7 +50,8 @@ $twoFactorSecret = '';
 $twoFactorUserId = '';
 
 // Process login form if submitted - DISABLED: Using JavaScript API instead
-// if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
+/*
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     $userId = $_POST['userId'] ?? '';
     $password = $_POST['password'] ?? '';
 
@@ -156,7 +157,8 @@ $twoFactorUserId = '';
     } else {
         $error = 'Please fill in all fields.';
     }
-// }
+}
+*/
 ?>
 
 
@@ -176,19 +178,20 @@ $twoFactorUserId = '';
 </head>
 
 <body>
-    <div class="login-container">
-        <!-- Login Header -->
-        <div class="login-header">
-            <div class="login-icon">
-                <i class="bi bi-calendar-event"></i>
+    <main class="login-wrapper" role="main">
+        <div class="login-container" role="dialog" aria-labelledby="login-title">
+            <!-- Login Header -->
+            <div class="login-header">
+                <div class="login-icon" aria-hidden="true">
+                    <i class="bi bi-calendar-event"></i>
+                </div>
+                <h2 id="login-title">Sign-um Document Portal</h2>
+                <p>Event Management System</p>
             </div>
-            <h2>Sign-um Document Portal</h2>
-            <p>Event Management System</p>
-        </div>
 
-        <!-- Login Body -->
-        <div class="login-body">
-            <form id="loginForm">
+            <!-- Login Body -->
+            <div class="login-body">
+                <form id="loginForm" aria-label="Login Form">
                 <input type="hidden" id="requires2fa" value="<?php echo $requires2fa ? 'true' : 'false'; ?>">
                 <input type="hidden" id="requires2faSetup" value="<?php echo $requires2faSetup ? 'true' : 'false'; ?>">
                 <input type="hidden" id="twoFactorSecret" value="<?php echo htmlspecialchars($twoFactorSecret); ?>">
@@ -201,22 +204,26 @@ $twoFactorUserId = '';
                 <!-- User ID -->
                 <div class="form-group">
                     <label for="userId" class="form-label">
-                        <i class="bi bi-person"></i>User ID
+                        <i class="bi bi-person-fill" aria-hidden="true"></i>User ID
                     </label>
-                    <input type="text" class="form-control" id="userId" name="userId" placeholder="Enter your ID"
-                        required value="<?= isset($_POST['userId']) ? htmlspecialchars($_POST['userId']) : '' ?>">
+                    <input type="text" class="form-control" id="userId" name="userId" 
+                        placeholder="Enter your userID" autocomplete="username"
+                        required value="<?= isset($_POST['userId']) ? htmlspecialchars($_POST['userId']) : '' ?>"
+                        aria-describedby="userIdHelp">
                 </div>
 
                 <!-- Password -->
                 <div class="form-group">
                     <label for="password" class="form-label">
-                        <i class="bi bi-lock"></i>Password
+                        <i class="bi bi-lock-fill" aria-hidden="true"></i>Password
                     </label>
                     <div class="password-wrapper">
                         <input type="password" class="form-control" id="password" name="password"
-                            placeholder="Enter your password" required>
-                        <button type="button" class="password-toggle" id="togglePassword">
-                            <i class="bi bi-eye" id="passwordIcon"></i>
+                            placeholder="Enter your password" autocomplete="current-password" required
+                            aria-describedby="passwordHelp">
+                        <button type="button" class="password-toggle" id="togglePassword" 
+                            aria-label="Toggle password visibility">
+                            <i class="bi bi-eye" id="passwordIcon" aria-hidden="true"></i>
                         </button>
                     </div>
                 </div>
@@ -224,43 +231,45 @@ $twoFactorUserId = '';
                 <!-- 2FA elements moved to modals below -->
 
                 <!-- Error/Success Message -->
-                <div id="loginError" class="alert alert-danger d-none" role="alert">
-                    <i class="bi bi-exclamation-triangle"></i>
+                <div id="loginError" class="alert alert-danger d-none" role="alert" aria-live="assertive">
+                    <i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i>
                     <span id="loginErrorMessage"></span>
                 </div>
-                <div id="loginSuccess" class="alert alert-success d-none" role="alert">
-                    <i class="bi bi-check-circle"></i>
+                <div id="loginSuccess" class="alert alert-success d-none" role="alert" aria-live="polite">
+                    <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
                     <span id="loginSuccessMessage"></span>
                 </div>
 
                 <!-- Login Button -->
-                <button type="submit" class="login-btn" id="loginButton">
-                    <i class="bi bi-box-arrow-in-right"></i>Sign In
+                <button type="submit" class="login-btn" id="loginButton" aria-label="Sign In">
+                    <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>Sign In
                 </button>
 
                 <!-- Forgot Password -->
                 <div class="forgot-password">
-                    <button type="button" onclick="openForgotPassword()">
-                        <i class="bi bi-question-circle"></i>
+                    <button type="button" onclick="openForgotPassword()" aria-label="Reset Password">
+                        <i class="bi bi-question-circle-fill" aria-hidden="true"></i>
                         Forgot Password?
                     </button>
                 </div>
             </form>
         </div>
     </div>
+</main>
 
     <!-- 2FA Verification Modal -->
-    <div class="modal fade" id="2faVerificationModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal fade" id="2faVerificationModal" tabindex="-1" data-bs-backdrop="static" 
+        data-bs-keyboard="false" aria-labelledby="2faVerificationLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header text-white">
-                    <h5 class="modal-title">
-                        <i class="bi bi-shield-lock-fill me-2"></i>Two-Factor Authentication
+                    <h5 class="modal-title" id="2faVerificationLabel">
+                        <i class="bi bi-shield-lock-fill me-2" aria-hidden="true"></i>Two-Factor Authentication
                     </h5>
                 </div>
                 <div class="modal-body text-center py-5">
                     <div class="mb-4">
-                        <div class="step-icon bg-primary mx-auto">
+                        <div class="step-icon bg-primary mx-auto" aria-hidden="true">
                             <i class="bi bi-shield-check" style="font-size: 2.5rem; color: white;"></i>
                         </div>
                     </div>
@@ -270,17 +279,17 @@ $twoFactorUserId = '';
                     <div class="mb-4 px-md-5">
                         <input type="text" class="form-control form-control-lg text-center" id="2faCode" 
                                placeholder="000000" maxlength="6" pattern="[0-9]{6}" 
-                               inputmode="numeric" autocomplete="one-time-code">
+                               inputmode="numeric" autocomplete="one-time-code" aria-label="Authentication Code">
                     </div>
 
-                    <div id="2faVerifyError" class="alert alert-danger d-none mx-md-4" role="alert">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
+                    <div id="2faVerifyError" class="alert alert-danger d-none mx-md-4" role="alert" aria-live="assertive">
+                        <i class="bi bi-exclamation-triangle me-2" aria-hidden="true"></i>
                         <span id="2faVerifyErrorMessage"></span>
                     </div>
                 </div>
                 <div class="modal-footer justify-content-center border-0 pb-4">
-                    <button type="button" class="btn btn-lg btn-primary px-5" id="verify2faBtn">
-                        <i class="bi bi-check-circle me-2"></i>Verify Code
+                    <button type="button" class="btn btn-lg btn-primary px-5" id="verify2faBtn" aria-label="Verify Authentication Code">
+                        <i class="bi bi-check-circle me-2" aria-hidden="true"></i>Verify Code
                     </button>
                 </div>
             </div>

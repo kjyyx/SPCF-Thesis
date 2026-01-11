@@ -172,15 +172,16 @@ function showCooldownMessage(message) {
 
     if (errorDiv && errorMessage) {
         errorMessage.textContent = message;
-        errorDiv.classList.remove('d-none', 'alert-success');
-        errorDiv.classList.add('alert-warning'); // Use warning color for cooldown
+        errorDiv.classList.remove('d-none', 'alert-success', 'alert-danger');
+        errorDiv.classList.add('alert-warning');
 
-        // Smooth slide-in animation
+        // Smooth slide-in animation with bounce
         errorDiv.style.opacity = '0';
-        errorDiv.style.transform = 'translateY(-10px)';
+        errorDiv.style.transform = 'translateY(-20px) scale(0.95)';
         setTimeout(() => {
+            errorDiv.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
             errorDiv.style.opacity = '1';
-            errorDiv.style.transform = 'translateY(0)';
+            errorDiv.style.transform = 'translateY(0) scale(1)';
         }, 10);
 
         // Start countdown timer
@@ -243,11 +244,12 @@ function enableFormAfterCooldown() {
 function hideLoginError() {
     const errorDiv = document.getElementById('loginError');
     if (errorDiv) {
+        errorDiv.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
         errorDiv.style.opacity = '0';
-        errorDiv.style.transform = 'translateY(-10px)';
+        errorDiv.style.transform = 'translateY(-20px) scale(0.95)';
         setTimeout(() => {
             errorDiv.classList.add('d-none');
-        }, 200);
+        }, 300);
     }
 }
 
@@ -261,12 +263,13 @@ function showLoginError(message) {
         errorDiv.classList.remove('d-none', 'alert-warning');
         errorDiv.classList.add('alert-danger');
 
-        // Smooth slide-in animation
+        // Smooth slide-in animation with bounce
         errorDiv.style.opacity = '0';
-        errorDiv.style.transform = 'translateY(-10px)';
+        errorDiv.style.transform = 'translateY(-20px) scale(0.95)';
         setTimeout(() => {
+            errorDiv.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
             errorDiv.style.opacity = '1';
-            errorDiv.style.transform = 'translateY(0)';
+            errorDiv.style.transform = 'translateY(0) scale(1)';
         }, 10);
     }
 }
@@ -279,12 +282,13 @@ function showLoginSuccess(message) {
         successMessage.textContent = message;
         successDiv.classList.remove('d-none');
 
-        // Smooth slide-in animation
+        // Smooth slide-in animation with bounce
         successDiv.style.opacity = '0';
-        successDiv.style.transform = 'translateY(-10px)';
+        successDiv.style.transform = 'translateY(-20px) scale(0.95)';
         setTimeout(() => {
+            successDiv.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
             successDiv.style.opacity = '1';
-            successDiv.style.transform = 'translateY(0)';
+            successDiv.style.transform = 'translateY(0) scale(1)';
         }, 10);
     }
 }
@@ -316,8 +320,12 @@ function attachLoginSubmitHandler() {
 
         const loginButton = document.getElementById('loginButton');
         const loginContainer = document.querySelector('.login-container');
+        
+        // Add smooth loading transition
+        loginContainer.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
         loginContainer.classList.add('loading');
         loginButton.disabled = true;
+        loginButton.style.transform = 'scale(0.98)';
 
         try {
             // Normal login only - 2FA handled by modal buttons
@@ -474,8 +482,10 @@ function attachLoginSubmitHandler() {
             loginContainer.classList.remove('loading');
             loginButton.innerHTML = '<i class="bi bi-box-arrow-in-right"></i>Sign In';
             loginButton.disabled = false;
+            loginButton.style.transform = '';
         }
-    });
+        }
+    );
 }
 
 // Helper function to add text backup below QR code
@@ -580,21 +590,53 @@ function backToStep2() {
 }
 
 function resendMfaCode() {
+    // Get the userId from the forgot password form
+    const userId = document.getElementById('forgotUserId').value.trim();
+
+    if (!userId) {
+        showForgotPasswordError('User ID not found. Please try again.');
+        return;
+    }
+
     // Reset timer
     startMfaTimer();
     document.getElementById('mfaCode').disabled = false;
     document.getElementById('mfaError').classList.add('d-none');
 
-    // Show brief success message
+    // Show loading state
     const btn = document.getElementById('resendCodeBtn');
     const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="bi bi-check me-1"></i>Code Sent!';
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Sending...';
     btn.disabled = true;
 
-    setTimeout(() => {
+    // Actually resend the code
+    fetch('../api/auth.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'forgot_password', userId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            btn.innerHTML = '<i class="bi bi-check me-1"></i>Code Sent!';
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }, 3000);
+        } else {
+            // Show error
+            showForgotPasswordError(data.message || 'Failed to resend code.');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Resend error:', error);
+        showForgotPasswordError('Failed to resend code. Please try again.');
         btn.innerHTML = originalText;
         btn.disabled = false;
-    }, 3000);
+    });
 }
 
 // (Duplicate togglePasswordVisibility removed; single global function defined above)
@@ -788,16 +830,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                     document.getElementById('maskedEmail').textContent = data.maskedEmail;
                     document.getElementById('maskedPhone').textContent = data.maskedPhone;
 
-                    // Show demo code alert
-                    const demoAlert = document.createElement('div');
-                    demoAlert.className = 'alert alert-info alert-dismissible fade show';
-                    demoAlert.innerHTML = `
-                        <i class="bi bi-info-circle me-2"></i>
-                        <strong>Demo Mode:</strong> Your verification code is <strong>${data.demoCode}</strong>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    `;
-                    document.getElementById('forgotPasswordStep2').insertBefore(demoAlert, document.getElementById('forgotPasswordStep2').querySelector('form'));
-
+                    // Remove demo alert - user checks email now
                     // Proceed to MFA step
                     document.getElementById('forgotPasswordStep1').style.display = 'none';
                     document.getElementById('forgotPasswordStep2').style.display = 'block';

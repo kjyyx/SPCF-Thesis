@@ -669,7 +669,7 @@ body::after {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     width: 100%;
     height: auto;
-    max-width: 200px;
+    max-width: 160px;
     display: block;
     border: 4px solid #f9fafb;
     background: white;
@@ -1001,4 +1001,21 @@ body::after {
         border-radius: 14px;
         padding: 0.875rem 1rem;
     }
+}
+
+/* Modal close button enhancements */
+.modal-header .btn-close {
+    margin: 0;
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+    color: black;
+}
+
+.modal-header .btn-close:hover {
+    opacity: 1;
+}
+
+.modal-header .btn-close:focus {
+    box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+    outline: none;
 }

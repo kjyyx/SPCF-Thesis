@@ -266,6 +266,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                     <h5 class="modal-title" id="2faVerificationLabel">
                         <i class="bi bi-shield-lock-fill me-2" aria-hidden="true"></i>Two-Factor Authentication
                     </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-center py-5">
                     <div class="mb-4">
@@ -304,6 +305,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                     <h5 class="modal-title fw-bold">
                         <i class="bi bi-shield-plus me-2"></i>Set Up Two-Factor Authentication
                     </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body py-4">
                     <div class="row g-0">

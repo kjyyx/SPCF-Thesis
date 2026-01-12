@@ -388,20 +388,20 @@ function attachLoginSubmitHandler() {
                         // Try QRCode library first
                         if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
                             const canvas = document.createElement('canvas');
-                            canvas.width = 180;
-                            canvas.height = 180;
+                            canvas.width = 160;
+                            canvas.height = 160;
                             canvas.style.border = '1px solid #ddd';
                             canvas.style.borderRadius = '8px';
                             canvas.style.maxWidth = '100%';
                             canvas.style.height = 'auto';
                             container.appendChild(canvas);
-                            QRCode.toCanvas(canvas, qrUrl, { width: 160 }, function (error) {  // Changed from 180 to 160 for better fit
+                            QRCode.toCanvas(canvas, qrUrl, { width: 140 }, function (error) {  // Reduced size for better fit
                                 if (error) {
                                     console.error('QRCode generation failed, trying Google Charts...');
                                     // Fallback to Google Charts
                                     container.innerHTML = '';
                                     const img = document.createElement('img');
-                                    img.src = `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;  // Changed from 300x300 to 200x200
+                                    img.src = `https://chart.googleapis.com/chart?chs=160x160&cht=qr&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;  // Reduced from 200x200 to 160x160
                                     img.style.border = '1px solid #ddd';
                                     img.style.borderRadius = '8px';
                                     img.style.maxWidth = '100%';
@@ -427,7 +427,7 @@ function attachLoginSubmitHandler() {
                             // Direct fallback to Google Charts
                             console.log('QRCode not available, using Google Charts API');
                             const img = document.createElement('img');
-                            img.src = `https://chart.googleapis.com/chart?chs=180x180&cht=qr&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;
+                            img.src = `https://chart.googleapis.com/chart?chs=160x160&cht=qr&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;  // Reduced to 160x160
                             img.style.border = '1px solid #ddd';
                             img.style.borderRadius = '8px';
                             img.style.maxWidth = '100%';
@@ -851,19 +851,52 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Attach MFA verification form listener
     const mfaForm = document.getElementById('mfaVerificationForm');
     if (mfaForm) {
-        mfaForm.addEventListener('submit', function (e) {
+        mfaForm.addEventListener('submit', async function (e) {
             e.preventDefault();
 
             const code = document.getElementById('mfaCode').value;
+            hideMfaError();
 
-            // Demo: accept any 6-digit code
-            if (code.length === 6 && /^\d+$/.test(code)) {
-                document.getElementById('forgotPasswordStep2').style.display = 'none';
-                document.getElementById('forgotPasswordStep3').style.display = 'block';
-                clearInterval(mfaTimer);
-            } else {
-                document.getElementById('mfaErrorMessage').textContent = 'Invalid verification code. Please enter a 6-digit code.';
-                document.getElementById('mfaError').classList.remove('d-none');
+            if (!code || code.length !== 6 || !/^\d+$/.test(code)) {
+                showMfaError('Please enter a valid 6-digit code.');
+                return;
+            }
+
+            // Disable form during verification
+            const submitBtn = mfaForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verifying...';
+            }
+
+            try {
+                const response = await fetch('../api/auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'verify_forgot_password',
+                        code: code
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    // Code verified successfully
+                    document.getElementById('forgotPasswordStep2').style.display = 'none';
+                    document.getElementById('forgotPasswordStep3').style.display = 'block';
+                    clearInterval(mfaTimer);
+                } else {
+                    showMfaError(data.message || 'Invalid verification code.');
+                }
+            } catch (error) {
+                console.error('Verification error:', error);
+                showMfaError('Server error. Please try again.');
+            } finally {
+                // Re-enable form
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Verify Code';
+                }
             }
         });
         console.log('mfaVerificationForm event listener attached');
@@ -1036,6 +1069,22 @@ document.addEventListener('DOMContentLoaded', async function () {
         });
         console.log('resetPasswordForm event listener attached');
     }
+
+    // Add event listeners for modal close events to reset form state
+    const verifyModalEl = document.getElementById('2faVerificationModal');
+    const setupModalEl = document.getElementById('2faSetupModal');
+
+    if (verifyModalEl) {
+        verifyModalEl.addEventListener('hidden.bs.modal', function () {
+            resetLoginForm();
+        });
+    }
+
+    if (setupModalEl) {
+        setupModalEl.addEventListener('hidden.bs.modal', function () {
+            resetLoginForm();
+        });
+    }
 });
 
 // Helper function to reset login form to initial state
@@ -1079,3 +1128,20 @@ function resetLoginForm() {
 }
 
 // 2FA Inline Functions (removed - now handled by PHP and simple QR generation)
+
+// Helper functions for MFA error handling
+function hideMfaError() {
+    const errorDiv = document.getElementById('mfaError');
+    if (errorDiv) {
+        errorDiv.classList.add('d-none');
+    }
+}
+
+function showMfaError(message) {
+    const errorDiv = document.getElementById('mfaError');
+    const errorMsg = document.getElementById('mfaErrorMessage');
+    if (errorDiv && errorMsg) {
+        errorMsg.textContent = message;
+        errorDiv.classList.remove('d-none');
+    }
+}

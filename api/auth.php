@@ -367,23 +367,6 @@ if ($method === 'POST') {
             exit();
         }
         
-        // Check if this is for forgot password verification
-        if (isset($_SESSION['forgot_password_code']) && isset($_SESSION['forgot_password_expires'])) {
-            if (time() > $_SESSION['forgot_password_expires']) {
-                echo json_encode(['success' => false, 'message' => 'Code expired']);
-                exit();
-            }
-            if (password_verify($code, $_SESSION['forgot_password_code'])) {
-                // Code is valid - proceed to password reset
-                unset($_SESSION['forgot_password_code'], $_SESSION['forgot_password_user'], $_SESSION['forgot_password_expires']);
-                echo json_encode(['success' => true, 'message' => 'Code verified for password reset']);
-                exit();
-            } else {
-                echo json_encode(['success' => false, 'message' => 'Invalid code']);
-                exit();
-            }
-        }
-        
         // Fetch user and secret
         $user = null;
         $tables = ['administrators', 'employees', 'students'];
@@ -475,6 +458,39 @@ if ($method === 'POST') {
             error_log("DEBUG api/auth.php: 2FA setup failed for user $userId - invalid code");
             echo json_encode(['success' => false, 'message' => 'Invalid 2FA code']);
         }
+        exit();
+    }
+
+    // Add new endpoint for forgot password verification
+    if ($action === 'verify_forgot_password') {
+        $code = $data['code'] ?? '';
+        if (!$code) {
+            echo json_encode(['success' => false, 'message' => 'Code required']);
+            exit();
+        }
+
+        // Check session data
+        if (!isset($_SESSION['forgot_password_code']) || !isset($_SESSION['forgot_password_expires']) || !isset($_SESSION['forgot_password_user'])) {
+            echo json_encode(['success' => false, 'message' => 'No active password reset session']);
+            exit();
+        }
+
+        // Check expiration
+        if (time() > $_SESSION['forgot_password_expires']) {
+            unset($_SESSION['forgot_password_code'], $_SESSION['forgot_password_user'], $_SESSION['forgot_password_expires']);
+            echo json_encode(['success' => false, 'message' => 'Code expired']);
+            exit();
+        }
+
+        // Verify code
+        if (!password_verify($code, $_SESSION['forgot_password_code'])) {
+            echo json_encode(['success' => false, 'message' => 'Invalid code']);
+            exit();
+        }
+
+        // Success - clear session and allow password reset
+        unset($_SESSION['forgot_password_code'], $_SESSION['forgot_password_user'], $_SESSION['forgot_password_expires']);
+        echo json_encode(['success' => true, 'message' => 'Code verified for password reset']);
         exit();
     }
 

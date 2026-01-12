@@ -45,6 +45,9 @@ addAuditLog('UPLOAD_PUBLICATION_VIEWED', 'Materials', 'Viewed upload publication
 // Debug: Log user data (optional, for development)
 error_log("DEBUG upload-publication.php: Current user data: " . json_encode($currentUser));
 error_log("DEBUG upload-publication.php: Session data: " . json_encode($_SESSION));
+
+// Set page title for navbar
+$pageTitle = 'Upload Publications';
 ?>
 
 <!DOCTYPE html>
@@ -83,57 +86,9 @@ error_log("DEBUG upload-publication.php: Session data: " . json_encode($_SESSION
       </head>
 
   <body class="with-fixed-navbar">
-  <nav class="navbar navbar-expand-lg fixed-top">
-    <div class="container-fluid">
-      <div class="navbar-brand">
-        <i class="bi bi-cloud-upload me-2"></i>
-        Sign-um | Upload Materials
-      </div>
+    <?php include '../includes/navbar.php'; ?>
 
-      <div class="navbar-nav ms-auto d-flex flex-row align-items-center">
-        <!-- User Info -->
-        <div class="user-info me-3">
-          <i class="bi bi-person-circle me-2"></i>
-          <span
-            id="userDisplayName"><?php echo htmlspecialchars($currentUser['first_name'] . ' ' . $currentUser['last_name']); ?></span>
-          <span class="badge ms-2 <?php
-          echo ($currentUser['role'] === 'admin') ? 'bg-danger' :
-            (($currentUser['role'] === 'employee') ? 'bg-primary' : 'bg-success');
-          ?>" id="userRoleBadge">
-            <?php echo strtoupper($currentUser['role']); ?>
-          </span>
-        </div>
-
-        <!-- Notifications -->
-        <div class="notification-bell me-3" onclick="showNotifications()">
-          <i class="bi bi-bell"></i>
-          <span class="notification-badge" id="notificationCount">0</span>
-        </div>
-
-        <!-- Settings Dropdown -->
-        <div class="dropdown me-3">
-          <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-            <i class="bi bi-gear me-2"></i>Settings
-          </button>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="event-calendar.php"><i class="bi bi-calendar-event me-2"></i>Calendar</a>
-            </li>
-            <li><a class="dropdown-item" href="create-document.php"><i class="bi bi-file-text me-2"></i>Create
-                Document</a></li>
-            <li><a class="dropdown-item" href="track-document.php"><i class="bi bi-file-earmark-check me-2"></i>Track
-                Documents</a></li>
-            <li>
-              <hr class="dropdown-divider">
-            </li>
-            <li><a class="dropdown-item text-danger" href="user-logout.php"><i
-                  class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </nav>
-
-  <!--Page Header-- >
+  <!-- Page Header -->
   <div class="page-header-section">
     <div class="container-fluid">
       <div class="page-header-content">
@@ -146,7 +101,7 @@ error_log("DEBUG upload-publication.php: Session data: " . json_encode($_SESSION
     </div>
   </div>
 
-  <!--Main Content-- >
+  <!-- Main Content -->
   <div class="container">
     <!-- File Requirements & Guidelines -->
     <div class="card restrictions-card mb-4">
@@ -268,7 +223,7 @@ error_log("DEBUG upload-publication.php: Session data: " . json_encode($_SESSION
     </div>
   </div>
 
-  <!--Bootstrap JS-- >
+  <!-- Bootstrap JS -->
       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
   <!-- Toast Utils -->
@@ -286,6 +241,251 @@ error_log("DEBUG upload-publication.php: Session data: " . json_encode($_SESSION
       });
     });
   </script>
+
+  <!-- Profile Settings Modal -->
+  <div class="modal fade" id="profileSettingsModal" tabindex="-1" aria-labelledby="profileSettingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="profileSettingsModalLabel"><i class="bi bi-person-gear me-2"></i>Profile Settings</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="profileSettingsForm">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="profileFirstName" class="form-label">First Name</label>
+                  <input type="text" class="form-control" id="profileFirstName" required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="profileLastName" class="form-label">Last Name</label>
+                  <input type="text" class="form-control" id="profileLastName" required>
+                </div>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label for="profileEmail" class="form-label">Email</label>
+              <input type="email" class="form-control" id="profileEmail" required>
+            </div>
+            <div class="mb-3">
+              <label for="profilePhone" class="form-label">Phone Number</label>
+              <input type="tel" class="form-control" id="profilePhone">
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="saveProfileSettings()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preferences Modal -->
+  <div class="modal fade" id="preferencesModal" tabindex="-1" aria-labelledby="preferencesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="preferencesModalLabel"><i class="bi bi-sliders me-2"></i>Preferences</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="preferencesForm">
+            <h6 class="mb-3">Upload Preferences</h6>
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="autoPreview" checked>
+                <label class="form-check-label" for="autoPreview">
+                  Automatically show file previews after upload
+                </label>
+              </div>
+            </div>
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="confirmBeforeSubmit" checked>
+                <label class="form-check-label" for="confirmBeforeSubmit">
+                  Show confirmation dialog before submitting files
+                </label>
+              </div>
+            </div>
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="showFileDescriptions" checked>
+                <label class="form-check-label" for="showFileDescriptions">
+                  Enable file description fields
+                </label>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label for="maxFilesPerUpload" class="form-label">Maximum files per upload session</label>
+              <select class="form-select" id="maxFilesPerUpload">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+            <h6 class="mb-3 mt-4">Storage Preferences</h6>
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="showStorageWarnings" checked>
+                <label class="form-check-label" for="showStorageWarnings">
+                  Show storage usage warnings
+                </label>
+              </div>
+            </div>
+            <div class="mb-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="autoCompress" checked>
+                <label class="form-check-label" for="autoCompress">
+                  Auto-compress large images (recommended)
+                </label>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="savePreferences()">Save Preferences</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help Modal -->
+  <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="helpModalLabel"><i class="bi bi-question-circle me-2"></i>Help & Support - Upload Publications</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="accordion" id="helpAccordion">
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#gettingStarted">
+                  Getting Started with File Uploads
+                </button>
+              </h2>
+              <div id="gettingStarted" class="accordion-collapse collapse show" data-bs-parent="#helpAccordion">
+                <div class="accordion-body">
+                  <p>The Upload Publications page allows you to submit supporting documents and materials for your signing requests.</p>
+                  <ul>
+                    <li><strong>Drag & Drop:</strong> Simply drag files from your computer into the upload area</li>
+                    <li><strong>Browse Files:</strong> Click anywhere in the upload area to browse and select files</li>
+                    <li><strong>Multiple Files:</strong> You can upload multiple files at once</li>
+                    <li><strong>File Previews:</strong> See previews of your uploaded files before submitting</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fileRequirements">
+                  File Requirements and Guidelines
+                </button>
+              </h2>
+              <div id="fileRequirements" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                <div class="accordion-body">
+                  <h6>Supported File Types:</h6>
+                  <ul>
+                    <li><strong>Images:</strong> JPG, JPEG, PNG, GIF</li>
+                    <li><strong>Documents:</strong> PDF, DOC, DOCX</li>
+                    <li><strong>Maximum Size:</strong> 10MB per file</li>
+                    <li><strong>Total Limit:</strong> 100MB per submission</li>
+                  </ul>
+                  <p><strong>Important:</strong> Files must have descriptive names using only letters, numbers, underscores, hyphens, and dots. Spaces are not allowed.</p>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#usingPreviews">
+                  Using File Previews and Management
+                </button>
+              </h2>
+              <div id="usingPreviews" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                <div class="accordion-body">
+                  <p>After uploading files, you can:</p>
+                  <ul>
+                    <li><strong>Reorder Files:</strong> Drag files to change their order</li>
+                    <li><strong>Add Descriptions:</strong> Enter descriptions for each file</li>
+                    <li><strong>Remove Files:</strong> Click the X button to remove individual files</li>
+                    <li><strong>Clear All:</strong> Remove all uploaded files at once</li>
+                  </ul>
+                  <p><strong>Tip:</strong> File descriptions help reviewers understand the context of each document.</p>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#storageMonitoring">
+                  Storage Usage and Limits
+                </button>
+              </h2>
+              <div id="storageMonitoring" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                <div class="accordion-body">
+                  <p>Monitor your upload progress with the storage usage indicator:</p>
+                  <ul>
+                    <li><strong>Green:</strong> Low usage (under 70%)</li>
+                    <li><strong>Yellow:</strong> Moderate usage (70-90%)</li>
+                    <li><strong>Red:</strong> High usage (over 90%)</li>
+                  </ul>
+                  <p><strong>Note:</strong> The system prevents uploads that would exceed the 100MB total limit.</p>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#submissionProcess">
+                  Submission and Approval Process
+                </button>
+              </h2>
+              <div id="submissionProcess" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                <div class="accordion-body">
+                  <p>After uploading your files:</p>
+                  <ol>
+                    <li>Review all files and add descriptions if needed</li>
+                    <li>Click "Submit for Approval" to send your files</li>
+                    <li>Files will be reviewed within 2-3 business days</li>
+                    <li>You'll receive email notifications about the approval status</li>
+                    <li>Track progress using the "Track Documents" page</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#troubleshooting">
+                  Troubleshooting Common Issues
+                </button>
+              </h2>
+              <div id="troubleshooting" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                <div class="accordion-body">
+                  <h6>Common Issues:</h6>
+                  <ul>
+                    <li><strong>"Unsupported file type":</strong> Check that your file is one of the allowed formats</li>
+                    <li><strong>"File too large":</strong> Reduce file size or compress images</li>
+                    <li><strong>"Invalid file name":</strong> Remove spaces and special characters from filenames</li>
+                    <li><strong>"Total upload limit exceeded":</strong> Remove some files or use smaller files</li>
+                  </ul>
+                  <p>If you continue to experience issues, contact your system administrator.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <a href="track-document.php" class="btn btn-primary">Track Documents</a>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Notifications Modal -->
   <div class="modal fade" id="notificationsModal" tabindex="-1">

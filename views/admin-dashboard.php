@@ -64,6 +64,41 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
     <link rel="stylesheet" href="../assets/css/global.css">
     <link rel="stylesheet" href="../assets/css/admin-dashboard.css">
     <link rel="stylesheet" href="../assets/css/toast.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        /* OneUI Additional Inline Styles */
+        body {
+            font-optical-sizing: auto;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .admin-content {
+            padding: 0 1.5rem 2rem;
+        }
+        
+        .container-fluid {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        /* Smooth transitions for all interactive elements */
+        a, button, .nav-link, .btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        
+        /* Enhanced stat items */
+        .stat-item {
+            backdrop-filter: blur(10px);
+        }
+        
+        /* Enhanced navbar */
+        .navbar {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+    </style>
 
     <script>
         // Pass user data to JavaScript - FIXED property names
@@ -145,14 +180,30 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                         <div class="stat-item">
                             <span class="stat-number" id="totalUsers">-</span>
                             <span class="stat-label">Total Users</span>
+                            <div class="stat-breakdown">
+                                <small id="activeUsers">-</small> active
+                            </div>
                         </div>
                         <div class="stat-item">
                             <span class="stat-number" id="totalMaterials">-</span>
                             <span class="stat-label">Materials</span>
+                            <div class="stat-breakdown">
+                                <small id="approvedMaterials">-</small> approved
+                            </div>
                         </div>
                         <div class="stat-item">
                             <span class="stat-number" id="pendingApprovals">-</span>
                             <span class="stat-label">Pending</span>
+                            <div class="stat-breakdown">
+                                <small id="pendingMaterials">-</small> materials
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="totalAuditLogs">-</span>
+                            <span class="stat-label">Audit Events</span>
+                            <div class="stat-breakdown">
+                                <small id="todayLogs">-</small> today
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -163,6 +214,13 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         <div class="admin-tabs-container">
             <div class="container-fluid">
                 <ul class="nav nav-pills admin-tabs" id="adminTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="dashboard-tab" data-bs-toggle="pill"
+                            data-bs-target="#dashboard-panel" type="button" role="tab">
+                            <i class="bi bi-speedometer2"></i>
+                            <span>Dashboard</span>
+                        </button>
+                    </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="users-tab" data-bs-toggle="pill"
                             data-bs-target="#users-panel" type="button" role="tab">
@@ -178,7 +236,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="audit-tab" data-bs-toggle="pill" data-bs-target="#audit-panel"
+                        <button class="nav-link" id="audit-tab" data-bs-toggle="pill" data-bs-target="#audit-panel"
                             type="button" role="tab">
                             <i class="bi bi-clipboard-data"></i>
                             <span>Audit Logs</span>
@@ -196,6 +254,138 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
 
         <!-- Admin Tab Content -->
         <div class="tab-content admin-content" id="adminTabContent">
+            <!-- Dashboard Overview Panel -->
+            <div class="tab-pane fade show active" id="dashboard-panel" role="tabpanel">
+                <div class="container-fluid">
+                    <!-- Dashboard Overview -->
+                    <div class="content-header">
+                        <div class="header-actions">
+                            <h3><i class="bi bi-speedometer2 me-2"></i>System Overview</h3>
+                            <div class="action-buttons">
+                                <button class="btn btn-primary" onclick="refreshDashboard()">
+                                    <i class="bi bi-arrow-clockwise"></i>Refresh
+                                </button>
+                                <button class="btn btn-success" onclick="exportDashboardReport()">
+                                    <i class="bi bi-file-earmark-spreadsheet"></i>Report
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dashboard Metrics -->
+                    <div class="dashboard-metrics">
+                        <div class="row g-3">
+                            <div class="col-md-3 col-sm-6">
+                                <div class="metric-card compact">
+                                    <div class="metric-icon bg-gradient-primary">
+                                        <i class="bi bi-people-fill"></i>
+                                    </div>
+                                    <div class="metric-content">
+                                        <h4 id="dashboardTotalUsers">-</h4>
+                                        <p>Total Users</p>
+                                        <small id="dashboardActiveUsers" class="text-success">-</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <div class="metric-card compact">
+                                    <div class="metric-icon bg-gradient-success">
+                                        <i class="bi bi-file-earmark-image"></i>
+                                    </div>
+                                    <div class="metric-content">
+                                        <h4 id="dashboardTotalMaterials">-</h4>
+                                        <p>Materials</p>
+                                        <small id="dashboardApprovedMaterials" class="text-success">-</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <div class="metric-card compact">
+                                    <div class="metric-icon bg-gradient-warning">
+                                        <i class="bi bi-clock-history"></i>
+                                    </div>
+                                    <div class="metric-content">
+                                        <h4 id="dashboardPendingItems">-</h4>
+                                        <p>Pending Items</p>
+                                        <small id="dashboardPendingMaterials" class="text-warning">-</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <div class="metric-card compact">
+                                    <div class="metric-icon bg-gradient-danger">
+                                        <i class="bi bi-shield-check"></i>
+                                    </div>
+                                    <div class="metric-content">
+                                        <h4 id="dashboardSecurityEvents">-</h4>
+                                        <p>Security Events</p>
+                                        <small id="dashboardTodayEvents" class="text-muted">-</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Section -->
+                    <div class="dashboard-charts">
+                        <div class="row g-3">
+                            <div class="col-lg-8">
+                                <div class="chart-card compact">
+                                    <div class="chart-header">
+                                        <h5><i class="bi bi-graph-up me-2"></i>Activity Trends</h5>
+                                        <div class="chart-actions">
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="refreshDashboard()">
+                                                <i class="bi bi-arrow-clockwise"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="chart-container" style="height: 280px;">
+                                        <canvas id="auditActivityChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <div class="chart-card compact">
+                                            <div class="chart-header">
+                                                <h5><i class="bi bi-people me-2"></i>Users</h5>
+                                            </div>
+                                            <div class="chart-container" style="height: 130px;">
+                                                <canvas id="userRoleChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="chart-card compact">
+                                            <div class="chart-header">
+                                                <h5><i class="bi bi-file-earmark me-2"></i>Materials</h5>
+                                            </div>
+                                            <div class="chart-container" style="height: 130px;">
+                                                <canvas id="materialStatusChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="recent-activity compact">
+                        <div class="activity-header">
+                            <h5><i class="bi bi-clock-history me-2"></i>Recent Activity</h5>
+                            <a href="#" onclick="document.getElementById('audit-tab').click(); return false;" class="btn btn-sm btn-link">
+                                View All <i class="bi bi-arrow-right"></i>
+                            </a>
+                        </div>
+                        <div class="activity-list" id="recentActivityList">
+                            <!-- Activity items will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- User Management Panel -->
             <div class="tab-pane fade" id="users-panel" role="tabpanel">
                 <div class="container-fluid">
@@ -215,6 +405,29 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                 </button>
                             </div>
                         </div>
+                        <!-- Bulk Operations Bar -->
+                        <div class="bulk-operations" id="bulkOperationsBar" style="display: none;">
+                            <div class="bulk-info">
+                                <span id="selectedCount">0</span> users selected
+                            </div>
+                            <div class="bulk-actions">
+                                <button class="btn btn-outline-primary btn-sm" onclick="bulkExportUsers()">
+                                    <i class="bi bi-download"></i>Export Selected
+                                </button>
+                                <button class="btn btn-outline-warning btn-sm" onclick="bulkResetPasswords()">
+                                    <i class="bi bi-key"></i>Reset Passwords
+                                </button>
+                                <button class="btn btn-outline-info btn-sm" onclick="bulkChangeRole()">
+                                    <i class="bi bi-person-gear"></i>Change Role
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="bulkDeleteUsers()">
+                                    <i class="bi bi-trash"></i>Delete Selected
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="clearSelection()">
+                                    <i class="bi bi-x"></i>Clear
+                                </button>
+                            </div>
+                        </div>
                         <div class="search-controls">
                             <div class="row">
                                 <div class="col-md-4">
@@ -229,6 +442,20 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                         <option value="student">Students</option>
                                     </select>
                                 </div>
+                                <div class="col-md-2">
+                                    <select class="form-select" id="userStatusFilter" onchange="filterUsers()">
+                                        <option value="">All Status</option>
+                                        <option value="active">Active</option>
+                                        <option value="inactive">Inactive</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="date-range">
+                                        <input type="date" class="form-control form-control-sm" id="userDateFrom" onchange="filterUsers()">
+                                        <span class="date-separator">to</span>
+                                        <input type="date" class="form-control form-control-sm" id="userDateTo" onchange="filterUsers()">
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -239,11 +466,15 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             <table class="table data-table" id="usersTable">
                                 <thead>
                                     <tr>
+                                        <th width="40">
+                                            <input type="checkbox" id="selectAllUsers" onchange="toggleSelectAll()">
+                                        </th>
                                         <th>User ID</th>
                                         <th>Name</th>
                                         <th>Role</th>
                                         <th>Department/Office</th>
                                         <th>Contact</th>
+                                        <th>Status</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -333,7 +564,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
             </div>
 
             <!-- Audit Log Panel -->
-            <div class="tab-pane fade show active" id="audit-panel" role="tabpanel">
+            <div class="tab-pane fade" id="audit-panel" role="tabpanel">
                 <div class="container-fluid">
                     <!-- Audit Controls -->
                     <div class="content-header">
@@ -353,11 +584,11 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                         </div>
                         <div class="search-controls">
                             <div class="row">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <input type="text" class="form-control" id="auditSearch"
                                         placeholder="Search audit logs..." onkeyup="searchAuditLog()">
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <select class="form-select" id="auditCategoryFilter" onchange="filterAuditLog()">
                                         <option value="">All Categories</option>
                                         <option value="Authentication">Authentication</option>
@@ -369,14 +600,21 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                         <option value="Notifications">Notifications</option>
                                         <option value="System">System</option>
                                     </select>
-                                    <div class="col-md-2">
-                                        <select class="form-select" id="auditSeverityFilter"
-                                            onchange="filterAuditLog()">
-                                            <option value="">All Severity</option>
-                                            <option value="INFO">Info</option>
-                                            <option value="WARNING">Warning</option>
-                                            <option value="ERROR">Error</option>
-                                        </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <select class="form-select" id="auditSeverityFilter" onchange="filterAuditLog()">
+                                        <option value="">All Severity</option>
+                                        <option value="INFO">Info</option>
+                                        <option value="WARNING">Warning</option>
+                                        <option value="ERROR">Error</option>
+                                        <option value="CRITICAL">Critical</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <div class="date-range">
+                                        <input type="date" class="form-control form-control-sm" id="auditDateFrom" onchange="filterAuditLog()">
+                                        <span class="date-separator">to</span>
+                                        <input type="date" class="form-control form-control-sm" id="auditDateTo" onchange="filterAuditLog()">
                                     </div>
                                 </div>
                             </div>
@@ -955,6 +1193,302 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" onclick="markAllAsRead()">Mark All Read</button>
                         <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Settings Modal -->
+        <div class="modal fade" id="profileSettingsModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-person-gear me-2"></i>Profile Settings
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form id="profileSettingsForm">
+                        <div class="modal-body">
+                            <div id="profileSettingsMessages"></div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="profileFirstName" class="form-label">First Name</label>
+                                        <input type="text" class="form-control" id="profileFirstName" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="profileLastName" class="form-label">Last Name</label>
+                                        <input type="text" class="form-control" id="profileLastName" required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="profileEmail" class="form-label">Email Address</label>
+                                <input type="email" class="form-control" id="profileEmail" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="profilePhone" class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" id="profilePhone" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="profileOffice" class="form-label">Office</label>
+                                <select class="form-select" id="profileOffice" required>
+                                    <option value="">Select Office</option>
+                                    <option value="Administration Office">Administration Office</option>
+                                    <option value="Academic Affairs">Academic Affairs</option>
+                                    <option value="Student Affairs">Student Affairs</option>
+                                    <option value="Finance Office">Finance Office</option>
+                                    <option value="HR Department">HR Department</option>
+                                    <option value="IT Department">IT Department</option>
+                                    <option value="Library">Library</option>
+                                    <option value="Registrar">Registrar</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Update Profile</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Settings Modal -->
+        <div class="modal fade" id="systemSettingsModal" tabindex="-1">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-sliders me-2"></i>System Settings
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="systemSettingsMessages"></div>
+                        <!-- Settings Tabs -->
+                        <ul class="nav nav-tabs" id="systemSettingsTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general-settings" type="button" role="tab">General</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="security-tab" data-bs-toggle="tab" data-bs-target="#security-settings" type="button" role="tab">Security</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="notifications-tab" data-bs-toggle="tab" data-bs-target="#notification-settings" type="button" role="tab">Notifications</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="backup-tab" data-bs-toggle="tab" data-bs-target="#backup-settings" type="button" role="tab">Backup</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content mt-3" id="systemSettingsTabContent">
+                            <!-- General Settings -->
+                            <div class="tab-pane fade show active" id="general-settings" role="tabpanel">
+                                <form id="generalSettingsForm">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="systemName" class="form-label">System Name</label>
+                                                <input type="text" class="form-control" id="systemName" value="Sign-um Document Management System">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="defaultLanguage" class="form-label">Default Language</label>
+                                                <select class="form-select" id="defaultLanguage">
+                                                    <option value="en">English</option>
+                                                    <option value="tl">Filipino</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="timezone" class="form-label">Timezone</label>
+                                                <select class="form-select" id="timezone">
+                                                    <option value="Asia/Manila">Asia/Manila (GMT+8)</option>
+                                                    <option value="UTC">UTC</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="sessionTimeout" class="form-label">Session Timeout (minutes)</label>
+                                                <input type="number" class="form-control" id="sessionTimeout" value="60" min="15" max="480">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="maxFileSize" class="form-label">Max File Size (MB)</label>
+                                                <input type="number" class="form-control" id="maxFileSize" value="10" min="1" max="100">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="maintenanceMode" class="form-label">Maintenance Mode</label>
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="maintenanceMode">
+                                                    <label class="form-check-label" for="maintenanceMode">
+                                                        Enable maintenance mode
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Save General Settings</button>
+                                </form>
+                            </div>
+                            <!-- Security Settings -->
+                            <div class="tab-pane fade" id="security-settings" role="tabpanel">
+                                <form id="securitySettingsForm">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="passwordMinLength" class="form-label">Minimum Password Length</label>
+                                                <input type="number" class="form-control" id="passwordMinLength" value="8" min="6" max="32">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="passwordComplexity" class="form-label">Password Complexity</label>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="requireUppercase" checked>
+                                                    <label class="form-check-label" for="requireUppercase">Require uppercase letters</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="requireLowercase" checked>
+                                                    <label class="form-check-label" for="requireLowercase">Require lowercase letters</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="requireNumbers" checked>
+                                                    <label class="form-check-label" for="requireNumbers">Require numbers</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="requireSpecialChars" checked>
+                                                    <label class="form-check-label" for="requireSpecialChars">Require special characters</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="maxLoginAttempts" class="form-label">Max Login Attempts</label>
+                                                <input type="number" class="form-control" id="maxLoginAttempts" value="5" min="3" max="10">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="lockoutDuration" class="form-label">Account Lockout Duration (minutes)</label>
+                                                <input type="number" class="form-control" id="lockoutDuration" value="30" min="5" max="1440">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="enable2FA" class="form-label">Two-Factor Authentication</label>
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="enable2FA" checked>
+                                                    <label class="form-check-label" for="enable2FA">
+                                                        Enable 2FA for all users
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="auditLogRetention" class="form-label">Audit Log Retention (days)</label>
+                                                <input type="number" class="form-control" id="auditLogRetention" value="365" min="30" max="3650">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Save Security Settings</button>
+                                </form>
+                            </div>
+                            <!-- Notification Settings -->
+                            <div class="tab-pane fade" id="notification-settings" role="tabpanel">
+                                <form id="notificationSettingsForm">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6>Email Notifications</h6>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" id="emailUserRegistration" checked>
+                                                <label class="form-check-label" for="emailUserRegistration">User registration notifications</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" id="emailDocumentApproval" checked>
+                                                <label class="form-check-label" for="emailDocumentApproval">Document approval notifications</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" id="emailSystemAlerts" checked>
+                                                <label class="form-check-label" for="emailSystemAlerts">System alert notifications</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" id="emailSecurityEvents" checked>
+                                                <label class="form-check-label" for="emailSecurityEvents">Security event notifications</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>In-App Notifications</h6>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" id="inAppUserActivity" checked>
+                                                <label class="form-check-label" for="inAppUserActivity">User activity notifications</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" id="inAppDocumentUpdates" checked>
+                                                <label class="form-check-label" for="inAppDocumentUpdates">Document update notifications</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" id="inAppSystemMaintenance" checked>
+                                                <label class="form-check-label" for="inAppSystemMaintenance">System maintenance notifications</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <label for="adminEmail" class="form-label">Administrator Email</label>
+                                        <input type="email" class="form-control" id="adminEmail" placeholder="admin@university.edu">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary mt-3">Save Notification Settings</button>
+                                </form>
+                            </div>
+                            <!-- Backup Settings -->
+                            <div class="tab-pane fade" id="backup-settings" role="tabpanel">
+                                <form id="backupSettingsForm">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="backupFrequency" class="form-label">Automatic Backup Frequency</label>
+                                                <select class="form-select" id="backupFrequency">
+                                                    <option value="daily">Daily</option>
+                                                    <option value="weekly">Weekly</option>
+                                                    <option value="monthly">Monthly</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="backupRetention" class="form-label">Backup Retention (days)</label>
+                                                <input type="number" class="form-control" id="backupRetention" value="30" min="7" max="365">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="backupLocation" class="form-label">Backup Location</label>
+                                                <input type="text" class="form-control" id="backupLocation" value="/var/backups/signum" readonly>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Backup Components</label>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="backupDatabase" checked>
+                                                    <label class="form-check-label" for="backupDatabase">Database</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="backupFiles" checked>
+                                                    <label class="form-check-label" for="backupFiles">Uploaded Files</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="backupConfig" checked>
+                                                    <label class="form-check-label" for="backupConfig">Configuration Files</label>
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="lastBackup" class="form-label">Last Backup</label>
+                                                <input type="text" class="form-control" id="lastBackup" value="2024-01-15 02:00:00" readonly>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" class="btn btn-primary">Save Backup Settings</button>
+                                        <button type="button" class="btn btn-warning" onclick="runManualBackup()">Run Manual Backup</button>
+                                        <button type="button" class="btn btn-info" onclick="downloadLatestBackup()">Download Latest Backup</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     </div>
                 </div>
             </div>

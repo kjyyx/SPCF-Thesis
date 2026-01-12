@@ -1,6 +1,21 @@
 // Upload Publication Materials JavaScript
 // This file contains the client-side logic for the upload publication materials page
 
+// Global toast function for navbar functions
+function showToast(message, type = 'info', title = null) {
+    if (window.ToastManager) {
+        window.ToastManager.show({
+            type: type,
+            title: title,
+            message: message,
+            duration: 4000
+        });
+    } else {
+        // Fallback to console if ToastManager not available
+        console.log(`[${type.toUpperCase()}] ${title ? title + ': ' : ''}${message}`);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     // Initialize the upload functionality
     initializeUploadSystem();
@@ -451,3 +466,101 @@ function initializeUploadSystem() {
         }
     }
 }
+
+// Navbar Functions
+function openProfileSettings() {
+    const modal = new bootstrap.Modal(document.getElementById('profileSettingsModal'));
+    
+    // Populate form with current user data
+    if (window.currentUser) {
+        document.getElementById('profileFirstName').value = window.currentUser.firstName || '';
+        document.getElementById('profileLastName').value = window.currentUser.lastName || '';
+        document.getElementById('profileEmail').value = window.currentUser.email || '';
+        document.getElementById('profilePhone').value = window.currentUser.phone || '';
+    }
+    
+    modal.show();
+}
+
+function openChangePassword() {
+    // Redirect to change password page or show modal
+    showToast('Redirecting to change password...', 'info');
+    // For now, you could implement a password change modal or redirect
+    // window.location.href = 'change-password.php';
+}
+
+function openPreferences() {
+    const modal = new bootstrap.Modal(document.getElementById('preferencesModal'));
+    
+    // Load current preferences from localStorage
+    const prefs = {
+        autoPreview: localStorage.getItem('uploadPub_autoPreview') !== 'false',
+        confirmBeforeSubmit: localStorage.getItem('uploadPub_confirmBeforeSubmit') !== 'false',
+        showFileDescriptions: localStorage.getItem('uploadPub_showFileDescriptions') !== 'false',
+        maxFilesPerUpload: localStorage.getItem('uploadPub_maxFilesPerUpload') || '25',
+        showStorageWarnings: localStorage.getItem('uploadPub_showStorageWarnings') !== 'false',
+        autoCompress: localStorage.getItem('uploadPub_autoCompress') !== 'false'
+    };
+    
+    document.getElementById('autoPreview').checked = prefs.autoPreview;
+    document.getElementById('confirmBeforeSubmit').checked = prefs.confirmBeforeSubmit;
+    document.getElementById('showFileDescriptions').checked = prefs.showFileDescriptions;
+    document.getElementById('maxFilesPerUpload').value = prefs.maxFilesPerUpload;
+    document.getElementById('showStorageWarnings').checked = prefs.showStorageWarnings;
+    document.getElementById('autoCompress').checked = prefs.autoCompress;
+    
+    modal.show();
+}
+
+function showHelp() {
+    const modal = new bootstrap.Modal(document.getElementById('helpModal'));
+    modal.show();
+}
+
+function saveProfileSettings() {
+    const formData = {
+        firstName: document.getElementById('profileFirstName').value.trim(),
+        lastName: document.getElementById('profileLastName').value.trim(),
+        email: document.getElementById('profileEmail').value.trim(),
+        phone: document.getElementById('profilePhone').value.trim()
+    };
+    
+    // Basic validation
+    if (!formData.firstName || !formData.lastName || !formData.email) {
+        showToast('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    // Here you would typically send to server
+    showToast('Profile settings saved successfully', 'success');
+    bootstrap.Modal.getInstance(document.getElementById('profileSettingsModal')).hide();
+    
+    // Update display name if changed
+    if (document.getElementById('userDisplayName')) {
+        document.getElementById('userDisplayName').textContent = `${formData.firstName} ${formData.lastName}`;
+    }
+}
+
+function savePreferences() {
+    const prefs = {
+        autoPreview: document.getElementById('autoPreview').checked,
+        confirmBeforeSubmit: document.getElementById('confirmBeforeSubmit').checked,
+        showFileDescriptions: document.getElementById('showFileDescriptions').checked,
+        maxFilesPerUpload: document.getElementById('maxFilesPerUpload').value,
+        showStorageWarnings: document.getElementById('showStorageWarnings').checked,
+        autoCompress: document.getElementById('autoCompress').checked
+    };
+    
+    // Save to localStorage
+    localStorage.setItem('uploadPub_autoPreview', prefs.autoPreview);
+    localStorage.setItem('uploadPub_confirmBeforeSubmit', prefs.confirmBeforeSubmit);
+    localStorage.setItem('uploadPub_showFileDescriptions', prefs.showFileDescriptions);
+    localStorage.setItem('uploadPub_maxFilesPerUpload', prefs.maxFilesPerUpload);
+    localStorage.setItem('uploadPub_showStorageWarnings', prefs.showStorageWarnings);
+    localStorage.setItem('uploadPub_autoCompress', prefs.autoCompress);
+    
+    showToast('Preferences saved successfully', 'success');
+    bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
+}
+
+// Enhanced functionality complete

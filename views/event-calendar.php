@@ -42,6 +42,9 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 // Log page view
 addAuditLog('EVENT_CALENDAR_VIEWED', 'Event Management', 'Viewed event calendar', $currentUser['id'], 'User', 'INFO');
 
+// Set page title for navbar
+$pageTitle = 'University Calendar';
+
 // Debug: Log user data
 error_log("DEBUG event-calendar.php: Current user data: " . json_encode($currentUser));
 error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
@@ -81,62 +84,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
 </head>
 
 <body class="with-fixed-navbar">
-    <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-lg fixed-top">
-        <div class="container-fluid">
-            <div class="navbar-brand">
-                <i class="bi bi-calendar-event me-2"></i>
-                Sign-um | University Calendar
-            </div>
-
-            <div class="navbar-nav ms-auto d-flex flex-row align-items-center">
-                <!-- User Info -->
-                <div class="user-info me-3">
-                    <i class="bi bi-person-circle me-2"></i>
-                    <span
-                        id="userDisplayName"><?php echo htmlspecialchars($currentUser['first_name'] . ' ' . $currentUser['last_name']); ?></span>
-                    <span class="badge ms-2 <?php
-                    echo ($currentUser['role'] === 'admin') ? 'bg-danger' :
-                        (($currentUser['role'] === 'employee') ? 'bg-primary' : 'bg-success');
-                    ?>" id="userRoleBadge">
-                        <?php echo strtoupper($currentUser['role']); ?>
-                    </span>
-                </div>
-
-                <!-- Notifications -->
-                <div class="notification-bell me-3" onclick="showNotifications()">
-                    <i class="bi bi-bell"></i>
-                    <span class="notification-badge" id="notificationCount">0</span>
-                </div>
-
-                <!-- Settings Dropdown -->
-                <div class="dropdown me-3">
-                    <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button"
-                        data-bs-toggle="dropdown" aria-expanded="false" title="Account Settings">
-                        <i class="bi bi-gear me-2"></i>Settings
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-lg">
-                        <li><a class="dropdown-item" href="#" onclick="openProfileSettings()" title="Edit your profile information">
-                                <i class="bi bi-person-gear me-2"></i>Profile Settings</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="openChangePassword()" title="Change your password">
-                                <i class="bi bi-key me-2"></i>Change Password</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="openPreferences()" title="Customize your preferences">
-                                <i class="bi bi-sliders me-2"></i>Preferences</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="openHelp()" title="Get help and support">
-                                <i class="bi bi-question-circle me-2"></i>Help & Support</a></li>
-                        <?php if ($currentUser['role'] === 'admin'): ?>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="admin-dashboard.php" title="Access admin dashboard">
-                                    <i class="bi bi-shield-check me-2"></i>Admin Dashboard</a></li>
-                        <?php endif; ?>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item text-danger" href="user-logout.php" title="Sign out of your account">
-                                <i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </nav>
+    <?php include '../includes/navbar.php'; ?>
 
     <!-- Main Content -->
     <div class="main-content">
@@ -270,6 +218,9 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             <button type="button" class="btn btn-outline-secondary view-btn" data-view="week">
                                 <i class="bi bi-calendar-week me-1"></i>Week
                             </button>
+                            <button type="button" class="btn btn-outline-secondary view-btn" data-view="agenda">
+                                <i class="bi bi-calendar-event me-1"></i>Agenda
+                            </button>
                             <button type="button" class="btn btn-outline-secondary view-btn" data-view="list">
                                 <i class="bi bi-list me-1"></i>List
                             </button>
@@ -279,6 +230,36 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                 <i class="bi bi-plus-circle me-1"></i>Add Event
                             </button>
                         <?php endif; ?>
+                        <button type="button" class="btn btn-outline-success ms-2" id="exportEventsBtn">
+                            <i class="bi bi-download me-1"></i>Export
+                        </button>
+                        <button type="button" class="btn btn-outline-info ms-2" onclick="showHelp()">
+                            <i class="bi bi-question-circle me-1"></i>Help
+                        </button>
+                    </div>
+
+                    <!-- Search and Filter Controls -->
+                    <div class="search-controls mt-3">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control" id="eventSearch" placeholder="Search events...">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select" id="departmentFilter">
+                                    <option value="">All Departments</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select" id="statusFilter">
+                                    <option value="">All Status</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="pending">Pending</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -287,6 +268,13 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         <!-- Calendar Grid -->
         <div class="calendar-container">
             <div class="container-fluid">
+                <!-- Loading Indicator -->
+                <div id="calendarLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading calendar...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Loading events...</p>
+                </div>
                 <!-- Month View -->
                 <div id="monthView" class="calendar-view active">
                     <div class="calendar-grid">
@@ -319,6 +307,13 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                         <div class="week-body" id="weekBody">
                             <!-- Week time slots will be populated -->
                         </div>
+                    </div>
+                </div>
+
+                <!-- Agenda View -->
+                <div id="agendaView" class="calendar-view">
+                    <div class="agenda-container" id="agendaContainer">
+                        <!-- Agenda content will be populated by JavaScript -->
                     </div>
                 </div>
 
@@ -650,9 +645,31 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             </h2>
                             <div id="calendarFeatures" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
                                 <div class="accordion-body">
-                                    <p><strong>Viewing Events:</strong> Click on any date to see events.</p>
-                                    <p><strong>Adding Events:</strong> Use the "Add Event" button (employees/admins only).</p>
-                                    <p><strong>Managing Events:</strong> Click on events to edit or delete them.</p>
+                                    <h6>Views</h6>
+                                    <ul>
+                                        <li><strong>Month View:</strong> Traditional calendar grid</li>
+                                        <li><strong>Week View:</strong> Time-based weekly schedule</li>
+                                        <li><strong>List View:</strong> Chronological event list</li>
+                                        <li><strong>Agenda View:</strong> Grouped by date with details</li>
+                                    </ul>
+                                    
+                                    <h6>Features</h6>
+                                    <ul>
+                                        <li><strong>Search:</strong> Find events by title, description, or department</li>
+                                        <li><strong>Filter:</strong> Filter by department or approval status</li>
+                                        <li><strong>Export:</strong> Download events as CSV</li>
+                                        <li><strong>Navigation:</strong> Use arrow keys or buttons to navigate</li>
+                                    </ul>
+                                    
+                                    <h6>Keyboard Shortcuts</h6>
+                                    <ul>
+                                        <li><kbd>Ctrl</kbd> + <kbd>←</kbd> / <kbd>→</kbd>: Previous/Next month</li>
+                                        <li><kbd>Ctrl</kbd> + <kbd>Home</kbd>: Go to today</li>
+                                        <li><kbd>Ctrl</kbd> + <kbd>M</kbd>: Month view</li>
+                                        <li><kbd>Ctrl</kbd> + <kbd>W</kbd>: Week view</li>
+                                        <li><kbd>Ctrl</kbd> + <kbd>L</kbd>: List view</li>
+                                        <li><kbd>Ctrl</kbd> + <kbd>A</kbd>: Agenda view</li>
+                                    </ul>
                                 </div>
                             </div>
                         </div>

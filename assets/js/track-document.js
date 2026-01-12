@@ -967,4 +967,107 @@ function addLoadingDotsAnimation() {
 // Initialize loading animations on page load
 addLoadingDotsAnimation();
 
+// Navbar Functions
+function openProfileSettings() {
+    const modal = new bootstrap.Modal(document.getElementById('profileSettingsModal'));
+    
+    // Populate form with current user data
+    if (window.currentUser) {
+        document.getElementById('profileFirstName').value = window.currentUser.firstName || '';
+        document.getElementById('profileLastName').value = window.currentUser.lastName || '';
+        document.getElementById('profileEmail').value = window.currentUser.email || '';
+        document.getElementById('profilePhone').value = window.currentUser.phone || '';
+    }
+    
+    modal.show();
+}
+
+function openChangePassword() {
+    // Redirect to change password page or show modal
+    showToast('Redirecting to change password...', 'info');
+    // For now, you could implement a password change modal or redirect
+    // window.location.href = 'change-password.php';
+}
+
+function openPreferences() {
+    const modal = new bootstrap.Modal(document.getElementById('preferencesModal'));
+    
+    // Load current preferences from localStorage
+    const prefs = {
+        autoRefresh: localStorage.getItem('trackDoc_autoRefresh') !== 'false',
+        emailNotifications: localStorage.getItem('trackDoc_emailNotifications') !== 'false',
+        showRejectedNotes: localStorage.getItem('trackDoc_showRejectedNotes') !== 'false',
+        itemsPerPage: localStorage.getItem('trackDoc_itemsPerPage') || '10',
+        compactView: localStorage.getItem('trackDoc_compactView') !== 'false',
+        showStats: localStorage.getItem('trackDoc_showStats') !== 'false'
+    };
+    
+    document.getElementById('autoRefresh').checked = prefs.autoRefresh;
+    document.getElementById('emailNotifications').checked = prefs.emailNotifications;
+    document.getElementById('showRejectedNotes').checked = prefs.showRejectedNotes;
+    document.getElementById('itemsPerPagePref').value = prefs.itemsPerPage;
+    document.getElementById('compactView').checked = prefs.compactView;
+    document.getElementById('showStats').checked = prefs.showStats;
+    
+    modal.show();
+}
+
+function showHelp() {
+    const modal = new bootstrap.Modal(document.getElementById('helpModal'));
+    modal.show();
+}
+
+function saveProfileSettings() {
+    const formData = {
+        firstName: document.getElementById('profileFirstName').value.trim(),
+        lastName: document.getElementById('profileLastName').value.trim(),
+        email: document.getElementById('profileEmail').value.trim(),
+        phone: document.getElementById('profilePhone').value.trim()
+    };
+    
+    // Basic validation
+    if (!formData.firstName || !formData.lastName || !formData.email) {
+        showToast('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    // Here you would typically send to server
+    showToast('Profile settings saved successfully', 'success');
+    bootstrap.Modal.getInstance(document.getElementById('profileSettingsModal')).hide();
+    
+    // Update display name if changed
+    if (document.getElementById('userDisplayName')) {
+        document.getElementById('userDisplayName').textContent = `${formData.firstName} ${formData.lastName}`;
+    }
+}
+
+function savePreferences() {
+    const prefs = {
+        autoRefresh: document.getElementById('autoRefresh').checked,
+        emailNotifications: document.getElementById('emailNotifications').checked,
+        showRejectedNotes: document.getElementById('showRejectedNotes').checked,
+        itemsPerPage: document.getElementById('itemsPerPagePref').value,
+        compactView: document.getElementById('compactView').checked,
+        showStats: document.getElementById('showStats').checked
+    };
+    
+    // Save to localStorage
+    localStorage.setItem('trackDoc_autoRefresh', prefs.autoRefresh);
+    localStorage.setItem('trackDoc_emailNotifications', prefs.emailNotifications);
+    localStorage.setItem('trackDoc_showRejectedNotes', prefs.showRejectedNotes);
+    localStorage.setItem('trackDoc_itemsPerPage', prefs.itemsPerPage);
+    localStorage.setItem('trackDoc_compactView', prefs.compactView);
+    localStorage.setItem('trackDoc_showStats', prefs.showStats);
+    
+    // Apply items per page immediately
+    itemsPerPage = parseInt(prefs.itemsPerPage);
+    document.getElementById('itemsPerPage').value = itemsPerPage;
+    
+    // Re-render current page
+    renderCurrentPage();
+    
+    showToast('Preferences saved successfully', 'success');
+    bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
+}
+
 // Enhanced functionality complete

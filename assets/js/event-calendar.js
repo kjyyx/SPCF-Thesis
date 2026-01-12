@@ -31,6 +31,16 @@ class CalendarApp {
     // Fixed palette for department colors (Bootstrap backgrounds)
     this.COLOR_CLASSES = ['bg-primary','bg-success','bg-danger','bg-warning','bg-info','bg-secondary','bg-dark'];
         
+        this.COLOR_MAP_RGB = {
+            'College of Arts and Social Sciences and Education': 'rgb(59, 130, 246)',
+            'College of Computing and Information Sciences': 'rgb(30, 41, 59)',
+            'College of Hospitality and Tourism Management': 'rgb(236, 72, 153)',
+            'College of Business': 'rgb(245, 158, 11)',
+            'College of Criminology': 'rgb(107, 114, 128)',
+            'College of Engineering': 'rgb(239, 68, 68)',
+            'College of Nursing': 'rgb(16, 185, 129)',
+            'SPCF Miranda': 'rgb(185, 28, 28)'
+        };
         console.log('Initializing calendar...');
         this.init();
     this.loadEvents();
@@ -124,6 +134,17 @@ class CalendarApp {
             document.getElementById('disapproveBtn')?.addEventListener('click', () => this.disapproveEvent());
         }
         
+        // Search and filter controls
+        document.getElementById('eventSearch')?.addEventListener('input', () => this.applyFilters());
+        document.getElementById('departmentFilter')?.addEventListener('change', () => this.applyFilters());
+        document.getElementById('statusFilter')?.addEventListener('change', () => this.applyFilters());
+        
+        // Export button
+        document.getElementById('exportEventsBtn')?.addEventListener('click', () => this.exportEvents());
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => this.handleKeyboardNavigation(e));
+        
         // Event form submission
         document.getElementById('eventForm')?.addEventListener('submit', (e) => this.handleEventFormSubmit(e));
 
@@ -131,7 +152,160 @@ class CalendarApp {
         this.populateDepartments();
     }
     
+    applyFilters() {
+        const searchTerm = document.getElementById('eventSearch')?.value.toLowerCase() || '';
+        const departmentFilter = document.getElementById('departmentFilter')?.value || '';
+        const statusFilter = document.getElementById('statusFilter')?.value || '';
+        
+        // Get current view and re-render with filters
+        const activeView = document.querySelector('.view-btn.active')?.dataset.view || 'month';
+        this.switchView(activeView);
+    }
+    
+    getFilteredEvents() {
+        const searchTerm = document.getElementById('eventSearch')?.value.toLowerCase() || '';
+        const departmentFilter = document.getElementById('departmentFilter')?.value || '';
+        const statusFilter = document.getElementById('statusFilter')?.value || '';
+        
+        const filteredEvents = {};
+        
+        Object.keys(this.events).forEach(dateStr => {
+            const dayEvents = this.events[dateStr].filter(event => {
+                // Search filter
+                const matchesSearch = !searchTerm || 
+                    event.title.toLowerCase().includes(searchTerm) ||
+                    event.description.toLowerCase().includes(searchTerm) ||
+                    event.department.toLowerCase().includes(searchTerm);
+                
+                // Department filter
+                const matchesDepartment = !departmentFilter || event.department === departmentFilter;
+                
+                // Status filter
+                const matchesStatus = !statusFilter || 
+                    (statusFilter === 'approved' && event.isApproved) ||
+                    (statusFilter === 'pending' && !event.isApproved);
+                
+                return matchesSearch && matchesDepartment && matchesStatus;
+            });
+            
+            if (dayEvents.length > 0) {
+                filteredEvents[dateStr] = dayEvents;
+            }
+        });
+        
+        return filteredEvents;
+    }
+    
+    exportEvents() {
+        const filteredEvents = this.getFilteredEvents();
+        const events = [];
+        
+        Object.keys(filteredEvents).forEach(dateStr => {
+            filteredEvents[dateStr].forEach(event => {
+                events.push({
+                    date: dateStr,
+                    time: event.time,
+                    title: event.title,
+                    description: event.description,
+                    department: event.department,
+                    status: event.isApproved ? 'Approved' : 'Pending'
+                });
+            });
+        });
+        
+        if (events.length === 0) {
+            this.showToast('No events to export', 'warning');
+            return;
+        }
+        
+        // Create CSV content
+        const headers = ['Date', 'Time', 'Title', 'Description', 'Department', 'Status'];
+        const csvContent = [
+            headers.join(','),
+            ...events.map(event => [
+                event.date,
+                event.time,
+                `"${event.title.replace(/"/g, '""')}"`,
+                `"${(event.description || '').replace(/"/g, '""')}"`,
+                `"${event.department || ''}"`,
+                event.status
+            ].join(','))
+        ].join('\n');
+        
+        // Download CSV
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `events_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        this.showToast(`Exported ${events.length} events to CSV`, 'success');
+    }
+    
+    handleKeyboardNavigation(e) {
+        // Only handle keyboard navigation when not in form inputs
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+            return;
+        }
+        
+        switch (e.key) {
+            case 'ArrowLeft':
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    this.previousMonth();
+                }
+                break;
+            case 'ArrowRight':
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    this.nextMonth();
+                }
+                break;
+            case 'Home':
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    this.goToToday();
+                }
+                break;
+            case 'm':
+            case 'M':
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    this.switchView('month');
+                }
+                break;
+            case 'w':
+            case 'W':
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    this.switchView('week');
+                }
+                break;
+            case 'l':
+            case 'L':
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    this.switchView('list');
+                }
+                break;
+            case 'a':
+            case 'A':
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    this.switchView('agenda');
+                }
+                break;
+        }
+    }
+    
     async loadEvents() {
+        const loadingEl = document.getElementById('calendarLoading');
+        if (loadingEl) loadingEl.style.display = 'block';
+        
         try {
             const resp = await fetch('../api/events.php');
             const data = await resp.json();
@@ -151,7 +325,8 @@ class CalendarApp {
                         department: ev.department || '',
                         isApproved: isApproved,
                         isPencilBooked: isPencilBooked,
-                        color: isApproved ? this.getDepartmentColor(ev.department || '') : 'bg-secondary' // Gray for pencil-booked
+                        color: isApproved ? this.getDepartmentColorRGB(ev.department || '') : 'rgb(107, 114, 128)',
+                        textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.department || '')) : 'white'
                     });
                 });
                 this.events = map;
@@ -163,6 +338,8 @@ class CalendarApp {
             }
         } catch (e) {
             console.error('Error loading events', e);
+        } finally {
+            if (loadingEl) loadingEl.style.display = 'none';
         }
     }
 
@@ -197,6 +374,23 @@ class CalendarApp {
                     opt.textContent = u.name;
                     select.appendChild(opt);
                 });
+                
+                // Also populate the department filter
+                const filterSelect = document.getElementById('departmentFilter');
+                if (filterSelect) {
+                    // Clear existing options except "All Departments"
+                    const allOption = filterSelect.querySelector('option[value=""]');
+                    filterSelect.innerHTML = '';
+                    if (allOption) filterSelect.appendChild(allOption);
+                    
+                    (data.units || []).forEach(u => {
+                        const opt = document.createElement('option');
+                        opt.value = u.name;
+                        opt.textContent = u.name;
+                        filterSelect.appendChild(opt);
+                    });
+                }
+                
                 // Also render legend if a container exists
                 this.renderDepartmentLegend(data.units || []);
             }
@@ -228,10 +422,12 @@ class CalendarApp {
             const wrap = document.createElement('div');
             wrap.className = 'd-flex flex-wrap gap-2';
             list.forEach(u => {
-                const bg = this.getDepartmentColor(u.name);
-                const text = this.getTextColorForBg(bg);
+                const bg = this.getDepartmentColorRGB(u.name);
+                const text = this.getTextColorForRGB(bg);
                 const badge = document.createElement('span');
-                badge.className = `badge ${bg} ${text}`;
+                badge.className = 'badge';
+                badge.style.backgroundColor = bg;
+                badge.style.color = text;
                 badge.textContent = u.name;
                 wrap.appendChild(badge);
             });
@@ -330,6 +526,20 @@ class CalendarApp {
         return 'bg-primary';
     }
     
+    getDepartmentColorRGB(department) {
+        return this.COLOR_MAP_RGB[department] || 'rgb(59, 130, 246)';
+    }
+    
+    getTextColorForRGB(rgb) {
+        const match = rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+        if (!match) return 'black';
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        return brightness > 128 ? 'black' : 'white';
+    }
+    
     generateCalendar() {
         console.log('generateCalendar called');
         const year = this.currentDate.getFullYear();
@@ -409,11 +619,13 @@ class CalendarApp {
                 const eventsContainer = document.createElement('div');
                 eventsContainer.className = 'day-events';
 
-                const dayEvents = this.events[dateStr] || [];
+                const filteredEvents = this.getFilteredEvents();
+                const dayEvents = filteredEvents[dateStr] || [];
                 dayEvents.slice(0, 3).forEach(event => {
                     const eventElement = document.createElement('div');
-                    const eventColor = event.color || 'bg-primary';
-                    eventElement.className = `event-item ${eventColor}`;
+                    eventElement.className = 'event-item';
+                    eventElement.style.backgroundColor = event.color;
+                    eventElement.style.color = event.textColor;
                     eventElement.dataset.eventId = event.id;
                     eventElement.dataset.date = dateStr;
                     eventElement.textContent = event.title;
@@ -525,6 +737,10 @@ class CalendarApp {
         
         if (view === 'month') {
             this.generateCalendar();
+        } else if (view === 'week') {
+            this.renderWeekView();
+        } else if (view === 'agenda') {
+            this.renderAgendaView();
         } else if (view === 'list') {
             this.renderListView();
         }
@@ -536,10 +752,11 @@ class CalendarApp {
         
         listContainer.innerHTML = '';
         
-        // Get all events and sort by date
+        // Get filtered events and sort by date
+        const filteredEvents = this.getFilteredEvents();
         const allEvents = [];
-        Object.keys(this.events).forEach(dateStr => {
-            this.events[dateStr].forEach(event => {
+        Object.keys(filteredEvents).forEach(dateStr => {
+            filteredEvents[dateStr].forEach(event => {
                 allEvents.push({...event, date: dateStr});
             });
         });
@@ -556,6 +773,193 @@ class CalendarApp {
         }
     }
     
+    renderWeekView() {
+        const weekDaysHeader = document.getElementById('weekDaysHeader');
+        const weekBody = document.getElementById('weekBody');
+        
+        if (!weekDaysHeader || !weekBody) return;
+        
+        // Get the start of the current week (Sunday)
+        const startOfWeek = new Date(this.currentDate);
+        startOfWeek.setDate(this.currentDate.getDate() - this.currentDate.getDay());
+        
+        // Generate week days header
+        weekDaysHeader.innerHTML = '';
+        for (let i = 0; i < 7; i++) {
+            const day = new Date(startOfWeek);
+            day.setDate(startOfWeek.getDate() + i);
+            
+            const dayHeader = document.createElement('div');
+            dayHeader.className = 'week-day-header';
+            
+            const dayName = day.toLocaleDateString('en-US', { weekday: 'short' });
+            const dayNum = day.getDate();
+            const isToday = this.isToday(day);
+            
+            dayHeader.innerHTML = `
+                <div class="day-name">${dayName}</div>
+                <div class="day-number ${isToday ? 'today' : ''}">${dayNum}</div>
+            `;
+            
+            weekDaysHeader.appendChild(dayHeader);
+        }
+        
+        // Generate time slots (8 AM to 8 PM)
+        weekBody.innerHTML = '';
+        const startHour = 8;
+        const endHour = 20;
+        
+        for (let hour = startHour; hour <= endHour; hour++) {
+            const timeSlot = document.createElement('div');
+            timeSlot.className = 'time-slot';
+            
+            const timeLabel = document.createElement('div');
+            timeLabel.className = 'time-label';
+            timeLabel.textContent = `${hour > 12 ? hour - 12 : hour}${hour >= 12 ? 'PM' : 'AM'}`;
+            
+            const timeSlots = document.createElement('div');
+            timeSlots.className = 'time-slots-grid';
+            
+            // Create slots for each day
+            for (let day = 0; day < 7; day++) {
+                const daySlot = document.createElement('div');
+                daySlot.className = 'week-day-column';
+                daySlot.dataset.hour = hour;
+                daySlot.dataset.day = day;
+                
+                // Check for events in this time slot
+                const slotDate = new Date(startOfWeek);
+                slotDate.setDate(startOfWeek.getDate() + day);
+                const dateStr = slotDate.toISOString().split('T')[0];
+                
+                const filteredEvents = this.getFilteredEvents();
+                if (filteredEvents[dateStr]) {
+                    filteredEvents[dateStr].forEach(event => {
+                        const eventHour = parseInt(event.time.split(':')[0]);
+                        if (eventHour === hour) {
+                            const eventElement = document.createElement('div');
+                            eventElement.className = 'week-event-item';
+                            eventElement.style.backgroundColor = event.color;
+                            eventElement.style.color = event.textColor;
+                            eventElement.textContent = event.title;
+                            eventElement.title = `${event.title} - ${event.time}`;
+                            eventElement.addEventListener('click', () => {
+                                this.handleEventClick(event.id, dateStr);
+                            });
+                            daySlot.appendChild(eventElement);
+                        }
+                    });
+                }
+                
+                timeSlots.appendChild(daySlot);
+            }
+            
+            timeSlot.appendChild(timeLabel);
+            timeSlot.appendChild(timeSlots);
+            weekBody.appendChild(timeSlot);
+        }
+    }
+    
+    renderAgendaView() {
+        const agendaContainer = document.getElementById('agendaContainer');
+        if (!agendaContainer) return;
+        
+        agendaContainer.innerHTML = '';
+        
+        // Get filtered events and group by date
+        const filteredEvents = this.getFilteredEvents();
+        const eventsByDate = {};
+        Object.keys(filteredEvents).forEach(dateStr => {
+            filteredEvents[dateStr].forEach(event => {
+                if (!eventsByDate[dateStr]) {
+                    eventsByDate[dateStr] = [];
+                }
+                eventsByDate[dateStr].push(event);
+            });
+        });
+        
+        // Sort dates
+        const sortedDates = Object.keys(eventsByDate).sort();
+        
+        if (sortedDates.length === 0) {
+            agendaContainer.innerHTML = '<div class="text-center text-muted p-4">No upcoming events</div>';
+            return;
+        }
+        
+        sortedDates.forEach(dateStr => {
+            const dateEvents = eventsByDate[dateStr];
+            const dateDiv = document.createElement('div');
+            dateDiv.className = 'agenda-date-group';
+            
+            const dateHeader = document.createElement('div');
+            dateHeader.className = 'agenda-date-header';
+            
+            const eventDate = new Date(dateStr);
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1);
+            
+            let dateLabel = eventDate.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            if (eventDate.toDateString() === today.toDateString()) {
+                dateLabel = 'Today - ' + dateLabel;
+                dateHeader.classList.add('today');
+            } else if (eventDate.toDateString() === tomorrow.toDateString()) {
+                dateLabel = 'Tomorrow - ' + dateLabel;
+            }
+            
+            dateHeader.innerHTML = `<h5>${dateLabel}</h5><span class="event-count">${dateEvents.length} event${dateEvents.length !== 1 ? 's' : ''}</span>`;
+            
+            const eventsList = document.createElement('div');
+            eventsList.className = 'agenda-events-list';
+            
+            dateEvents.sort((a, b) => a.time.localeCompare(b.time)).forEach(event => {
+                const eventElement = this.createAgendaEventElement(event, dateStr);
+                eventsList.appendChild(eventElement);
+            });
+            
+            dateDiv.appendChild(dateHeader);
+            dateDiv.appendChild(eventsList);
+            agendaContainer.appendChild(dateDiv);
+        });
+    }
+    
+    createAgendaEventElement(event, dateStr) {
+        const eventDiv = document.createElement('div');
+        eventDiv.className = 'agenda-event-item';
+        eventDiv.dataset.eventId = event.id;
+        eventDiv.dataset.date = dateStr;
+        
+        const deptBg = event.color;
+        const deptText = event.textColor;
+        
+        eventDiv.innerHTML = `
+            <div class="agenda-event-time">
+                <i class="bi bi-clock"></i>
+                <span>${event.time}</span>
+            </div>
+            <div class="agenda-event-content">
+                <h6 class="agenda-event-title">${event.title}</h6>
+                <p class="agenda-event-description">${event.description || 'No description'}</p>
+                <div class="agenda-event-meta">
+                    <span class="badge" style="background-color: ${deptBg}; color: ${deptText}">${event.department || 'University'}</span>
+                    ${event.isApproved ? '<span class="badge bg-success">Approved</span>' : '<span class="badge bg-warning">Pending</span>'}
+                </div>
+            </div>
+        `;
+        
+        eventDiv.addEventListener('click', () => {
+            this.handleEventClick(event.id, dateStr);
+        });
+        
+        return eventDiv;
+    }
+    
     createListEventElement(event) {
         const eventDiv = document.createElement('div');
         eventDiv.className = 'event-list-item';
@@ -570,8 +974,8 @@ class CalendarApp {
             day: 'numeric'
         });
         
-        const deptBg = event.color || 'bg-primary';
-        const deptText = this.getTextColorForBg(deptBg);
+        const deptBg = event.color;
+        const deptText = event.textColor;
         eventDiv.innerHTML = `
             <div class="event-list-header">
                 <h5 class="event-list-title">${event.title}</h5>
@@ -581,7 +985,7 @@ class CalendarApp {
             <div class="event-list-meta">
                 <span><i class="bi bi-tag"></i> Event</span>
                 <span class="ms-2"><i class="bi bi-building"></i></span>
-                <span class="badge ${deptBg} ${deptText}">${event.department || 'University'}</span>
+                <span class="badge" style="background-color: ${deptBg}; color: ${deptText}">${event.department || 'University'}</span>
             </div>
         `;
         
@@ -706,7 +1110,6 @@ class CalendarApp {
         const time = document.getElementById('eventTime').value;
         const description = document.getElementById('eventDescription').value;
         const department = document.getElementById('eventDepartment').value;
-        const color = this.getDepartmentColor(department);
 
         // Validate required fields
         if (!title || !date) {
@@ -991,7 +1394,7 @@ function openPreferences() {
     modal.show();
 }
 
-function openHelp() {
+function showHelp() {
     const modal = new bootstrap.Modal(document.getElementById('helpModal'));
     modal.show();
 }

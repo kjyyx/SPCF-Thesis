@@ -433,6 +433,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         await loadMaterials();
         await loadAuditLogs();
         updateDashboardStats();
+        updateDashboardOverview();
 
     } else {
         console.log('No user data, redirecting to login...');
@@ -457,15 +458,31 @@ document.addEventListener('DOMContentLoaded', async function () {
  */
 function updateUserStatistics() {
     const totalUsers = Object.keys(users).length;
+    const activeUsers = Object.values(users).filter(user => user.status !== 'inactive').length;
     const pendingMaterials = publicMaterials.filter(m => m.status === 'pending').length;
+    const approvedMaterials = publicMaterials.filter(m => m.status === 'approved').length;
+    const totalAuditLogs = auditLogs.length;
+    const today = new Date().toISOString().split('T')[0];
+    const todayLogs = auditLogs.filter(log => log.timestamp && log.timestamp.startsWith(today)).length;
 
+    // Update elements
     const totalUsersEl = document.getElementById('totalUsers');
+    const activeUsersEl = document.getElementById('activeUsers');
     const totalMaterialsEl = document.getElementById('totalMaterials');
+    const approvedMaterialsEl = document.getElementById('approvedMaterials');
     const pendingApprovalsEl = document.getElementById('pendingApprovals');
+    const pendingMaterialsEl = document.getElementById('pendingMaterials');
+    const totalAuditLogsEl = document.getElementById('totalAuditLogs');
+    const todayLogsEl = document.getElementById('todayLogs');
 
     if (totalUsersEl) totalUsersEl.textContent = totalUsers;
+    if (activeUsersEl) activeUsersEl.textContent = activeUsers;
     if (totalMaterialsEl) totalMaterialsEl.textContent = publicMaterials.length;
+    if (approvedMaterialsEl) approvedMaterialsEl.textContent = approvedMaterials;
     if (pendingApprovalsEl) pendingApprovalsEl.textContent = pendingMaterials;
+    if (pendingMaterialsEl) pendingMaterialsEl.textContent = pendingMaterials;
+    if (totalAuditLogsEl) totalAuditLogsEl.textContent = totalAuditLogs;
+    if (todayLogsEl) todayLogsEl.textContent = todayLogs;
 }
 
 /**
@@ -532,11 +549,15 @@ function createUserRow(user) {
     `;
 
     row.innerHTML = `
+        <td>
+            <input type="checkbox" class="user-checkbox" value="${user.id}" onchange="updateBulkSelection()">
+        </td>
         <td><strong>${user.id}</strong></td>
         <td>${user.firstName} ${user.lastName}</td>
         <td><span class="badge ${roleClass[user.role]}">${user.role.toUpperCase()}</span></td>
         <td>${departmentOrOffice || '-'}</td>
         <td>${contact}</td>
+        <td><span class="badge ${user.status === 'active' ? 'bg-success' : 'bg-secondary'}">${user.status || 'active'}</span></td>
         <td>${actionButtons}</td>
     `;
 
@@ -770,11 +791,19 @@ function deleteUser(userId) {
     // Show confirmation modal
     const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
     window.userToDelete = userId; // Store for confirmation
+    window.bulkDeleteIds = null; // Clear bulk flag
     modal.show();
 }
 
 /** Perform user deletion via API after confirm modal. */
 function confirmDeleteUser() {
+    // Check if this is a bulk delete
+    if (window.bulkDeleteIds && window.bulkDeleteIds.length > 0) {
+        confirmBulkDeleteUsers();
+        return;
+    }
+
+    // Single user delete
     const userId = window.userToDelete;
     if (!userId || !users[userId]) return;
     const u = users[userId];
@@ -1039,6 +1068,261 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
     }
 });
 
+
+
+// ==========================================================
+// Bulk Operations
+// ==========================================================
+
+/** Toggle select all users checkbox. */
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAllUsers');
+    const checkboxes = document.querySelectorAll('.user-checkbox');
+    checkboxes.forEach(cb => cb.checked = selectAll.checked);
+    updateBulkSelection();
+}
+
+/** Update bulk selection UI. */
+function updateBulkSelection() {
+    const checkboxes = document.querySelectorAll('.user-checkbox:checked');
+    const bulkBar = document.getElementById('bulkOperationsBar');
+    const selectedCount = document.getElementById('selectedCount');
+
+    if (checkboxes.length > 0) {
+        bulkBar.style.display = 'flex';
+        selectedCount.textContent = checkboxes.length;
+    } else {
+        bulkBar.style.display = 'none';
+    }
+}
+
+/** Clear all selections. */
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('.user-checkbox');
+    checkboxes.forEach(cb => cb.checked = false);
+    document.getElementById('selectAllUsers').checked = false;
+    updateBulkSelection();
+}
+
+/** Export selected users. */
+function bulkExportUsers() {
+    const selectedIds = Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => cb.value);
+    const selectedUsers = Object.values(users).filter(user => selectedIds.includes(user.id));
+
+    addAuditLog('USERS_BULK_EXPORTED', 'User Management', `${selectedIds.length} users exported to CSV`, currentUser?.id, 'User', 'INFO');
+
+    const csv = generateUserCSV(selectedUsers);
+    downloadCSV(csv, 'selected_users_export.csv');
+}
+
+/** Bulk reset passwords. */
+async function bulkResetPasswords() {
+    const selectedIds = Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => cb.value);
+
+    if (!confirm(`Reset passwords for ${selectedIds.length} users? They will need to set new passwords on next login.`)) return;
+
+    try {
+        const resp = await fetch('../api/users.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'bulk_reset_passwords',
+                user_ids: selectedIds
+            })
+        }).then(r => r.json());
+
+        if (resp.success) {
+            addAuditLog('PASSWORDS_BULK_RESET', 'Security', `${selectedIds.length} passwords reset`, currentUser?.id, 'User', 'WARNING');
+            showToast(`${selectedIds.length} passwords reset successfully.`, 'success');
+            clearSelection();
+        } else {
+            showToast(resp.message || 'Failed to reset passwords.', 'error');
+        }
+    } catch (error) {
+        showToast('Server error resetting passwords.', 'error');
+    }
+}
+
+/** Bulk change role. */
+function bulkChangeRole() {
+    const selectedIds = Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => cb.value);
+
+    if (selectedIds.length === 0) {
+        showToast('No users selected.', 'warning');
+        return;
+    }
+
+    // Create role selection modal
+    const roleModal = document.createElement('div');
+    roleModal.className = 'modal fade';
+    roleModal.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Change Role for ${selectedIds.length} Users</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Select New Role</label>
+                        <select class="form-select" id="bulkRoleSelect">
+                            <option value="admin">Administrator</option>
+                            <option value="employee">Employee</option>
+                            <option value="student">Student</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmBulkChangeRole()">Change Role</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(roleModal);
+    const modal = new bootstrap.Modal(roleModal);
+    modal.show();
+
+    // Store selected IDs for confirmation
+    roleModal.dataset.selectedIds = JSON.stringify(selectedIds);
+
+    // Clean up modal after hide
+    roleModal.addEventListener('hidden.bs.modal', () => {
+        document.body.removeChild(roleModal);
+    });
+}
+
+/** Confirm bulk role change. */
+async function confirmBulkChangeRole() {
+    const roleModal = document.querySelector('.modal.show');
+    const selectedIds = JSON.parse(roleModal.dataset.selectedIds);
+    const newRole = document.getElementById('bulkRoleSelect').value;
+
+    try {
+        const resp = await fetch('../api/users.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'bulk_change_role',
+                user_ids: selectedIds,
+                new_role: newRole
+            })
+        }).then(r => r.json());
+
+        if (resp.success) {
+            addAuditLog('USERS_BULK_ROLE_CHANGED', 'User Management', `${selectedIds.length} users changed to ${newRole}`, currentUser?.id, 'User', 'INFO');
+            showToast(`${selectedIds.length} users updated successfully.`, 'success');
+            bootstrap.Modal.getInstance(roleModal).hide();
+            clearSelection();
+            loadUsers(); // Refresh the table
+        } else {
+            showToast(resp.message || 'Failed to change roles.', 'error');
+        }
+    } catch (error) {
+        showToast('Server error changing roles.', 'error');
+    }
+}
+
+/** Bulk delete users. */
+function bulkDeleteUsers() {
+    const selectedIds = Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => cb.value);
+
+    if (selectedIds.length === 0) {
+        showToast('No users selected.', 'warning');
+        return;
+    }
+
+    // Check if trying to delete self
+    if (currentUser && selectedIds.includes(currentUser.id)) {
+        showToast('You cannot delete your own account while logged in.', 'warning');
+        return;
+    }
+
+    // Show delete confirmation modal with bulk message
+    window.bulkDeleteIds = selectedIds;
+    window.userToDelete = null; // Clear single user flag
+
+    // Update modal for bulk delete
+    document.querySelector('#deleteConfirmModal .modal-title').innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Confirm Bulk Delete';
+    document.querySelector('#deleteConfirmModal .modal-body h5').textContent = `Delete ${selectedIds.length} users?`;
+    document.querySelector('#deleteConfirmModal .modal-body p').textContent = 'This action cannot be undone.';
+    document.querySelector('#deleteConfirmModal .btn-danger').innerHTML = '<i class="bi bi-trash me-2"></i>Delete Users';
+
+    const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+    modal.show();
+}
+
+/** Perform bulk user deletion. */
+async function confirmBulkDeleteUsers() {
+    const selectedIds = window.bulkDeleteIds || [];
+
+    if (selectedIds.length === 0) return;
+
+    try {
+        const resp = await fetch('../api/users.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'bulk_delete_users',
+                user_ids: selectedIds
+            })
+        }).then(r => r.json());
+
+        if (resp.success) {
+            addAuditLog('USERS_BULK_DELETED', 'User Management', `${selectedIds.length} users deleted`, currentUser?.id, 'User', 'CRITICAL');
+            showToast(`${selectedIds.length} users deleted successfully.`, 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal'));
+            if (modal) modal.hide();
+            clearSelection();
+            loadUsersFromAPI().then(() => {
+                updateUserStatistics();
+            });
+        } else {
+            showToast(resp.message || 'Failed to delete users.', 'error');
+        }
+    } catch (error) {
+        showToast('Server error deleting users.', 'error');
+    }
+}
+
+// Update the delete confirmation to handle bulk
+document.querySelector('#deleteConfirmModal .btn-danger').setAttribute('onclick', 'confirmBulkDeleteUsers()');
+
+/** Generate CSV from user data. */
+function generateUserCSV(userList) {
+    const headers = ['User ID', 'First Name', 'Last Name', 'Role', 'Email', 'Phone', 'Department', 'Office', 'Status'];
+    const rows = userList.map(user => [
+        user.id,
+        user.firstName,
+        user.lastName,
+        user.role,
+        user.email,
+        user.phone || '',
+        user.department || '',
+        user.office || '',
+        user.status || 'active'
+    ]);
+
+    const csvContent = [headers, ...rows]
+        .map(row => row.map(field => `"${field}"`).join(','))
+        .join('\n');
+
+    return csvContent;
+}
+
+/** Download CSV file. */
+function downloadCSV(csv, filename) {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 
 
 // ==========================================================
@@ -1431,21 +1715,43 @@ function clearAuditLog() {
 }
 
 // ==========================================================
-// Settings and Profile (stubs)
+// Settings and Profile
 // ==========================================================
 function openProfileSettings() {
     addAuditLog('PROFILE_SETTINGS_VIEWED', 'User Management', 'Viewed profile settings', currentUser?.id, 'User', 'INFO');
-    alert('Profile Settings\n\nThis would open a modal to edit administrator profile information, including name, email, and contact details.');
-}
 
-function openNotificationSettings() {
-    addAuditLog('NOTIFICATION_SETTINGS_VIEWED', 'System', 'Viewed notification settings', currentUser?.id, 'User', 'INFO');
-    alert('Notification Settings\n\nThis would open settings to configure email notifications, system alerts, and audit log notifications.');
+    // Populate form with current user data
+    if (currentUser) {
+        document.getElementById('profileFirstName').value = currentUser.firstName || '';
+        document.getElementById('profileLastName').value = currentUser.lastName || '';
+        document.getElementById('profileEmail').value = currentUser.email || '';
+        // Note: Phone and office would need to be fetched from API if not in currentUser
+        document.getElementById('profilePhone').value = currentUser.phone || '';
+        document.getElementById('profileOffice').value = currentUser.office || '';
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('profileSettingsModal'));
+    modal.show();
 }
 
 function openSystemSettings() {
     addAuditLog('SYSTEM_SETTINGS_VIEWED', 'System', 'Viewed system settings', currentUser?.id, 'User', 'INFO');
-    alert('System Settings\n\nThis would open advanced system configuration options including backup settings, user policies, and security configurations.');
+
+    // Load current system settings (this would typically come from an API)
+    loadSystemSettings();
+
+    const modal = new bootstrap.Modal(document.getElementById('systemSettingsModal'));
+    modal.show();
+}
+
+async function loadSystemSettings() {
+    try {
+        // This would load settings from the server
+        // For now, we'll use default values that are already set in the HTML
+        console.log('Loading system settings...');
+    } catch (error) {
+        console.error('Failed to load system settings:', error);
+    }
 }
 
 function openChangePassword() {
@@ -1495,7 +1801,184 @@ document.getElementById('changePasswordForm').addEventListener('submit', async f
     }
 });
 
-// Notification function
+// Handle profile settings form
+document.getElementById('profileSettingsForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const firstName = document.getElementById('profileFirstName').value.trim();
+    const lastName = document.getElementById('profileLastName').value.trim();
+    const email = document.getElementById('profileEmail').value.trim();
+    const phone = document.getElementById('profilePhone').value.trim();
+    const office = document.getElementById('profileOffice').value;
+    const messagesDiv = document.getElementById('profileSettingsMessages');
+
+    const show = (html) => { if (messagesDiv) messagesDiv.innerHTML = html; };
+    const ok = (msg) => `<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>${msg}</div>`;
+    const err = (msg) => `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>${msg}</div>`;
+
+    if (!firstName || !lastName || !email) {
+        show(err('First name, last name, and email are required.'));
+        return;
+    }
+
+    if (!isValidEmail(email)) {
+        show(err('Please enter a valid email address.'));
+        return;
+    }
+
+    try {
+        const resp = await fetch('../api/users.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'update_profile',
+                user_id: currentUser?.id,
+                first_name: firstName,
+                last_name: lastName,
+                email: email,
+                phone: phone,
+                office: office
+            })
+        }).then(r => r.json());
+
+        if (resp.success) {
+            addAuditLog('PROFILE_UPDATED', 'User Management', 'Profile updated', currentUser?.id, 'User', 'INFO');
+            show(ok('Profile updated successfully!'));
+
+            // Update current user data
+            if (currentUser) {
+                currentUser.firstName = firstName;
+                currentUser.lastName = lastName;
+                currentUser.email = email;
+                document.getElementById('adminUserName').textContent = `${firstName} ${lastName}`;
+            }
+
+            setTimeout(() => {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('profileSettingsModal'));
+                if (modal) modal.hide();
+                if (messagesDiv) messagesDiv.innerHTML = '';
+            }, 1500);
+        } else {
+            show(err(resp.message || 'Failed to update profile.'));
+        }
+    } catch (e) {
+        show(err('Server error updating profile.'));
+    }
+});
+
+// Handle system settings forms
+document.getElementById('generalSettingsForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    await saveSystemSettings('general');
+});
+
+document.getElementById('securitySettingsForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    await saveSystemSettings('security');
+});
+
+document.getElementById('notificationSettingsForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    await saveSystemSettings('notifications');
+});
+
+document.getElementById('backupSettingsForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    await saveSystemSettings('backup');
+});
+
+async function saveSystemSettings(category) {
+    const messagesDiv = document.getElementById('systemSettingsMessages');
+    const show = (html) => { if (messagesDiv) messagesDiv.innerHTML = html; };
+    const ok = (msg) => `<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>${msg}</div>`;
+    const err = (msg) => `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>${msg}</div>`;
+
+    try {
+        let settingsData = {};
+
+        switch (category) {
+            case 'general':
+                settingsData = {
+                    system_name: document.getElementById('systemName').value,
+                    default_language: document.getElementById('defaultLanguage').value,
+                    timezone: document.getElementById('timezone').value,
+                    session_timeout: document.getElementById('sessionTimeout').value,
+                    max_file_size: document.getElementById('maxFileSize').value,
+                    maintenance_mode: document.getElementById('maintenanceMode').checked
+                };
+                break;
+            case 'security':
+                settingsData = {
+                    password_min_length: document.getElementById('passwordMinLength').value,
+                    require_uppercase: document.getElementById('requireUppercase').checked,
+                    require_lowercase: document.getElementById('requireLowercase').checked,
+                    require_numbers: document.getElementById('requireNumbers').checked,
+                    require_special_chars: document.getElementById('requireSpecialChars').checked,
+                    max_login_attempts: document.getElementById('maxLoginAttempts').value,
+                    lockout_duration: document.getElementById('lockoutDuration').value,
+                    enable_2fa: document.getElementById('enable2FA').checked,
+                    audit_log_retention: document.getElementById('auditLogRetention').value
+                };
+                break;
+            case 'notifications':
+                settingsData = {
+                    email_user_registration: document.getElementById('emailUserRegistration').checked,
+                    email_document_approval: document.getElementById('emailDocumentApproval').checked,
+                    email_system_alerts: document.getElementById('emailSystemAlerts').checked,
+                    email_security_events: document.getElementById('emailSecurityEvents').checked,
+                    in_app_user_activity: document.getElementById('inAppUserActivity').checked,
+                    in_app_document_updates: document.getElementById('inAppDocumentUpdates').checked,
+                    in_app_system_maintenance: document.getElementById('inAppSystemMaintenance').checked,
+                    admin_email: document.getElementById('adminEmail').value
+                };
+                break;
+            case 'backup':
+                settingsData = {
+                    backup_frequency: document.getElementById('backupFrequency').value,
+                    backup_retention: document.getElementById('backupRetention').value,
+                    backup_location: document.getElementById('backupLocation').value,
+                    backup_database: document.getElementById('backupDatabase').checked,
+                    backup_files: document.getElementById('backupFiles').checked,
+                    backup_config: document.getElementById('backupConfig').checked
+                };
+                break;
+        }
+
+        const resp = await fetch('../api/users.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'save_system_settings',
+                category: category,
+                settings: settingsData
+            })
+        }).then(r => r.json());
+
+        if (resp.success) {
+            addAuditLog('SYSTEM_SETTINGS_UPDATED', 'System', `Updated ${category} settings`, currentUser?.id, 'System', 'INFO');
+            show(ok(`${category.charAt(0).toUpperCase() + category.slice(1)} settings saved successfully!`));
+            setTimeout(() => {
+                if (messagesDiv) messagesDiv.innerHTML = '';
+            }, 3000);
+        } else {
+            show(err(resp.message || `Failed to save ${category} settings.`));
+        }
+    } catch (e) {
+        show(err(`Server error saving ${category} settings.`));
+    }
+}
+
+function runManualBackup() {
+    addAuditLog('MANUAL_BACKUP_INITIATED', 'System', 'Manual backup initiated', currentUser?.id, 'System', 'INFO');
+    showToast('Manual backup initiated. This may take a few minutes.', 'info');
+    // This would trigger a backup process
+}
+
+function downloadLatestBackup() {
+    addAuditLog('BACKUP_DOWNLOADED', 'System', 'Latest backup downloaded', currentUser?.id, 'System', 'INFO');
+    // This would download the latest backup file
+    window.open('../api/backup.php?action=download_latest', '_blank');
+}
 function showNotifications() {
     const modal = new bootstrap.Modal(document.getElementById('notificationsModal'));
     const list = document.getElementById('notificationsList');
@@ -1647,6 +2130,359 @@ function updateDashboardStats() {
 }
 
 // ==========================================================
+// Dashboard Overview Functions
+// ==========================================================
+
+let userRoleChart = null;
+let materialStatusChart = null;
+let auditActivityChart = null;
+
+function refreshDashboard() {
+    addAuditLog('DASHBOARD_REFRESHED', 'System', 'Dashboard refreshed', currentUser?.id, 'System', 'INFO');
+    loadUsers();
+    loadMaterials();
+    loadAuditLogs();
+    updateDashboardOverview();
+}
+
+function updateDashboardOverview() {
+    // Update metrics
+    const totalUsers = Object.keys(users).length;
+    const activeUsers = Object.values(users).filter(user => user.status !== 'inactive').length;
+    const totalMaterials = publicMaterials.length;
+    const approvedMaterials = publicMaterials.filter(m => m.status === 'approved').length;
+    const pendingItems = publicMaterials.filter(m => m.status === 'pending').length;
+    const securityEvents = auditLogs.filter(log => log.category === 'Security').length;
+    const todayEvents = auditLogs.filter(log => {
+        const today = new Date().toISOString().split('T')[0];
+        return log.timestamp && log.timestamp.startsWith(today);
+    }).length;
+
+    document.getElementById('dashboardTotalUsers').textContent = totalUsers;
+    document.getElementById('dashboardActiveUsers').textContent = `${activeUsers} active`;
+    document.getElementById('dashboardTotalMaterials').textContent = totalMaterials;
+    document.getElementById('dashboardApprovedMaterials').textContent = `${approvedMaterials} approved`;
+    document.getElementById('dashboardPendingItems').textContent = pendingItems;
+    document.getElementById('dashboardPendingMaterials').textContent = `${pendingItems} materials`;
+    document.getElementById('dashboardSecurityEvents').textContent = securityEvents;
+    document.getElementById('dashboardTodayEvents').textContent = `${todayEvents} today`;
+
+    // Update charts
+    updateUserRoleChart();
+    updateMaterialStatusChart();
+    updateAuditActivityChart();
+    updateRecentActivity();
+}
+
+function updateUserRoleChart() {
+    const ctx = document.getElementById('userRoleChart');
+    if (!ctx) return;
+
+    const userRoles = Object.values(users).reduce((acc, user) => {
+        acc[user.role] = (acc[user.role] || 0) + 1;
+        return acc;
+    }, {});
+
+    if (userRoleChart) userRoleChart.destroy();
+
+    userRoleChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Admin', 'Employee', 'Student'],
+            datasets: [{
+                data: [userRoles['admin'] || 0, userRoles['employee'] || 0, userRoles['student'] || 0],
+                backgroundColor: ['#ef4444', '#3b82f6', '#10b981'],
+                borderWidth: 3,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        padding: 12,
+                        font: {
+                            size: 11,
+                            weight: '600'
+                        },
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    cornerRadius: 8,
+                    titleFont: {
+                        size: 13,
+                        weight: 'bold'
+                    },
+                    bodyFont: {
+                        size: 12
+                    }
+                }
+            },
+            cutout: '65%'
+        }
+    });
+}
+
+function updateMaterialStatusChart() {
+    const ctx = document.getElementById('materialStatusChart');
+    if (!ctx) return;
+
+    const materialStatuses = publicMaterials.reduce((acc, material) => {
+        acc[material.status] = (acc[material.status] || 0) + 1;
+        return acc;
+    }, {});
+
+    if (materialStatusChart) materialStatusChart.destroy();
+
+    materialStatusChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Approved', 'Pending', 'Rejected'],
+            datasets: [{
+                data: [
+                    materialStatuses['approved'] || 0,
+                    materialStatuses['pending'] || 0,
+                    materialStatuses['rejected'] || 0
+                ],
+                backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                borderWidth: 3,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        padding: 12,
+                        font: {
+                            size: 11,
+                            weight: '600'
+                        },
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    cornerRadius: 8,
+                    titleFont: {
+                        size: 13,
+                        weight: 'bold'
+                    },
+                    bodyFont: {
+                        size: 12
+                    }
+                }
+            },
+            cutout: '65%'
+        }
+    });
+}
+
+function updateAuditActivityChart() {
+    const ctx = document.getElementById('auditActivityChart');
+    if (!ctx) return;
+
+    // Get last 7 days
+    const days = [];
+    const counts = [];
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        days.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        counts.push(auditLogs.filter(log => log.timestamp && log.timestamp.startsWith(dateStr)).length);
+    }
+
+    if (auditActivityChart) auditActivityChart.destroy();
+
+    auditActivityChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: days,
+            datasets: [{
+                label: 'Activity',
+                data: counts,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: '#3b82f6',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    cornerRadius: 8,
+                    titleFont: {
+                        size: 13,
+                        weight: 'bold'
+                    },
+                    bodyFont: {
+                        size: 12
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1,
+                        font: {
+                            size: 11
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)',
+                        drawBorder: false
+                    }
+                },
+                x: {
+                    ticks: {
+                        font: {
+                            size: 11
+                        }
+                    },
+                    grid: {
+                        display: false,
+                        drawBorder: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateRecentActivity() {
+    const activityList = document.getElementById('recentActivityList');
+    if (!activityList) return;
+
+    // Get recent audit logs (last 8 for compact view)
+    const recentLogs = auditLogs.slice(0, 8);
+
+    if (recentLogs.length === 0) {
+        activityList.innerHTML = `
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox" style="font-size: 2rem; opacity: 0.3;"></i>
+                <p class="mt-2 mb-0">No recent activity</p>
+            </div>
+        `;
+        return;
+    }
+
+    activityList.innerHTML = recentLogs.map(log => {
+        const iconClass = getActivityIconClass(log.category);
+        const timeAgo = getTimeAgo(log.timestamp);
+        const actionText = log.action.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+
+        return `
+            <div class="activity-item">
+                <div class="activity-icon ${iconClass}">
+                    <i class="bi ${getActivityIcon(log.category)}"></i>
+                </div>
+                <div class="activity-content flex-grow-1">
+                    <h6 class="mb-1">${actionText}</h6>
+                    <p class="mb-0 text-muted" style="font-size: 0.85rem;">${log.details}</p>
+                </div>
+                <div class="activity-time">
+                    <small class="text-muted">${timeAgo}</small>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function getActivityIconClass(category) {
+    const classes = {
+        'Authentication': 'info',
+        'User Management': 'success',
+        'Security': 'danger',
+        'System': 'warning'
+    };
+    return classes[category] || 'info';
+}
+
+function getActivityIcon(category) {
+    const icons = {
+        'Authentication': 'bi-shield-check',
+        'User Management': 'bi-people',
+        'Security': 'bi-shield-exclamation',
+        'System': 'bi-gear'
+    };
+    return icons[category] || 'bi-info-circle';
+}
+
+function getTimeAgo(timestamp) {
+    if (!timestamp) return 'Unknown';
+
+    const now = new Date();
+    const logTime = new Date(timestamp);
+    const diffMs = now - logTime;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+}
+
+function exportDashboardReport() {
+    addAuditLog('DASHBOARD_REPORT_EXPORTED', 'System', 'Dashboard report exported', currentUser?.id, 'System', 'INFO');
+
+    const reportData = {
+        generated: new Date().toISOString(),
+        metrics: {
+            totalUsers: Object.keys(users).length,
+            activeUsers: Object.values(users).filter(user => user.status !== 'inactive').length,
+            totalMaterials: publicMaterials.length,
+            approvedMaterials: publicMaterials.filter(m => m.status === 'approved').length,
+            pendingMaterials: publicMaterials.filter(m => m.status === 'pending').length,
+            totalAuditLogs: auditLogs.length
+        },
+        userRoles: Object.values(users).reduce((acc, user) => {
+            acc[user.role] = (acc[user.role] || 0) + 1;
+            return acc;
+        }, {}),
+        materialStatuses: publicMaterials.reduce((acc, material) => {
+            acc[material.status] = (acc[material.status] || 0) + 1;
+            return acc;
+        }, {})
+    };
+
+    const csv = convertToCSV([reportData]);
+    downloadCSV(csv, `dashboard_report_${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+// ==========================================================
 // Helper Functions (colors, navigation)
 // ==========================================================
 // Helper functions for colors
@@ -1687,3 +2523,127 @@ function logout() {
 }
 
 // End of file
+
+// ==================================
+// OneUI Animation Enhancements
+// ==================================
+
+// Add smooth page transitions
+document.addEventListener('DOMContentLoaded', function() {
+    // Fade in elements on load
+    document.body.style.opacity = '0';
+    setTimeout(() => {
+        document.body.style.transition = 'opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+        document.body.style.opacity = '1';
+    }, 100);
+    
+    // Animate cards on scroll
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, observerOptions);
+    
+    // Observe cards and sections
+    const animatedElements = document.querySelectorAll('.metric-card, .chart-card, .content-header, .recent-activity');
+    animatedElements.forEach(el => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(20px)';
+        el.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+        observer.observe(el);
+    });
+    
+    // Add ripple effect to buttons
+    document.querySelectorAll('.btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            const ripple = document.createElement('span');
+            ripple.classList.add('ripple');
+            const rect = this.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = e.clientX - rect.left - size / 2;
+            const y = e.clientY - rect.top - size / 2;
+            
+            ripple.style.width = ripple.style.height = size + 'px';
+            ripple.style.left = x + 'px';
+            ripple.style.top = y + 'px';
+            ripple.style.position = 'absolute';
+            ripple.style.borderRadius = '50%';
+            ripple.style.background = 'rgba(255, 255, 255, 0.6)';
+            ripple.style.transform = 'scale(0)';
+            ripple.style.animation = 'ripple-animation 0.6s ease-out';
+            ripple.style.pointerEvents = 'none';
+            
+            this.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+        });
+    });
+    
+    // Smooth tab transitions
+    document.querySelectorAll('[data-bs-toggle="pill"]').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function(e) {
+            const targetPane = document.querySelector(this.getAttribute('data-bs-target'));
+            if (targetPane) {
+                targetPane.style.animation = 'fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+            }
+        });
+    });
+    
+    // Add hover effects to table rows
+    document.querySelectorAll('.data-table tbody tr').forEach(row => {
+        row.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.01)';
+        });
+        row.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+});
+
+// Add CSS animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes ripple-animation {
+        to {
+            transform: scale(4);
+            opacity: 0;
+        }
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(50px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    .btn {
+        position: relative;
+        overflow: hidden;
+    }
+`;
+document.head.appendChild(style);
+
+// End OneUI Enhancements

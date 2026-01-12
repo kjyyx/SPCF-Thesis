@@ -1522,6 +1522,97 @@ function resetZoomPDF(pdfObject) {
     }
 }
 
+// Navbar functions
+function openProfileSettings() {
+    // Populate form with current user data
+    if (window.currentUser) {
+        document.getElementById('profileFirstName').value = window.currentUser.firstName || '';
+        document.getElementById('profileLastName').value = window.currentUser.lastName || '';
+        document.getElementById('profileEmail').value = window.currentUser.email || '';
+        document.getElementById('profilePhone').value = '';
+        document.getElementById('darkModeToggle').checked = localStorage.getItem('darkMode') === 'true';
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('profileSettingsModal'));
+    modal.show();
+}
+
+function openPreferences() {
+    // Load preferences from localStorage
+    const emailNotifications = localStorage.getItem('emailNotifications') !== 'false'; // default true
+    const browserNotifications = localStorage.getItem('browserNotifications') !== 'false'; // default true
+    const defaultView = localStorage.getItem('defaultView') || 'month';
+    
+    document.getElementById('emailNotifications').checked = emailNotifications;
+    document.getElementById('browserNotifications').checked = browserNotifications;
+    document.getElementById('defaultView').value = defaultView;
+    
+    const modal = new bootstrap.Modal(document.getElementById('preferencesModal'));
+    modal.show();
+}
+
+function showHelp() {
+    const modal = new bootstrap.Modal(document.getElementById('helpModal'));
+    modal.show();
+}
+
+function savePreferences() {
+    const emailNotifications = document.getElementById('emailNotifications').checked;
+    const browserNotifications = document.getElementById('browserNotifications').checked;
+    const defaultView = document.getElementById('defaultView').value;
+    
+    // Save to localStorage
+    localStorage.setItem('emailNotifications', emailNotifications);
+    localStorage.setItem('browserNotifications', browserNotifications);
+    localStorage.setItem('defaultView', defaultView);
+    
+    // Show success message
+    const messagesDiv = document.getElementById('preferencesMessages');
+    if (messagesDiv) {
+        messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Preferences saved successfully!</div>';
+        setTimeout(() => messagesDiv.innerHTML = '', 3000);
+    }
+    
+    // Close modal
+    bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
+}
+
+// Handle profile settings form
+document.addEventListener('DOMContentLoaded', function () {
+    const profileForm = document.getElementById('profileSettingsForm');
+    if (profileForm) {
+        profileForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const firstName = document.getElementById('profileFirstName').value;
+            const lastName = document.getElementById('profileLastName').value;
+            const email = document.getElementById('profileEmail').value;
+            const phone = document.getElementById('profilePhone').value;
+            const darkMode = document.getElementById('darkModeToggle').checked;
+            const messagesDiv = document.getElementById('profileSettingsMessages');
+
+            if (!firstName || !lastName || !email) {
+                if (messagesDiv) messagesDiv.innerHTML = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Please fill in all required fields.</div>';
+                return;
+            }
+
+            // Save dark mode preference
+            localStorage.setItem('darkMode', darkMode);
+
+            // Show success message
+            if (messagesDiv) messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Profile updated successfully!</div>';
+            
+            // Apply theme
+            document.body.classList.toggle('dark-theme', darkMode);
+
+            // Close modal after a delay
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('profileSettingsModal')).hide();
+            }, 1500);
+        });
+    }
+});
+
 // Initialize the document notification system
 document.addEventListener('DOMContentLoaded', function () {
     window.documentSystem = new DocumentNotificationSystem();

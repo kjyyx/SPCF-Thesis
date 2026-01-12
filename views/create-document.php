@@ -90,68 +90,11 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
 </head>
 
 <body class="with-fixed-navbar">
-  <!-- Navigation Bar -->
-  <nav class="navbar navbar-expand-lg fixed-top">
-    <div class="container-fluid">
-      <div class="navbar-brand">
-        <i class="bi bi-file-text me-2"></i>
-        Sign-um | Document Creator
-      </div>
-
-      <div class="navbar-nav ms-auto d-flex flex-row align-items-center">
-        <!-- User Info -->
-        <div class="user-info me-3">
-          <i class="bi bi-person-circle me-2"></i>
-          <span
-            id="userDisplayName"><?php echo htmlspecialchars($currentUser['first_name'] . ' ' . $currentUser['last_name']); ?></span>
-          <span class="badge ms-2 <?php
-          echo ($currentUser['role'] === 'admin') ? 'bg-danger' :
-            (($currentUser['role'] === 'employee') ? 'bg-primary' : 'bg-success');
-          ?>" id="userRoleBadge">
-            <?php echo strtoupper($currentUser['role']); ?>
-          </span>
-        </div>
-
-        <!-- Notifications -->
-        <div class="notification-bell me-3" onclick="showNotifications()">
-          <i class="bi bi-bell"></i>
-          <span class="notification-badge" id="notificationCount">0</span>
-        </div>
-
-        <!-- Back to Calendar -->
-        <!-- <div class="me-3">
-          <a href="calendar.html" class="btn btn-outline-light btn-sm">
-            <i class="bi bi-arrow-left me-2"></i>Back to Calendar
-          </a>
-        </div> -->
-
-        <!-- <div class="me-3">
-          <button class="btn btn-outline-secondary btn-sm" onclick="goBack()" title="Go Back">
-            <i class="bi bi-arrow-left me-2"></i>Back
-          </button>
-        </div> -->
-        <!-- Settings Dropdown -->
-        <div class="dropdown me-3">
-          <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-            <i class="bi bi-gear me-2"></i>Settings
-          </button>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="event-calendar.php"><i class="bi bi-calendar-event me-2"></i>Calendar</a>
-            </li>
-            <li><a class="dropdown-item" href="track-document.php"><i class="bi bi-file-earmark-check me-2"></i>Track
-                Documents</a></li>
-            <li><a class="dropdown-item" href="upload-publication.php"><i class="bi bi-cloud-upload me-2"></i>Upload
-                Materials</a></li>
-            <li>
-              <hr class="dropdown-divider">
-            </li>
-            <li><a class="dropdown-item text-danger" href="user-logout.php"><i
-                  class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </nav>
+  <?php
+  // Set page title for navbar
+  $pageTitle = 'Document Creator';
+  include '../includes/navbar.php';
+  ?>
 
   <!-- Main Content -->
   <div class="main-content">
@@ -1109,6 +1052,209 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
       }
     }
   </script>
+
+  <!-- Profile Settings Modal -->
+  <div class="modal fade" id="profileSettingsModal" tabindex="-1" aria-labelledby="profileSettingsLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="profileSettingsLabel">
+            <i class="bi bi-person-gear me-2"></i>Profile Settings
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="profileSettingsForm">
+          <div class="modal-body">
+            <div id="profileSettingsMessages"></div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="profileFirstName" class="form-label">First Name</label>
+                <input type="text" class="form-control" id="profileFirstName" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="profileLastName" class="form-label">Last Name</label>
+                <input type="text" class="form-control" id="profileLastName" required>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label for="profileEmail" class="form-label">Email Address</label>
+              <input type="email" class="form-control" id="profileEmail" required>
+            </div>
+            <div class="mb-3">
+              <label for="profilePhone" class="form-label">Phone Number</label>
+              <input type="tel" class="form-control" id="profilePhone">
+            </div>
+            <div class="mb-3">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="darkModeToggle">
+                <label class="form-check-label" for="darkModeToggle">
+                  Enable Dark Mode
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preferences Modal -->
+  <div class="modal fade" id="preferencesModal" tabindex="-1" aria-labelledby="preferencesLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="preferencesLabel">
+            <i class="bi bi-sliders me-2"></i>Preferences
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="preferencesMessages"></div>
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="emailNotifications">
+              <label class="form-check-label" for="emailNotifications">
+                Email Notifications
+              </label>
+            </div>
+          </div>
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="browserNotifications">
+              <label class="form-check-label" for="browserNotifications">
+                Browser Notifications
+              </label>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="defaultView" class="form-label">Default View</label>
+            <select class="form-select" id="defaultView">
+              <option value="month">Month View</option>
+              <option value="week">Week View</option>
+              <option value="agenda">Agenda View</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="savePreferences()">Save Preferences</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help & Support Modal -->
+  <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="helpLabel">
+            <i class="bi bi-question-circle me-2"></i>Help & Support
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="accordion" id="helpAccordion">
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#gettingStarted">
+                  Getting Started
+                </button>
+              </h2>
+              <div id="gettingStarted" class="accordion-collapse collapse show" data-bs-parent="#helpAccordion">
+                <div class="accordion-body">
+                  <p>Welcome to the Document Creator! Here you can:</p>
+                  <ul>
+                    <li>Create professional documents for various purposes</li>
+                    <li>Generate project proposals, SAF requests, facility requests, and communication letters</li>
+                    <li>Preview documents in real-time</li>
+                    <li>Print or submit documents for approval</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#documentTypes">
+                  Document Types
+                </button>
+              </h2>
+              <div id="documentTypes" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                <div class="accordion-body">
+                  <p><strong>Project Proposal:</strong> Detailed proposals with budget, program schedule, and objectives</p>
+                  <p><strong>SAF Request:</strong> Student Activities Fund requests with category-based funding</p>
+                  <p><strong>Facility Request:</strong> Facility reservation requests with date and purpose</p>
+                  <p><strong>Communication Letter:</strong> Official communication letters with signature blocks</p>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#creatingDocuments">
+                  Creating Documents
+                </button>
+              </h2>
+              <div id="creatingDocuments" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                <div class="accordion-body">
+                  <p>To create a document:</p>
+                  <ol>
+                    <li>Select the document type from the dropdown</li>
+                    <li>Fill in all required fields in the form</li>
+                    <li>Click "Generate" to see the preview</li>
+                    <li>Review the document in the preview panel</li>
+                    <li>Click "Create Document" to submit for approval</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#budgetManagement">
+                  Budget Management
+                </button>
+              </h2>
+              <div id="budgetManagement" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                <div class="accordion-body">
+                  <p>For project proposals with budgets:</p>
+                  <ul>
+                    <li>Add budget items with description, quantity, and price</li>
+                    <li>Totals are calculated automatically</li>
+                    <li>Specify the budget source</li>
+                    <li>All calculations update in real-time</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#troubleshooting">
+                  Troubleshooting
+                </button>
+              </h2>
+              <div id="troubleshooting" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                <div class="accordion-body">
+                  <p><strong>Common Issues:</strong></p>
+                  <ul>
+                    <li><strong>Preview not updating:</strong> Click "Generate" after making changes</li>
+                    <li><strong>Form not saving:</strong> Ensure all required fields are filled</li>
+                    <li><strong>Print issues:</strong> Use browser's print dialog for best results</li>
+                    <li><strong>Access denied:</strong> Contact your administrator for permission issues</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Notifications Modal -->
   <div class="modal fade" id="notificationsModal" tabindex="-1">

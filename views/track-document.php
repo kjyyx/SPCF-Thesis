@@ -11,6 +11,9 @@ if (!$currentUser) {
     header('Location: user-login.php');
     exit();
 }
+
+// Set page title for navbar
+$pageTitle = 'Track Documents';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -48,57 +51,7 @@ if (!$currentUser) {
 </head>
 
 <body class="with-fixed-navbar">
-    <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-lg fixed-top">
-        <div class="container-fluid">
-            <div class="navbar-brand">
-                <i class="bi bi-folder2-open me-2"></i>
-                Sign-um | Document Tracker
-            </div>
-
-            <div class="navbar-nav ms-auto d-flex flex-row align-items-center">
-                <!-- User Info -->
-                <div class="user-info me-3">
-                    <i class="bi bi-person-circle me-2"></i>
-                    <span
-                        id="userDisplayName"><?php echo htmlspecialchars($currentUser['first_name'] . ' ' . $currentUser['last_name']); ?></span>
-                    <span class="badge ms-2 <?php
-                    echo ($currentUser['role'] === 'admin') ? 'bg-danger' :
-                        (($currentUser['role'] === 'employee') ? 'bg-primary' : 'bg-success');
-                    ?>" id="userRoleBadge">
-                        <?php echo ucfirst($currentUser['role']); ?>
-                    </span>
-                </div>
-
-                <!-- Notifications -->
-                <div class="notification-bell me-3" onclick="showNotifications()">
-                    <i class="bi bi-bell"></i>
-                    <span class="notification-badge" id="notificationCount">0</span>
-                </div>
-
-                <!-- Settings Dropdown -->
-                <div class="dropdown me-3">
-                    <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button"
-                        data-bs-toggle="dropdown">
-                        <i class="bi bi-gear me-1"></i>Menu
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="event-calendar.php"><i
-                                    class="bi bi-calendar-event me-2"></i>Calendar</a></li>
-                        <li><a class="dropdown-item" href="create-document.php"><i
-                                    class="bi bi-file-text me-2"></i>Create Document</a></li>
-                        <li><a class="dropdown-item" href="upload-publication.php"><i
-                                    class="bi bi-file-earmark-check me-2"></i>Upload Publication</a></li>
-                        <li>
-                            <hr class="dropdown-divider">
-                        </li>
-                        <li><a class="dropdown-item text-danger" href="user-logout.php"><i
-                                    class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </nav>
+    <?php include '../includes/navbar.php'; ?>
 
     <!-- Admin-Style Compact Header -->
     <div class="calendar-header-compact">
@@ -365,6 +318,228 @@ if (!$currentUser) {
             window.location.href = 'track-document.php';
         }
     </script>
+
+    <!-- Profile Settings Modal -->
+    <div class="modal fade" id="profileSettingsModal" tabindex="-1" aria-labelledby="profileSettingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="profileSettingsModalLabel"><i class="bi bi-person-gear me-2"></i>Profile Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="profileSettingsForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="profileFirstName" class="form-label">First Name</label>
+                                    <input type="text" class="form-control" id="profileFirstName" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="profileLastName" class="form-label">Last Name</label>
+                                    <input type="text" class="form-control" id="profileLastName" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="profileEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="profileEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="profilePhone" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="profilePhone">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveProfileSettings()">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preferences Modal -->
+    <div class="modal fade" id="preferencesModal" tabindex="-1" aria-labelledby="preferencesModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="preferencesModalLabel"><i class="bi bi-sliders me-2"></i>Preferences</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="preferencesForm">
+                        <h6 class="mb-3">Document Tracking Preferences</h6>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
+                                <label class="form-check-label" for="autoRefresh">
+                                    Auto-refresh document list every 30 seconds
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
+                                <label class="form-check-label" for="emailNotifications">
+                                    Email notifications for document status changes
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="showRejectedNotes" checked>
+                                <label class="form-check-label" for="showRejectedNotes">
+                                    Show rejection notes in document details
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="itemsPerPagePref" class="form-label">Documents per page</label>
+                            <select class="form-select" id="itemsPerPagePref">
+                                <option value="5">5</option>
+                                <option value="10" selected>10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                            </select>
+                        </div>
+                        <h6 class="mb-3 mt-4">Display Preferences</h6>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="compactView" checked>
+                                <label class="form-check-label" for="compactView">
+                                    Use compact view for document list
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="showStats" checked>
+                                <label class="form-check-label" for="showStats">
+                                    Show document statistics in header
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="savePreferences()">Save Preferences</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="helpModalLabel"><i class="bi bi-question-circle me-2"></i>Help & Support - Document Tracker</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="accordion" id="helpAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#gettingStarted">
+                                    Getting Started with Document Tracking
+                                </button>
+                            </h2>
+                            <div id="gettingStarted" class="accordion-collapse collapse show" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <p>The Document Tracker allows you to monitor the progress of documents you've submitted for approval and signing.</p>
+                                    <ul>
+                                        <li><strong>Document Status:</strong> Track whether your documents are pending, in progress, approved, or rejected</li>
+                                        <li><strong>Real-time Updates:</strong> The system automatically refreshes to show the latest status changes</li>
+                                        <li><strong>Detailed View:</strong> Click "View Details" to see the complete approval timeline and notes</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#understandingStatus">
+                                    Understanding Document Status
+                                </button>
+                            </h2>
+                            <div id="understandingStatus" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <h6>Status Types:</h6>
+                                    <ul>
+                                        <li><span class="badge bg-warning">Pending</span> - Document submitted, waiting for initial review</li>
+                                        <li><span class="badge bg-info">In Progress</span> - Document is being reviewed by approvers</li>
+                                        <li><span class="badge bg-success">Approved</span> - Document has been fully approved</li>
+                                        <li><span class="badge bg-danger">Rejected</span> - Document was rejected (check notes for reason)</li>
+                                    </ul>
+                                    <p><strong>Note:</strong> Documents move through multiple approval levels. Check the timeline in document details for progress.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#usingFilters">
+                                    Using Search and Filters
+                                </button>
+                            </h2>
+                            <div id="usingFilters" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <p>Use the search and filter options to find specific documents:</p>
+                                    <ul>
+                                        <li><strong>Search:</strong> Enter keywords to search document names, types, or locations</li>
+                                        <li><strong>Status Filter:</strong> Filter by document status (All, Pending, In Progress, Completed)</li>
+                                        <li><strong>Clear Filters:</strong> Use the "Clear All" button to reset search and filters</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#documentDetails">
+                                    Viewing Document Details
+                                </button>
+                            </h2>
+                            <div id="documentDetails" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <p>Click "View Details" on any document to see:</p>
+                                    <ul>
+                                        <li>Complete approval timeline with dates and approver names</li>
+                                        <li>Rejection notes (if applicable)</li>
+                                        <li>Document type and submission information</li>
+                                        <li>Download link for the signed document (when approved)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#troubleshooting">
+                                    Troubleshooting
+                                </button>
+                            </h2>
+                            <div id="troubleshooting" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <h6>Common Issues:</h6>
+                                    <ul>
+                                        <li><strong>Document not showing:</strong> Try refreshing the page or clearing filters</li>
+                                        <li><strong>Status not updating:</strong> The system updates automatically, but you can manually refresh</li>
+                                        <li><strong>Cannot download:</strong> Documents can only be downloaded after full approval</li>
+                                    </ul>
+                                    <p>If you continue to experience issues, contact your system administrator.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <a href="create-document.php" class="btn btn-primary">Create New Document</a>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Notifications Modal -->
     <div class="modal fade" id="notificationsModal" tabindex="-1">

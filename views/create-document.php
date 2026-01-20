@@ -139,28 +139,12 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
               </div>
             </div>
 
-            <div class="divider"></div>
-
-            <button class="btn btn-success" onclick="generateDocument()">
-              <i class="bi bi-play-fill me-2"></i>Generate
-            </button>
-            <button class="btn btn-outline-primary" onclick="printDocument()">
-              <i class="bi bi-printer me-2"></i>Print
-            </button>
-            <button id="togglePreviewBtn" class="btn btn-outline-secondary" onclick="togglePreview()">
-              <i class="bi bi-eye me-2"></i>Preview
-            </button>
             <button class="btn btn-success" onclick="submitDocument()">
               <i class="bi bi-check-circle me-2"></i>Create Document
             </button>
           </div>
 
-          <div class="preview-status">
-            <div class="status-indicator">
-              <div class="status-dot"></div>
-              <span class="status-text">Live preview updates automatically</span>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>
@@ -284,10 +268,8 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                   <label class="form-label">Program Schedule (detailed rows)</label>
                   <div id="program-rows-prop" class="mt-2">
                     <div class="program-row">
-                      <div class="time-selector" onclick="openTimeSelector(this)"><span
-                          class="time-display">Start</span><i class="bi bi-clock ms-2"></i></div>
-                      <div class="time-selector" onclick="openTimeSelector(this)"><span
-                          class="time-display">End</span><i class="bi bi-clock ms-2"></i></div>
+                      <div><input type="time" class="form-control start-time" value=""></div>
+                      <div><input type="time" class="form-control end-time" value=""></div>
                       <div><input type="text" class="activity-input form-control" placeholder="Activity description">
                       </div>
                       <div><button class="btn btn-sm btn-danger" onclick="removeProgramRow(this)">×</button></div>
@@ -1042,17 +1024,6 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
   <!-- Custom JavaScript -->
   <script src="../assets/js/create-document.js"></script>
 
-  <script>
-    // Add back function
-    function goBack() {
-      if (document.referrer && document.referrer.includes(window.location.hostname)) {
-        window.history.back();
-      } else {
-        window.location.href = 'event-calendar.php';  // Default to calendar if no referrer
-      }
-    }
-  </script>
-
   <!-- Profile Settings Modal -->
   <div class="modal fade" id="profileSettingsModal" tabindex="-1" aria-labelledby="profileSettingsLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -1270,6 +1241,25 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="markAllAsRead()">Mark All Read</button>
           <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generic Confirmation Modal -->
+  <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="confirmModalLabel">Confirm Action</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p id="confirmModalMessage">Are you sure you want to proceed?</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="confirmModalBtn">Confirm</button>
         </div>
       </div>
     </div>

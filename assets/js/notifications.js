@@ -1,44 +1,69 @@
 // Document Notification System JavaScript
-// High-level: Presents a dashboard of actionable documents with statuses, details view, and simple toasts.
+// Enhanced professional version with improved error handling, search, and performance
 // Notes for future developers:
 // - Keep exported functions (init, openDocument, goBack, etc.) used by HTML intact.
-// - This module uses mock data; replace with API calls when backend is ready.
+// - This module uses API calls with proper error handling.
 // - All DOM lookups are guarded; ensure IDs/classes match the HTML.
 
 class DocumentNotificationSystem {
     constructor() {
         this.documents = [];
+        this.filteredDocuments = [];
         this.currentDocument = null;
         this.currentUser = window.currentUser || null;
         this.apiBase = '../api/documents.php';
         this.signatureImage = null;
         this.currentSignatureMap = null;
-        this.pdfDoc = null; // PDF.js document
+        this.pdfDoc = null;
         this.currentPage = 1;
         this.totalPages = 1;
-        this.scale = 1.0; // Zoom scale
+        this.scale = 1.0;
         this.canvas = null;
         this.ctx = null;
+        this.searchTerm = '';
+        this.currentFilter = 'all';
+        this.isLoading = false;
+        this.retryCount = 0;
+        this.maxRetries = 3;
     }
 
-    // Initialize the application
+    // Initialize the application with enhanced error handling
     async init() {
-        // Allow employees and SSC President students only
-        if (!this.currentUser || (this.currentUser.role !== 'employee' && !(this.currentUser.role === 'student' && this.currentUser.position === 'SSC President'))) {
-            window.location.href = 'event-calendar.php';
-            return;
+        try {
+            // Validate user access
+            const userHasAccess = this.currentUser &&
+                (this.currentUser.role === 'employee' ||
+                 (this.currentUser.role === 'student' && this.currentUser.position === 'SSC President'));
+
+            if (!userHasAccess) {
+                console.error('Access denied: Invalid user role or position');
+                window.location.href = 'user-login.php?error=access_denied';
+                return;
+            }
+
+            this.setupLoadingState();
+            await this.loadDocuments();
+            this.renderDocuments();
+            this.setupEventListeners();
+            this.updateStatsDisplay();
+            this.setupSearchFunctionality();
+
+            // Add resize listener for fit to width
+            window.addEventListener('resize', this.debounce(() => {
+                if (this.pdfDoc) this.fitToWidth();
+            }, 250));
+
+            // Setup periodic refresh for real-time updates
+            this.setupPeriodicRefresh();
+
+        } catch (error) {
+            console.error('Failed to initialize DocumentNotificationSystem:', error);
+            this.showToast({
+                type: 'error',
+                title: 'Initialization Error',
+                message: 'Failed to load the document system. Please refresh the page.'
+            });
         }
-
-        this.documents = [];
-        await this.loadDocuments();
-        this.renderDocuments();
-        this.setupEventListeners();
-        this.updateStatsDisplay();
-
-        // Add resize listener for fit to width
-        window.addEventListener('resize', () => {
-            if (this.pdfDoc) this.fitToWidth();
-        });
     }
 
     // Navigate back to dashboard from detail view
@@ -53,25 +78,6 @@ class DocumentNotificationSystem {
         this.pdfDoc = null;
         this.currentPage = 1;
         this.scale = 1.0;
-    }
-
-    // Create a mock document via API then reload list
-    async createMockDocument() {
-        try {
-            const res = await fetch('../api/documents.php?action=generate_mock');
-            const data = await res.json();
-            if (data.success) {
-                this.showToast({ type: 'success', title: 'Mock Created', message: 'Mock document generated.' });
-                await this.loadDocuments();
-                this.renderDocuments();
-                this.updateStatsDisplay();
-            } else {
-                throw new Error(data.message || 'Failed to create mock');
-            }
-        } catch (e) {
-            console.error(e);
-            this.showToast({ type: 'error', title: 'Error', message: 'Failed to create mock document.' });
-        }
     }
 
     showNotifications() {
@@ -122,13 +128,135 @@ class DocumentNotificationSystem {
         }
     }
 
-    // Setup event listeners
+    // Setup search functionality
+    setupSearchFunctionality() {
+        const searchInput = document.getElementById('documentSearch');
+        const clearButton = document.getElementById('clearSearch');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', this.debounce((e) => {
+                this.searchTerm = e.target.value.trim().toLowerCase();
+                this.applyFiltersAndSearch();
+            }, 300));
+        }
+
+        if (clearButton) {
+            clearButton.addEventListener('click', () => {
+                if (searchInput) searchInput.value = '';
+                this.searchTerm = '';
+                this.applyFiltersAndSearch();
+            });
+        }
+    }
+
+    // Setup periodic refresh for real-time updates
+    setupPeriodicRefresh() {
+        // Refresh every 30 seconds when page is visible
+        this.refreshInterval = setInterval(() => {
+            if (!document.hidden && !this.isLoading) {
+                this.refreshDocuments();
+            }
+        }, 30000);
+
+        // Clear interval when page becomes hidden
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                clearInterval(this.refreshInterval);
+            } else {
+                this.setupPeriodicRefresh();
+            }
+        });
+    }
+
+    // Refresh documents without full reload
+    async refreshDocuments() {
+        try {
+            const response = await fetch(this.apiBase, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                const newDocuments = data.documents || [];
+                const hasChanges = this.hasDocumentChanges(newDocuments);
+
+                if (hasChanges) {
+                    this.documents = newDocuments;
+                    this.applyFiltersAndSearch();
+                    this.updateStatsDisplay();
+
+                    // Show notification if new documents arrived
+                    if (newDocuments.length > this.documents.length) {
+                        this.showToast({
+                            type: 'info',
+                            title: 'New Documents',
+                            message: 'New documents are available for review.'
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to refresh documents:', error);
+            // Don't show error toast for background refresh
+        }
+    }
+
+    // Check if documents have changed
+    hasDocumentChanges(newDocuments) {
+        if (this.documents.length !== newDocuments.length) return true;
+
+        return newDocuments.some((newDoc, index) => {
+            const oldDoc = this.documents[index];
+            return !oldDoc || oldDoc.id !== newDoc.id || oldDoc.status !== newDoc.status;
+        });
+    }
+
+    // Setup loading state management
+    setupLoadingState() {
+        this.loadingOverlay = document.createElement('div');
+        this.loadingOverlay.className = 'loading-overlay d-none';
+        this.loadingOverlay.innerHTML = `
+            <div class="loading-spinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <div class="loading-text mt-2">Loading documents...</div>
+            </div>
+        `;
+        document.body.appendChild(this.loadingOverlay);
+    }
+
+    // Show/hide loading overlay
+    setLoading(loading) {
+        this.isLoading = loading;
+        if (this.loadingOverlay) {
+            this.loadingOverlay.classList.toggle('d-none', !loading);
+        }
+    }
+
+    // Setup event listeners with enhanced keyboard support
     setupEventListeners() {
         // Add keyboard navigation support
         document.addEventListener('keydown', (e) => {
+            // Global shortcuts
             if (e.key === 'Escape' && document.getElementById('documentView').style.display === 'block') {
                 this.goBack();
+                return;
             }
+
+            // Search focus shortcut
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                const searchInput = document.getElementById('documentSearch');
+                if (searchInput) searchInput.focus();
+                return;
+            }
+
             // PDF viewer keyboard shortcuts
             if (this.pdfDoc && document.getElementById('documentView').style.display === 'block') {
                 switch (e.key) {
@@ -149,17 +277,102 @@ class DocumentNotificationSystem {
                         e.preventDefault();
                         this.zoomOut();
                         break;
+                    case 'Home':
+                        e.preventDefault();
+                        this.goToPage(1);
+                        break;
+                    case 'End':
+                        e.preventDefault();
+                        this.goToPage(this.totalPages);
+                        break;
                 }
             }
         });
 
-        // Add auto-save for notes
-        const notesInput = document.getElementById('notesInput');
-        if (notesInput) {
-            notesInput.addEventListener('input', this.debounce(() => {
-                this.saveNotes();
-            }, 500));
+        // Add scroll optimization for large lists
+        this.setupVirtualScrolling();
+    }
+
+    // Setup virtual scrolling for performance
+    setupVirtualScrolling() {
+        const container = document.getElementById('documentsContainer');
+        if (!container) return;
+
+        let scrollTimeout;
+        container.addEventListener('scroll', () => {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                this.handleScrollVisibility();
+            }, 100);
+        });
+    }
+
+    // Handle scroll visibility optimizations
+    handleScrollVisibility() {
+        const cards = document.querySelectorAll('.document-card');
+        cards.forEach(card => {
+            const rect = card.getBoundingClientRect();
+            const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+
+            if (isVisible) {
+                card.classList.add('visible');
+            }
+        });
+    }
+
+    // Apply both filters and search
+    applyFiltersAndSearch() {
+        let filtered = [...this.documents];
+
+        // Apply status filter
+        if (this.currentFilter !== 'all') {
+            filtered = filtered.filter(doc => doc.status === this.currentFilter);
         }
+
+        // Apply search filter
+        if (this.searchTerm) {
+            const term = this.searchTerm.toLowerCase();
+            filtered = filtered.filter(doc =>
+                (doc.title && doc.title.toLowerCase().includes(term)) ||
+                (doc.doc_type && this.formatDocType(doc.doc_type).toLowerCase().includes(term)) ||
+                (doc.student?.department && doc.student.department.toLowerCase().includes(term)) ||
+                (doc.from && doc.from.toLowerCase().includes(term))
+            );
+        }
+
+        this.filteredDocuments = filtered;
+        this.renderFilteredDocuments();
+    }
+
+    // Render filtered documents
+    renderFilteredDocuments() {
+        const container = document.getElementById('documentsContainer');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (this.filteredDocuments.length === 0) {
+            const emptyMessage = this.searchTerm ?
+                'No documents match your search criteria.' :
+                'No documents found for the selected filter.';
+            container.innerHTML = `
+                <div class="col-12 text-center py-5">
+                    <div class="empty-state">
+                        <i class="bi bi-search text-muted" style="font-size: 3rem;"></i>
+                        <h4 class="mt-3">No Documents Found</h4>
+                        <p class="text-muted">${emptyMessage}</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        this.filteredDocuments.forEach(doc => {
+            const card = this.createDocumentCard(doc);
+            container.appendChild(card);
+        });
+
+        this.updateStatsDisplay();
     }
 
     // Utility function for debouncing
@@ -270,7 +483,7 @@ class DocumentNotificationSystem {
         return col;
     }
 
-    // Helpers for due date and progress (compatible with API + mock)
+    // Helpers for due date and progress (compatible with API)
     getDueDate(doc) {
         // Prefer explicit due_date if provided by API
         const explicit = doc.due_date || doc.dueDate;
@@ -356,37 +569,8 @@ class DocumentNotificationSystem {
 
     // Filter documents by status
     filterDocuments(status) {
-        const container = document.getElementById('documentsContainer');
-        if (!container) return;
-
-        // Show loading state
-        container.innerHTML = '<div class="col-12 text-center"><div class="loading" style="height: 200px;"></div></div>';
-
-        setTimeout(() => {
-            container.innerHTML = '';
-            let filteredDocs = this.documents;
-            if (status !== 'all') {
-                filteredDocs = this.documents.filter(doc => doc.status === status);
-            }
-
-            if (filteredDocs.length === 0) {
-                container.innerHTML = `
-                    <div class="col-12 text-center py-5">
-                        <div class="empty-state">
-                            <i class="bi bi-search text-muted" style="font-size: 3rem;"></i>
-                            <h4 class="mt-3">No Documents Found</h4>
-                            <p class="text-muted">No documents match the selected filter.</p>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
-
-            filteredDocs.forEach(doc => {
-                const card = this.createDocumentCard(doc);
-                container.appendChild(card);
-            });
-        }, 300);
+        this.currentFilter = status;
+        this.applyFiltersAndSearch();
     }
 
     // Open inline detail instead of modal
@@ -1617,16 +1801,4 @@ document.addEventListener('DOMContentLoaded', function () {
 document.addEventListener('DOMContentLoaded', function () {
     window.documentSystem = new DocumentNotificationSystem();
     window.documentSystem.init();
-
-    // Expose safe global wrapper for button onclick
-    window.createMockDocument = function () {
-        if (window.documentSystem && typeof window.documentSystem.createMockDocument === 'function') {
-            return window.documentSystem.createMockDocument();
-        }
-        if (window.ToastManager) {
-            window.ToastManager.info('Initializing… please try again.', 'Info');
-        } else {
-            alert('Initializing… please try again.');
-        }
-    };
 });

@@ -58,11 +58,15 @@ $pageTitle = 'Upload Publications';
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/jpeg" href="../assets/images/sign-um-favicon.jpg">
   <title>Sign-um - Upload Publication Materials</title>
-  <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-  <!-- Custom CSS -->
-  <link href="../assets/css/global.css" rel="stylesheet"> <!-- Global shared UI styles -->
+  <!-- 
+    CSS Loading Order (Important):
+    1. global.css - OneUI foundation (navbar, buttons, forms, cards, modals, alerts, utilities)
+    2. upload-publication.css - Page-specific overrides and upload components
+    3. toast.css - Toast notification styles
+  -->
+  <link href="../assets/css/global.css" rel="stylesheet">
   <link href="../assets/css/upload-publication.css" rel="stylesheet">
   <link href="../assets/css/toast.css" rel="stylesheet">
 
@@ -107,14 +111,18 @@ $pageTitle = 'Upload Publications';
     <div class="card restrictions-card mb-4">
       <div class="card-body">
         <div class="d-flex align-items-start">
-          <i class="bi bi-info-circle-fill text-warning me-3 mt-1" style="font-size: 1.5rem;"></i>
+          <div class="flex-shrink-0 me-3">
+            <div class="d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(251, 191, 36, 0.15)); border-radius: 12px;">
+              <i class="bi bi-info-circle-fill text-warning" style="font-size: 1.75rem;"></i>
+            </div>
+          </div>
           <div class="flex-grow-1">
-            <h6 class="text-warning mb-3">
+            <h6 class="text-warning mb-3 d-flex align-items-center">
               <i class="bi bi-shield-check me-2"></i>File Requirements & Guidelines
             </h6>
             <div class="row">
               <div class="col-md-6">
-                <ul class="mb-0 small">
+                <ul class="mb-3 mb-md-0 small">
                   <li><strong>Supported formats:</strong> JPG, JPEG, PNG, GIF, PDF, DOC, DOCX</li>
                   <li><strong>Maximum file size:</strong> 10MB per file</li>
                   <li><strong>Image resolution:</strong> Minimum 300 DPI for print materials</li>
@@ -137,18 +145,21 @@ $pageTitle = 'Upload Publications';
     <div class="card mb-4">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
-          <h6 class="mb-0">
-            <i class="bi bi-hdd-stack me-2 text-primary"></i>Storage Usage
+          <h6 class="mb-0 d-flex align-items-center">
+            <div class="d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.1)); border-radius: 8px;">
+              <i class="bi bi-hdd-stack text-primary"></i>
+            </div>
+            Storage Usage
           </h6>
-          <span class="text-muted small" id="usage-text">0 MB / 100 MB (0%)</span>
+          <span class="text-muted small fw-semibold" id="usage-text">0 MB / 100 MB (0%)</span>
         </div>
-        <div class="progress">
+        <div class="progress" style="height: 10px;">
           <div class="progress-bar bg-success" role="progressbar" style="width: 0%" id="usage-bar" aria-valuenow="0"
             aria-valuemin="0" aria-valuemax="100"></div>
         </div>
-        <div class="mt-2 small text-muted d-flex justify-content-between">
-          <span>Files uploaded: <span id="file-count">0</span></span>
-          <span>Remaining: <span id="remaining-space">100 MB</span></span>
+        <div class="mt-3 small d-flex justify-content-between">
+          <span class="text-muted"><i class="bi bi-files me-1"></i>Files: <strong id="file-count">0</strong></span>
+          <span class="text-muted"><i class="bi bi-hdd me-1"></i>Available: <strong id="remaining-space">100 MB</strong></span>
         </div>
       </div>
     </div>
@@ -158,16 +169,21 @@ $pageTitle = 'Upload Publications';
       <div class="card-body p-0">
         <div class="upload-zone text-center" id="upload-zone">
           <div class="upload-content">
-            <i class="bi bi-cloud-upload upload-icon mb-3"></i>
-            <h5 class="mb-2">Drag & Drop Your Files Here</h5>
-            <p class="text-muted mb-3">
-              <i class="bi bi-cursor me-2"></i>or click anywhere in this area to browse files
+            <div class="mb-3">
+              <i class="bi bi-cloud-arrow-up upload-icon"></i>
+            </div>
+            <h5 class="mb-2">Drop Your Files Here</h5>
+            <p class="text-muted mb-4">
+              <i class="bi bi-cursor me-1"></i>or click to browse and select files from your device
             </p>
             <div class="upload-actions">
-              <button type="button" class="btn btn-primary me-2">
-                <i class="bi bi-plus-circle me-2"></i>Choose Files
+              <button type="button" class="btn btn-primary btn-lg px-4">
+                <i class="bi bi-folder2-open me-2"></i>Browse Files
               </button>
             </div>
+            <p class="text-muted small mt-3 mb-0">
+              <i class="bi bi-lightning-charge me-1"></i>Supports multiple file selection and drag & drop
+            </p>
             <input type="file" id="file-input" class="file-input" multiple
               accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.JPG,.JPEG,.PNG,.GIF,.PDF,.DOC,.DOCX">
           </div>
@@ -196,27 +212,33 @@ $pageTitle = 'Upload Publications';
 
     <!-- Enhanced Submit Section -->
     <div class="card">
-      <div class="card-body text-center">
+      <div class="card-body text-center py-4">
         <div class="submit-section">
           <div class="submit-info mb-4">
-            <i class="bi bi-check-circle-fill text-success me-2" style="font-size: 1.5rem;"></i>
-            <h6 class="mb-2">Ready to Submit?</h6>
-            <p class="text-muted mb-0 small">
-              Review your uploaded files above, then click submit to send for approval
+            <div class="d-flex align-items-center justify-content-center mb-3">
+              <div class="d-flex align-items-center justify-content-center" style="width: 56px; height: 56px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.1)); border-radius: 16px;">
+                <i class="bi bi-check-circle-fill text-success" style="font-size: 2rem;"></i>
+              </div>
+            </div>
+            <h6 class="mb-2 fw-bold" style="font-size: 1.15rem;">Ready to Submit?</h6>
+            <p class="text-muted mb-0">
+              <i class="bi bi-info-circle me-1"></i>Review your uploaded files and click submit when ready
             </p>
           </div>
 
           <div class="submit-actions">
-            <button type="button" class="btn submit-btn me-3" id="submit-btn" disabled>
-              <i class="bi bi-send me-2"></i>Submit for Approval
+            <button type="button" class="btn submit-btn" id="submit-btn" disabled>
+              <i class="bi bi-send-fill me-2"></i>Submit for Approval
             </button>
           </div>
 
-          <div class="submit-notes mt-3">
-            <small class="text-muted">
-              <i class="bi bi-info-circle me-1"></i>
-              Files will be reviewed within 2-3 business days. You'll receive notification updates via email.
-            </small>
+          <div class="submit-notes mt-4">
+            <div class="d-inline-flex align-items-center px-3 py-2" style="background: rgba(59, 130, 246, 0.05); border-radius: 8px; border-left: 3px solid #3b82f6;">
+              <i class="bi bi-clock-history me-2 text-primary"></i>
+              <small class="text-muted">
+                Files will be reviewed within <strong class="text-primary">2-3 business days</strong>. You'll receive email notifications.
+              </small>
+            </div>
           </div>
         </div>
       </div>

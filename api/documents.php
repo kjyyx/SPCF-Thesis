@@ -217,7 +217,6 @@ function handleGet()
      * Returns document list or specific document details.
      * Query parameters:
      * - id: Get specific document details with workflow steps
-     * - action=generate_mock: Create a test document
      */
 
     global $db, $currentUser;
@@ -375,7 +374,7 @@ function handleGet()
             $historyStmt->execute([$documentId]);
             $workflow_history = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // Fetch notes/comments (both general notes and step notes)
+            // Fetch notes/comments (simplified - only document_notes for now)
             $notesStmt = $db->prepare("
                 SELECT n.id, n.note, n.created_at, n.document_id,
                        CASE
@@ -390,20 +389,9 @@ function handleGet()
                 LEFT JOIN students s ON n.author_id = s.id AND n.author_role = 'student'
                 LEFT JOIN administrators a ON n.author_id = a.id AND n.author_role = 'admin'
                 WHERE n.document_id = ?
-
-                UNION ALL
-
-                SELECT CONCAT('step_', ds.id) as id, ds.note, ds.acted_at as created_at, ds.document_id,
-                       CONCAT(e.first_name, ' ', e.last_name) as created_by_name, ds.status as step_status
-                FROM document_steps ds
-                JOIN employees e ON ds.assigned_to_employee_id = e.id
-                WHERE ds.document_id = ?
-                AND ds.note IS NOT NULL
-                AND ds.note != ''
-
-                ORDER BY created_at ASC
+                ORDER BY n.created_at ASC
             ");
-            $notesStmt->execute([$documentId, $documentId]);
+            $notesStmt->execute([$documentId]);
             $notes = $notesStmt->fetchAll(PDO::FETCH_ASSOC);
 
             // Determine current location
@@ -423,6 +411,7 @@ function handleGet()
                 'created_at' => $doc['uploaded_at'],
                 'updated_at' => $doc['uploaded_at'], // You might want to track last update separately
                 'description' => $doc['description'],
+                'file_path' => $doc['file_path'],
                 'workflow_history' => array_map(function($step) {
                     return [
                         'created_at' => $step['acted_at'] ?: $step['created_at'],

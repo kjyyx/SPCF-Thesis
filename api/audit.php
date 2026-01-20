@@ -36,6 +36,8 @@ switch ($method) {
          * - category: Filter by log category (e.g., 'Security', 'User Management')
          * - severity: Filter by severity level ('INFO', 'WARNING', 'ERROR')
          * - search: Search in user_id, action, or details fields
+         * - start_date: Filter logs from this date (YYYY-MM-DD)
+         * - end_date: Filter logs up to this date (YYYY-MM-DD)
          * - page: Page number for pagination (default: 1)
          * - limit: Number of logs per page (default: 50)
          */
@@ -53,6 +55,8 @@ switch ($method) {
         $category = $_GET['category'] ?? null;
         $severity = $_GET['severity'] ?? null;
         $search = $_GET['search'] ?? null;
+        $start_date = $_GET['start_date'] ?? null;
+        $end_date = $_GET['end_date'] ?? null;
         $page = (int) ($_GET['page'] ?? 1);
         $limit = (int) ($_GET['limit'] ?? 50);
         $offset = ($page - 1) * $limit; // Calculate offset for SQL LIMIT
@@ -90,6 +94,22 @@ switch ($method) {
             $countParams[':search1'] = $searchTerm;
             $countParams[':search2'] = $searchTerm;
             $countParams[':search3'] = $searchTerm;
+        }
+
+        // Add start_date filter if provided
+        if ($start_date) {
+            $query .= " AND DATE(timestamp) >= :start_date";
+            $countQuery .= " AND DATE(timestamp) >= :start_date";
+            $params[':start_date'] = $start_date;
+            $countParams[':start_date'] = $start_date;
+        }
+
+        // Add end_date filter if provided
+        if ($end_date) {
+            $query .= " AND DATE(timestamp) <= :end_date";
+            $countQuery .= " AND DATE(timestamp) <= :end_date";
+            $params[':end_date'] = $end_date;
+            $countParams[':end_date'] = $end_date;
         }
 
         // Add ordering and pagination to main query

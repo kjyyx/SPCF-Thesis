@@ -117,7 +117,9 @@ function unify_user_row(array $row, string $role): array
         'lastName' => $row['last_name'] ?? '',
         'role' => $role,
         'email' => $row['email'] ?? '',
-        'phone' => $row['phone'] ?? ''
+        'phone' => $row['phone'] ?? '',
+        'status' => $row['status'] ?? 'active',
+        'twoFactorEnabled' => ($row['2fa_enabled'] ?? 0) == 1
     ];
     if ($role === 'student') {
         $user['department'] = $row['department'] ?? null;
@@ -194,6 +196,10 @@ try {
     // ----------------------------------
     if ($method === 'GET') {
         $role = $_GET['role'] ?? null; // optional filter
+        $search = $_GET['search'] ?? null; // optional search
+        $status = $_GET['status'] ?? null; // optional status filter
+        $startDate = $_GET['start_date'] ?? null; // optional start date
+        $endDate = $_GET['end_date'] ?? null; // optional end date
         $page = (int) ($_GET['page'] ?? 1);
         $limit = (int) ($_GET['limit'] ?? 50);
         $offset = ($page - 1) * $limit;
@@ -207,20 +213,52 @@ try {
                 continue; // ignore invalid roles in query param
             }
 
+            // Build WHERE clause for search
+            $whereClause = '';
+            $params = [];
+            if ($search) {
+                $searchTerm = "%$search%";
+                if ($r === 'student') {
+                    $whereClause = " WHERE (first_name LIKE :search OR last_name LIKE :search OR email LIKE :search OR department LIKE :search OR position LIKE :search OR phone LIKE :search)";
+                } else {
+                    $whereClause = " WHERE (first_name LIKE :search OR last_name LIKE :search OR email LIKE :search OR office LIKE :search OR position LIKE :search OR phone LIKE :search)";
+                }
+                $params[':search'] = $searchTerm;
+            }
+            if ($status) {
+                $whereClause .= ($whereClause ? ' AND' : ' WHERE') . " status = :status";
+                $params[':status'] = $status;
+            }
+            if ($startDate && $endDate) {
+                $whereClause .= ($whereClause ? ' AND' : ' WHERE') . " DATE(created_at) BETWEEN :start_date AND :end_date";
+                $params[':start_date'] = $startDate;
+                $params[':end_date'] = $endDate;
+            } elseif ($startDate) {
+                $whereClause .= ($whereClause ? ' AND' : ' WHERE') . " DATE(created_at) >= :start_date";
+                $params[':start_date'] = $startDate;
+            } elseif ($endDate) {
+                $whereClause .= ($whereClause ? ' AND' : ' WHERE') . " DATE(created_at) <= :end_date";
+                $params[':end_date'] = $endDate;
+            }
+
             // Get total count for this role
-            $countSql = "SELECT COUNT(*) as count FROM $table";
-            $countStmt = $db->query($countSql);
+            $countSql = "SELECT COUNT(*) as count FROM $table" . $whereClause;
+            $countStmt = $db->prepare($countSql);
+            $countStmt->execute($params);
             $total += $countStmt->fetch(PDO::FETCH_ASSOC)['count'];
 
             // Select role-specific fields with pagination
             if ($r === 'student') {
-                $sql = "SELECT id, first_name, last_name, email, department, position, phone FROM $table ORDER BY id LIMIT :limit OFFSET :offset";
+                $sql = "SELECT id, first_name, last_name, email, department, position, phone, status, 2fa_enabled FROM $table" . $whereClause . " ORDER BY id LIMIT :limit OFFSET :offset";
             } else {
-                $sql = "SELECT id, first_name, last_name, email, office, position, phone FROM $table ORDER BY id LIMIT :limit OFFSET :offset";
+                $sql = "SELECT id, first_name, last_name, email, office, position, phone, status, 2fa_enabled FROM $table" . $whereClause . " ORDER BY id LIMIT :limit OFFSET :offset";
             }
             $stmt = $db->prepare($sql);
             $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
             $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
             $stmt->execute();
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 // Use ID as key so the UI can access quickly by ID
@@ -328,6 +366,25 @@ try {
         } else {
             json_error('Create failed', 500);
         }
+    }
+
+    // ----------------------------------
+    // RESET 2FA: Reset 2FA for a user
+    // ----------------------------------
+    if ($method === 'POST' && $action === 'reset_2fa') {
+        $id = $payload['id'] ?? '';
+        $role = $payload['role'] ?? '';
+        $table = get_table_by_role($role);
+        if (!$table || !$id) {
+            json_error('Missing id or role', 400);
+        }
+
+        $stmt = $db->prepare("UPDATE $table SET 2fa_secret = NULL, 2fa_enabled = 0 WHERE id = :id");
+        $ok = $stmt->execute([':id' => $id]);
+        if ($ok) {
+            addAuditLog('USER_2FA_RESET', 'User Management', "Reset 2FA for $role: $id", $id, 'User', 'WARNING');
+        }
+        json_response(['success' => $ok, 'message' => $ok ? '2FA reset successfully' : 'Reset failed']);
     }
 
     // ----------------------------------

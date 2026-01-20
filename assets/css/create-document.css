@@ -131,10 +131,6 @@ body {
     color: #065f46;
 }
 
-.status-text {
-    font-size: 0.75rem;
-}
-
 .status-dot {
     width: 8px;
     height: 8px;
@@ -598,10 +594,6 @@ textarea.form-control {
     box-sizing: border-box;
 }
 
-.logo-placeholder {
-    display: none; /* Hide logo placeholders */
-}
-
 /* Enhanced Budget Table */
 .budget-table {
     width: 100%;
@@ -706,39 +698,6 @@ textarea.form-control {
     border-color: rgba(59, 130, 246, 0.3);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-}
-
-.time-selector {
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    border: 2px solid rgba(226, 232, 240, 0.8);
-    border-radius: 10px;
-    padding: 0.75rem 1rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    transition: all 0.3s ease;
-    min-width: 100px;
-    font-size: 0.8125rem;
-    font-weight: 500;
-}
-
-.time-selector:hover {
-    border-color: #3b82f6;
-    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-    transform: scale(1.02);
-}
-
-.time-selector.selected {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    border-color: #2563eb;
-    color: white;
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
-}
-
-.time-display {
-    font-weight: 600;
 }
 
 .activity-input {
@@ -1094,10 +1053,6 @@ textarea.form-control {
     .program-row {
         grid-template-columns: 1fr;
         gap: 0.75rem;
-    }
-
-    .time-selector {
-        min-width: auto;
     }
 
     .category-checkboxes {

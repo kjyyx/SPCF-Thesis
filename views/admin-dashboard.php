@@ -475,6 +475,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                         <th>Department/Office</th>
                                         <th>Contact</th>
                                         <th>Status</th>
+                                        <th>2FA</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -515,17 +516,24 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                         </div>
                         <div class="search-controls">
                             <div class="row">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <input type="text" class="form-control" id="materialSearch"
                                         placeholder="Search materials..." onkeyup="searchMaterials()">
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <select class="form-select" id="materialStatusFilter" onchange="filterMaterials()">
                                         <option value="">All Status</option>
                                         <option value="pending">Pending</option>
                                         <option value="approved">Approved</option>
                                         <option value="rejected">Rejected</option>
                                     </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="date-range">
+                                        <input type="date" class="form-control form-control-sm" id="materialDateFrom" onchange="filterMaterials()">
+                                        <span class="date-separator">to</span>
+                                        <input type="date" class="form-control form-control-sm" id="materialDateTo" onchange="filterMaterials()">
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1489,6 +1497,27 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Generic Confirmation Modal -->
+        <div class="modal fade" id="genericConfirmModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="genericConfirmTitle">Confirm Action</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="text-center">
+                            <p id="genericConfirmMessage">Are you sure you want to proceed?</p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="genericConfirmBtn">Confirm</button>
                     </div>
                 </div>
             </div>

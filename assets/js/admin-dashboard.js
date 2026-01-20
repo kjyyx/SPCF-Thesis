@@ -74,6 +74,11 @@ let publicMaterials = []; // Materials list (loaded from API)
 let editingUserId = null; // ID of user currently being edited (null when adding new user)
 let selectedUserRole = null; // Currently selected role in user modal
 let editingUserOriginalRole = null; // Original role before editing (prevents unintended table changes)
+let currentUserRoleFilter = null; // Current role filter
+let currentUserSearch = null; // Current search query
+let currentUserStatus = null; // Current status filter
+let currentUserStartDate = null; // Current start date filter
+let currentUserEndDate = null; // Current end date filter
 
 /**
  * @section Materials Management State
@@ -81,6 +86,10 @@ let editingUserOriginalRole = null; // Original role before editing (prevents un
  */
 let selectedMaterials = []; // Array of selected material IDs for bulk operations
 let currentMaterialId = null; // ID of material currently displayed in detail modal
+let currentMaterialsStatus = null; // Current status filter
+let currentMaterialsSearch = null; // Current search query
+let currentMaterialsStartDate = null; // Current start date filter
+let currentMaterialsEndDate = null; // Current end date filter
 
 /**
  * @section Pagination State
@@ -93,6 +102,11 @@ let currentAuditPage = 1; // Current page number for audit logs
 let auditPageSize = 50; // Number of audit entries per page
 let totalAuditPages = 1; // Total number of audit pages available
 let auditLogs = []; // Current page of audit logs (for detail display)
+let currentAuditCategory = null; // Current category filter
+let currentAuditSeverity = null; // Current severity filter
+let currentAuditSearch = null; // Current search query
+let currentAuditStartDate = null; // Current start date filter
+let currentAuditEndDate = null; // Current end date filter
 
 // Users Table Pagination
 let currentUsersPage = 1; // Current page number for users table
@@ -139,8 +153,14 @@ function showToast(message, type = 'info', title = null) {
             duration: 4000
         });
     } else {
-        // Fallback to browser alert if ToastManager is not available
-        alert(message);
+        // Fallback to modal if ToastManager is not available
+        showConfirmModal(
+            title || 'Notification',
+            message,
+            function() {}, // No action needed
+            'OK',
+            'btn-primary'
+        );
     }
 }
 
@@ -245,22 +265,24 @@ window.addAuditLog = async function (action, category, details, targetId = null,
  * Fetches audit entries based on current filters and pagination settings
  * @param {number} page - Page number to load (defaults to 1)
  */
-async function loadAuditLogs(page = 1) {
+async function loadAuditLogs(page = 1, category = null, severity = null, search = null, startDate = null, endDate = null) {
+    currentAuditCategory = category;
+    currentAuditSeverity = severity;
+    currentAuditSearch = search;
+    currentAuditStartDate = startDate;
+    currentAuditEndDate = endDate;
     currentAuditPage = page;
     console.log('loadAuditLogs called for page:', page);
     try {
-        // Get current filter values from UI
-        const category = document.getElementById('auditCategoryFilter').value;
-        const severity = document.getElementById('auditSeverityFilter').value;
-        const search = document.getElementById('auditSearch').value;
-
         // Build query parameters
         const params = new URLSearchParams({
             page: currentAuditPage,
             limit: auditPageSize,
             ...(category && { category }),
             ...(severity && { severity }),
-            ...(search && { search })
+            ...(search && { search }),
+            ...(startDate && { start_date: startDate }),
+            ...(endDate && { end_date: endDate })
         });
 
         console.log('Fetching audit logs with params:', params.toString());
@@ -307,7 +329,7 @@ function updateAuditPagination() {
     // Previous button
     const prevBtn = document.createElement('li');
     prevBtn.className = `page-item ${currentAuditPage === 1 ? 'disabled' : ''}`;
-    prevBtn.innerHTML = `<a class="page-link" href="#" onclick="loadAuditLogs(${currentAuditPage - 1})">Previous</a>`;
+    prevBtn.innerHTML = `<a class="page-link" href="#" onclick="loadAuditLogs(${currentAuditPage - 1}, currentAuditCategory, currentAuditSeverity, currentAuditSearch, currentAuditStartDate, currentAuditEndDate)">Previous</a>`;
     paginationEl.appendChild(prevBtn);
 
     // Page number buttons (show current ± 2 pages)
@@ -317,14 +339,14 @@ function updateAuditPagination() {
     for (let i = startPage; i <= endPage; i++) {
         const pageBtn = document.createElement('li');
         pageBtn.className = `page-item ${i === currentAuditPage ? 'active' : ''}`;
-        pageBtn.innerHTML = `<a class="page-link" href="#" onclick="loadAuditLogs(${i})">${i}</a>`;
+        pageBtn.innerHTML = `<a class="page-link" href="#" onclick="loadAuditLogs(${i}, currentAuditCategory, currentAuditSeverity, currentAuditSearch, currentAuditStartDate, currentAuditEndDate)">${i}</a>`;
         paginationEl.appendChild(pageBtn);
     }
 
     // Next button
     const nextBtn = document.createElement('li');
     nextBtn.className = `page-item ${currentAuditPage === totalAuditPages ? 'disabled' : ''}`;
-    nextBtn.innerHTML = `<a class="page-link" href="#" onclick="loadAuditLogs(${currentAuditPage + 1})">Next</a>`;
+    nextBtn.innerHTML = `<a class="page-link" href="#" onclick="loadAuditLogs(${currentAuditPage + 1}, currentAuditCategory, currentAuditSeverity, currentAuditSearch, currentAuditStartDate, currentAuditEndDate)">Next</a>`;
     paginationEl.appendChild(nextBtn);
 }
 
@@ -339,7 +361,7 @@ function updateUsersPagination() {
     // Previous button
     const prevBtn = document.createElement('li');
     prevBtn.className = `page-item ${currentUsersPage === 1 ? 'disabled' : ''}`;
-    prevBtn.innerHTML = `<a class="page-link" href="#" onclick="loadUsersFromAPI(null, ${currentUsersPage - 1})">Previous</a>`;
+    prevBtn.innerHTML = `<a class="page-link" href="#" onclick="loadUsersFromAPI(currentUserRoleFilter, ${currentUsersPage - 1}, currentUserSearch, currentUserStatus, currentUserStartDate, currentUserEndDate)">Previous</a>`;
     paginationEl.appendChild(prevBtn);
 
     // Page numbers
@@ -349,14 +371,14 @@ function updateUsersPagination() {
     for (let i = startPage; i <= endPage; i++) {
         const pageBtn = document.createElement('li');
         pageBtn.className = `page-item ${i === currentUsersPage ? 'active' : ''}`;
-        pageBtn.innerHTML = `<a class="page-link" href="#" onclick="loadUsersFromAPI(null, ${i})">${i}</a>`;
+        pageBtn.innerHTML = `<a class="page-link" href="#" onclick="loadUsersFromAPI(currentUserRoleFilter, ${i}, currentUserSearch, currentUserStatus, currentUserStartDate, currentUserEndDate)">${i}</a>`;
         paginationEl.appendChild(pageBtn);
     }
 
     // Next button
     const nextBtn = document.createElement('li');
     nextBtn.className = `page-item ${currentUsersPage === totalUsersPages ? 'disabled' : ''}`;
-    nextBtn.innerHTML = `<a class="page-link" href="#" onclick="loadUsersFromAPI(null, ${currentUsersPage + 1})">Next</a>`;
+    nextBtn.innerHTML = `<a class="page-link" href="#" onclick="loadUsersFromAPI(currentUserRoleFilter, ${currentUsersPage + 1}, currentUserSearch, currentUserStatus, currentUserStartDate, currentUserEndDate)">Next</a>`;
     paginationEl.appendChild(nextBtn);
 }
 
@@ -371,7 +393,7 @@ function updateMaterialsPagination() {
     // Previous button
     const prevBtn = document.createElement('li');
     prevBtn.className = `page-item ${currentMaterialsPage === 1 ? 'disabled' : ''}`;
-    prevBtn.innerHTML = `<a class="page-link" href="#" onclick="loadMaterials(${currentMaterialsPage - 1})">Previous</a>`;
+    prevBtn.innerHTML = `<a class="page-link" href="#" onclick="loadMaterials(${currentMaterialsPage - 1}, currentMaterialsStatus, currentMaterialsSearch, currentMaterialsStartDate, currentMaterialsEndDate)">Previous</a>`;
     paginationEl.appendChild(prevBtn);
 
     // Page numbers
@@ -381,14 +403,14 @@ function updateMaterialsPagination() {
     for (let i = startPage; i <= endPage; i++) {
         const pageBtn = document.createElement('li');
         pageBtn.className = `page-item ${i === currentMaterialsPage ? 'active' : ''}`;
-        pageBtn.innerHTML = `<a class="page-link" href="#" onclick="loadMaterials(${i})">${i}</a>`;
+        pageBtn.innerHTML = `<a class="page-link" href="#" onclick="loadMaterials(${i}, currentMaterialsStatus, currentMaterialsSearch, currentMaterialsStartDate, currentMaterialsEndDate)">${i}</a>`;
         paginationEl.appendChild(pageBtn);
     }
 
     // Next button
     const nextBtn = document.createElement('li');
     nextBtn.className = `page-item ${currentMaterialsPage === totalMaterialsPages ? 'disabled' : ''}`;
-    nextBtn.innerHTML = `<a class="page-link" href="#" onclick="loadMaterials(${currentMaterialsPage + 1})">Next</a>`;
+    nextBtn.innerHTML = `<a class="page-link" href="#" onclick="loadMaterials(${currentMaterialsPage + 1}, currentMaterialsStatus, currentMaterialsSearch, currentMaterialsStartDate, currentMaterialsEndDate)">Next</a>`;
     paginationEl.appendChild(nextBtn);
 }
 
@@ -542,6 +564,9 @@ function createUserRow(user) {
             <button class="btn btn-sm btn-outline-primary" onclick="editUser('${user.id}')" title="Edit User">
                 <i class="bi bi-pencil"></i>
             </button>
+            <button class="btn btn-sm btn-outline-warning" onclick="resetUser2FA('${user.id}')" title="Reset 2FA">
+                <i class="bi bi-shield-x"></i>
+            </button>
             <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${user.id}')" title="Delete User">
                 <i class="bi bi-trash"></i>
             </button>
@@ -558,6 +583,7 @@ function createUserRow(user) {
         <td>${departmentOrOffice || '-'}</td>
         <td>${contact}</td>
         <td><span class="badge ${user.status === 'active' ? 'bg-success' : 'bg-secondary'}">${user.status || 'active'}</span></td>
+        <td><span class="badge ${user.twoFactorEnabled ? 'bg-success' : 'bg-warning'}">${user.twoFactorEnabled ? 'Enabled' : 'Disabled'}</span></td>
         <td>${actionButtons}</td>
     `;
 
@@ -795,6 +821,44 @@ function deleteUser(userId) {
     modal.show();
 }
 
+/** Reset 2FA for a user. */
+function resetUser2FA(userId) {
+    const user = users[userId];
+    if (!user) {
+        showToast('User not found', 'error');
+        return;
+    }
+
+    showConfirmModal(
+        'Reset 2FA',
+        `Are you sure you want to reset 2FA for ${user.firstName} ${user.lastName}? This will disable 2FA and require them to set it up again.`,
+        async function() {
+            // Call API
+            apiFetch(USERS_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'reset_2fa',
+                    id: userId,
+                    role: user.role
+                })
+            }).then(data => {
+                if (data.success) {
+                    showToast('2FA reset successfully', 'success');
+                    // Refresh the users list
+                    refreshUserList();
+                } else {
+                    showToast('Failed to reset 2FA: ' + (data.message || 'Unknown error'), 'error');
+                }
+            }).catch(e => {
+                handleApiError('Error resetting 2FA', e);
+            });
+        },
+        'Reset 2FA',
+        'btn-warning'
+    );
+}
+
 /** Perform user deletion via API after confirm modal. */
 function confirmDeleteUser() {
     // Check if this is a bulk delete
@@ -839,43 +903,36 @@ function showUserFormError(message) {
 
 
 /** Filter users table by role (dropdown). */
+/** Filter users table by role (dropdown). */
 function filterUsers() {
-    const filter = document.getElementById('userRoleFilter').value;
-    const tbody = document.getElementById('usersTableBody');
-    const rows = tbody.querySelectorAll('tr');
-
-    rows.forEach(row => {
-        const roleCell = row.querySelector('td:nth-child(3)');
-        if (filter === '' || roleCell.textContent.toLowerCase().includes(filter)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
+    const roleFilter = document.getElementById('userRoleFilter').value;
+    const statusFilter = document.getElementById('userStatusFilter').value;
+    const startDate = document.getElementById('userDateFrom').value;
+    const endDate = document.getElementById('userDateTo').value;
+    loadUsersFromAPI(roleFilter, 1, null, statusFilter, startDate, endDate);
 }
 
 /** Client-side full table text search for users. */
 function searchUsers() {
-    const searchTerm = document.getElementById('userSearch').value.toLowerCase();
-    const tbody = document.getElementById('usersTableBody');
-    const rows = tbody.querySelectorAll('tr');
-
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        if (text.includes(searchTerm)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
+    const query = document.getElementById('userSearch').value.trim();
+    loadUsersFromAPI(currentUserRoleFilter, 1, query, currentUserStatus, currentUserStartDate, currentUserEndDate);
 }
 
 /** Re-fetch users and clear filters. */
+/** Re-fetch users and clear filters. */
 function refreshUserList() {
     currentUsersPage = 1;
+    currentUserRoleFilter = null;
+    currentUserSearch = null;
+    currentUserStatus = null;
+    currentUserStartDate = null;
+    currentUserEndDate = null;
     loadUsersFromAPI().then(() => updateUserStatistics());
     document.getElementById('userRoleFilter').value = '';
     document.getElementById('userSearch').value = '';
+    document.getElementById('userStatusFilter').value = '';
+    document.getElementById('userDateFrom').value = '';
+    document.getElementById('userDateTo').value = '';
 }
 
 /** Export users to CSV (client-side only). */
@@ -1119,28 +1176,33 @@ function bulkExportUsers() {
 async function bulkResetPasswords() {
     const selectedIds = Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => cb.value);
 
-    if (!confirm(`Reset passwords for ${selectedIds.length} users? They will need to set new passwords on next login.`)) return;
+    showConfirmModal(
+        'Bulk Password Reset',
+        `Reset passwords for ${selectedIds.length} users? They will need to set new passwords on next login.`,
+        async function() {
+            try {
+                const resp = await fetch('../api/users.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'bulk_reset_passwords',
+                        user_ids: selectedIds
+                    })
+                }).then(r => r.json());
 
-    try {
-        const resp = await fetch('../api/users.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'bulk_reset_passwords',
-                user_ids: selectedIds
-            })
-        }).then(r => r.json());
-
-        if (resp.success) {
-            addAuditLog('PASSWORDS_BULK_RESET', 'Security', `${selectedIds.length} passwords reset`, currentUser?.id, 'User', 'WARNING');
-            showToast(`${selectedIds.length} passwords reset successfully.`, 'success');
-            clearSelection();
-        } else {
-            showToast(resp.message || 'Failed to reset passwords.', 'error');
-        }
-    } catch (error) {
-        showToast('Server error resetting passwords.', 'error');
-    }
+                if (resp.success) {
+                    showToast(`Successfully reset passwords for ${resp.reset_count} users`, 'success');
+                    refreshUserList();
+                } else {
+                    showToast('Failed to reset passwords: ' + (resp.message || 'Unknown error'), 'error');
+                }
+            } catch (e) {
+                handleApiError('Error resetting passwords', e);
+            }
+        },
+        'Reset Passwords',
+        'btn-warning'
+    );
 }
 
 /** Bulk change role. */
@@ -1446,9 +1508,15 @@ function deleteMaterial(materialId) {
     const material = publicMaterials.find(m => m.id === materialId);
     if (!material) return;
 
-    if (confirm(`Are you sure you want to delete "${material.fileName}"?\n\nThis action cannot be undone.`)) {
-        deleteSingleMaterial();
-    }
+    showConfirmModal(
+        'Delete Material',
+        `Are you sure you want to delete "${material.fileName}"?\n\nThis action cannot be undone.`,
+        function() {
+            deleteSingleMaterial();
+        },
+        'Delete',
+        'btn-danger'
+    );
 }
 
 function deleteSingleMaterial() {
@@ -1506,9 +1574,15 @@ function bulkDeleteMaterials() {
         return;
     }
 
-    if (confirm(`Are you sure you want to delete ${selectedMaterials.length} selected materials?\n\nThis action cannot be undone.`)) {
-        confirmBulkDelete();
-    }
+    showConfirmModal(
+        'Bulk Delete Materials',
+        `Are you sure you want to delete ${selectedMaterials.length} selected materials?\n\nThis action cannot be undone.`,
+        function() {
+            confirmBulkDelete();
+        },
+        'Delete All',
+        'btn-danger'
+    );
 }
 
 function confirmBulkDelete() {
@@ -1539,46 +1613,36 @@ function confirmBulkDelete() {
 }
 
 /** Client-side filter materials by status. */
+/** Client-side filter materials by status. */
 function filterMaterials() {
-    const statusFilter = document.getElementById('materialStatusFilter').value;
-    const tbody = document.getElementById('materialsTableBody');
-    const rows = tbody.querySelectorAll('tr');
-
-    rows.forEach(row => {
-        const statusCell = row.querySelector('td:nth-child(5)');
-        const statusMatch = statusFilter === '' || statusCell.textContent.toLowerCase().includes(statusFilter);
-
-        if (statusMatch) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
+    const status = document.getElementById('materialStatusFilter').value;
+    const startDate = document.getElementById('materialDateFrom').value;
+    const endDate = document.getElementById('materialDateTo').value;
+    loadMaterials(1, status, null, startDate, endDate);
 }
 
 /** Client-side search across materials table. */
 function searchMaterials() {
-    const searchTerm = document.getElementById('materialSearch').value.toLowerCase();
-    const tbody = document.getElementById('materialsTableBody');
-    const rows = tbody.querySelectorAll('tr');
-
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        if (text.includes(searchTerm)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
+    const query = document.getElementById('materialSearch').value.trim();
+    const startDate = document.getElementById('materialDateFrom').value;
+    const endDate = document.getElementById('materialDateTo').value;
+    loadMaterials(1, null, query, startDate, endDate);
 }
 
 /** Reset filters and re-render materials. */
+/** Reset filters and re-render materials. */
 function refreshMaterialsList() {
     currentMaterialsPage = 1;
+    currentMaterialsStatus = null;
+    currentMaterialsSearch = null;
+    currentMaterialsStartDate = null;
+    currentMaterialsEndDate = null;
     loadMaterials(currentMaterialsPage);
     updateUserStatistics();
     document.getElementById('materialStatusFilter').value = '';
     document.getElementById('materialSearch').value = '';
+    document.getElementById('materialDateFrom').value = '';
+    document.getElementById('materialDateTo').value = '';
     selectedMaterials = [];
 }
 
@@ -1660,20 +1724,35 @@ function viewAuditDetails(auditId) {
 }
 
 /** Client-side filter audit table by category and severity (now filters loaded data). */
+/** Client-side filter audit table by category and severity (now filters loaded data). */
 function filterAuditLog() {
-    loadAuditLogs(1); // Reset to page 1
+    const category = document.getElementById('auditCategoryFilter').value;
+    const severity = document.getElementById('auditSeverityFilter').value;
+    const startDate = document.getElementById('auditDateFrom').value;
+    const endDate = document.getElementById('auditDateTo').value;
+    loadAuditLogs(1, category, severity, null, startDate, endDate);
 }
 
 /** Client-side search across audit table. */
 function searchAuditLog() {
-    loadAuditLogs(1); // Reset to page 1
+    const search = document.getElementById('auditSearch').value.trim();
+    const startDate = document.getElementById('auditDateFrom').value;
+    const endDate = document.getElementById('auditDateTo').value;
+    loadAuditLogs(1, null, null, search, startDate, endDate);
 }
 
 function refreshAuditLog() {
     currentAuditPage = 1;
+    currentAuditCategory = null;
+    currentAuditSeverity = null;
+    currentAuditSearch = null;
+    currentAuditStartDate = null;
+    currentAuditEndDate = null;
     document.getElementById('auditCategoryFilter').value = '';
     document.getElementById('auditSeverityFilter').value = '';
     document.getElementById('auditSearch').value = '';
+    document.getElementById('auditDateFrom').value = '';
+    document.getElementById('auditDateTo').value = '';
     loadAuditLogs(currentAuditPage);
 }
 
@@ -1701,17 +1780,23 @@ function exportAuditLog() {
 }
 
 function clearAuditLog() {
-    if (confirm('Are you sure you want to clear all audit log entries?\n\nThis action cannot be undone and will remove all audit history.')) {
-        apiFetch(AUDIT_API, { method: 'DELETE' }).then(resp => {
-            if (resp.success) {
-                loadAuditLogs(1);
-                addAuditLog('AUDIT_LOG_CLEARED', 'System', 'Cleared audit log', null, 'System', 'WARNING');
-                showToast('Audit log cleared.', 'success');
-            } else {
-                showToast('Failed to clear audit logs', 'error');
-            }
-        }).catch(e => showToast('Server error clearing audit logs', 'error'));
-    }
+    showConfirmModal(
+        'Clear Audit Log',
+        'Are you sure you want to clear all audit log entries?\n\nThis action cannot be undone and will remove all audit history.',
+        function() {
+            apiFetch(AUDIT_API, { method: 'DELETE' }).then(resp => {
+                if (resp.success) {
+                    loadAuditLogs(1);
+                    addAuditLog('AUDIT_LOG_CLEARED', 'System', 'Cleared audit log', null, 'System', 'WARNING');
+                    showToast('Audit log cleared.', 'success');
+                } else {
+                    showToast('Failed to clear audit logs', 'error');
+                }
+            }).catch(e => showToast('Server error clearing audit logs', 'error'));
+        },
+        'Clear All',
+        'btn-danger'
+    );
 }
 
 // ==========================================================
@@ -2064,16 +2149,58 @@ function handleApiError(prefix, err, notifyFn = (msg) => showToast(msg, 'error')
 }
 
 // ==========================================================
+// Generic Confirmation Modal
+// ==========================================================
+
+/**
+ * Show a generic confirmation modal
+ * @param {string} title - Modal title
+ * @param {string} message - Confirmation message
+ * @param {Function} onConfirm - Callback function when confirmed
+ * @param {string} confirmText - Text for confirm button (default: 'Confirm')
+ * @param {string} confirmClass - Bootstrap class for confirm button (default: 'btn-primary')
+ */
+function showConfirmModal(title, message, onConfirm, confirmText = 'Confirm', confirmClass = 'btn-primary') {
+    const modal = new bootstrap.Modal(document.getElementById('genericConfirmModal'));
+    document.getElementById('genericConfirmTitle').textContent = title;
+    document.getElementById('genericConfirmMessage').textContent = message;
+    const confirmBtn = document.getElementById('genericConfirmBtn');
+    confirmBtn.textContent = confirmText;
+    confirmBtn.className = `btn ${confirmClass}`;
+    
+    // Remove previous event listeners
+    confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+    const newConfirmBtn = document.getElementById('genericConfirmBtn');
+    
+    // Add new event listener
+    newConfirmBtn.addEventListener('click', function() {
+        modal.hide();
+        onConfirm();
+    });
+    
+    modal.show();
+}
+
+// ==========================================================
 // API and Loading Functions
 // ==========================================================
 // Replace older duplicated init/load functions with API-backed ones
 
-async function loadUsersFromAPI(role = null, page = 1) {
+async function loadUsersFromAPI(role = null, page = 1, search = null, status = null, startDate = null, endDate = null) {
+    currentUserRoleFilter = role;
+    currentUserSearch = search;
+    currentUserStatus = status;
+    currentUserStartDate = startDate;
+    currentUserEndDate = endDate;
     currentUsersPage = page;
     const params = new URLSearchParams({
         page: currentUsersPage,
         limit: usersPageSize,
-        ...(role && { role })
+        ...(role && { role }),
+        ...(search && { search }),
+        ...(status && { status }),
+        ...(startDate && { start_date: startDate }),
+        ...(endDate && { end_date: endDate })
     });
     const url = `${USERS_API}?${params}`;
     try {
@@ -2096,12 +2223,20 @@ async function loadUsersFromAPI(role = null, page = 1) {
 }
 
 // Load materials into the table
-async function loadMaterials(page = 1) {
+async function loadMaterials(page = 1, status = null, search = null, startDate = null, endDate = null) {
+    currentMaterialsStatus = status;
+    currentMaterialsSearch = search;
+    currentMaterialsStartDate = startDate;
+    currentMaterialsEndDate = endDate;
     currentMaterialsPage = page;
     try {
         const params = new URLSearchParams({
             page: currentMaterialsPage,
-            limit: materialsPageSize
+            limit: materialsPageSize,
+            ...(status && { status }),
+            ...(search && { search }),
+            ...(startDate && { start_date: startDate }),
+            ...(endDate && { end_date: endDate })
         });
         const data = await apiFetch(`${MATERIALS_API}?${params}`);
         if (data.success) {

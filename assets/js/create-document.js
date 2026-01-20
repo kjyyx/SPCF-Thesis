@@ -151,34 +151,28 @@ function selectDocumentType(type) {
  */
 function scheduleGenerate() {
     clearTimeout(genTimeout);
-    genTimeout = setTimeout(generateDocument, 220);
-}
+    genTimeout = setTimeout(() => {
+        let html = '';
 
-/**
- * Generate the complete document based on current form data
- * Routes to the appropriate document generator based on current document type
- */
-function generateDocument() {
-    let html = '';
+        // Route to appropriate document generator
+        if (currentDocumentType === 'proposal') {
+            html = generateProposalHTML(collectProposalData());
+        } else if (currentDocumentType === 'saf') {
+            html = generateSAFHTML(collectSAFData());
+        } else if (currentDocumentType === 'facility') {
+            html = generateFacilityHTML(collectFacilityData());
+        } else if (currentDocumentType === 'communication') {
+            html = generateCommunicationHTML(collectCommunicationData());
+        }
 
-    // Route to appropriate document generator
-    if (currentDocumentType === 'proposal') {
-        html = generateProposalHTML(collectProposalData());
-    } else if (currentDocumentType === 'saf') {
-        html = generateSAFHTML(collectSAFData());
-    } else if (currentDocumentType === 'facility') {
-        html = generateFacilityHTML(collectFacilityData());
-    } else if (currentDocumentType === 'communication') {
-        html = generateCommunicationHTML(collectCommunicationData());
-    }
+        // Process and display the generated document
+        paginateAndRender(html);
 
-    // Process and display the generated document
-    paginateAndRender(html);
-
-    // Log document creation for audit purposes
-    if (window.addAuditLog) {
-        window.addAuditLog('DOCUMENT_CREATED', 'Document Management', `Created ${currentDocumentType} document: ${collectProposalData().title || 'Untitled'}`, null, 'Document', 'INFO');
-    }
+        // Log document creation for audit purposes
+        if (window.addAuditLog) {
+            window.addAuditLog('DOCUMENT_CREATED', 'Document Management', `Created ${currentDocumentType} document: ${collectProposalData().title || 'Untitled'}`, null, 'Document', 'INFO');
+        }
+    }, 220);
 }
 
 /**
@@ -285,8 +279,8 @@ function collectProposalData() {
     // Collect program schedule data
     const programRows = [];
     document.querySelectorAll('#program-rows-prop .program-row').forEach(r => {
-        const start = r.querySelectorAll('.time-selector')[0]?.getAttribute('data-time') || '';
-        const end = r.querySelectorAll('.time-selector')[1]?.getAttribute('data-time') || '';
+        const start = r.querySelector('.start-time')?.value || '';
+        const end = r.querySelector('.end-time')?.value || '';
         const act = r.querySelector('.activity-input')?.value || '';
         if (start || end || act) programRows.push({ start, end, act });
     });
@@ -474,7 +468,7 @@ function collectCommunicationData() {
         department: document.getElementById('comm-department-select').value,
         notedList: readPeople('noted-list'),
         approvedList: readPeople('approved-list'),
-        title: document.getElementById('comm-subject').value,
+        subject: document.getElementById('comm-subject').value,
         body: document.getElementById('comm-body').value
     };
 }
@@ -520,12 +514,23 @@ function generateSAFHTML(d) {
     const header = `<div style="text-align:center;margin-bottom:1rem;"><div style="font-weight:800;font-size:1.2rem">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700;font-size:1.1rem">FUND RELEASE FORM</div></div>`;
 
     // Build funds table HTML
+    const fundMap = {
+        ssc: { label: 'SSC', avail: 'availSSC', req: 'reqSSC' },
+        csc: { label: 'CSC', avail: 'availCSC', req: 'reqCSC' },
+        cca: { label: 'CCA', avail: 'availCCA', req: 'reqCCA' },
+        ex: { label: 'Exemplar', avail: 'availExemplar', req: 'reqExemplar' },
+        osa: { label: 'Office of Student Affairs', avail: 'availOSA', req: 'reqOSA' },
+        idev: { label: 'Idev', avail: 'availIDEV', req: 'reqIDEV' },
+        others: { label: 'Others', avail: 'availOther', req: 'reqOther' }
+    };
     const funds = ['ssc', 'csc', 'cca', 'ex', 'osa', 'idev', 'others'];
     const fundsHtml = `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #000;padding:6px">Fund/s</th><th style="border:1px solid #000;padding:6px">Available</th><th style="border:1px solid #000;padding:6px">Requested</th><th style="border:1px solid #000;padding:6px">Balance</th></tr></thead><tbody>${funds.map(code => {
-        const label = code === 'ex' ? 'Exemplar' : (code === 'osa' ? 'Office of Student Affairs' : (code === 'idev' ? 'Idev' : (code === 'others' ? 'Others' : code.toUpperCase())));
-        const f = d.funds[code] || { available: 0, requested: 0 };
-        const bal = (f.available || 0) - (f.requested || 0);
-        return `<tr><td style="border:1px solid #000;padding:6px">${label}</td><td style="border:1px solid #000;padding:6px;text-align:right">₱${(f.available || 0).toFixed(2)}</td><td style="border:1px solid #000;padding:6px;text-align:right">₱${(f.requested || 0).toFixed(2)}</td><td style="border:1px solid #000;padding:6px;text-align:right;color:${bal < 0 ? '#dc3545' : '#000'}">₱${bal.toFixed(2)}</td></tr>`;
+        const info = fundMap[code];
+        const label = info.label;
+        const available = d[info.avail] || 0;
+        const requested = d[info.req] || 0;
+        const bal = available - requested;
+        return `<tr><td style="border:1px solid #000;padding:6px">${label}</td><td style="border:1px solid #000;padding:6px;text-align:right">₱${available.toFixed(2)}</td><td style="border:1px solid #000;padding:6px;text-align:right">₱${requested.toFixed(2)}</td><td style="border:1px solid #000;padding:6px;text-align:right;color:${bal < 0 ? '#dc3545' : '#000'}">₱${bal.toFixed(2)}</td></tr>`;
     }).join('')}</tbody></table>`;
 
     // Signature row HTML
@@ -574,7 +579,7 @@ function generateCommunicationHTML(d) {
 
     const header = `<div style="text-align:center;margin-bottom:1rem;"><div style="font-weight:800;font-size:1.2rem">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700;font-size:1.1rem">Communication Letter</div></div>`;
     const bodyHtml = (d.body || '').replace(/\n/g, '<br>') || '&nbsp;';
-    return `<div class="paper-page">${header}<div style="margin-top:2rem"><div>Date: ${formatDate(d.date)}</div><div style="margin-top:1rem">Department: ${escapeHtml(d.departmentFull || d.department || '')}</div><div style="margin-top:1rem">Project Title: ${escapeHtml(d.title || '')}</div><div style="margin-top:1rem">To: ${renderPeople(d.recipients)}</div><div style="margin-top:1rem">From: ${renderPeople(d.senders)}</div><div style="margin-top:1rem">Subject: ${escapeHtml(d.subject || '')}</div><div style="margin-top:1rem">${bodyHtml}</div><div style="margin-top:2rem;text-align:left">Sincerely,<br>${renderPeople(d.senders)}</div></div></div>`;
+    return `<div class="paper-page">${header}<div style="margin-top:2rem"><div>Date: ${formatDate(d.date)}</div><div style="margin-top:1rem">Department: ${escapeHtml(d.departmentFull || d.department || '')}</div><div style="margin-top:1rem">Subject: ${escapeHtml(d.subject || '')}</div><div style="margin-top:1rem">To: ${renderPeople(d.notedList)}</div><div style="margin-top:1rem">From: ${renderPeople(d.approvedList)}</div><div style="margin-top:1rem">${bodyHtml}</div><div style="margin-top:2rem;text-align:left">Sincerely,<br>${renderPeople(d.approvedList)}</div></div></div>`;
 }
 
 /**
@@ -678,8 +683,8 @@ function addProgramRowProp() {
     const container = document.getElementById('program-rows-prop');
     const div = document.createElement('div');
     div.className = 'program-row';
-    div.innerHTML = `<div class="time-selector" onclick="openTimeSelector(this)"><span class="time-display">Start</span><i class="bi bi-clock ms-2"></i></div>
-        <div class="time-selector" onclick="openTimeSelector(this)"><span class="time-display">End</span><i class="bi bi-clock ms-2"></i></div>
+    div.innerHTML = `<div><input type="time" class="form-control start-time" value=""></div>
+        <div><input type="time" class="form-control end-time" value=""></div>
         <div><input type="text" class="activity-input form-control" placeholder="Activity description"></div>
         <div><button class="btn btn-sm btn-danger" onclick="removeProgramRow(this)">×</button></div>`;
     container.appendChild(div);
@@ -689,22 +694,6 @@ function addProgramRowProp() {
 function removeProgramRow(btn) {
     btn.closest('.program-row').remove();
     scheduleGenerate();
-}
-
-function setupProgramProp() {
-    // Ensure any pre-existing controls are wired
-    document.querySelectorAll('#program-rows-prop .time-selector')
-        .forEach(el => el.addEventListener('click', () => openTimeSelector(el)));
-}
-
-function openTimeSelector(el) {
-    // Simple prompt time selector
-    const t = prompt('Enter time (e.g., 9:00 AM)', el.getAttribute('data-time') || '');
-    if (t !== null) {
-        el.setAttribute('data-time', t);
-        el.querySelector('.time-display').textContent = t;
-        scheduleGenerate();
-    }
 }
 
 /*******************************
@@ -792,19 +781,6 @@ function removePerson(listId) {
 }
 
 /**
- * @section Print Functionality
- * Functions for document printing and output
- */
-
-/**
- * Trigger browser print dialog for the current document
- * Opens the browser's print interface to allow users to print or save the document
- */
-function printDocument() {
-    window.print();
-}
-
-/**
  * @section Initialization & Event Handling
  * Page setup, event binding, and application initialization
  * Ensures all interactive elements are properly configured on page load
@@ -834,7 +810,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Set up dynamic form elements for proposal
     setupBudgetProp();
-    setupProgramProp();
 
     // Start with proposal form as default
     selectDocumentType('proposal');
@@ -893,28 +868,37 @@ async function submitDocument() {
         return;
     }
 
-    try {
-        const response = await fetch('../api/documents.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'create',
-                doc_type: docType,
-                student_id: window.currentUser?.id,
-                data: data
-            })
-        });
-        const result = await response.json();
-        if (result.success) {
-            window.ToastManager?.success('Document created successfully!', 'Success');
-            // Redirect to track-document for students to track their documents
-            // window.location.href = 'track-document.php';
-        } else {
-            throw new Error(result.message);
-        }
-    } catch (e) {
-        window.ToastManager?.error('Failed to create document: ' + e.message, 'Error');
-    }
+    // Show confirmation modal
+    showConfirmModal(
+        'Create Document',
+        `Are you sure you want to create this ${docType.replace('_', ' ')} document? It will be submitted for approval.`,
+        async function() {
+            try {
+                const response = await fetch('../api/documents.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'create',
+                        doc_type: docType,
+                        student_id: window.currentUser?.id,
+                        data: data
+                    })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    window.ToastManager?.success('Document created successfully!', 'Success');
+                    // Redirect to track-document for students to track their documents
+                    // window.location.href = 'track-document.php';
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (e) {
+                window.ToastManager?.error('Failed to create document: ' + e.message, 'Error');
+            }
+        },
+        'Create Document',
+        'btn-success'
+    );
 }
 
 /**
@@ -1014,22 +998,35 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 /**
- * @section DOM Utilities & Error Handling
- * Helper functions for DOM manipulation and error management
+ * Show a generic confirmation modal
+ * @param {string} title - Modal title
+ * @param {string} message - Confirmation message
+ * @param {Function} onConfirm - Callback function when confirmed
+ * @param {string} confirmText - Text for confirm button (default: 'Confirm')
+ * @param {string} confirmClass - Bootstrap class for confirm button (default: 'btn-primary')
  */
+function showConfirmModal(title, message, onConfirm, confirmText = 'Confirm', confirmClass = 'btn-primary') {
+    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    const modalLabel = document.getElementById('confirmModalLabel');
+    const modalMessage = document.getElementById('confirmModalMessage');
+    const confirmBtn = document.getElementById('confirmModalBtn');
 
-/** Shortcut for querySelector with optional root element */
-const qs = (sel, root = document) => root.querySelector(sel);
+    if (modalLabel) modalLabel.textContent = title;
+    if (modalMessage) modalMessage.textContent = message;
+    if (confirmBtn) {
+        confirmBtn.textContent = confirmText;
+        confirmBtn.className = `btn ${confirmClass}`;
+    }
 
-/** Shortcut for querySelectorAll returning an Array */
-const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+    // Remove previous event listeners
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
 
-/**
- * Centralized error logging function
- * Provides consistent error reporting throughout the application
- * @param {string} prefix - Context prefix for the error message
- * @param {Error} err - The error object to log
- */
-function handleError(prefix, err) {
-    console.error(`[CreateDocument] ${prefix}:`, err);
+    // Add new event listener
+    newConfirmBtn.addEventListener('click', function() {
+        modal.hide();
+        onConfirm();
+    });
+
+    modal.show();
 }

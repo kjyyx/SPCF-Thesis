@@ -492,19 +492,34 @@ function changePage(page) {
 }
 
 // Download document function
+// Download document function (ensure it downloads signed/rejected PDF)
 function downloadDocument(docId) {
     showToast('Preparing download...', 'info');
     
-    // Create download link
-    const downloadUrl = `../api/documents.php?action=download&id=${docId}`;
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = '';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    showToast('Download started', 'success');
+    // Use API to get the latest file_path (handles signed PDFs)
+    fetch(`../api/documents.php?action=document_details&id=${docId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.document && data.document.file_path) {
+            const link = document.createElement('a');
+            link.href = data.document.file_path;
+            link.download = (data.document.document_name || data.document.title || 'Document') + '.pdf';
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Download started', 'success');
+        } else {
+            throw new Error('File not found');
+        }
+    })
+    .catch(error => {
+        console.error('Download error:', error);
+        showToast('Failed to download document', 'error');
+    });
 }
 
 // Update pagination info
@@ -692,30 +707,40 @@ function getNotesPreview(notes) {
 }
 
 // View document details with enhanced modal
+// View document details with enhanced modal (add PDF viewing)
 async function viewDetails(docId) {
     const modal = new bootstrap.Modal(document.getElementById('documentModal'));
     const modalTitle = document.getElementById('documentModalTitle');
     const modalBody = document.getElementById('documentModalBody');
 
     try {
-        // Fetch document details from API
         const response = await fetch(`../api/documents.php?action=document_details&id=${docId}`, {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: { 'Content-Type': 'application/json' }
         });
 
-        if (!response.ok) {
-            throw new Error('Failed to fetch document details');
-        }
+        if (!response.ok) throw new Error('Failed to fetch document details');
 
         const data = await response.json();
 
         if (data.success && data.document) {
             const doc = data.document;
-            modalTitle.textContent = doc.document_name;
+            modalTitle.textContent = doc.document_name || doc.title;
 
+            // Add PDF viewer section
+            let pdfHtml = '';
+            if (doc.file_path && /\.pdf(\?|$)/i.test(doc.file_path)) {
+                pdfHtml = `
+                    <div class="mb-3">
+                        <h6>Document Preview:</h6>
+                        <div id="pdfViewer" style="border: 1px solid #ddd; height: 400px; overflow: auto;">
+                            <canvas id="pdfCanvas"></canvas>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Existing status and details HTML
             let statusHtml = `<div class="mb-3">
                 <strong>Current Status:</strong>
                 <span class="badge ${getStatusBadgeClass(doc.status)} ms-2">${doc.status}</span>
@@ -798,22 +823,24 @@ async function viewDetails(docId) {
             modalBody.innerHTML = `
                 <div class="row">
                     <div class="col-md-6">
-                        <div class="glass-card mb-3">
-                            ${statusHtml}
-                            ${locationHtml}
-                            ${submittedHtml}
-                        </div>
+                        ${pdfHtml}
+                        ${statusHtml}
+                        ${locationHtml}
+                        ${submittedHtml}
+                        ${descriptionHtml}
                         ${rejectionReasonHtml}
                         ${notesHtml}
                     </div>
                     <div class="col-md-6">
-                        <div class="glass-card mb-3">
-                            ${descriptionHtml}
-                        </div>
                         ${historyHtml}
                     </div>
                 </div>
             `;
+
+            // Load PDF if available
+            if (doc.file_path && /\.pdf(\?|$)/i.test(doc.file_path)) {
+                loadPdfInModal(doc.file_path);
+            }
         } else {
             modalTitle.textContent = 'Error';
             modalBody.innerHTML = '<p class="text-danger">Failed to load document details</p>';
@@ -825,6 +852,30 @@ async function viewDetails(docId) {
     }
 
     modal.show();
+}
+
+// Add PDF loading function for modal
+async function loadPdfInModal(url) {
+    const canvas = document.getElementById('pdfCanvas');
+    if (!canvas) return;
+
+    try {
+        const pdfjsLib = window['pdfjsLib'];
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const pdfDoc = await pdfjsLib.getDocument(url).promise;
+        const page = await pdfDoc.getPage(1);
+        const viewport = page.getViewport({ scale: 1.0 });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        const renderContext = {
+            canvasContext: canvas.getContext('2d'),
+            viewport: viewport
+        };
+        await page.render(renderContext).promise;
+    } catch (error) {
+        console.error('Error loading PDF:', error);
+        document.getElementById('pdfViewer').innerHTML = '<p class="text-danger">Failed to load PDF preview</p>';
+    }
 }
 
 // Helper function to get status badge class

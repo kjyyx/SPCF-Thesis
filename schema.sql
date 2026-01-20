@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS administrators (
     office VARCHAR(100),
     position VARCHAR(100),
     phone VARCHAR(20),
+    status ENUM('active','inactive') NOT NULL DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -26,6 +27,7 @@ CREATE TABLE IF NOT EXISTS employees (
     office VARCHAR(100),
     position VARCHAR(100),
     phone VARCHAR(20),
+    status ENUM('active','inactive') NOT NULL DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -39,6 +41,7 @@ CREATE TABLE IF NOT EXISTS students (
     department VARCHAR(100),
     position VARCHAR(100),
     phone VARCHAR(20),
+    status ENUM('active','inactive') NOT NULL DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -64,15 +67,18 @@ INSERT IGNORE INTO students (id, first_name, last_name, email, password, departm
 -- These ALTERs will fail if columns already exist; comment them out if re-running after first apply.
 ALTER TABLE administrators
     ADD COLUMN IF NOT EXISTS must_change_password TINYINT(1) NOT NULL DEFAULT 1,
-    ADD COLUMN IF NOT EXISTS password_changed_at DATETIME NULL;
+    ADD COLUMN IF NOT EXISTS password_changed_at DATETIME NULL,
+    ADD COLUMN IF NOT EXISTS status ENUM('active','inactive') NOT NULL DEFAULT 'active';
 
 ALTER TABLE employees
     ADD COLUMN IF NOT EXISTS must_change_password TINYINT(1) NOT NULL DEFAULT 1,
-    ADD COLUMN IF NOT EXISTS password_changed_at DATETIME NULL;
+    ADD COLUMN IF NOT EXISTS password_changed_at DATETIME NULL,
+    ADD COLUMN IF NOT EXISTS status ENUM('active','inactive') NOT NULL DEFAULT 'active';
 
 ALTER TABLE students
     ADD COLUMN IF NOT EXISTS must_change_password TINYINT(1) NOT NULL DEFAULT 1,
-    ADD COLUMN IF NOT EXISTS password_changed_at DATETIME NULL;
+    ADD COLUMN IF NOT EXISTS password_changed_at DATETIME NULL,
+    ADD COLUMN IF NOT EXISTS status ENUM('active','inactive') NOT NULL DEFAULT 'active';
 
 ALTER TABLE documents MODIFY COLUMN doc_type ENUM('proposal','saf','facility','communication','material') NOT NULL;
 
@@ -268,5 +274,8 @@ INSERT IGNORE INTO units(name, code, type) VALUES
 
 -- Add 2FA secret columns for TOTP authentication
 ALTER TABLE administrators ADD COLUMN IF NOT EXISTS 2fa_secret VARCHAR(32) DEFAULT NULL;
+ALTER TABLE administrators ADD COLUMN IF NOT EXISTS 2fa_enabled TINYINT(1) NOT NULL DEFAULT 0;
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS 2fa_secret VARCHAR(32) DEFAULT NULL;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS 2fa_enabled TINYINT(1) NOT NULL DEFAULT 0;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS 2fa_secret VARCHAR(32) DEFAULT NULL;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS 2fa_enabled TINYINT(1) NOT NULL DEFAULT 0;

@@ -108,6 +108,17 @@ function initializeUploadSystem() {
     }
 
     function processFiles(files) {
+        // Show processing feedback
+        const section = uploadZone && uploadZone.closest ? uploadZone.closest('.upload-section') : null;
+        if (section) {
+            section.style.borderColor = '#3b82f6';
+            section.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(37, 99, 235, 0.05) 100%)';
+            setTimeout(() => {
+                section.style.borderColor = '';
+                section.style.background = '';
+            }, 600);
+        }
+        
         files.forEach(file => {
             if (validateFile(file)) {
                 addFileToPreview(file);
@@ -245,32 +256,53 @@ function initializeUploadSystem() {
         dragHandle.className = 'drag-handle';
         dragHandle.innerHTML = '<i class="bi bi-grip-vertical"></i>';
         dragHandle.title = 'Drag to reorder';
-        fileElement.appendChild(dragHandle);
+    dragHandle.style.opacity = '0';
+    dragHandle.style.transition = 'opacity 0.3s ease';
+    fileElement.appendChild(dragHandle);
 
-        // Add drag functionality
-        fileElement.addEventListener('dragstart', handleDragStart);
-        fileElement.addEventListener('dragend', handleDragEnd);
-        fileElement.addEventListener('dragover', handleFileDragOver);
+    // Show drag handle on hover
+    fileElement.addEventListener('mouseenter', () => {
+        dragHandle.style.opacity = '1';
+    });
+    fileElement.addEventListener('mouseleave', () => {
+        dragHandle.style.opacity = '0';
+    });
         fileElement.addEventListener('drop', handleFileDrop);
 
         if (previewGrid) previewGrid.appendChild(fileElement);
-
+    // Add entrance animation
+    requestAnimationFrame(() => {
+        fileElement.style.opacity = '0';
+        fileElement.style.transform = 'translateY(20px)';
+        requestAnimationFrame(() => {
+            fileElement.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+            fileElement.style.opacity = '1';
+            fileElement.style.transform = 'translateY(0)';
+        });
+    });
         // Show preview container and update counts
         showPreviewContainer();
         updateFileCounts();
     }
 
     function removeFile(file, element) {
-        uploadedFiles = uploadedFiles.filter(f => f !== file);
-        element.remove();
-        updateSubmitButton();
-        updateStorageUsage();
-        updateFileCounts();
+        // Add exit animation
+        element.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        element.style.opacity = '0';
+        element.style.transform = 'scale(0.9) translateY(-10px)';
+        
+        setTimeout(() => {
+            uploadedFiles = uploadedFiles.filter(f => f !== file);
+            element.remove();
+            updateSubmitButton();
+            updateStorageUsage();
+            updateFileCounts();
 
-        // Hide preview container if no files
-        if (uploadedFiles.length === 0) {
-            hidePreviewContainer();
-        }
+            // Hide preview container if no files
+            if (uploadedFiles.length === 0) {
+                hidePreviewContainer();
+            }
+        }, 300);
     }
 
     // Helper function to format file size
@@ -357,7 +389,16 @@ function initializeUploadSystem() {
 
     function updateSubmitButton() {
         if (submitBtn) {
+            const wasDisabled = submitBtn.disabled;
             submitBtn.disabled = uploadedFiles.length === 0;
+            
+            // Add smooth transition when button becomes enabled
+            if (wasDisabled && !submitBtn.disabled) {
+                submitBtn.style.transform = 'scale(1.05)';
+                setTimeout(() => {
+                    submitBtn.style.transform = '';
+                }, 200);
+            }
         }
     }
 

@@ -12,25 +12,52 @@ if (!$currentUser) {
     exit();
 }
 
+// Define constants for better maintainability
+const ALLOWED_ROLES = ['employee'];
+const ALLOWED_STUDENT_POSITIONS = ['SSC President'];
+
 // Allow employees and SSC President students only
-if ($currentUser['role'] === 'employee' || ($currentUser['role'] === 'student' && $currentUser['position'] === 'SSC President')) {
-    // Access granted
-} else {
+$userHasAccess = in_array($currentUser['role'], ALLOWED_ROLES) ||
+                 ($currentUser['role'] === 'student' && in_array($currentUser['position'], ALLOWED_STUDENT_POSITIONS));
+
+if (!$userHasAccess) {
     header('Location: user-login.php?error=access_denied');
     exit();
 }
 
-// Audit log helper function
+// CSRF Protection
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+// Audit log helper function with improved error handling
 function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
     global $currentUser;
+
+    if (!$currentUser) {
+        error_log("Audit log failed: No current user");
+        return false;
+    }
+
     try {
         $db = new Database();
         $conn = $db->getConnection();
-        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_role, user_name, action, category, details, target_id, target_type, severity, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([
+
+        // Validate inputs
+        $action = trim($action);
+        $category = trim($category);
+        $details = trim($details);
+        $severity = in_array(strtoupper($severity), ['INFO', 'WARNING', 'ERROR', 'CRITICAL']) ? strtoupper($severity) : 'INFO';
+
+        if (empty($action) || empty($category) || empty($details)) {
+            throw new Exception("Invalid audit log parameters");
+        }
+
+        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_role, user_name, action, category, details, target_id, target_type, severity, ip_address, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        $result = $stmt->execute([
             $currentUser['id'],
             $currentUser['role'],
-            $currentUser['first_name'] . ' ' . $currentUser['last_name'],
+            trim($currentUser['first_name'] . ' ' . $currentUser['last_name']),
             $action,
             $category,
             $details,
@@ -38,14 +65,17 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
             $targetType,
             $severity,
             $_SERVER['REMOTE_ADDR'] ?? null,
-            null, // Set user_agent to null to avoid storing PII
+            $_SERVER['HTTP_USER_AGENT'] ?? null
         ]);
+
+        return $result;
     } catch (Exception $e) {
         error_log("Failed to add audit log: " . $e->getMessage());
+        return false;
     }
 }
 
-// Log page view
+// Log page view with error handling
 addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page', $currentUser['id'], 'User', 'INFO');
 ?>
 <!DOCTYPE html>
@@ -61,7 +91,13 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
-    <!-- Global shared styles + page-specific overrides -->
+    <!-- 
+        CSS Loading Order (Important):
+        1. global.css - OneUI foundation (navbar, buttons, forms, cards, modals, utilities)
+        2. event-calendar.css - Calendar-specific components (optional, for shared header styles)
+        3. notifications.css - Page-specific overrides and custom components
+        4. toast.css - Toast notification styles
+    -->
     <link rel="stylesheet" href="../assets/css/global.css">
     <link rel="stylesheet" href="../assets/css/event-calendar.css">
     <link rel="stylesheet" href="../assets/css/notifications.css">
@@ -112,24 +148,38 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                         <!-- Notification Info Compact -->
                         <div class="document-info-compact">
                             <div class="document-badge">
-                                <i class="bi bi-bell-fill me-2"></i>
+                                <i class="bi bi-bell-fill me-2" aria-hidden="true"></i>
                                 <span class="fw-bold">Document Notifications</span>
-                                <span class="badge bg-danger ms-2" id="pendingCount">3</span>
+                                <span class="badge bg-danger ms-2" id="pendingCount" aria-label="Pending documents count">3</span>
+                            </div>
+                        </div>
+
+                        <!-- Search Bar -->
+                        <div class="search-container">
+                            <div class="input-group">
+                                <span class="input-group-text" id="search-icon">
+                                    <i class="bi bi-search" aria-hidden="true"></i>
+                                </span>
+                                <input type="text" class="form-control" id="documentSearch" placeholder="Search documents..."
+                                       aria-label="Search documents" aria-describedby="search-icon">
+                                <button class="btn btn-outline-secondary" type="button" id="clearSearch" aria-label="Clear search">
+                                    <i class="bi bi-x" aria-hidden="true"></i>
+                                </button>
                             </div>
                         </div>
 
                         <!-- Quick Stats -->
                         <div class="header-stats-compact">
                             <div class="stat-item-compact">
-                                <div class="stat-number-compact text-danger" id="urgentCount">1</div>
+                                <div class="stat-number-compact text-danger" id="urgentCount" aria-label="Urgent documents">1</div>
                                 <div class="stat-label-compact">Urgent</div>
                             </div>
                             <div class="stat-item-compact">
-                                <div class="stat-number-compact text-warning" id="highCount">1</div>
+                                <div class="stat-number-compact text-warning" id="highCount" aria-label="High priority documents">1</div>
                                 <div class="stat-label-compact">High Priority</div>
                             </div>
                             <div class="stat-item-compact">
-                                <div class="stat-number-compact text-info" id="normalCount">1</div>
+                                <div class="stat-number-compact text-info" id="normalCount" aria-label="Normal priority documents">1</div>
                                 <div class="stat-label-compact">Normal</div>
                             </div>
                         </div>
@@ -138,20 +188,20 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                     <!-- Quick Actions -->
                     <div class="document-actions-buttons">
                         <!-- 'urgent' maps to 'submitted' status in JS binding below -->
-                        <button class="action-button" onclick="filterDocuments('submitted')" title="Show Urgent">
-                            <i class="bi bi-exclamation-triangle-fill"></i>
+                        <button class="action-button" onclick="filterDocuments('submitted')" title="Show Urgent Documents" aria-label="Filter urgent documents">
+                            <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
                             <span>Urgent</span>
                         </button>
-                        <button class="action-button" onclick="filterDocuments('all')" title="Show All">
-                            <i class="bi bi-list-ul"></i>
+                        <button class="action-button" onclick="filterDocuments('all')" title="Show All Documents" aria-label="Show all documents">
+                            <i class="bi bi-list-ul" aria-hidden="true"></i>
                             <span>All</span>
                         </button>
-                        <button class="action-button" onclick="filterDocuments('approved')" title="Show Done">
-                            <i class="bi bi-check-circle-fill"></i>
+                        <button class="action-button" onclick="filterDocuments('approved')" title="Show Approved Documents" aria-label="Filter approved documents">
+                            <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
                             <span>Done</span>
                         </button>
-                        <button class="action-button" onclick="filterDocuments('rejected')" title="Show Rejected">
-                            <i class="bi bi-x-circle-fill"></i>
+                        <button class="action-button" onclick="filterDocuments('rejected')" title="Show Rejected Documents" aria-label="Filter rejected documents">
+                            <i class="bi bi-x-circle-fill" aria-hidden="true"></i>
                             <span>Rejected</span>
                         </button>
                     </div>
@@ -194,10 +244,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                         </div>
                     </div>
                     <div class="header-actions">
-                        <button class="action-btn secondary" onclick="printDocument()" title="Print Document">
-                            <i class="bi bi-printer"></i>
-                            <span>Print</span>
-                        </button>
                         <button class="action-btn primary" onclick="downloadPDF()" title="Download PDF">
                             <i class="bi bi-download"></i>
                             <span>Download</span>
@@ -446,6 +492,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="changePasswordForm">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                     <div class="modal-body">
                         <div id="changePasswordMessages"></div>
                         <div class="mb-3">
@@ -499,6 +546,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="profileSettingsForm">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                     <div class="modal-body">
                         <div id="profileSettingsMessages"></div>
                         <div class="row">
@@ -853,11 +901,24 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         }
 
         function downloadPDF() {
-            if (window.ToastManager) window.ToastManager.info('Downloading not wired yet.', 'Info');
-        }
+            if (window.documentSystem && window.documentSystem.currentDocument) {
+                // Create a temporary link to download the PDF
+                const link = document.createElement('a');
+                link.href = window.documentSystem.currentDocument.file_path;
+                link.download = window.documentSystem.currentDocument.title + '.pdf';
+                link.target = '_blank';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
 
-        function printDocument() {
-            window.print();
+                if (window.ToastManager) {
+                    window.ToastManager.success('PDF download started.', 'Download');
+                }
+            } else {
+                if (window.ToastManager) {
+                    window.ToastManager.warning('Please open a document first.', 'Notice');
+                }
+            }
         }
 
         // Reject modal functions

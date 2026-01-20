@@ -84,10 +84,35 @@ switch ($method) {
         $page = (int) ($_GET['page'] ?? 1);
         $limit = (int) ($_GET['limit'] ?? 50);
         $offset = ($page - 1) * $limit;
+        $status = $_GET['status'] ?? null;
+        $search = $_GET['search'] ?? null;
+        $start_date = $_GET['start_date'] ?? null;
+        $end_date = $_GET['end_date'] ?? null;
+
+        // Build WHERE clause
+        $where = '';
+        $params = [];
+        if ($status) {
+            $where .= " AND m.status = :status";
+            $params[':status'] = $status;
+        }
+        if ($search) {
+            $searchTerm = "%$search%";
+            $where .= " AND (m.title LIKE :search OR m.description LIKE :search OR CONCAT(s.first_name, ' ', s.last_name) LIKE :search OR s.department LIKE :search)";
+            $params[':search'] = $searchTerm;
+        }
+        if ($start_date) {
+            $where .= " AND DATE(m.uploaded_at) >= :start_date";
+            $params[':start_date'] = $start_date;
+        }
+        if ($end_date) {
+            $where .= " AND DATE(m.uploaded_at) <= :end_date";
+            $params[':end_date'] = $end_date;
+        }
 
         // Get total count
-        $countStmt = $conn->prepare("SELECT COUNT(*) as total FROM materials");
-        $countStmt->execute();
+        $countStmt = $conn->prepare("SELECT COUNT(*) as total FROM materials m LEFT JOIN students s ON m.student_id = s.id LEFT JOIN employees e ON m.approved_by = e.id WHERE 1=1" . $where);
+        $countStmt->execute($params);
         $total = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
 
         // Get paginated materials
@@ -99,11 +124,15 @@ switch ($method) {
         FROM materials m
         LEFT JOIN students s ON m.student_id = s.id
         LEFT JOIN employees e ON m.approved_by = e.id
+        WHERE 1=1" . $where . "
         ORDER BY m.uploaded_at DESC 
         LIMIT :limit OFFSET :offset
     ");
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
         $stmt->execute();
         $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

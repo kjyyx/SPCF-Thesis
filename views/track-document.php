@@ -48,6 +48,7 @@ $pageTitle = 'Track Documents';
 
     <!-- ADD: Include global notifications module -->
     <script src="../assets/js/global-notifications.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 
 <body class="with-fixed-navbar">
@@ -59,8 +60,11 @@ $pageTitle = 'Track Documents';
             <div class="header-compact-content">
                 <div class="header-left">
                     <div class="header-text">
-                        <h1 class="admin-title">Document Tracker</h1>
-                        <p class="admin-subtitle">Monitor your document signing progress and approval status</p>
+                        <h1 class="admin-title">
+                            <i class="bi bi-file-earmark-text me-2" style="color: #3b82f6;"></i>
+                            Document Tracker
+                        </h1>
+                        <p class="admin-subtitle">Monitor your document signing progress and approval status in real-time</p>
                     </div>
                 </div>
                 
@@ -95,13 +99,16 @@ $pageTitle = 'Track Documents';
             <div class="container-fluid">
                 <div class="content-header">
                     <div class="header-actions">
-                        <h3><i class="bi bi-folder2-open me-2"></i>Document Management</h3>
+                        <h3>
+                            <i class="bi bi-folder2-open"></i>
+                            Document Management
+                        </h3>
                         <div class="action-buttons">
-                            <button class="btn btn-success btn-sm" onclick="window.location.href='create-document.php'">
-                                <i class="bi bi-file-plus me-1"></i>New Document
+                            <button class="btn btn-success" onclick="window.location.href='create-document.php'">
+                                <i class="bi bi-file-plus me-2"></i>New Document
                             </button>
-                            <button class="btn btn-primary btn-sm" onclick="refreshDocuments()">
-                                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                            <button class="btn btn-primary" onclick="refreshDocuments()">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Refresh
                             </button>
                         </div>
                     </div>
@@ -214,25 +221,22 @@ $pageTitle = 'Track Documents';
                                     <span class="visually-hidden">Loading...</span>
                                 </div>
                             </div>
-                            <h5 class="text-primary mb-2">Loading Documents</h5>
+                            <h5 class="text-primary mb-2 fw-bold">Loading Documents</h5>
                             <p class="text-muted">Please wait while we fetch your documents...</p>
-                            <div class="loading-dots">
-                                <span></span><span></span><span></span>
-                            </div>
                         </div>
                         
                         <!-- Empty State -->
                         <div id="emptyState" class="text-center py-5" style="display: none;">
                             <div class="empty-state-icon mb-4">
-                                <i class="bi bi-folder2-open text-muted" style="font-size: 4rem; opacity: 0.5;"></i>
+                                <i class="bi bi-inbox" style="font-size: 5rem; color: #cbd5e1;"></i>
                             </div>
-                            <h4 class="text-dark mb-3">No Documents Found</h4>
-                            <p class="text-muted mb-4 lead">You haven't submitted any documents yet or no documents match your current search criteria.</p>
-                            <div class="d-flex gap-2 justify-content-center flex-wrap">
-                                <button class="btn btn-primary btn-lg" onclick="window.location.href='create-document.php'">
+                            <h4 class="text-dark mb-3 fw-bold">No Documents Found</h4>
+                            <p class="text-muted mb-4">You haven't submitted any documents yet or no documents match your current search criteria.</p>
+                            <div class="d-flex gap-3 justify-content-center flex-wrap">
+                                <button class="btn btn-primary px-4" onclick="window.location.href='create-document.php'">
                                     <i class="bi bi-file-plus me-2"></i>Create Document
                                 </button>
-                                <button class="btn btn-outline-secondary btn-lg" onclick="clearFilters()">
+                                <button class="btn btn-outline-secondary px-4" onclick="clearFilters()">
                                     <i class="bi bi-arrow-clockwise me-2"></i>Clear Filters
                                 </button>
                             </div>

@@ -65,7 +65,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
     <link rel="stylesheet" href="../assets/css/admin-dashboard.css">
     <link rel="stylesheet" href="../assets/css/toast.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+
     <style>
         /* OneUI Additional Inline Styles */
         body {
@@ -73,26 +73,29 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
-        
+
         .admin-content {
             padding: 0 1.5rem 2rem;
         }
-        
+
         .container-fluid {
             max-width: 1400px;
             margin: 0 auto;
         }
-        
+
         /* Smooth transitions for all interactive elements */
-        a, button, .nav-link, .btn {
+        a,
+        button,
+        .nav-link,
+        .btn {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
-        
+
         /* Enhanced stat items */
         .stat-item {
             backdrop-filter: blur(10px);
         }
-        
+
         /* Enhanced navbar */
         .navbar {
             backdrop-filter: blur(20px);
@@ -222,8 +225,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="users-tab" data-bs-toggle="pill"
-                            data-bs-target="#users-panel" type="button" role="tab">
+                        <button class="nav-link" id="users-tab" data-bs-toggle="pill" data-bs-target="#users-panel"
+                            type="button" role="tab">
                             <i class="bi bi-people-fill"></i>
                             <span>User Management</span>
                         </button>
@@ -334,7 +337,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                     <div class="chart-header">
                                         <h5><i class="bi bi-graph-up me-2"></i>Activity Trends</h5>
                                         <div class="chart-actions">
-                                            <button class="btn btn-sm btn-outline-secondary" onclick="refreshDashboard()">
+                                            <button class="btn btn-sm btn-outline-secondary"
+                                                onclick="refreshDashboard()">
                                                 <i class="bi bi-arrow-clockwise"></i>
                                             </button>
                                         </div>
@@ -375,7 +379,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                     <div class="recent-activity compact">
                         <div class="activity-header">
                             <h5><i class="bi bi-clock-history me-2"></i>Recent Activity</h5>
-                            <a href="#" onclick="document.getElementById('audit-tab').click(); return false;" class="btn btn-sm btn-link">
+                            <a href="#" onclick="document.getElementById('audit-tab').click(); return false;"
+                                class="btn btn-sm btn-link">
                                 View All <i class="bi bi-arrow-right"></i>
                             </a>
                         </div>
@@ -451,9 +456,11 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                 </div>
                                 <div class="col-md-3">
                                     <div class="date-range">
-                                        <input type="date" class="form-control form-control-sm" id="userDateFrom" onchange="filterUsers()">
+                                        <input type="date" class="form-control form-control-sm" id="userDateFrom"
+                                            onchange="filterUsers()">
                                         <span class="date-separator">to</span>
-                                        <input type="date" class="form-control form-control-sm" id="userDateTo" onchange="filterUsers()">
+                                        <input type="date" class="form-control form-control-sm" id="userDateTo"
+                                            onchange="filterUsers()">
                                     </div>
                                 </div>
                             </div>
@@ -530,9 +537,11 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                 </div>
                                 <div class="col-md-4">
                                     <div class="date-range">
-                                        <input type="date" class="form-control form-control-sm" id="materialDateFrom" onchange="filterMaterials()">
+                                        <input type="date" class="form-control form-control-sm" id="materialDateFrom"
+                                            onchange="filterMaterials()">
                                         <span class="date-separator">to</span>
-                                        <input type="date" class="form-control form-control-sm" id="materialDateTo" onchange="filterMaterials()">
+                                        <input type="date" class="form-control form-control-sm" id="materialDateTo"
+                                            onchange="filterMaterials()">
                                     </div>
                                 </div>
                             </div>
@@ -620,9 +629,11 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                 </div>
                                 <div class="col-md-5">
                                     <div class="date-range">
-                                        <input type="date" class="form-control form-control-sm" id="auditDateFrom" onchange="filterAuditLog()">
+                                        <input type="date" class="form-control form-control-sm" id="auditDateFrom"
+                                            onchange="filterAuditLog()">
                                         <span class="date-separator">to</span>
-                                        <input type="date" class="form-control form-control-sm" id="auditDateTo" onchange="filterAuditLog()">
+                                        <input type="date" class="form-control form-control-sm" id="auditDateTo"
+                                            onchange="filterAuditLog()">
                                     </div>
                                 </div>
                             </div>
@@ -793,40 +804,42 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                     </div>
                                     <div class="col-md-4">
                                         <div class="mb-3">
-                                            <label for="employeeDepartment" class="form-label">Department</label>
-                                            <select class="form-select" id="employeeDepartment" required>
-                                                <option value="">Select Department</option>
-                                                <option value="College of Engineering">College of Engineering</option>
-                                                <option value="College of Nursing">College of Nursing</option>
-                                                <option value="College of Business">College of Business</option>
-                                                <option value="College of Criminology">College of Criminology</option>
-                                                <option value="College of Computing and Information Sciences">College of
-                                                    Computing and Information Sciences</option>
-                                                <option value="College of Art and Social Sciences and Education">College
-                                                    of
-                                                    Art and Social Sciences and Education</option>
-                                                <option value="Colleges of Hospitality and Tourism Management">Colleges
-                                                    of
-                                                    Hospitality and Tourism Management</option>
+                                            <label for="employeePosition" class="form-label">Employee Position</label>
+                                            <select class="form-select" id="employeePosition" required>
+                                                <option value="">Select Position</option>
+                                                <option value="Student Services">Student Services</option>
+                                                <option value="Office of Student Affairs">Office of Student Affairs
+                                                </option>
+                                                <option value="Center for Performing Arts Organization">Center for
+                                                    Performing Arts Organization</option>
+                                                <option value="Academic Affairs">Academic Affairs</option>
+                                                <option value="Physical Plant and Facilities Office">Physical Plant and
+                                                    Facilities Office</option>
+                                                <option value="Accounting Office">Accounting Office</option>
+                                                <option value="Department Dean">Department Dean</option>
+                                                <option value="CSC Adviser">CSC Adviser</option>
                                             </select>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="mb-3">
-                                            <label for="employeePosition" class="form-label">Employee Position</label>
-                                            <select class="form-select" id="employeePosition" required>
-                                                <option value="">Select Position</option>
-                                                <option value="President">President</option>
-                                                <option value="Vice President">Vice President</option>
-                                                <option value="Dean">Dean</option>
-                                                <option value="Associate Dean">Associate Dean</option>
-                                                <option value="Department Head">Department Head</option>
-                                                <option value="Professor">Professor</option>
-                                                <option value="Associate Professor">Associate Professor</option>
-                                                <option value="Assistant Professor">Assistant Professor</option>
-                                                <option value="Instructor">Instructor</option>
-                                                <option value="Administrative Staff">Administrative Staff</option>
-                                                <option value="System Administrator">System Administrator</option>
+                                            <label for="employeeDepartment" class="form-label">Department</label>
+                                            <select class="form-select" id="employeeDepartment" required>
+                                                <option value="">Select Department</option>
+                                                <option value="Supreme Student Council">Supreme Student Council
+                                                </option>
+                                                <option value="SPCF Miranda">SPCF Miranda</option>
+                                                <option value="College of Engineering">College of Engineering
+                                                </option>
+                                                <option value="College of Nursing">College of Nursing</option>
+                                                <option value="College of Business">College of Business</option>
+                                                <option value="College of Criminology">College of Criminology</option>
+                                                <option value="College of Computing and Information Sciences">College of
+                                                    Computing and Information Sciences</option>
+                                                <option value="College of Arts, Social Sciences and Education">College
+                                                    of Arts, Social Sciences and Education</option>
+                                                <option value="College of Hospitality and Tourism Management">College of
+                                                    Hospitality and Tourism Management</option>
                                             </select>
                                         </div>
                                     </div>
@@ -840,17 +853,19 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                             <label for="studentDepartment" class="form-label">Department/College</label>
                                             <select class="form-select" id="studentDepartment" required>
                                                 <option value="">Select Department</option>
-                                                <option value="College of Engineering">College of Engineering</option>
+                                                <option value="Supreme Student Council (SSC)">Supreme Student Council
+                                                    (SSC)</option>
+                                                <option value="SPCF Miranda">SPCF Miranda</option>
+                                                <option value="College of Engineering (COE)">College of Engineering
+                                                    (COE)</option>
                                                 <option value="College of Nursing">College of Nursing</option>
                                                 <option value="College of Business">College of Business</option>
                                                 <option value="College of Criminology">College of Criminology</option>
                                                 <option value="College of Computing and Information Sciences">College of
                                                     Computing and Information Sciences</option>
-                                                <option value="College of Art and Social Sciences and Education">College
-                                                    of
-                                                    Art and Social Sciences and Education</option>
-                                                <option value="Colleges of Hospitality and Tourism Management">Colleges
-                                                    of
+                                                <option value="College of Arts, Social Sciences and Education">College
+                                                    of Arts, Social Sciences and Education</option>
+                                                <option value="College of Hospitality and Tourism Management">College of
                                                     Hospitality and Tourism Management</option>
                                             </select>
                                         </div>
@@ -869,13 +884,6 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                                 </option>
                                                 <option value="Student Council Treasurer">Student Council Treasurer
                                                 </option>
-                                                <option value="Class President">Class President</option>
-                                                <option value="Class Vice President">Class Vice President</option>
-                                                <option value="Class Secretary">Class Secretary</option>
-                                                <option value="Class Treasurer">Class Treasurer</option>
-                                                <option value="Club President">Club President</option>
-                                                <option value="Club Officer">Club Officer</option>
-                                                <option value="Regular Student">Regular Student</option>
                                             </select>
                                         </div>
                                     </div>
@@ -1280,16 +1288,21 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                         <!-- Settings Tabs -->
                         <ul class="nav nav-tabs" id="systemSettingsTabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general-settings" type="button" role="tab">General</button>
+                                <button class="nav-link active" id="general-tab" data-bs-toggle="tab"
+                                    data-bs-target="#general-settings" type="button" role="tab">General</button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="security-tab" data-bs-toggle="tab" data-bs-target="#security-settings" type="button" role="tab">Security</button>
+                                <button class="nav-link" id="security-tab" data-bs-toggle="tab"
+                                    data-bs-target="#security-settings" type="button" role="tab">Security</button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="notifications-tab" data-bs-toggle="tab" data-bs-target="#notification-settings" type="button" role="tab">Notifications</button>
+                                <button class="nav-link" id="notifications-tab" data-bs-toggle="tab"
+                                    data-bs-target="#notification-settings" type="button"
+                                    role="tab">Notifications</button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="backup-tab" data-bs-toggle="tab" data-bs-target="#backup-settings" type="button" role="tab">Backup</button>
+                                <button class="nav-link" id="backup-tab" data-bs-toggle="tab"
+                                    data-bs-target="#backup-settings" type="button" role="tab">Backup</button>
                             </li>
                         </ul>
                         <div class="tab-content mt-3" id="systemSettingsTabContent">
@@ -1300,7 +1313,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                         <div class="col-md-6">
                                             <div class="mb-3">
                                                 <label for="systemName" class="form-label">System Name</label>
-                                                <input type="text" class="form-control" id="systemName" value="Sign-um Document Management System">
+                                                <input type="text" class="form-control" id="systemName"
+                                                    value="Sign-um Document Management System">
                                             </div>
                                             <div class="mb-3">
                                                 <label for="defaultLanguage" class="form-label">Default Language</label>
@@ -1319,17 +1333,21 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                         </div>
                                         <div class="col-md-6">
                                             <div class="mb-3">
-                                                <label for="sessionTimeout" class="form-label">Session Timeout (minutes)</label>
-                                                <input type="number" class="form-control" id="sessionTimeout" value="60" min="15" max="480">
+                                                <label for="sessionTimeout" class="form-label">Session Timeout
+                                                    (minutes)</label>
+                                                <input type="number" class="form-control" id="sessionTimeout" value="60"
+                                                    min="15" max="480">
                                             </div>
                                             <div class="mb-3">
                                                 <label for="maxFileSize" class="form-label">Max File Size (MB)</label>
-                                                <input type="number" class="form-control" id="maxFileSize" value="10" min="1" max="100">
+                                                <input type="number" class="form-control" id="maxFileSize" value="10"
+                                                    min="1" max="100">
                                             </div>
                                             <div class="mb-3">
                                                 <label for="maintenanceMode" class="form-label">Maintenance Mode</label>
                                                 <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" id="maintenanceMode">
+                                                    <input class="form-check-input" type="checkbox"
+                                                        id="maintenanceMode">
                                                     <label class="form-check-label" for="maintenanceMode">
                                                         Enable maintenance mode
                                                     </label>
@@ -1346,50 +1364,69 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                     <div class="row">
                                         <div class="col-md-6">
                                             <div class="mb-3">
-                                                <label for="passwordMinLength" class="form-label">Minimum Password Length</label>
-                                                <input type="number" class="form-control" id="passwordMinLength" value="8" min="6" max="32">
+                                                <label for="passwordMinLength" class="form-label">Minimum Password
+                                                    Length</label>
+                                                <input type="number" class="form-control" id="passwordMinLength"
+                                                    value="8" min="6" max="32">
                                             </div>
                                             <div class="mb-3">
-                                                <label for="passwordComplexity" class="form-label">Password Complexity</label>
+                                                <label for="passwordComplexity" class="form-label">Password
+                                                    Complexity</label>
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" id="requireUppercase" checked>
-                                                    <label class="form-check-label" for="requireUppercase">Require uppercase letters</label>
+                                                    <input class="form-check-input" type="checkbox"
+                                                        id="requireUppercase" checked>
+                                                    <label class="form-check-label" for="requireUppercase">Require
+                                                        uppercase letters</label>
                                                 </div>
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" id="requireLowercase" checked>
-                                                    <label class="form-check-label" for="requireLowercase">Require lowercase letters</label>
+                                                    <input class="form-check-input" type="checkbox"
+                                                        id="requireLowercase" checked>
+                                                    <label class="form-check-label" for="requireLowercase">Require
+                                                        lowercase letters</label>
                                                 </div>
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" id="requireNumbers" checked>
-                                                    <label class="form-check-label" for="requireNumbers">Require numbers</label>
+                                                    <input class="form-check-input" type="checkbox" id="requireNumbers"
+                                                        checked>
+                                                    <label class="form-check-label" for="requireNumbers">Require
+                                                        numbers</label>
                                                 </div>
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" id="requireSpecialChars" checked>
-                                                    <label class="form-check-label" for="requireSpecialChars">Require special characters</label>
+                                                    <input class="form-check-input" type="checkbox"
+                                                        id="requireSpecialChars" checked>
+                                                    <label class="form-check-label" for="requireSpecialChars">Require
+                                                        special characters</label>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-md-6">
                                             <div class="mb-3">
-                                                <label for="maxLoginAttempts" class="form-label">Max Login Attempts</label>
-                                                <input type="number" class="form-control" id="maxLoginAttempts" value="5" min="3" max="10">
+                                                <label for="maxLoginAttempts" class="form-label">Max Login
+                                                    Attempts</label>
+                                                <input type="number" class="form-control" id="maxLoginAttempts"
+                                                    value="5" min="3" max="10">
                                             </div>
                                             <div class="mb-3">
-                                                <label for="lockoutDuration" class="form-label">Account Lockout Duration (minutes)</label>
-                                                <input type="number" class="form-control" id="lockoutDuration" value="30" min="5" max="1440">
+                                                <label for="lockoutDuration" class="form-label">Account Lockout Duration
+                                                    (minutes)</label>
+                                                <input type="number" class="form-control" id="lockoutDuration"
+                                                    value="30" min="5" max="1440">
                                             </div>
                                             <div class="mb-3">
-                                                <label for="enable2FA" class="form-label">Two-Factor Authentication</label>
+                                                <label for="enable2FA" class="form-label">Two-Factor
+                                                    Authentication</label>
                                                 <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" id="enable2FA" checked>
+                                                    <input class="form-check-input" type="checkbox" id="enable2FA"
+                                                        checked>
                                                     <label class="form-check-label" for="enable2FA">
                                                         Enable 2FA for all users
                                                     </label>
                                                 </div>
                                             </div>
                                             <div class="mb-3">
-                                                <label for="auditLogRetention" class="form-label">Audit Log Retention (days)</label>
-                                                <input type="number" class="form-control" id="auditLogRetention" value="365" min="30" max="3650">
+                                                <label for="auditLogRetention" class="form-label">Audit Log Retention
+                                                    (days)</label>
+                                                <input type="number" class="form-control" id="auditLogRetention"
+                                                    value="365" min="30" max="3650">
                                             </div>
                                         </div>
                                     </div>
@@ -1403,43 +1440,59 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                         <div class="col-md-6">
                                             <h6>Email Notifications</h6>
                                             <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" id="emailUserRegistration" checked>
-                                                <label class="form-check-label" for="emailUserRegistration">User registration notifications</label>
+                                                <input class="form-check-input" type="checkbox"
+                                                    id="emailUserRegistration" checked>
+                                                <label class="form-check-label" for="emailUserRegistration">User
+                                                    registration notifications</label>
                                             </div>
                                             <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" id="emailDocumentApproval" checked>
-                                                <label class="form-check-label" for="emailDocumentApproval">Document approval notifications</label>
+                                                <input class="form-check-input" type="checkbox"
+                                                    id="emailDocumentApproval" checked>
+                                                <label class="form-check-label" for="emailDocumentApproval">Document
+                                                    approval notifications</label>
                                             </div>
                                             <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" id="emailSystemAlerts" checked>
-                                                <label class="form-check-label" for="emailSystemAlerts">System alert notifications</label>
+                                                <input class="form-check-input" type="checkbox" id="emailSystemAlerts"
+                                                    checked>
+                                                <label class="form-check-label" for="emailSystemAlerts">System alert
+                                                    notifications</label>
                                             </div>
                                             <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" id="emailSecurityEvents" checked>
-                                                <label class="form-check-label" for="emailSecurityEvents">Security event notifications</label>
+                                                <input class="form-check-input" type="checkbox" id="emailSecurityEvents"
+                                                    checked>
+                                                <label class="form-check-label" for="emailSecurityEvents">Security event
+                                                    notifications</label>
                                             </div>
                                         </div>
                                         <div class="col-md-6">
                                             <h6>In-App Notifications</h6>
                                             <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" id="inAppUserActivity" checked>
-                                                <label class="form-check-label" for="inAppUserActivity">User activity notifications</label>
+                                                <input class="form-check-input" type="checkbox" id="inAppUserActivity"
+                                                    checked>
+                                                <label class="form-check-label" for="inAppUserActivity">User activity
+                                                    notifications</label>
                                             </div>
                                             <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" id="inAppDocumentUpdates" checked>
-                                                <label class="form-check-label" for="inAppDocumentUpdates">Document update notifications</label>
+                                                <input class="form-check-input" type="checkbox"
+                                                    id="inAppDocumentUpdates" checked>
+                                                <label class="form-check-label" for="inAppDocumentUpdates">Document
+                                                    update notifications</label>
                                             </div>
                                             <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" id="inAppSystemMaintenance" checked>
-                                                <label class="form-check-label" for="inAppSystemMaintenance">System maintenance notifications</label>
+                                                <input class="form-check-input" type="checkbox"
+                                                    id="inAppSystemMaintenance" checked>
+                                                <label class="form-check-label" for="inAppSystemMaintenance">System
+                                                    maintenance notifications</label>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="mt-3">
                                         <label for="adminEmail" class="form-label">Administrator Email</label>
-                                        <input type="email" class="form-control" id="adminEmail" placeholder="admin@university.edu">
+                                        <input type="email" class="form-control" id="adminEmail"
+                                            placeholder="admin@university.edu">
                                     </div>
-                                    <button type="submit" class="btn btn-primary mt-3">Save Notification Settings</button>
+                                    <button type="submit" class="btn btn-primary mt-3">Save Notification
+                                        Settings</button>
                                 </form>
                             </div>
                             <!-- Backup Settings -->
@@ -1448,7 +1501,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                     <div class="row">
                                         <div class="col-md-6">
                                             <div class="mb-3">
-                                                <label for="backupFrequency" class="form-label">Automatic Backup Frequency</label>
+                                                <label for="backupFrequency" class="form-label">Automatic Backup
+                                                    Frequency</label>
                                                 <select class="form-select" id="backupFrequency">
                                                     <option value="daily">Daily</option>
                                                     <option value="weekly">Weekly</option>
@@ -1456,40 +1510,52 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                                 </select>
                                             </div>
                                             <div class="mb-3">
-                                                <label for="backupRetention" class="form-label">Backup Retention (days)</label>
-                                                <input type="number" class="form-control" id="backupRetention" value="30" min="7" max="365">
+                                                <label for="backupRetention" class="form-label">Backup Retention
+                                                    (days)</label>
+                                                <input type="number" class="form-control" id="backupRetention"
+                                                    value="30" min="7" max="365">
                                             </div>
                                             <div class="mb-3">
                                                 <label for="backupLocation" class="form-label">Backup Location</label>
-                                                <input type="text" class="form-control" id="backupLocation" value="/var/backups/signum" readonly>
+                                                <input type="text" class="form-control" id="backupLocation"
+                                                    value="/var/backups/signum" readonly>
                                             </div>
                                         </div>
                                         <div class="col-md-6">
                                             <div class="mb-3">
                                                 <label class="form-label">Backup Components</label>
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" id="backupDatabase" checked>
-                                                    <label class="form-check-label" for="backupDatabase">Database</label>
+                                                    <input class="form-check-input" type="checkbox" id="backupDatabase"
+                                                        checked>
+                                                    <label class="form-check-label"
+                                                        for="backupDatabase">Database</label>
                                                 </div>
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" id="backupFiles" checked>
-                                                    <label class="form-check-label" for="backupFiles">Uploaded Files</label>
+                                                    <input class="form-check-input" type="checkbox" id="backupFiles"
+                                                        checked>
+                                                    <label class="form-check-label" for="backupFiles">Uploaded
+                                                        Files</label>
                                                 </div>
                                                 <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" id="backupConfig" checked>
-                                                    <label class="form-check-label" for="backupConfig">Configuration Files</label>
+                                                    <input class="form-check-input" type="checkbox" id="backupConfig"
+                                                        checked>
+                                                    <label class="form-check-label" for="backupConfig">Configuration
+                                                        Files</label>
                                                 </div>
                                             </div>
                                             <div class="mb-3">
                                                 <label for="lastBackup" class="form-label">Last Backup</label>
-                                                <input type="text" class="form-control" id="lastBackup" value="2024-01-15 02:00:00" readonly>
+                                                <input type="text" class="form-control" id="lastBackup"
+                                                    value="2024-01-15 02:00:00" readonly>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="d-flex gap-2">
                                         <button type="submit" class="btn btn-primary">Save Backup Settings</button>
-                                        <button type="button" class="btn btn-warning" onclick="runManualBackup()">Run Manual Backup</button>
-                                        <button type="button" class="btn btn-info" onclick="downloadLatestBackup()">Download Latest Backup</button>
+                                        <button type="button" class="btn btn-warning" onclick="runManualBackup()">Run
+                                            Manual Backup</button>
+                                        <button type="button" class="btn btn-info"
+                                            onclick="downloadLatestBackup()">Download Latest Backup</button>
                                     </div>
                                 </form>
                             </div>

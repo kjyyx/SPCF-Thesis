@@ -171,7 +171,7 @@ class DocumentNotificationSystem {
     // Refresh documents without full reload
     async refreshDocuments() {
         try {
-            const response = await fetch(this.apiBase, {
+            const response = await fetch(this.apiBase + '?t=' + Date.now(), {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -908,8 +908,12 @@ class DocumentNotificationSystem {
         this.pdfDoc.getPage(this.currentPage).then(page => {
             const viewport = page.getViewport({ scale: 1 });
             this.scale = containerWidth / viewport.width;
-            this.renderPage();
-            this.updateZoomIndicator();
+            // Render page then update overlays after the canvas has been updated
+            this.renderPage().then(() => {
+                this.updateZoomIndicator();
+                // Re-render overlays (signature targets and blurs)
+                try { this.renderSignatureOverlay(this.currentDocument); } catch (e) { console.warn('renderSignatureOverlay error', e); }
+            });
         });
     }
 
@@ -933,6 +937,9 @@ class DocumentNotificationSystem {
 
         content.style.position = 'relative';
 
+        // Clear previous overlays to prevent duplicates
+        content.querySelectorAll('.signature-target, .completed-signature-container').forEach(el => el.remove());
+
         // First, render completed signatures as blurred overlays
         this.renderCompletedSignatures(doc, content);
 
@@ -941,32 +948,40 @@ class DocumentNotificationSystem {
         const isCurrentUserAssigned = this.isUserAssignedToPendingStep(doc);
 
         if (hasPendingStep && isCurrentUserAssigned && doc.signature_map) {
-            const { x_pct, y_pct, w_pct, h_pct, label } = doc.signature_map;
+            let map = doc.signature_map;
+            try {
+                map = (typeof map === 'string') ? JSON.parse(map) : map;
+            } catch (e) {
+                console.warn('Invalid doc.signature_map JSON', e);
+            }
 
             let box = content.querySelector('.signature-target');
             if (!box) {
                 box = document.createElement('div');
                 box.className = 'signature-target draggable';
                 box.title = 'Drag to move, resize handle to adjust size';
+                box.style.position = 'absolute';
+                box.style.display = 'flex';
+                box.style.alignItems = 'center';
+                box.style.justifyContent = 'center';
+                box.style.cursor = 'grab';
+                box.style.zIndex = 20;
                 content.appendChild(box);
                 this.makeDraggable(box, content);
                 this.makeResizable(box, content);
-                // Removed click listener to prevent accidental reopening of signature pad
             }
 
-            const rect = content.getBoundingClientRect();
-            const style = window.getComputedStyle(content);
-            const paddingLeft = parseFloat(style.paddingLeft);
-            const paddingTop = parseFloat(style.paddingTop);
-            const cw = content.clientWidth || 800;
-            const ch = content.clientHeight || 600;
-            const canvasHeight = this.canvas ? this.canvas.height : ch;
-            const canvasWidth = this.canvas ? this.canvas.width : cw;
-            box.style.left = (paddingLeft + (cw - canvasWidth) / 2 + canvasWidth * x_pct) + 'px';
-            box.style.top = (paddingTop + (ch - canvasHeight) / 2 + canvasHeight * y_pct) + 'px';
-            box.style.width = (canvasWidth * w_pct) + 'px';
-            box.style.height = (canvasHeight * h_pct) + 'px';
-            box.textContent = label || 'Sign here';
+            const rect = this.computeSignaturePixelRect(map);
+            if (!rect) return;
+
+            // Debug info
+            console.debug('renderSignatureOverlay rect:', rect, 'map:', map);
+
+            box.style.left = rect.left + 'px';
+            box.style.top = rect.top + 'px';
+            box.style.width = rect.width + 'px';
+            box.style.height = rect.height + 'px';
+            box.textContent = map.label || 'Sign here';
 
             if (this.signatureImage) this.updateSignatureOverlayImage();
         }
@@ -975,15 +990,10 @@ class DocumentNotificationSystem {
     // Render completed signatures as blurred overlays with timestamps
     renderCompletedSignatures(doc, content) {
         if (!doc.workflow) return;
-
-        const rect = content.getBoundingClientRect();
-        const style = window.getComputedStyle(content);
-        const paddingLeft = parseFloat(style.paddingLeft);
-        const paddingTop = parseFloat(style.paddingTop);
-        const cw = content.clientWidth || 800;
-        const ch = content.clientHeight || 600;
-        const canvasHeight = this.canvas ? this.canvas.height : ch;
-        const canvasWidth = this.canvas ? this.canvas.width : cw;
+        // Position completed signatures relative to the rendered canvas to keep them in sync
+        const canvas = this.canvas;
+        if (!canvas) return;
+        const canvasRect = canvas.getBoundingClientRect();
 
         // Use signature_map if available, otherwise use default position
         const signatureMap = doc.signature_map || { x_pct: 0.62, y_pct: 0.78, w_pct: 0.28, h_pct: 0.1 };
@@ -993,51 +1003,89 @@ class DocumentNotificationSystem {
         if (page && page !== this.currentPage) return;
 
         // Find completed steps with signatures
-        const completedSignatures = doc.workflow.filter(step =>
-            step.status === 'completed' && step.signed_at
-        );
+        const completedSignatures = doc.workflow.filter(step => step.status === 'completed' && step.signed_at);
 
-        completedSignatures.forEach((step, index) => {
-            // Create container for timestamp and blurred signature
-            const signatureContainer = document.createElement('div');
-            signatureContainer.className = 'completed-signature-container';
-            signatureContainer.style.position = 'absolute';
+            const isEVP = !!(this.currentUser && (String(this.currentUser.role || '').toLowerCase().includes('evp') || String(this.currentUser.position || '').toLowerCase().includes('evp')));
 
-            // Position at the same place as the signature target
-            signatureContainer.style.left = (paddingLeft + (cw - canvasWidth) / 2 + canvasWidth * x_pct) + 'px';
-            signatureContainer.style.top = (paddingTop + (ch - canvasHeight) / 2 + canvasHeight * y_pct) + 'px';
-            signatureContainer.style.width = (canvasWidth * w_pct) + 'px';
-            signatureContainer.style.height = (canvasHeight * h_pct) + 'px';
+            completedSignatures.forEach((step, index) => {
+                // Determine signature_map for this specific step (if saved on server)
+                let stepMap = signatureMap;
+                if (step.signature_map) {
+                    try {
+                        const parsed = typeof step.signature_map === 'string' ? JSON.parse(step.signature_map) : step.signature_map;
+                        if (parsed && parsed.x_pct != null) stepMap = parsed;
+                    } catch (e) {
+                        console.warn('Failed to parse step.signature_map', e);
+                    }
+                }
 
-            // Create timestamp display
-            const timestamp = document.createElement('div');
-            timestamp.className = 'signature-timestamp';
-            timestamp.textContent = new Date(step.signed_at).toLocaleString();
-            timestamp.style.fontSize = '10px';
-            timestamp.style.color = '#666';
-            timestamp.style.textAlign = 'center';
-            timestamp.style.marginBottom = '2px';
-            timestamp.style.fontWeight = '500';
+                const sx = stepMap.x_pct || x_pct;
+                const sy = stepMap.y_pct || y_pct;
+                const sw = stepMap.w_pct || w_pct;
+                const sh = stepMap.h_pct || h_pct;
 
-            // Create blurred signature placeholder with hierarchy details
-            const blurredSignature = document.createElement('div');
-            blurredSignature.className = 'blurred-signature';
-            blurredSignature.style.width = '100%';
-            blurredSignature.style.height = '100%';
-            blurredSignature.style.backgroundColor = 'rgba(128, 128, 128, 0.8)';
-            blurredSignature.style.color = 'white';
-            blurredSignature.style.display = 'flex';
-            blurredSignature.style.alignItems = 'center';
-            blurredSignature.style.justifyContent = 'center';
-            blurredSignature.style.borderRadius = '4px';
-            blurredSignature.style.fontWeight = 'bold';
-            blurredSignature.style.fontSize = '12px';
-            blurredSignature.textContent = `Signed by ${step.assignee_name || 'Unknown'} (${step.name || 'Unknown Role'} - Level ${this.getHierarchyLevel(step.name)})`;
+                // Create container for timestamp and blurred signature
+                const signatureContainer = document.createElement('div');
+                signatureContainer.className = 'completed-signature-container';
+                signatureContainer.style.position = 'absolute';
 
-            signatureContainer.appendChild(timestamp);
-            signatureContainer.appendChild(blurredSignature);
-            content.appendChild(signatureContainer);
-        });
+                // Position at the same place as the signature target using canvas metrics (relative to content)
+                let pixelRect = this.computeSignaturePixelRect({ x_pct: sx, y_pct: sy, w_pct: sw, h_pct: sh });
+                if (!pixelRect) return;
+                signatureContainer.style.left = pixelRect.left + 'px';
+                signatureContainer.style.top = pixelRect.top + 'px';
+                signatureContainer.style.width = pixelRect.width + 'px';
+                signatureContainer.style.height = pixelRect.height + 'px';
+
+                // Create timestamp display
+                const timestamp = document.createElement('div');
+                timestamp.className = 'signature-timestamp';
+                timestamp.textContent = new Date(step.signed_at).toLocaleString();
+                timestamp.style.fontSize = '10px';
+                timestamp.style.color = '#666';
+                timestamp.style.textAlign = 'center';
+                timestamp.style.marginBottom = '2px';
+                timestamp.style.fontWeight = '500';
+
+                if (isEVP) {
+                    // EVP users can see signature details (unblurred). Show name and role.
+                    const detail = document.createElement('div');
+                    detail.className = 'signature-detail';
+                    detail.style.width = '100%';
+                    detail.style.height = '100%';
+                    detail.style.display = 'flex';
+                    detail.style.alignItems = 'center';
+                    detail.style.justifyContent = 'center';
+                    detail.style.borderRadius = '4px';
+                    detail.style.background = 'rgba(255,255,255,0.9)';
+                    detail.style.color = '#111827';
+                    detail.style.fontWeight = '600';
+                    detail.textContent = `Signed by ${step.assignee_name || 'Unknown'} (${step.name || 'Unknown Role'})`;
+
+                    signatureContainer.appendChild(timestamp);
+                    signatureContainer.appendChild(detail);
+                } else {
+                    // Non-EVP: show blurred placeholder to hide signature
+                    const blurredSignature = document.createElement('div');
+                    blurredSignature.className = 'blurred-signature';
+                    blurredSignature.style.width = '100%';
+                    blurredSignature.style.height = '100%';
+                    blurredSignature.style.backgroundColor = 'rgba(128, 128, 128, 0.9)';
+                    blurredSignature.style.color = 'white';
+                    blurredSignature.style.display = 'flex';
+                    blurredSignature.style.alignItems = 'center';
+                    blurredSignature.style.justifyContent = 'center';
+                    blurredSignature.style.borderRadius = '4px';
+                    blurredSignature.style.fontWeight = '700';
+                    blurredSignature.style.fontSize = '12px';
+                    blurredSignature.textContent = `Signed by ${step.assignee_name || 'Unknown'}`;
+
+                    signatureContainer.appendChild(timestamp);
+                    signatureContainer.appendChild(blurredSignature);
+                }
+
+                content.appendChild(signatureContainer);
+            });
     }
 
     // Check if current user is assigned to any pending step
@@ -1194,22 +1242,69 @@ class DocumentNotificationSystem {
 
     // Update signature map with current position/size (fix: relative to container)
     updateSignatureMap(element, container) {
-        const rect = container.getBoundingClientRect();
-        const style = window.getComputedStyle(container);
-        const paddingLeft = parseFloat(style.paddingLeft);
-        const paddingTop = parseFloat(style.paddingTop);
-        const cw = container.clientWidth || 1;
-        const ch = container.clientHeight || 1;
-        const canvasHeight = this.canvas ? this.canvas.height : ch;
-        const canvasWidth = this.canvas ? this.canvas.width : cw;
-        const canvasTop = rect.top + paddingTop + (ch - canvasHeight) / 2;
-        const canvasLeft = rect.left + paddingLeft + (cw - canvasWidth) / 2;
+        const canvas = this.canvas;
+        if (!canvas) return;
+
+        // Use the rendered canvas bounds to compute accurate percentages
+        const canvasRect = canvas.getBoundingClientRect();
         const elRect = element.getBoundingClientRect();
-        const x_pct = (elRect.left - canvasLeft) / canvasWidth;
-        const y_pct = (elRect.top - canvasTop) / canvasHeight;
-        const w_pct = elRect.width / canvasWidth;
-        const h_pct = elRect.height / canvasHeight;
-        this.currentSignatureMap = { x_pct, y_pct, w_pct, h_pct, label: 'Sign here', page: this.currentPage };
+
+        const x_pct = (elRect.left - canvasRect.left) / canvasRect.width;
+        const y_pct = (elRect.top - canvasRect.top) / canvasRect.height;
+        const w_pct = elRect.width / canvasRect.width;
+        const h_pct = elRect.height / canvasRect.height;
+
+        // Clamp values between 0 and 1 for safety
+        const clamp = (v) => Math.max(0, Math.min(1, v));
+
+        this.currentSignatureMap = {
+            x_pct: clamp(x_pct),
+            y_pct: clamp(y_pct),
+            w_pct: clamp(w_pct),
+            h_pct: clamp(h_pct),
+            label: 'Sign here',
+            page: this.currentPage
+        };
+
+        console.debug('updateSignatureMap ->', this.currentSignatureMap, 'canvas size', canvasRect ? {w: canvasRect.width, h: canvasRect.height} : null);
+    }
+
+    // Compute pixel rectangle from a signature map (supports percent values or absolute px)
+    computeSignaturePixelRect(map) {
+        const canvas = this.canvas;
+        if (!canvas) return null;
+        const canvasRect = canvas.getBoundingClientRect();
+        const content = document.getElementById('pdfContent');
+        const contentRect = content ? content.getBoundingClientRect() : {left:0, top:0};
+
+        // Helper to normalize a value that might be percent (0..1) or absolute px (>1)
+        const norm = (v, axisSize, canvasAttrSize) => {
+            if (v == null) return 0;
+            // If value looks like percent
+            if (v <= 1) return v * axisSize;
+            // If value is larger than 1, assume it's provided in canvas pixel coordinates (canvas.width/canvas.height)
+            // Convert from canvas pixel space to CSS layout pixels
+            const ratio = canvasAttrSize && axisSize ? (axisSize / canvasAttrSize) : 1;
+            return v * ratio;
+        };
+
+        // canvas.width/canvas.height refer to actual drawing buffer (device pixels)
+        const canvasAttrWidth = canvas.width || canvasRect.width;
+        const canvasAttrHeight = canvas.height || canvasRect.height;
+
+        const xRaw = map.x_pct ?? map.x_px ?? 0;
+        const yRaw = map.y_pct ?? map.y_px ?? 0;
+        const wRaw = map.w_pct ?? map.w_px ?? 0;
+        const hRaw = map.h_pct ?? map.h_px ?? 0;
+
+        const left = (canvasRect.left - contentRect.left) + norm(xRaw, canvasRect.width, canvasAttrWidth);
+        const top = (canvasRect.top - contentRect.top) + norm(yRaw, canvasRect.height, canvasAttrHeight);
+        const width = Math.max(1, norm(wRaw, canvasRect.width, canvasAttrWidth));
+        const height = Math.max(1, norm(hRaw, canvasRect.height, canvasAttrHeight));
+
+        const rect = { left, top, width, height, canvasRect, contentRect };
+        console.debug('computeSignaturePixelRect', {map, rect});
+        return rect;
     }
 
     // Allow click-to-place new signature target

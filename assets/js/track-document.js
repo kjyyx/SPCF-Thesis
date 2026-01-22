@@ -187,7 +187,7 @@ async function loadStudentDocuments() {
     showLoadingState();
     
     try {
-        const response = await fetch('../api/documents.php?action=my_documents', {
+        const response = await fetch('../api/documents.php?action=my_documents&t=' + Date.now(), {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
@@ -504,14 +504,27 @@ function downloadDocument(docId) {
     .then(response => response.json())
     .then(data => {
         if (data.success && data.document && data.document.file_path) {
-            const link = document.createElement('a');
-            link.href = data.document.file_path;
-            link.download = (data.document.document_name || data.document.title || 'Document') + '.pdf';
-            link.target = '_blank';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast('Download started', 'success');
+            // Only allow download after final approval
+            const status = (data.document.status || '').toLowerCase();
+            if (status === 'approved') {
+                // Optionally restrict to issuer: if issuer id field exists, check it
+                const currentUser = window.currentUser || null;
+                const issuerId = data.document.student_id || data.document.issuer_id || data.document.user_id || null;
+                if (!issuerId || !currentUser || currentUser.id == issuerId || currentUser.role === 'admin') {
+                    const link = document.createElement('a');
+                    link.href = data.document.file_path;
+                    link.download = (data.document.document_name || data.document.title || 'Document') + '.pdf';
+                    link.target = '_blank';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast('Download started', 'success');
+                } else {
+                    showToast('Only the issuer or admin can download the final approved document.', 'warning');
+                }
+            } else {
+                showToast('Document is not yet approved. Download is available after final approval.', 'info');
+            }
         } else {
             throw new Error('File not found');
         }

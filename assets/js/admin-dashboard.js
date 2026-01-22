@@ -684,8 +684,9 @@ function selectUserRole(role) {
     });
 
     if (role === 'admin') {
+        // Admin should not show Office/Admin Position dropdowns per requirement
         const adminFields = document.getElementById('adminFields');
-        if (adminFields) adminFields.style.display = 'block';
+        if (adminFields) adminFields.style.display = 'none';
     } else if (role === 'employee') {
         const employeeFields = document.getElementById('employeeFields');
         if (employeeFields) employeeFields.style.display = 'block';
@@ -790,18 +791,97 @@ function setRoleFieldConstraints(role) {
     [adminOffice, adminPosition, employeeOffice, employeeDepartment, employeePosition, studentDepartment, studentPosition]
         .forEach(el => { if (el) { el.required = false; el.disabled = true; } });
 
-    if (role === 'admin') {
-        if (adminOffice) { adminOffice.disabled = false; adminOffice.required = true; }
-        if (adminPosition) { adminPosition.disabled = false; adminPosition.required = true; }
-    } else if (role === 'employee') {
+    // Admin: no office/position dropdowns per request (keep fields disabled)
+    if (role === 'employee') {
         if (employeeOffice) { employeeOffice.disabled = false; employeeOffice.required = true; }
-        if (employeeDepartment) { employeeDepartment.disabled = false; employeeDepartment.required = true; }
         if (employeePosition) { employeePosition.disabled = false; employeePosition.required = true; }
+        // employeeDepartment shown only for specific employee positions via listener
+        if (employeeDepartment) { employeeDepartment.disabled = true; employeeDepartment.required = false; employeeDepartment.style.display = 'none'; }
     } else if (role === 'student') {
-        if (studentDepartment) { studentDepartment.disabled = false; studentDepartment.required = true; }
-        if (studentPosition) { studentPosition.disabled = false; /* optional */ }
+        if (studentDepartment) { studentDepartment.disabled = false; studentDepartment.required = true; studentDepartment.style.display = 'block'; }
+        if (studentPosition) { studentPosition.disabled = false; /* optional */ studentPosition.style.display = 'block'; }
+    } else {
+        // role is null or admin - ensure student/employee fields hidden
+        if (studentDepartment) { studentDepartment.disabled = true; studentDepartment.required = false; studentDepartment.style.display = 'none'; }
+        if (studentPosition) { studentPosition.disabled = true; studentPosition.style.display = 'none'; }
+        if (employeeDepartment) { employeeDepartment.disabled = true; employeeDepartment.required = false; employeeDepartment.style.display = 'none'; }
     }
 }
+
+// Department lists used in multiple places
+const DEPARTMENTS_FULL = [
+    'Supreme Student Council',
+    'SPCF Miranda',
+    'College of Engineering',
+    'College of Nursing',
+    'College of Business',
+    'College of Criminology',
+    'College of Computing and Information Sciences',
+    'College of Arts, Social Sciences, and Education',
+    'College of Hospitality and Tourism Management'
+];
+
+// Employee roles that require department dropdown
+const EMPLOYEE_ROLES_WITH_DEPT = [
+    'Student Services',
+    'Office of Student Affairs',
+    'Center for Performing Arts Organization',
+    'Academic Affairs',
+    'Physical Plant and Facilities Office',
+    'Accounting Office',
+    'Department Dean',
+    'CSC Adviser'
+];
+
+// Helper to populate a select with department options
+function populateDepartmentSelect(selectEl, options) {
+    if (!selectEl) return;
+    selectEl.innerHTML = '<option value="">Select Department</option>';
+    options.forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt;
+        o.textContent = opt;
+        selectEl.appendChild(o);
+    });
+}
+
+// Listen for employeePosition changes to toggle employeeDepartment
+document.addEventListener('DOMContentLoaded', function () {
+    const employeePosition = document.getElementById('employeePosition');
+    const employeeDepartment = document.getElementById('employeeDepartment');
+    if (employeeDepartment) {
+        // default populate with full departments (excluding SSC for employee departments by default)
+        populateDepartmentSelect(employeeDepartment, DEPARTMENTS_FULL.filter(d => d !== 'Supreme Student Council (SSC)'));
+        employeeDepartment.style.display = 'none';
+    }
+    // Set student department list to full including SSC
+    const studentDepartment = document.getElementById('studentDepartment');
+    if (studentDepartment) {
+        populateDepartmentSelect(studentDepartment, DEPARTMENTS_FULL);
+    }
+
+    if (employeePosition) {
+        employeePosition.addEventListener('change', function (e) {
+            const val = e.target.value;
+            if (!employeeDepartment) return;
+            if (EMPLOYEE_ROLES_WITH_DEPT.includes(val)) {
+                // For Department Dean and CSC Adviser, exclude SSC
+                if (val === 'Department Dean' || val === 'CSC Adviser') {
+                    populateDepartmentSelect(employeeDepartment, DEPARTMENTS_FULL.filter(d => d !== 'Supreme Student Council (SSC)'));
+                } else {
+                    populateDepartmentSelect(employeeDepartment, DEPARTMENTS_FULL);
+                }
+                employeeDepartment.style.display = 'block';
+                employeeDepartment.disabled = false;
+                employeeDepartment.required = true;
+            } else {
+                employeeDepartment.style.display = 'none';
+                employeeDepartment.disabled = true;
+                employeeDepartment.required = false;
+            }
+        });
+    }
+});
 
 /** Ask for confirmation and stage user deletion. */
 function deleteUser(userId) {

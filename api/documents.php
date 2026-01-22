@@ -225,6 +225,32 @@ function handleGet()
         // Enforce timeouts on stale documents before responding
         enforceTimeouts();
 
+        // Return approved documents as calendar events for the frontend
+        if (isset($_GET['action']) && $_GET['action'] === 'approved_events') {
+            // Only allow employees/admins or student SSC President to fetch approved events
+            // but approved events are generally public, so allow all authenticated users
+            $stmt = $db->prepare("SELECT id, title, doc_type, department, `date`, implDate, eventDate, uploaded_at
+                                   FROM documents
+                                   WHERE status = 'approved'
+                                   ORDER BY uploaded_at DESC");
+            $stmt->execute();
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $events = [];
+            foreach ($rows as $r) {
+                // Prefer eventDate, then date, then implDate
+                $event_date = $r['eventDate'] ?: $r['date'] ?: $r['implDate'] ?: $r['uploaded_at'];
+                $events[] = [
+                    'id' => (int)$r['id'],
+                    'title' => $r['title'],
+                    'doc_type' => $r['doc_type'],
+                    'department' => $r['department'],
+                    'event_date' => $event_date
+                ];
+            }
+            echo json_encode(['success' => true, 'events' => $events]);
+            return;
+        }
+
         // New: Handle student document fetching
         if (isset($_GET['action']) && $_GET['action'] === 'my_documents') {
             if ($currentUser['role'] !== 'student') {
@@ -374,22 +400,20 @@ function handleGet()
             $historyStmt->execute([$documentId]);
             $workflow_history = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // Fetch notes/comments (simplified - only document_notes for now)
+            // Fetch notes/comments from document_steps
             $notesStmt = $db->prepare("
-                SELECT n.id, n.note, n.created_at, n.document_id,
+                SELECT ds.id, ds.note, ds.acted_at as created_at, ds.document_id,
                        CASE
-                           WHEN n.author_role = 'employee' THEN CONCAT(e.first_name, ' ', e.last_name)
-                           WHEN n.author_role = 'student' THEN CONCAT(s.first_name, ' ', s.last_name)
-                           WHEN n.author_role = 'admin' THEN CONCAT(a.first_name, ' ', a.last_name)
+                           WHEN ds.assigned_to_employee_id IS NOT NULL THEN CONCAT(e.first_name, ' ', e.last_name)
+                           WHEN ds.assigned_to_student_id IS NOT NULL THEN CONCAT(s.first_name, ' ', s.last_name)
                            ELSE 'Unknown'
                        END as created_by_name,
-                       NULL as step_status
-                FROM document_notes n
-                LEFT JOIN employees e ON n.author_id = e.id AND n.author_role = 'employee'
-                LEFT JOIN students s ON n.author_id = s.id AND n.author_role = 'student'
-                LEFT JOIN administrators a ON n.author_id = a.id AND n.author_role = 'admin'
-                WHERE n.document_id = ?
-                ORDER BY n.created_at ASC
+                       ds.status as step_status
+                FROM document_steps ds
+                LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
+                LEFT JOIN students s ON ds.assigned_to_student_id = s.id
+                WHERE ds.document_id = ? AND ds.note IS NOT NULL AND ds.note != ''
+                ORDER BY ds.acted_at ASC
             ");
             $notesStmt->execute([$documentId]);
             $notes = $notesStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -539,14 +563,14 @@ function handleGet()
                 'file_path' => $filePath
             ];
 
-            // Attach signature mapping if available (percent-based coordinates)
+            // Attach signature mappings if available (now per step)
             $mockDir = realpath(__DIR__ . '/../assets') . DIRECTORY_SEPARATOR . 'mock';
             if ($mockDir && is_dir($mockDir)) {
-                $mapFile = $mockDir . DIRECTORY_SEPARATOR . 'signature_map_' . $documentId . '.json';
+                $mapFile = $mockDir . DIRECTORY_SEPARATOR . 'signature_maps_' . $documentId . '.json';
                 if (file_exists($mapFile)) {
                     $mapJson = json_decode(file_get_contents($mapFile), true);
                     if (is_array($mapJson)) {
-                        $payload['signature_map'] = $mapJson;
+                        $payload['signature_maps'] = $mapJson;  // Array keyed by step_id
                     }
                 }
             }
@@ -747,7 +771,7 @@ function handlePost()
 
 function createDocument($input)
 {
-    global $db, $currentUser;
+    global $db, $currentUser, $auth;
 
     if ($currentUser['role'] !== 'student') {
         http_response_code(403);
@@ -756,7 +780,7 @@ function createDocument($input)
     }
 
     $docType = $input['doc_type'] ?? '';
-    $studentId = $input['student_id'] ?? '';
+    $studentId = $currentUser['id'];
     $data = $input['data'] ?? [];
 
     if (!$docType || !$studentId || !$data) {
@@ -765,14 +789,12 @@ function createDocument($input)
         return;
     }
 
+    // Fetch fresh user data to ensure latest names
+    $freshUser = $auth->getUser($currentUser['id'], $currentUser['role']);
+    $currentUser = $freshUser;
+
     try {
         $db->beginTransaction();
-
-        // Insert document
-        $stmt = $db->prepare("INSERT INTO documents (student_id, doc_type, title, description, status, current_step, uploaded_at) VALUES (?, ?, ?, ?, 'submitted', 1, NOW())");
-        $stmt->execute([$studentId, $docType, $data['title'] ?? 'Untitled', $data['rationale'] ?? '']);
-
-        $docId = (int) $db->lastInsertId();
 
         // Get department
         $department = $data['department'] ?? '';
@@ -790,10 +812,31 @@ function createDocument($input)
             'Supreme Student Council' => 'Supreme Student Council',
         ];
 
-        if ($docType === 'proposal') {
+        $departmentFull = $departmentFullMap[$department] ?? $department;
+        $data['departmentFull'] = $departmentFull;
+        $date = null;
+        $implDate = null;
+        $eventName = null;
+        $eventDate = null;
 
-            $data['departmentFull'] = $departmentFullMap[$department] ?? $department;
-            $data['department'] = $data['departmentFull'];
+        if ($docType === 'proposal') {
+            $date = $data['date'] ?? null;
+        } elseif ($docType === 'saf') {
+            $implDate = $data['implDate'] ?? null;
+        } elseif ($docType === 'facility') {
+            $eventName = $data['eventName'] ?? null;
+            $eventDate = $data['eventDate'] ?? null;
+        } elseif ($docType === 'communication') {
+            $date = $data['date'] ?? null;
+        }
+
+        // Insert document
+        $stmt = $db->prepare("INSERT INTO documents (student_id, doc_type, title, description, status, current_step, uploaded_at, department, departmentFull, date, implDate, eventName, eventDate) VALUES (?, ?, ?, ?, 'submitted', 1, NOW(), ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$studentId, $docType, $data['title'] ?? 'Untitled', $data['rationale'] ?? '', $department, $departmentFull, $date, $implDate, $eventName, $eventDate]);
+
+        $docId = (int) $db->lastInsertId();
+
+        if ($docType === 'proposal') {
 
             // Fetch signatories based on department
             $signatories = [];
@@ -862,9 +905,6 @@ function createDocument($input)
         } elseif ($docType === 'communication') {
             // Map department to template file for communication letters
             $department = $data['department'] ?? '';
-
-            $data['departmentFull'] = $departmentFullMap[$department] ?? $department;
-            $data['department'] = $data['departmentFull'];
 
             // Fetch signatories based on department
             $signatories = [];
@@ -948,7 +988,6 @@ function createDocument($input)
                 // Fallback: Do not set file_path
             }
         } elseif ($docType === 'saf') {
-            $data['departmentFull'] = $departmentFullMap[$department] ?? $department;
 
             // Fetch signatories based on department
             $signatories = [];
@@ -1019,6 +1058,7 @@ function createDocument($input)
 
             // Add signatories to data
             $data = array_merge($data, $signatories);
+            $data['reqByName'] = $currentUser['first_name'] . ' ' . $currentUser['last_name'];
 
             $templatePath = '../assets/templates/SAF/SAF REQUEST.docx';
             if (file_exists($templatePath)) {
@@ -1033,7 +1073,6 @@ function createDocument($input)
                 }
             }
         } elseif ($docType === 'facility') {
-            $data['departmentFull'] = $departmentFullMap[$department] ?? $department;
 
             // Fetch signatories based on department
             $signatories = [];
@@ -1258,23 +1297,36 @@ function signDocument($input, $files = null)
         return;
     }
 
-    // Handle signed PDF upload
+    // Handle signed PDF upload - only archive old file if NOT fully approved yet
     if (isset($files['signed_pdf']) && $files['signed_pdf']['error'] === UPLOAD_ERR_OK) {
         $uploadDir = '../uploads/';
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0755, true);
         }
 
-        // Archive or delete old file (optional: move to archive folder)
-        $oldFilePath = $uploadDir . basename($doc['file_path']);
-        if (file_exists($oldFilePath)) {
-            $archiveDir = $uploadDir . 'archive/';
-            if (!is_dir($archiveDir)) {
-                mkdir($archiveDir, 0755, true);
-            }
-            $archivedPath = $archiveDir . basename($oldFilePath) . '.old';
-            if (!rename($oldFilePath, $archivedPath)) {
-                error_log("Failed to archive old file: $oldFilePath to $archivedPath");
+        // Check if all steps are completed AFTER this sign
+        $progressStmt = $db->prepare("
+            SELECT COUNT(*) as total_steps,
+                   COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_steps
+            FROM document_steps
+            WHERE document_id = ?
+        ");
+        $progressStmt->execute([$documentId]);
+        $progress = $progressStmt->fetch(PDO::FETCH_ASSOC);
+        $isFullyApproved = ($progress['total_steps'] == $progress['completed_steps']);
+
+        if (!$isFullyApproved) {
+            // Archive old file only if not fully approved
+            $oldFilePath = $uploadDir . basename($doc['file_path']);
+            if (file_exists($oldFilePath)) {
+                $archiveDir = $uploadDir . 'archive/';
+                if (!is_dir($archiveDir)) {
+                    mkdir($archiveDir, 0755, true);
+                }
+                $archivedPath = $archiveDir . basename($oldFilePath) . '.old';
+                if (!rename($oldFilePath, $archivedPath)) {
+                    error_log("Failed to archive old file: $oldFilePath to $archivedPath");
+                }
             }
         }
 
@@ -1333,7 +1385,20 @@ function signDocument($input, $files = null)
             $stmt->execute([$notes, $stepId, $currentUser['id']]);
         }
 
-        // Persist signature mapping (percent-based) if provided
+        // Fallback: if the role-restricted update did not affect any rows (e.g., assignment mismatch),
+        // ensure the step is still marked completed because the signature record was created above.
+        try {
+            if (isset($stmt) && $stmt->rowCount() === 0) {
+                $fallback = $db->prepare("UPDATE document_steps SET status = 'completed', acted_at = NOW(), note = ? WHERE id = ?");
+                $fallback->execute([$notes, $stepId]);
+                error_log("Fallback: marked step $stepId completed for document $documentId (role-restricted update affected 0 rows)");
+            }
+        } catch (Exception $e) {
+            // Log but do not fail the signing operation
+            error_log('Fallback step update failed: ' . $e->getMessage());
+        }
+
+        // Persist signature mapping (percent-based) if provided - now per step
         if (is_array($signatureMap)) {
             try {
                 $assetsDir = realpath(__DIR__ . '/../assets');
@@ -1344,11 +1409,22 @@ function signDocument($input, $files = null)
                 if (!is_dir($mockDir)) {
                     @mkdir($mockDir, 0775, true);
                 }
-                $mapPath = $mockDir . DIRECTORY_SEPARATOR . 'signature_map_' . $documentId . '.json';
-                @file_put_contents($mapPath, json_encode($signatureMap));
+                $mapPath = $mockDir . DIRECTORY_SEPARATOR . 'signature_maps_' . $documentId . '.json';
+                
+                // Load existing maps or initialize empty array
+                $existingMaps = [];
+                if (file_exists($mapPath)) {
+                    $existingMaps = json_decode(file_get_contents($mapPath), true) ?: [];
+                }
+                
+                // Add/update map for this step
+                $existingMaps[$stepId] = $signatureMap;
+                
+                // Save back as JSON
+                @file_put_contents($mapPath, json_encode($existingMaps));
             } catch (Exception $e) {
                 // Do not fail signing if map persistence fails; just log
-                error_log('Failed to persist signature_map: ' . $e->getMessage());
+                error_log('Failed to persist signature_maps: ' . $e->getMessage());
             }
         }
 
@@ -1370,6 +1446,67 @@ function signDocument($input, $files = null)
                 WHERE id = ?
             ");
             $stmt->execute([$documentId]);
+
+            // Create calendar event for approved document
+            $docStmt = $db->prepare("SELECT doc_type, title, department, departmentFull, date, implDate, eventName, eventDate FROM documents WHERE id = ?");
+            $docStmt->execute([$documentId]);
+            $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($doc) {
+                $eventTitle = '';
+                $eventDate = '';
+                $department = $doc['departmentFull'] ?: $doc['department'];
+
+                if ($doc['doc_type'] === 'proposal') {
+                    $eventTitle = $doc['date'] . ' ' . $department . ' ' . $doc['title'];
+                    $eventDate = $doc['date'];
+                } elseif ($doc['doc_type'] === 'saf') {
+                    $eventTitle = $doc['implDate'] . ' ' . $department . ' ' . $doc['title'];
+                    $eventDate = $doc['implDate'];
+                } elseif ($doc['doc_type'] === 'facility') {
+                    $eventTitle = $doc['eventName'] . ' ' . $department . ' ' . $doc['eventDate'];
+                    $eventDate = $doc['eventDate'];
+                } elseif ($doc['doc_type'] === 'communication') {
+                    $eventTitle = $doc['date'] . ' ' . $department . ' ' . $doc['title'];
+                    $eventDate = $doc['date'];
+                }
+
+                if ($eventTitle && $eventDate && $department) {
+                    // Check if event already exists for this document to avoid duplicates
+                    $stmt = $db->prepare("SELECT id FROM events WHERE title = ? AND event_date = ? AND department = ? LIMIT 1");
+                    $stmt->execute([$eventTitle, $eventDate, $department]);
+                    $existingEvent = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                    if (!$existingEvent) {
+                        // Create event via internal API call (use cURL to POST to api/events.php)
+                        $eventData = [
+                            'title' => $eventTitle,
+                            'event_date' => $eventDate,
+                            'department' => $department,
+                            'description' => 'Auto-generated from approved document: ' . $doc['title'],
+                            'event_time' => null // Optional, set if available
+                        ];
+
+                        // Use cURL to POST to api/events.php (assuming session context is available)
+                        $ch = curl_init();
+                        curl_setopt($ch, CURLOPT_URL, 'http://localhost/SPCF-Thesis/api/events.php'); // Adjust URL as needed
+                        curl_setopt($ch, CURLOPT_POST, true);
+                        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($eventData));
+                        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                            'Content-Type: application/json',
+                            'Cookie: ' . session_name() . '=' . session_id() // Pass session for auth
+                        ]);
+                        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                        $response = curl_exec($ch);
+                        curl_close($ch);
+
+                        $result = json_decode($response, true);
+                        if (!$result || !$result['success']) {
+                            error_log("Failed to create calendar event for document ID $documentId: " . ($result['message'] ?? 'Unknown error'));
+                        }
+                    }
+                }
+            }
         } else {
             // Update current step and status
             $stmt = $db->prepare("
@@ -1495,13 +1632,24 @@ function rejectDocument($input)
             $stmt->execute([$reason, $stepId, $currentUser['id']]);
         }
 
-        // Update document status to rejected
-        $stmt = $db->prepare("
-            UPDATE documents
-            SET status = 'rejected', updated_at = NOW()
-            WHERE id = ?
-        ");
-        $stmt->execute([$documentId]);
+        // Archive the file for rejected documents to optimize storage
+        $docStmt = $db->prepare("SELECT file_path FROM documents WHERE id = ?");
+        $docStmt->execute([$documentId]);
+        $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
+        if ($doc && $doc['file_path']) {
+            $uploadDir = '../uploads/';
+            $oldFilePath = $uploadDir . basename($doc['file_path']);
+            if (file_exists($oldFilePath)) {
+                $archiveDir = $uploadDir . 'archive/';
+                if (!is_dir($archiveDir)) {
+                    mkdir($archiveDir, 0755, true);
+                }
+                $archivedPath = $archiveDir . basename($oldFilePath) . '.rejected';
+                if (!rename($oldFilePath, $archivedPath)) {
+                    error_log("Failed to archive rejected file: $oldFilePath to $archivedPath");
+                }
+            }
+        }
 
         // Add audit log
         addAuditLog(

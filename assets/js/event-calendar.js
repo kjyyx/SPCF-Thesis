@@ -331,6 +331,12 @@ class CalendarApp {
                 });
                 this.events = map;
                 events = map;
+                // Merge approved documents-as-events into the calendar events
+                try {
+                    await this._mergeApprovedEvents();
+                } catch (e) {
+                    console.warn('Failed to merge approved events', e);
+                }
                 this.generateCalendar();
                 this.updateEventStatistics();
             } else {
@@ -396,6 +402,48 @@ class CalendarApp {
             }
         } catch (e) {
             console.error('Failed to load units', e);
+        }
+    }
+
+    // Fetch approved documents from API and merge them into this.events keyed by date
+    async _mergeApprovedEvents() {
+        try {
+            const resp = await fetch('../api/documents.php?action=approved_events');
+            const data = await resp.json();
+            if (!data || !data.success) return;
+            const approved = data.events || [];
+            approved.forEach(ev => {
+                // Normalize date to YYYY-MM-DD
+                let date = ev.event_date;
+                try {
+                    const d = new Date(date);
+                    if (!isNaN(d.getTime())) {
+                        date = d.toISOString().split('T')[0];
+                    }
+                } catch (e) {
+                    // leave as-is
+                }
+                if (!this.events[date]) this.events[date] = [];
+                // Avoid duplicates by title
+                const exists = this.events[date].some(x => x.title === ev.title && x.department === ev.department);
+                if (!exists) {
+                    this.events[date].push({
+                        id: String(ev.id),
+                        title: ev.title,
+                        time: '',
+                        description: '',
+                        department: ev.department || '',
+                        isApproved: true,
+                        isPencilBooked: false,
+                        color: this.getDepartmentColorRGB(ev.department || ''),
+                        textColor: this.getTextColorForRGB(this.getDepartmentColorRGB(ev.department || ''))
+                    });
+                }
+            });
+            // Keep global cache in sync
+            events = this.events;
+        } catch (e) {
+            console.error('Error fetching approved events', e);
         }
     }
 

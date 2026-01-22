@@ -388,23 +388,23 @@ function attachLoginSubmitHandler() {
                         // Try QRCode library first
                         if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
                             const canvas = document.createElement('canvas');
-                            canvas.width = 160;
-                            canvas.height = 160;
-                            canvas.style.border = '1px solid #ddd';
-                            canvas.style.borderRadius = '8px';
-                            canvas.style.maxWidth = '100%';
+                            canvas.width = 240;
+                            canvas.height = 240;
+                            canvas.style.display = 'block';
+                            canvas.style.margin = '0 auto';
+                            canvas.style.maxWidth = '240px';
                             canvas.style.height = 'auto';
                             container.appendChild(canvas);
-                            QRCode.toCanvas(canvas, qrUrl, { width: 140 }, function (error) {  // Reduced size for better fit
+                            QRCode.toCanvas(canvas, qrUrl, { width: 240 }, function (error) {
                                 if (error) {
                                     console.error('QRCode generation failed, trying Google Charts...');
                                     // Fallback to Google Charts
                                     container.innerHTML = '';
                                     const img = document.createElement('img');
-                                    img.src = `https://chart.googleapis.com/chart?chs=160x160&cht=qr&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;  // Reduced from 200x200 to 160x160
-                                    img.style.border = '1px solid #ddd';
-                                    img.style.borderRadius = '8px';
-                                    img.style.maxWidth = '100%';
+                                    img.src = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;
+                                    img.style.display = 'block';
+                                    img.style.margin = '0 auto';
+                                    img.style.maxWidth = '240px';
                                     img.style.height = 'auto';
                                     img.onload = () => {
                                         console.log('Google Charts QR code loaded successfully');
@@ -427,10 +427,10 @@ function attachLoginSubmitHandler() {
                             // Direct fallback to Google Charts
                             console.log('QRCode not available, using Google Charts API');
                             const img = document.createElement('img');
-                            img.src = `https://chart.googleapis.com/chart?chs=160x160&cht=qr&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;  // Reduced to 160x160
-                            img.style.border = '1px solid #ddd';
-                            img.style.borderRadius = '8px';
-                            img.style.maxWidth = '100%';
+                            img.src = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;
+                            img.style.display = 'block';
+                            img.style.margin = '0 auto';
+                            img.style.maxWidth = '240px';
                             img.style.height = 'auto';
                             img.onload = () => {
                                 console.log('Google Charts QR code loaded successfully');

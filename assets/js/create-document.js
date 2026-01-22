@@ -290,6 +290,7 @@ function collectProposalData() {
         date: document.getElementById('prop-date').value,
         organizer: document.getElementById('prop-organizer').value,
         department: document.getElementById('prop-department').value,
+        departmentFull: '',  // Will be set server-side
         title: document.getElementById('prop-title').value,
         lead: document.getElementById('prop-lead').value,
         rationale: document.getElementById('prop-rationale').value,

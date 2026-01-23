@@ -18,7 +18,7 @@ const ALLOWED_STUDENT_POSITIONS = ['SSC President'];
 
 // Allow employees and SSC President students only
 $userHasAccess = in_array($currentUser['role'], ALLOWED_ROLES) ||
-                 ($currentUser['role'] === 'student' && in_array($currentUser['position'], ALLOWED_STUDENT_POSITIONS));
+    ($currentUser['role'] === 'student' && in_array($currentUser['position'], ALLOWED_STUDENT_POSITIONS));
 
 if (!$userHasAccess) {
     header('Location: user-login.php?error=access_denied');
@@ -31,7 +31,8 @@ if (empty($_SESSION['csrf_token'])) {
 }
 
 // Audit log helper function with improved error handling
-function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
+function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO')
+{
     global $currentUser;
 
     if (!$currentUser) {
@@ -150,7 +151,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             <div class="document-badge">
                                 <i class="bi bi-bell-fill me-2" aria-hidden="true"></i>
                                 <span class="fw-bold">Document Notifications</span>
-                                <span class="badge bg-danger ms-2" id="pendingCount" aria-label="Pending documents count">3</span>
+                                <span class="badge bg-danger ms-2" id="pendingCount"
+                                    aria-label="Pending documents count">3</span>
                             </div>
                         </div>
 
@@ -160,9 +162,11 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                 <span class="input-group-text" id="search-icon">
                                     <i class="bi bi-search" aria-hidden="true"></i>
                                 </span>
-                                <input type="text" class="form-control" id="documentSearch" placeholder="Search documents..."
-                                       aria-label="Search documents" aria-describedby="search-icon">
-                                <button class="btn btn-outline-secondary" type="button" id="clearSearch" aria-label="Clear search">
+                                <input type="text" class="form-control" id="documentSearch"
+                                    placeholder="Search documents..." aria-label="Search documents"
+                                    aria-describedby="search-icon">
+                                <button class="btn btn-outline-secondary" type="button" id="clearSearch"
+                                    aria-label="Clear search">
                                     <i class="bi bi-x" aria-hidden="true"></i>
                                 </button>
                             </div>
@@ -171,15 +175,18 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                         <!-- Quick Stats -->
                         <div class="header-stats-compact">
                             <div class="stat-item-compact">
-                                <div class="stat-number-compact text-danger" id="urgentCount" aria-label="Urgent documents">1</div>
+                                <div class="stat-number-compact text-danger" id="urgentCount"
+                                    aria-label="Urgent documents">1</div>
                                 <div class="stat-label-compact">Urgent</div>
                             </div>
                             <div class="stat-item-compact">
-                                <div class="stat-number-compact text-warning" id="highCount" aria-label="High priority documents">1</div>
+                                <div class="stat-number-compact text-warning" id="highCount"
+                                    aria-label="High priority documents">1</div>
                                 <div class="stat-label-compact">High Priority</div>
                             </div>
                             <div class="stat-item-compact">
-                                <div class="stat-number-compact text-info" id="normalCount" aria-label="Normal priority documents">1</div>
+                                <div class="stat-number-compact text-info" id="normalCount"
+                                    aria-label="Normal priority documents">1</div>
                                 <div class="stat-label-compact">Normal</div>
                             </div>
                         </div>
@@ -188,22 +195,16 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                     <!-- Quick Actions -->
                     <div class="document-actions-buttons">
                         <!-- 'urgent' maps to 'submitted' status in JS binding below -->
-                        <button class="action-button" onclick="filterDocuments('submitted')" title="Show Urgent Documents" aria-label="Filter urgent documents">
-                            <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
-                            <span>Urgent</span>
-                        </button>
-                        <button class="action-button" onclick="filterDocuments('all')" title="Show All Documents" aria-label="Show all documents">
-                            <i class="bi bi-list-ul" aria-hidden="true"></i>
-                            <span>All</span>
-                        </button>
-                        <button class="action-button" onclick="filterDocuments('approved')" title="Show Approved Documents" aria-label="Filter approved documents">
-                            <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
-                            <span>Done</span>
-                        </button>
-                        <button class="action-button" onclick="filterDocuments('rejected')" title="Show Rejected Documents" aria-label="Filter rejected documents">
-                            <i class="bi bi-x-circle-fill" aria-hidden="true"></i>
-                            <span>Rejected</span>
-                        </button>
+                        <button class="btn btn-outline-primary btn-sm"
+                            onclick="documentSystem.filterDocuments('all')">All</button>
+                        <button class="btn btn-outline-warning btn-sm"
+                            onclick="documentSystem.filterDocuments('submitted')">Pending</button>
+                        <button class="btn btn-outline-info btn-sm"
+                            onclick="documentSystem.filterDocuments('in_review')">In Review</button>
+                        <button class="btn btn-outline-success btn-sm"
+                            onclick="documentSystem.filterDocuments('approved')">Done</button>
+                        <button class="btn btn-outline-danger btn-sm"
+                            onclick="documentSystem.filterDocuments('rejected')">Rejected</button>
                     </div>
                 </div>
             </div>
@@ -264,24 +265,24 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             <div class="pdf-toolbar">
                                 <div class="toolbar-group">
                                     <div class="page-controls">
-                                        <button class="tool-btn" onclick="documentSystem.prevPage()" id="prevPageBtn" 
-                                                title="Previous Page" aria-label="Previous Page">
+                                        <button class="tool-btn" onclick="documentSystem.prevPage()" id="prevPageBtn"
+                                            title="Previous Page" aria-label="Previous Page">
                                             <i class="bi bi-chevron-left"></i>
                                         </button>
                                         <div class="page-info">
-                                            <input type="number" id="pageInput" min="1" 
-                                                   onchange="documentSystem.goToPage(this.value)" 
-                                                   class="page-input" title="Current Page" />
+                                            <input type="number" id="pageInput" min="1"
+                                                onchange="documentSystem.goToPage(this.value)" class="page-input"
+                                                title="Current Page" />
                                             <span class="page-separator">/</span>
                                             <span id="pageTotal" class="page-total">1</span>
                                         </div>
-                                        <button class="tool-btn" onclick="documentSystem.nextPage()" id="nextPageBtn" 
-                                                title="Next Page" aria-label="Next Page">
+                                        <button class="tool-btn" onclick="documentSystem.nextPage()" id="nextPageBtn"
+                                            title="Next Page" aria-label="Next Page">
                                             <i class="bi bi-chevron-right"></i>
                                         </button>
                                     </div>
                                 </div>
-                                
+
                                 <div class="toolbar-group">
                                     <div class="zoom-controls">
                                         <button class="tool-btn" onclick="documentSystem.zoomOut()" title="Zoom Out">
@@ -294,10 +295,12 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                             <i class="bi bi-plus"></i>
                                         </button>
                                         <div class="toolbar-separator"></div>
-                                        <button class="tool-btn" onclick="documentSystem.fitToWidth()" title="Fit to Width">
+                                        <button class="tool-btn" onclick="documentSystem.fitToWidth()"
+                                            title="Fit to Width">
                                             <i class="bi bi-arrows-angle-expand"></i>
                                         </button>
-                                        <button class="tool-btn" onclick="documentSystem.resetZoom()" title="Reset Zoom">
+                                        <button class="tool-btn" onclick="documentSystem.resetZoom()"
+                                            title="Reset Zoom">
                                             <i class="bi bi-arrow-clockwise"></i>
                                         </button>
                                     </div>
@@ -328,8 +331,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             </div>
                             <div class="card-content">
                                 <div class="action-buttons">
-                                    <button class="action-btn-full success" onclick="signDocument()" 
-                                            title="Sign this document">
+                                    <button class="action-btn-full success" onclick="signDocument()"
+                                        title="Sign this document">
                                         <div class="btn-icon">
                                             <i class="bi bi-pen-fill"></i>
                                         </div>
@@ -339,9 +342,9 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                         </div>
                                         <i class="bi bi-chevron-right btn-arrow"></i>
                                     </button>
-                                    
-                                    <button class="action-btn-full danger" onclick="showRejectModal()" 
-                                            title="Reject this document">
+
+                                    <button class="action-btn-full danger" onclick="showRejectModal()"
+                                        title="Reject this document">
                                         <div class="btn-icon">
                                             <i class="bi bi-x-circle"></i>
                                         </div>
@@ -374,7 +377,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                             <span class="status-subtitle">Click above to add your signature</span>
                                         </div>
                                     </div>
-                                    
+
                                     <div class="signed-status d-none" id="signedStatus">
                                         <div class="status-icon success">
                                             <i class="bi bi-check-circle-fill"></i>
@@ -386,8 +389,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                     </div>
                                 </div>
 
-                                <button class="signature-pad-toggle" onclick="toggleSignaturePad()" 
-                                        id="signaturePadToggle">
+                                <button class="signature-pad-toggle" onclick="toggleSignaturePad()"
+                                    id="signaturePadToggle">
                                     <i class="bi bi-pencil-square me-2"></i>
                                     Open Signature Pad
                                 </button>
@@ -405,7 +408,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                             <i class="bi bi-upload me-2"></i>
                                             Upload Signature Image
                                         </label>
-                                        <input type="file" id="signatureUpload" accept="image/*" class="signature-upload-input">
+                                        <input type="file" id="signatureUpload" accept="image/*"
+                                            class="signature-upload-input">
                                         <div class="upload-hint">
                                             <i class="bi bi-info-circle"></i>
                                             Upload a PNG, JPG, or GIF image of your signature
@@ -448,8 +452,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             </div>
                             <div class="card-content">
                                 <div class="notes-container">
-                                    <textarea class="notes-input" id="notesInput" rows="4" 
-                                              placeholder="Add your notes or comments about this document..."></textarea>
+                                    <textarea class="notes-input" id="notesInput" rows="4"
+                                        placeholder="Add your notes or comments about this document..."></textarea>
                                     <div class="notes-actions">
                                         <button class="btn-notes save" onclick="documentSystem.saveNotes()">
                                             <i class="bi bi-check2"></i>
@@ -492,7 +496,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="changePasswordForm">
-                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                    <input type="hidden" name="csrf_token"
+                        value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                     <div class="modal-body">
                         <div id="changePasswordMessages"></div>
                         <div class="mb-3">
@@ -536,7 +541,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     </div>
 
     <!-- Profile Settings Modal -->
-    <div class="modal fade" id="profileSettingsModal" tabindex="-1" aria-labelledby="profileSettingsLabel" aria-hidden="true">
+    <div class="modal fade" id="profileSettingsModal" tabindex="-1" aria-labelledby="profileSettingsLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
@@ -546,7 +552,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="profileSettingsForm">
-                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                    <input type="hidden" name="csrf_token"
+                        value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                     <div class="modal-body">
                         <div id="profileSettingsMessages"></div>
                         <div class="row">
@@ -644,11 +651,13 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                     <div class="accordion" id="helpAccordion">
                         <div class="accordion-item">
                             <h2 class="accordion-header">
-                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#gettingStarted">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#gettingStarted">
                                     Getting Started
                                 </button>
                             </h2>
-                            <div id="gettingStarted" class="accordion-collapse collapse show" data-bs-parent="#helpAccordion">
+                            <div id="gettingStarted" class="accordion-collapse collapse show"
+                                data-bs-parent="#helpAccordion">
                                 <div class="accordion-body">
                                     <p>Welcome to the Document Notifications system! Here you can:</p>
                                     <ul>
@@ -662,16 +671,20 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                         </div>
                         <div class="accordion-item">
                             <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#documentWorkflow">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#documentWorkflow">
                                     Document Workflow
                                 </button>
                             </h2>
-                            <div id="documentWorkflow" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                            <div id="documentWorkflow" class="accordion-collapse collapse"
+                                data-bs-parent="#helpAccordion">
                                 <div class="accordion-body">
                                     <p>Documents follow a sequential approval process:</p>
                                     <ol>
-                                        <li><strong>Submitted:</strong> Document is uploaded and pending initial review</li>
-                                        <li><strong>In Review:</strong> Document is being reviewed by assigned personnel</li>
+                                        <li><strong>Submitted:</strong> Document is uploaded and pending initial review
+                                        </li>
+                                        <li><strong>In Review:</strong> Document is being reviewed by assigned personnel
+                                        </li>
                                         <li><strong>Approved:</strong> Document has been approved and signed</li>
                                         <li><strong>Rejected:</strong> Document was rejected (requires revision)</li>
                                     </ol>
@@ -680,11 +693,13 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                         </div>
                         <div class="accordion-item">
                             <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#signingDocuments">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#signingDocuments">
                                     Signing Documents
                                 </button>
                             </h2>
-                            <div id="signingDocuments" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                            <div id="signingDocuments" class="accordion-collapse collapse"
+                                data-bs-parent="#helpAccordion">
                                 <div class="accordion-body">
                                     <p>To sign a document:</p>
                                     <ol>
@@ -699,7 +714,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                         </div>
                         <div class="accordion-item">
                             <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#notifications">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#notifications">
                                     Notifications
                                 </button>
                             </h2>
@@ -717,18 +733,24 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                         </div>
                         <div class="accordion-item">
                             <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#troubleshooting">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#troubleshooting">
                                     Troubleshooting
                                 </button>
                             </h2>
-                            <div id="troubleshooting" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                            <div id="troubleshooting" class="accordion-collapse collapse"
+                                data-bs-parent="#helpAccordion">
                                 <div class="accordion-body">
                                     <p><strong>Common Issues:</strong></p>
                                     <ul>
-                                        <li><strong>Document won't load:</strong> Check your internet connection and try refreshing</li>
-                                        <li><strong>Signature not saving:</strong> Ensure you've drawn a complete signature</li>
-                                        <li><strong>Notifications not showing:</strong> Check your browser notification settings</li>
-                                        <li><strong>Access denied:</strong> Contact your administrator for permission issues</li>
+                                        <li><strong>Document won't load:</strong> Check your internet connection and try
+                                            refreshing</li>
+                                        <li><strong>Signature not saving:</strong> Ensure you've drawn a complete
+                                            signature</li>
+                                        <li><strong>Notifications not showing:</strong> Check your browser notification
+                                            settings</li>
+                                        <li><strong>Access denied:</strong> Contact your administrator for permission
+                                            issues</li>
                                     </ul>
                                 </div>
                             </div>
@@ -742,20 +764,29 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
     </div>
 
-    <!-- Notifications Modal -->
-    <div class="modal fade" id="notificationsModal" tabindex="-1">
+    <!-- Notifications Modal - OneUI Enhanced -->
+    <div class="modal fade" id="notificationsModal" tabindex="-1" aria-labelledby="notificationsModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-bell me-2"></i>Notifications</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" id="notificationsModalLabel">
+                        <i class="bi bi-bell-fill"></i>
+                        <span>Notifications</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div id="notificationsList"></div>
+                    <div id="notificationsList">
+                        <!-- Notifications will be populated here -->
+                    </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="markAllAsRead()">Mark All Read</button>
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="markAllAsRead()">
+                        <i class="bi bi-check-all me-2"></i>Mark All Read
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-2"></i>Close
+                    </button>
                 </div>
             </div>
         </div>
@@ -775,7 +806,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="rejectReason" class="form-label">Reason for rejection</label>
-                            <textarea class="form-control" id="rejectReason" rows="3" required placeholder="Enter reason..."></textarea>
+                            <textarea class="form-control" id="rejectReason" rows="3" required
+                                placeholder="Enter reason..."></textarea>
                         </div>
                         <div id="rejectError" class="text-danger small d-none"></div>
                     </div>
@@ -819,7 +851,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                 document.getElementById('profilePhone').value = '';
                 document.getElementById('darkModeToggle').checked = localStorage.getItem('darkMode') === 'true';
             }
-            
+
             const modal = new bootstrap.Modal(document.getElementById('profileSettingsModal'));
             modal.show();
         }
@@ -829,11 +861,11 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
             const emailNotifications = localStorage.getItem('emailNotifications') !== 'false'; // default true
             const browserNotifications = localStorage.getItem('browserNotifications') !== 'false'; // default true
             const defaultView = localStorage.getItem('defaultView') || 'month';
-            
+
             document.getElementById('emailNotifications').checked = emailNotifications;
             document.getElementById('browserNotifications').checked = browserNotifications;
             document.getElementById('defaultView').value = defaultView;
-            
+
             const modal = new bootstrap.Modal(document.getElementById('preferencesModal'));
             modal.show();
         }
@@ -847,19 +879,19 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
             const emailNotifications = document.getElementById('emailNotifications').checked;
             const browserNotifications = document.getElementById('browserNotifications').checked;
             const defaultView = document.getElementById('defaultView').value;
-            
+
             // Save to localStorage
             localStorage.setItem('emailNotifications', emailNotifications);
             localStorage.setItem('browserNotifications', browserNotifications);
             localStorage.setItem('defaultView', defaultView);
-            
+
             // Show success message
             const messagesDiv = document.getElementById('preferencesMessages');
             if (messagesDiv) {
                 messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Preferences saved successfully!</div>';
                 setTimeout(() => messagesDiv.innerHTML = '', 3000);
             }
-            
+
             // Close modal
             bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
         }
@@ -875,7 +907,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                 window.documentSystem.filterDocuments(status);
             }
         }
-        
+
         function goBack() {
             document.getElementById('documentView').style.display = 'none';
             document.getElementById('dashboardView').style.display = 'block';
@@ -977,7 +1009,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
 
                     // Show success message
                     if (messagesDiv) messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Profile updated successfully!</div>';
-                    
+
                     // Apply theme
                     document.body.classList.toggle('dark-theme', darkMode);
 

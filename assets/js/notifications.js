@@ -8,6 +8,8 @@
 class DocumentNotificationSystem {
     constructor() {
         this.documents = [];
+        this.pendingDocuments = [];
+        this.completedDocuments = [];
         this.filteredDocuments = [];
         this.currentDocument = null;
         this.currentUser = window.currentUser || null;
@@ -118,6 +120,9 @@ class DocumentNotificationSystem {
             const data = await response.json();
             if (data.success) {
                 this.documents = data.documents || [];
+                // Separate pending and completed
+                this.pendingDocuments = this.documents.filter(doc => !doc.user_action_completed);
+                this.completedDocuments = this.documents.filter(doc => doc.user_action_completed);
             } else {
                 console.error('Failed to load documents:', data.message);
                 this.showToast({ type: 'error', title: 'Error', message: 'Failed to load documents' });
@@ -322,11 +327,19 @@ class DocumentNotificationSystem {
 
     // Apply both filters and search
     applyFiltersAndSearch() {
-        let filtered = [...this.documents];
+        let filtered = [];
 
         // Apply status filter
-        if (this.currentFilter !== 'all') {
-            filtered = filtered.filter(doc => doc.status === this.currentFilter);
+        if (this.currentFilter === 'all') {
+            filtered = [...this.pendingDocuments, ...this.completedDocuments];
+        } else if (this.currentFilter === 'pending') {
+            filtered = this.pendingDocuments.filter(doc => doc.status !== 'signed' && doc.status !== 'rejected');
+        } else if (this.currentFilter === 'done') {
+            filtered = this.completedDocuments.filter(doc => doc.status !== 'rejected');
+        } else if (this.currentFilter === 'rejected') {
+            filtered = this.completedDocuments.filter(doc => doc.status === 'rejected');
+        } else {
+            filtered = this.pendingDocuments.filter(doc => doc.status === this.currentFilter);
         }
 
         // Apply search filter
@@ -368,7 +381,8 @@ class DocumentNotificationSystem {
         }
 
         this.filteredDocuments.forEach(doc => {
-            const card = this.createDocumentCard(doc);
+            const isCompleted = this.completedDocuments.some(c => c.id === doc.id);
+            const card = this.createDocumentCard(doc, isCompleted);
             container.appendChild(card);
         });
 
@@ -399,30 +413,29 @@ class DocumentNotificationSystem {
         setTimeout(() => {
             container.innerHTML = '';
 
-            if (this.documents.length === 0) {
-                container.innerHTML = `
-                    <div class="col-12 text-center py-5">
-                        <div class="empty-state">
-                            <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
-                            <h4 class="mt-3">All Caught Up!</h4>
-                            <p class="text-muted">No documents require your attention at this time.</p>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
-
-            this.documents.forEach(doc => {
+            // Render pending documents
+            this.pendingDocuments.forEach(doc => {
                 const card = this.createDocumentCard(doc);
                 container.appendChild(card);
             });
+            // Render completed documents as history
+            if (this.completedDocuments.length > 0) {
+                const historyHeader = document.createElement('h5');
+                historyHeader.className = 'mt-4 mb-3 text-muted';
+                historyHeader.textContent = 'Recent History';
+                container.appendChild(historyHeader);
+                this.completedDocuments.forEach(doc => {
+                    const card = this.createDocumentCard(doc, true); // Pass readOnly flag
+                    container.appendChild(card);
+                });
+            }
 
             this.updateStatsDisplay();
         }, 300);
     }
 
     // Create document card (old cards design)
-    createDocumentCard(doc) {
+    createDocumentCard(doc, readOnly = false) {
         const col = document.createElement('div');
         col.className = 'col-md-6 col-lg-4';
 
@@ -434,7 +447,7 @@ class DocumentNotificationSystem {
         const docType = this.formatDocType(doc.doc_type || doc.type);
 
         col.innerHTML = `
-            <div class="card document-card h-100" onclick="documentSystem.openDocument(${doc.id})" tabindex="0" role="button" aria-label="Open ${this.escapeHtml(doc.title)}">
+            <div class="card document-card h-100 ${readOnly ? 'opacity-50' : ''}" ${readOnly ? '' : `onclick="documentSystem.openDocument(${doc.id})"`} tabindex="0" role="button" aria-label="Open ${this.escapeHtml(doc.title)}">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <h6 class="card-title mb-0 fw-semibold">${this.escapeHtml(doc.title)}</h6>
@@ -473,12 +486,14 @@ class DocumentNotificationSystem {
 
         // Keyboard support for opening on Enter/Space
         const cardEl = col.querySelector('.document-card');
-        cardEl.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                this.openDocument(doc.id);
-            }
-        });
+        if (!readOnly) {
+            cardEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.openDocument(doc.id);
+                }
+            });
+        }
 
         return col;
     }
@@ -521,8 +536,21 @@ class DocumentNotificationSystem {
     computeProgress(doc) {
         const wf = Array.isArray(doc.workflow) ? doc.workflow : [];
         if (wf.length === 0) return 0;
-        const done = wf.filter(s => s.status === 'completed').length;
-        return Math.round((done / wf.length) * 100);
+        
+        const totalSteps = wf.length;
+        const completedSteps = wf.filter(s => s.status === 'completed').length;
+        const pendingStep = wf.find(s => s.status === 'pending');
+        
+        if (pendingStep && pendingStep.order) {
+            // Progress up to the pending step (e.g., if step 3/5 is pending, progress is 40% for steps 1-2 completed)
+            return Math.round(((pendingStep.order - 1) / totalSteps) * 100);
+        } else if (completedSteps === totalSteps) {
+            // All steps completed
+            return 100;
+        } else {
+            // Fallback: Use completed ratio (e.g., for rejected documents or incomplete workflows)
+            return Math.round((completedSteps / totalSteps) * 100);
+        }
     }
 
     // Escape for safe HTML injection
@@ -740,6 +768,15 @@ class DocumentNotificationSystem {
         const signatureStatusContainer = document.getElementById('signatureStatusContainer');
 
         if (!signBtn || !rejectBtn || !signaturePadToggle || !signatureStatusContainer) return;
+
+        // Check if this is a completed document (read-only history)
+        if (doc.user_action_completed) {
+            signBtn.style.display = 'none';
+            rejectBtn.style.display = 'none';
+            signaturePadToggle.style.display = 'none';
+            signatureStatusContainer.style.display = 'none';
+            return;
+        }
 
         // Find the pending step
         const pendingStep = doc.workflow?.find(step => step.status === 'pending');

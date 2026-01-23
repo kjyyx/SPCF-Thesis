@@ -579,9 +579,21 @@ function handleGet()
             echo json_encode($payload);
             return;
         }
-        // Get documents assigned to current user (employee or SSC President student) that need action
-        $query = "
-            SELECT
+        // Get documents assigned to current user (employee or SSC President student) that need action or were recently completed
+        $params = [];
+        if ($currentUser['role'] === 'employee') {
+            $params = [$currentUser['id'], 'employee', $currentUser['id'], 'student'];
+        } elseif ($currentUser['role'] === 'student' && $currentUser['position'] === 'SSC President') {
+            $params = [$currentUser['id'], 'employee', $currentUser['id'], 'student'];
+        } else {
+            // No documents for other student roles
+            echo json_encode(['success' => true, 'documents' => []]);
+            return;
+        }
+
+        // Query for pending documents
+        $pendingQuery = "
+            SELECT DISTINCT
                 d.id,
                 d.title,
                 d.doc_type,
@@ -592,99 +604,131 @@ function handleGet()
                 s.id as student_id,
                 CONCAT(s.first_name, ' ', s.last_name) as student_name,
                 s.department as student_department,
+                d.file_path,
+                NULL as user_action_completed,
                 ds.id as step_id,
                 ds.step_order,
                 ds.name as step_name,
                 ds.status as step_status,
-                ds.note as step_note,
+                ds.note,
                 ds.acted_at,
                 ds.assigned_to_employee_id,
                 ds.assigned_to_student_id,
-                CASE
-                    WHEN ds.assigned_to_employee_id IS NOT NULL THEN dsg.status
-                    WHEN ds.assigned_to_student_id IS NOT NULL THEN dssg.status
-                    ELSE NULL
-                END as signature_status,
-                CASE
-                    WHEN ds.assigned_to_employee_id IS NOT NULL THEN dsg.signed_at
-                    WHEN ds.assigned_to_student_id IS NOT NULL THEN dssg.signed_at
-                    ELSE NULL
-                END as signed_at,
-                e.first_name AS assignee_first,
-                e.last_name AS assignee_last,
-                st.first_name AS student_assignee_first,
-                st.last_name AS student_assignee_last
+                e.first_name as assignee_first,
+                e.last_name as assignee_last,
+                st.first_name as student_assignee_first,
+                st.last_name as student_assignee_last,
+                dsg.status as signature_status,
+                dsg.signed_at
             FROM documents d
-            JOIN students s ON d.student_id = s.id
+            LEFT JOIN students s ON d.student_id = s.id
             JOIN document_steps ds ON d.id = ds.document_id
-            LEFT JOIN document_signatures dsg ON ds.id = dsg.step_id AND dsg.employee_id = ds.assigned_to_employee_id
             LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
             LEFT JOIN students st ON ds.assigned_to_student_id = st.id
-            LEFT JOIN document_signatures dssg ON ds.id = dssg.step_id AND dssg.student_id = ds.assigned_to_student_id
-            WHERE ";
-
-        $params = [];
-
-        if ($currentUser['role'] === 'employee') {
-            $query .= "ds.assigned_to_employee_id = ?";
-            $params[] = $currentUser['id'];
-        } elseif ($currentUser['role'] === 'student' && $currentUser['position'] === 'SSC President') {
-            $query .= "ds.assigned_to_student_id = ?";
-            $params[] = $currentUser['id'];
-        } else {
-            // No documents for other student roles
-            echo json_encode(['success' => true, 'documents' => []]);
-            return;
-        }
-
-        $query .= "
-            AND ds.status = 'pending'
-            AND d.status IN ('submitted', 'in_review')
-            ORDER BY d.uploaded_at DESC, ds.step_order ASC
+            LEFT JOIN document_signatures dsg ON dsg.step_id = ds.id 
+                AND ((dsg.employee_id = ds.assigned_to_employee_id AND ds.assigned_to_employee_id IS NOT NULL) 
+                     OR (dsg.student_id = ds.assigned_to_student_id AND ds.assigned_to_student_id IS NOT NULL))
+            WHERE ds.status = 'pending'
+            AND (
+                (ds.assigned_to_employee_id = ? AND ? = 'employee')
+                OR (ds.assigned_to_student_id = ? AND ? = 'student')
+            )
         ";
-
-        $stmt = $db->prepare($query);
+        $stmt = $db->prepare($pendingQuery);
         $stmt->execute($params);
-        $documents = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $pendingRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Query for completed documents (recent only)
+        $completedQuery = "
+            SELECT DISTINCT
+                d.id,
+                d.title,
+                d.doc_type,
+                d.description,
+                d.status,
+                d.current_step,
+                d.uploaded_at,
+                s.id as student_id,
+                CONCAT(s.first_name, ' ', s.last_name) as student_name,
+                s.department as student_department,
+                d.file_path,
+                1 as user_action_completed,
+                ds.id as step_id,
+                ds.step_order,
+                ds.name as step_name,
+                ds.status as step_status,
+                ds.note,
+                ds.acted_at,
+                ds.assigned_to_employee_id,
+                ds.assigned_to_student_id,
+                e.first_name as assignee_first,
+                e.last_name as assignee_last,
+                st.first_name as student_assignee_first,
+                st.last_name as student_assignee_last,
+                dsg.status as signature_status,
+                dsg.signed_at
+            FROM documents d
+            LEFT JOIN students s ON d.student_id = s.id
+            JOIN document_steps ds ON d.id = ds.document_id
+            LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
+            LEFT JOIN students st ON ds.assigned_to_student_id = st.id
+            LEFT JOIN document_signatures dsg ON dsg.step_id = ds.id 
+                AND ((dsg.employee_id = ds.assigned_to_employee_id AND ds.assigned_to_employee_id IS NOT NULL) 
+                     OR (dsg.student_id = ds.assigned_to_student_id AND ds.assigned_to_student_id IS NOT NULL))
+            WHERE ds.status IN ('completed', 'rejected')
+            AND ds.acted_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            AND (
+                (ds.assigned_to_employee_id = ? AND ? = 'employee')
+                OR (ds.assigned_to_student_id = ? AND ? = 'student')
+            )
+        ";
+        $stmt2 = $db->prepare($completedQuery);
+        $stmt2->execute($params);
+        $completedRows = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+
+        // Merge rows
+        $rows = array_merge($pendingRows, $completedRows);
 
         // Group by document and organize workflow
         $processedDocuments = [];
-        foreach ($documents as $doc) {
-            $docId = $doc['id'];
-
+        foreach ($rows as $row) {
+            $docId = $row['id'];
             if (!isset($processedDocuments[$docId])) {
                 $processedDocuments[$docId] = [
-                    'id' => $doc['id'],
-                    'title' => $doc['title'],
-                    'doc_type' => $doc['doc_type'],
-                    'description' => $doc['description'],
-                    'status' => $doc['status'],
-                    'current_step' => $doc['current_step'],
-                    'uploaded_at' => $doc['uploaded_at'],
+                    'id' => (int) $row['id'],
+                    'title' => $row['title'],
+                    'doc_type' => $row['doc_type'],
+                    'description' => $row['description'],
+                    'status' => $row['status'],
+                    'current_step' => (int) $row['current_step'],
+                    'uploaded_at' => $row['uploaded_at'],
                     'student' => [
-                        'id' => $doc['student_id'],
-                        'name' => $doc['student_name'],
-                        'department' => $doc['student_department']
+                        'id' => $row['student_id'],
+                        'name' => $row['student_name'],
+                        'department' => $row['student_department']
                     ],
-                    'workflow' => []
+                    'file_path' => $row['file_path'],
+                    'workflow' => [],
+                    'user_action_completed' => (int) ($row['user_action_completed'] ?? 0)
                 ];
             }
-
-            // Add workflow step
-            $processedDocuments[$docId]['workflow'][] = [
-                'id' => $doc['step_id'],
-                'step_order' => $doc['step_order'],
-                'name' => $doc['step_name'],
-                'status' => $doc['step_status'],
-                'note' => $doc['step_note'],
-                'acted_at' => $doc['acted_at'],
-                'assignee_id' => $doc['assigned_to_employee_id'] ?: $doc['assigned_to_student_id'],
-                'assignee_name' => $doc['assigned_to_employee_id'] ?
-                    trim(($doc['assignee_first'] ?? '') . ' ' . ($doc['assignee_last'] ?? '')) :
-                    trim(($doc['student_assignee_first'] ?? '') . ' ' . ($doc['student_assignee_last'] ?? '')),
-                'signature_status' => $doc['signature_status'],
-                'signed_at' => $doc['signed_at']
-            ];
+            // Add step if exists
+            if ($row['step_order']) {
+                $processedDocuments[$docId]['workflow'][] = [
+                    'id' => (int) $row['step_id'],
+                    'name' => $row['step_name'],
+                    'status' => $row['step_status'],
+                    'order' => (int) $row['step_order'],
+                    'assigned_to' => $row['assigned_to_employee_id'] ?: $row['assigned_to_student_id'],
+                    'assignee_name' => $row['assigned_to_employee_id'] ?
+                        trim(($row['assignee_first'] ?? '') . ' ' . ($row['assignee_last'] ?? '')) :
+                        trim(($row['student_assignee_first'] ?? '') . ' ' . ($row['student_assignee_last'] ?? '')),
+                    'note' => $row['note'],
+                    'acted_at' => $row['acted_at'],
+                    'signature_status' => $row['signature_status'],
+                    'signed_at' => $row['signed_at']
+                ];
+            }
         }
 
         echo json_encode([

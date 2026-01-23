@@ -509,20 +509,29 @@ $pageTitle = 'Upload Publications';
     </div>
   </div>
 
-  <!-- Notifications Modal -->
-  <div class="modal fade" id="notificationsModal" tabindex="-1">
+  <!-- Notifications Modal - OneUI Enhanced -->
+  <div class="modal fade" id="notificationsModal" tabindex="-1" aria-labelledby="notificationsModalLabel" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title"><i class="bi bi-bell me-2"></i>Notifications</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <h5 class="modal-title" id="notificationsModalLabel">
+            <i class="bi bi-bell-fill"></i>
+            <span>Notifications</span>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <div id="notificationsList"></div>
+          <div id="notificationsList">
+            <!-- Notifications will be populated here -->
+          </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" onclick="markAllAsRead()">Mark All Read</button>
-          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="markAllAsRead()">
+            <i class="bi bi-check-all me-2"></i>Mark All Read
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">
+            <i class="bi bi-x-circle me-2"></i>Close
+          </button>
         </div>
       </div>
     </div>

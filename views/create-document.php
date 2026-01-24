@@ -13,6 +13,12 @@ if (!$currentUser) {
   exit();
 }
 
+// Restrict Accounting employees to only SAF access
+if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
+    header('Location: saf.php');
+    exit();
+}
+
 // Restrict to students only
 if ($currentUser['role'] !== 'student') {
   header('Location: user-login.php?error=access_denied');
@@ -69,6 +75,7 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
   <link rel="stylesheet" href="../assets/css/event-calendar.css"> <!-- Reuse shared navbar/dropdown/modal styles -->
   <link rel="stylesheet" href="../assets/css/create-document.css"> <!-- Updated path -->
   <link rel="stylesheet" href="../assets/css/toast.css">
+  <link rel="stylesheet" href="../assets/css/global-notifications.css"><!-- Global notifications styles -->
 
   <script>
     // Pass user data to JavaScript (for consistency with event-calendar.php)
@@ -84,9 +91,6 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
 
     // REMOVE: Duplicate loadNotifications function and interval (handled by global-notifications.js)
   </script>
-
-  <!-- ADD: Include global notifications module -->
-  <script src="../assets/js/global-notifications.js"></script>
 </head>
 
 <body class="with-fixed-navbar">
@@ -94,6 +98,7 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
   // Set page title for navbar
   $pageTitle = 'Document Creator';
   include '../includes/navbar.php';
+  include '../includes/notifications.php';
   ?>
 
   <!-- Main Content -->

@@ -10,7 +10,20 @@ error_log("DEBUG admin-dashboard.php: Current user: " . json_encode($currentUser
 error_log("DEBUG admin-dashboard.php: Session user_id: " . ($_SESSION['user_id'] ?? 'null'));
 error_log("DEBUG admin-dashboard.php: Session user_role: " . ($_SESSION['user_role'] ?? 'null'));
 
-if (!$currentUser || $currentUser['role'] !== 'admin') {
+if (!$currentUser) {
+    error_log("DEBUG admin-dashboard.php: Redirecting - no user");
+    logoutUser();
+    header('Location: user-login.php');
+    exit();
+}
+
+// Restrict Accounting employees to only SAF access
+if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
+    header('Location: saf.php');
+    exit();
+}
+
+if ($currentUser['role'] !== 'admin') {
     error_log("DEBUG admin-dashboard.php: Redirecting - no user or not admin");
     logoutUser();
     header('Location: user-login.php');
@@ -64,6 +77,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
     <link rel="stylesheet" href="../assets/css/global.css">
     <link rel="stylesheet" href="../assets/css/admin-dashboard.css">
     <link rel="stylesheet" href="../assets/css/toast.css">
+    <link rel="stylesheet" href="../assets/css/global-notifications.css"><!-- Global notifications styles -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
@@ -166,6 +180,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
             </div>
         </div>
     </nav>
+
+    <?php include '../includes/notifications.php'; ?>
 
     <div class="main-content">
         <!-- Admin Header -->
@@ -1191,34 +1207,6 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             <button type="submit" class="btn btn-primary">Update Password</button>
                         </div>
                     </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- Notifications Modal - OneUI Enhanced -->
-        <div class="modal fade" id="notificationsModal" tabindex="-1" aria-labelledby="notificationsModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="notificationsModalLabel">
-                            <i class="bi bi-bell-fill"></i>
-                            <span>Notifications</span>
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div id="notificationsList">
-                            <!-- Notifications will be populated here -->
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="markAllAsRead()">
-                            <i class="bi bi-check-all me-2"></i>Mark All Read
-                        </button>
-                        <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">
-                            <i class="bi bi-x-circle me-2"></i>Close
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>

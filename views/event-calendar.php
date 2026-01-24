@@ -13,6 +13,12 @@ if (!$currentUser) {
     exit();
 }
 
+// Restrict Accounting employees to only SAF access
+if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
+    header('Location: saf.php');
+    exit();
+}
+
 // Audit log helper function
 function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO')
 {
@@ -62,6 +68,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
     <link rel="stylesheet" href="../assets/css/global.css"><!-- Global shared UI styles -->
     <link rel="stylesheet" href="../assets/css/event-calendar.css"><!-- Calendar-specific styles -->
     <link rel="stylesheet" href="../assets/css/toast.css">
+    <link rel="stylesheet" href="../assets/css/global-notifications.css"><!-- Global notifications styles -->
 
     <script>
         // Pass user data to JavaScript
@@ -85,6 +92,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
 
 <body class="with-fixed-navbar">
     <?php include '../includes/navbar.php'; ?>
+    <?php include '../includes/notifications.php'; ?>
 
     <!-- Main Content -->
     <div class="main-content">
@@ -129,7 +137,13 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                         <i class="bi bi-search"></i>
                                         <span>Track</span>
                                     </button>
-                                    <?php if ($currentUser['position'] === 'SSC President'): ?>
+                                    <button class="action-compact-btn" onclick="window.location.href='saf.php'"
+                                        title="Student Allocated Funds">
+                                        <i class="bi bi-cash-coin"></i>
+                                        <span>SAF</span>
+                                    </button>
+                                    
+                                                                        <?php if ($currentUser['position'] === 'SSC President'): ?>
                                         <button class="action-compact-btn" onclick="openPendingApprovals()" id="approvalsBtn"
                                             title="View Pending Approvals">
                                             <i class="bi bi-clipboard-check"></i>
@@ -692,34 +706,6 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Notifications Modal - OneUI Enhanced -->
-    <div class="modal fade" id="notificationsModal" tabindex="-1" aria-labelledby="notificationsModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="notificationsModalLabel">
-                        <i class="bi bi-bell-fill"></i>
-                        <span>Notifications</span>
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="notificationsList">
-                        <!-- Notifications will be populated here -->
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="markAllAsRead()">
-                        <i class="bi bi-check-all me-2"></i>Mark All Read
-                    </button>
-                    <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle me-2"></i>Close
-                    </button>
                 </div>
             </div>
         </div>

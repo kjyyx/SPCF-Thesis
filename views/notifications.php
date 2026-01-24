@@ -12,6 +12,12 @@ if (!$currentUser) {
     exit();
 }
 
+// Restrict Accounting employees to only SAF access
+if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
+    header('Location: saf.php');
+    exit();
+}
+
 // Define constants for better maintainability
 const ALLOWED_ROLES = ['employee'];
 const ALLOWED_STUDENT_POSITIONS = ['SSC President'];
@@ -103,6 +109,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     <link rel="stylesheet" href="../assets/css/event-calendar.css">
     <link rel="stylesheet" href="../assets/css/notifications.css">
     <link rel="stylesheet" href="../assets/css/toast.css">
+    <link rel="stylesheet" href="../assets/css/global-notifications.css"><!-- Global notifications styles -->
 
     <script>
         // Provide user data to JS (employee-only)
@@ -124,6 +131,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     // Set page title for navbar
     $pageTitle = 'Document Notifications';
     include '../includes/navbar.php';
+    include '../includes/notifications.php';
     ?>
 
     <!-- Main Content -->

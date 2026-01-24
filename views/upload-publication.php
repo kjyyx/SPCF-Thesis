@@ -13,6 +13,12 @@ if (!$currentUser) {
   exit();
 }
 
+// Restrict Accounting employees to only SAF access
+if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
+    header('Location: saf.php');
+    exit();
+}
+
 // Audit log helper function
 function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO')
 {
@@ -69,6 +75,7 @@ $pageTitle = 'Upload Publications';
   <link href="../assets/css/global.css" rel="stylesheet">
   <link href="../assets/css/upload-publication.css" rel="stylesheet">
   <link href="../assets/css/toast.css" rel="stylesheet">
+  <link href="../assets/css/global-notifications.css" rel="stylesheet"><!-- Global notifications styles -->
 
   <script>
     // Pass user data to JavaScript (for consistency with event-calendar.php)
@@ -86,11 +93,11 @@ $pageTitle = 'Upload Publications';
   </script>
 
   <!-- ADD: Include global notifications module -->
-  <script src="../assets/js/global-notifications.js"></script>
       </head>
 
   <body class="with-fixed-navbar">
     <?php include '../includes/navbar.php'; ?>
+    <?php include '../includes/notifications.php'; ?>
 
   <!-- Page Header -->
   <div class="page-header-section">

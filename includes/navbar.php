@@ -47,8 +47,10 @@
                     <li role="none"><a class="dropdown-item" href="#" onclick="showHelp()" title="Get help and support" role="menuitem">
                             <i class="bi bi-question-circle me-2" aria-hidden="true"></i>Help & Support</a></li>
                     <li role="none"><hr class="dropdown-divider"></li>
-                    <li role="none"><a class="dropdown-item" href="event-calendar.php" title="View university calendar" role="menuitem">
-                            <i class="bi bi-calendar-event me-2" aria-hidden="true"></i>Calendar</a></li>
+                    <?php if (!($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false)): ?>
+                        <li role="none"><a class="dropdown-item" href="event-calendar.php" title="View university calendar" role="menuitem">
+                                <i class="bi bi-calendar-event me-2" aria-hidden="true"></i>Calendar</a></li>
+                    <?php endif; ?>
                     <?php if ($currentUser['role'] === 'admin'): ?>
                         <li role="none"><a class="dropdown-item" href="admin-dashboard.php" title="Access admin dashboard" role="menuitem">
                                 <i class="bi bi-shield-check me-2" aria-hidden="true"></i>Admin Dashboard</a></li>

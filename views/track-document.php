@@ -12,6 +12,12 @@ if (!$currentUser) {
     exit();
 }
 
+// Restrict Accounting employees to only SAF access
+if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
+    header('Location: saf.php');
+    exit();
+}
+
 // Set page title for navbar
 $pageTitle = 'Track Documents';
 ?>
@@ -30,6 +36,7 @@ $pageTitle = 'Track Documents';
     <link rel="stylesheet" href="../assets/css/global.css">
     <link rel="stylesheet" href="../assets/css/track-document.css">
     <link rel="stylesheet" href="../assets/css/toast.css">
+    <link rel="stylesheet" href="../assets/css/global-notifications.css"><!-- Global notifications styles -->
 
     <script>
         // Pass user data to JavaScript
@@ -47,12 +54,12 @@ $pageTitle = 'Track Documents';
     </script>
 
     <!-- ADD: Include global notifications module -->
-    <script src="../assets/js/global-notifications.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 
 <body class="with-fixed-navbar">
     <?php include '../includes/navbar.php'; ?>
+    <?php include '../includes/notifications.php'; ?>
 
     <!-- Admin-Style Compact Header -->
     <div class="calendar-header-compact">

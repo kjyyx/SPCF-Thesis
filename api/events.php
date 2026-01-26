@@ -46,7 +46,7 @@ try {
              */
 
             // Join units and documents to expose readable department name and approval status for UI
-            $query = "SELECT e.id, e.title, e.description, e.event_date, e.event_time, e.unit_id,
+            $query = "SELECT e.id, e.title, e.description, e.venue, e.event_date, e.event_time, e.unit_id,
                              e.created_by, e.created_by_role, e.created_at, e.updated_at, e.source_document_id,
                              e.approved, e.approved_by, e.approved_at,
                              u.name AS department, d.status AS document_status
@@ -81,6 +81,7 @@ try {
             $data = json_decode(file_get_contents('php://input'), true);
             $title = trim($data['title'] ?? '');
             $description = $data['description'] ?? null;
+            $venue = $data['venue'] ?? null;
             $event_date = $data['event_date'] ?? null;
             $event_time = $data['event_time'] ?? null; // can be null
             $departmentName = $data['department'] ?? null; // UI sends department name; map to unit_id
@@ -94,12 +95,13 @@ try {
                 if ($row) { $unit_id = (int)$row['id']; }
             }
 
-            $query = "INSERT INTO events (title, description, event_date, event_time, unit_id, created_by, created_by_role)
-                      VALUES (:title, :description, :event_date, :event_time, :unit_id, :created_by, :created_by_role)";
+            $query = "INSERT INTO events (title, description, venue, event_date, event_time, unit_id, created_by, created_by_role)
+                      VALUES (:title, :description, :venue, :event_date, :event_time, :unit_id, :created_by, :created_by_role)";
             $stmt = $db->prepare($query);
             $ok = $stmt->execute([
                 ':title' => $title,
                 ':description' => $description,
+                ':venue' => $venue,
                 ':event_date' => $event_date,
                 ':event_time' => $event_time,
                 ':unit_id' => $unit_id,
@@ -165,6 +167,7 @@ try {
 
             $title = trim($data['title'] ?? '');
             $description = $data['description'] ?? null;
+            $venue = $data['venue'] ?? null;
             $event_date = $data['event_date'] ?? null;
             $event_time = $data['event_time'] ?? null;
             $departmentName = $data['department'] ?? null;
@@ -178,11 +181,12 @@ try {
             }
 
             $stmt = $db->prepare("UPDATE events 
-                SET title=:title, description=:description, event_date=:event_date, event_time=:event_time, unit_id=:unit_id, updated_at=NOW()
+                SET title=:title, description=:description, venue=:venue, event_date=:event_date, event_time=:event_time, unit_id=:unit_id, updated_at=NOW()
                 WHERE id=:id");
             $ok = $stmt->execute([
                 ':title' => $title,
                 ':description' => $description,
+                ':venue' => $venue,
                 ':event_date' => $event_date,
                 ':event_time' => $event_time,
                 ':unit_id' => $unit_id,

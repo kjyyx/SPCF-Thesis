@@ -32,6 +32,21 @@ function _auth_table_by_role($role) {
     }
 }
 
+// Helper function to check if 2FA is globally enabled
+function is2FAEnabledGlobally() {
+    try {
+        $db = new Database();
+        $conn = $db->getConnection();
+        $stmt = $conn->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'enable_2fa'");
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result && $result['setting_value'] === '1';
+    } catch (Exception $e) {
+        error_log("Error checking 2FA setting: " . $e->getMessage());
+        return false; // Default to disabled on error
+    }
+}
+
 // Audit log helper function
 function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
     try {
@@ -531,34 +546,47 @@ if ($method === 'POST') {
         error_log("DEBUG api/auth.php: Auth->login returned: " . ($user ? 'SUCCESS' : 'FAILED'));
 
         if ($user) {
-            error_log("DEBUG api/auth.php: User authenticated successfully: {$user['id']} ({$user['role']}), 2fa_secret=" . ($user['2fa_secret'] ?? 'NULL') . ", 2fa_enabled=" . ($user['2fa_enabled'] ?? 'NULL'));
+            $global2FAEnabled = is2FAEnabledGlobally();
+            error_log("DEBUG api/auth.php: Global 2FA enabled: " . ($global2FAEnabled ? 'yes' : 'no'));
             
             // Check if user has 2FA secret
             if (!empty($user['2fa_secret'])) {
-                if ($user['2fa_enabled'] == 1) {
-                    // 2FA is set up, require code
-                    error_log("DEBUG api/auth.php: User has 2FA enabled, requiring verification");
+                if ($user['2fa_enabled'] == 1 && $global2FAEnabled) {
+                    // 2FA is set up and globally enabled, require code
+                    error_log("DEBUG api/auth.php: User has 2FA enabled and global 2FA enabled, requiring verification");
                     echo json_encode(['success' => true, 'requires_2fa' => true, 'user_id' => $user['id']]);
+                } elseif ($user['2fa_enabled'] == 1 && !$global2FAEnabled) {
+                    // 2FA is set up but globally disabled, skip verification
+                    error_log("DEBUG api/auth.php: User has 2FA enabled but global 2FA disabled, skipping verification");
+                    loginUser($user);
+                    addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in (2FA bypassed for development)", $user['id'], 'User', 'INFO');
+                    echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php')]);
                 } else {
-                    // 2FA secret exists but not set up - prompt for setup
-                    error_log("DEBUG api/auth.php: User has 2FA secret but not enabled, prompting setup");
-                    echo json_encode(['success' => true, 'requires_2fa_setup' => true, 'user_id' => $user['id'], 'secret' => $user['2fa_secret']]);
+                    // 2FA secret exists but not set up - prompt for setup if globally enabled
+                    if ($global2FAEnabled) {
+                        error_log("DEBUG api/auth.php: User has 2FA secret but not enabled, prompting setup");
+                        echo json_encode(['success' => true, 'requires_2fa_setup' => true, 'user_id' => $user['id'], 'secret' => $user['2fa_secret']]);
+                    } else {
+                        // Proceed without 2FA
+                        loginUser($user);
+                        addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in (2FA disabled)", $user['id'], 'User', 'INFO');
+                        echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php')]);
+                    }
                 }
             } else {
-                // No 2FA - proceed (or enforce for students)
-                if ($user['role'] === 'student') {
-                    // Generate secret for students
-                    error_log("DEBUG api/auth.php: Student without 2FA secret, generating one");
+                // No 2FA secret - generate and prompt setup if globally enabled
+                if ($global2FAEnabled) {
+                    error_log("DEBUG api/auth.php: No 2FA secret, generating for user {$user['id']}");
                     $google2fa = new Google2FA();
                     $secret = $google2fa->generateSecretKey();
-                    $stmt = $db->prepare("UPDATE students SET 2fa_secret = ? WHERE id = ?");
+                    $table = _auth_table_by_role($user['role']);
+                    $stmt = $db->prepare("UPDATE $table SET 2fa_secret = ? WHERE id = ?");
                     $stmt->execute([$secret, $user['id']]);
-                    error_log("DEBUG api/auth.php: Generated secret for student {$user['id']}: $secret");
                     echo json_encode(['success' => true, 'requires_2fa_setup' => true, 'user_id' => $user['id'], 'secret' => $secret]);
                 } else {
-                    error_log("DEBUG api/auth.php: Non-student user without 2FA, proceeding with normal login");
+                    // Proceed without 2FA
                     loginUser($user);
-                    addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in", $user['id'], 'User', 'INFO');
+                    addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in (2FA disabled)", $user['id'], 'User', 'INFO');
                     echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php')]);
                 }
             }

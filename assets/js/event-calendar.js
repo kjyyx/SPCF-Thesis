@@ -174,7 +174,6 @@ class CalendarApp {
                 // Search filter
                 const matchesSearch = !searchTerm || 
                     event.title.toLowerCase().includes(searchTerm) ||
-                    event.description.toLowerCase().includes(searchTerm) ||
                     event.department.toLowerCase().includes(searchTerm);
                 
                 // Department filter
@@ -206,7 +205,6 @@ class CalendarApp {
                     date: dateStr,
                     time: event.time,
                     title: event.title,
-                    description: event.description,
                     department: event.department,
                     status: event.isApproved ? 'Approved' : 'Pending'
                 });
@@ -219,14 +217,13 @@ class CalendarApp {
         }
         
         // Create CSV content
-        const headers = ['Date', 'Time', 'Title', 'Description', 'Department', 'Status'];
+        const headers = ['Date', 'Time', 'Title', 'Department', 'Status'];
         const csvContent = [
             headers.join(','),
             ...events.map(event => [
                 event.date,
                 event.time,
                 `"${event.title.replace(/"/g, '""')}"`,
-                `"${(event.description || '').replace(/"/g, '""')}"`,
                 `"${event.department || ''}"`,
                 event.status
             ].join(','))
@@ -321,8 +318,8 @@ class CalendarApp {
                         id: String(ev.id),
                         title: ev.title,
                         time: ev.event_time || '',
-                        description: ev.description || '',
                         department: ev.department || '',
+                        venue: ev.venue || '',
                         isApproved: isApproved,
                         isPencilBooked: isPencilBooked,
                         color: isApproved ? this.getDepartmentColorRGB(ev.department || '') : 'rgb(107, 114, 128)',
@@ -331,12 +328,6 @@ class CalendarApp {
                 });
                 this.events = map;
                 events = map;
-                // Merge approved documents-as-events into the calendar events
-                try {
-                    await this._mergeApprovedEvents();
-                } catch (e) {
-                    console.warn('Failed to merge approved events', e);
-                }
                 this.generateCalendar();
                 this.updateEventStatistics();
             } else {
@@ -431,7 +422,6 @@ class CalendarApp {
                         id: String(ev.id),
                         title: ev.title,
                         time: '',
-                        description: '',
                         department: ev.department || '',
                         isApproved: true,
                         isPencilBooked: false,
@@ -498,7 +488,6 @@ class CalendarApp {
             id: '1',
             title: 'Engineering Symposium',
             time: '09:00',
-            description: 'Annual engineering symposium featuring latest research and innovations in the field.',
             department: 'College of Engineering and Technology',
             color: 'bg-warning'
         }];
@@ -507,7 +496,6 @@ class CalendarApp {
             id: '2',
             title: 'Nursing Skills Competition',
             time: '14:00',
-            description: 'Inter-college nursing skills competition showcasing clinical expertise.',
             department: 'College of Health Sciences and Nursing',
             color: 'bg-info'
         }];
@@ -516,7 +504,6 @@ class CalendarApp {
             id: '3',
             title: 'Business Plan Presentation',
             time: '10:30',
-            description: 'Final presentations for the entrepreneurship course business plans.',
             department: 'College of Business and Accountancy',
             color: 'bg-success'
         }];
@@ -993,7 +980,6 @@ class CalendarApp {
             </div>
             <div class="agenda-event-content">
                 <h6 class="agenda-event-title">${event.title}</h6>
-                <p class="agenda-event-description">${event.description || 'No description'}</p>
                 <div class="agenda-event-meta">
                     <span class="badge" style="background-color: ${deptBg}; color: ${deptText}">${event.department || 'University'}</span>
                     ${event.isApproved ? '<span class="badge bg-success">Approved</span>' : '<span class="badge bg-warning">Pending</span>'}
@@ -1029,7 +1015,6 @@ class CalendarApp {
                 <h5 class="event-list-title">${event.title}</h5>
                 <span class="event-list-date">${formattedDate} at ${event.time}</span>
             </div>
-            <p class="event-list-description">${event.description}</p>
             <div class="event-list-meta">
                 <span><i class="bi bi-tag"></i> Event</span>
                 <span class="ms-2"><i class="bi bi-building"></i></span>
@@ -1089,7 +1074,7 @@ class CalendarApp {
         document.getElementById('eventTitle').value = event.title;
         document.getElementById('eventDate').value = dateStr;
         document.getElementById('eventTime').value = event.time || '';
-        document.getElementById('eventDescription').value = event.description || '';
+        document.getElementById('eventVenue').value = event.venue || '';
         // Try to set the department; if option list hasn't loaded yet, populate then set
         const deptSelect = document.getElementById('eventDepartment');
         if (deptSelect) {
@@ -1133,7 +1118,7 @@ class CalendarApp {
         });
 
         document.getElementById('viewEventTitle').textContent = event.title;
-        document.getElementById('viewEventDescription').textContent = event.description;
+        document.getElementById('viewEventVenue').textContent = event.venue || 'Not specified';
         document.getElementById('viewEventDate').textContent = formattedDate;
         document.getElementById('viewEventTime').textContent = event.time;
         document.getElementById('viewEventDepartment').textContent = event.department || 'University';
@@ -1156,7 +1141,7 @@ class CalendarApp {
         const title = document.getElementById('eventTitle').value;
         const date = document.getElementById('eventDate').value;
         const time = document.getElementById('eventTime').value;
-        const description = document.getElementById('eventDescription').value;
+        const venue = document.getElementById('eventVenue').value;
         const department = document.getElementById('eventDepartment').value;
 
         // Validate required fields
@@ -1172,7 +1157,7 @@ class CalendarApp {
         // Persist via API
         const payload = {
             title,
-            description,
+            venue,
             event_date: date,
             event_time: time || null,
             department

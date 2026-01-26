@@ -457,6 +457,18 @@ document.addEventListener('DOMContentLoaded', async function () {
         updateDashboardStats();
         updateDashboardOverview();
 
+        // Load 2FA setting
+        try {
+            const resp = await fetch('../api/settings.php?key=enable_2fa');
+            const data = await resp.json();
+            const enable2FA = document.getElementById('enable2FA');
+            if (enable2FA) {
+                enable2FA.checked = data.value === '1';
+            }
+        } catch (e) {
+            console.error('Failed to load 2FA setting:', e);
+        }
+
     } else {
         console.log('No user data, redirecting to login...');
         window.location.href = 'user-login.php';
@@ -2109,14 +2121,10 @@ async function saveSystemSettings(category) {
                 break;
         }
 
-        const resp = await fetch('../api/users.php', {
+        const resp = await fetch('../api/settings.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'save_system_settings',
-                category: category,
-                settings: settingsData
-            })
+            body: JSON.stringify(settingsData)
         }).then(r => r.json());
 
         if (resp.success) {

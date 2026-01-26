@@ -56,6 +56,9 @@ INSERT IGNORE INTO employees (id, first_name, last_name, email, password, office
 INSERT IGNORE INTO students (id, first_name, last_name, email, password, department, position) VALUES
 ('STU001', 'Juan', 'Dela Cruz', 'juan.delacruz@student.university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'College of Engineering', 'Student');
 
+-- Default system settings
+INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES ('enable_2fa', '1');
+
 -- =============================================================
 -- Enhancements below: password lifecycle, organizational units,
 -- events, documents workflow, notifications, audit, etc.
@@ -91,6 +94,14 @@ CREATE TABLE IF NOT EXISTS units (
     UNIQUE KEY uq_units_name_type (name, type)
 );
 
+-- System settings
+CREATE TABLE IF NOT EXISTS system_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    setting_key VARCHAR(255) UNIQUE NOT NULL,
+    setting_value TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- Events (calendar)
 CREATE TABLE IF NOT EXISTS events (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -110,6 +121,9 @@ CREATE TABLE IF NOT EXISTS events (
     CONSTRAINT fk_events_unit FOREIGN KEY (unit_id) REFERENCES units(id) ON DELETE SET NULL
 );
 
+-- Add venue column to events table
+ALTER TABLE events ADD COLUMN venue VARCHAR(200) NULL AFTER description;
+
 -- Core document record (submitted by students)
 CREATE TABLE IF NOT EXISTS documents (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -124,6 +138,11 @@ CREATE TABLE IF NOT EXISTS documents (
     CONSTRAINT fk_documents_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
     INDEX idx_documents_type_status (doc_type, status)
 );
+
+-- Add new columns for project proposals
+ALTER TABLE documents ADD COLUMN venue VARCHAR(200) NULL AFTER description;
+ALTER TABLE documents ADD COLUMN schedule_summary TEXT NULL AFTER venue;
+ALTER TABLE documents ADD COLUMN earliest_start_time DATETIME NULL AFTER schedule_summary;
 
 -- Per-document workflow steps
 CREATE TABLE IF NOT EXISTS document_steps (

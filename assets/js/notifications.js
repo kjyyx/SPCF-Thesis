@@ -1560,10 +1560,15 @@ class DocumentNotificationSystem {
             if (this.currentSignatureMap) formData.append('signature_map', JSON.stringify(this.currentSignatureMap));
             if (signedPdfBlob) formData.append('signed_pdf', signedPdfBlob, 'signed_document.pdf');
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);  // 30-second timeout
+
             const response = await fetch('../api/documents.php', {
                 method: 'POST',
-                body: formData  // Use FormData for file upload
+                body: formData,  // Use FormData for file upload
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
             const result = await response.json();
 
             if (result.success) {
@@ -1596,14 +1601,22 @@ class DocumentNotificationSystem {
             } else {
                 throw new Error(result.message || 'Failed to sign document');
             }
-        } catch (error) {
-            console.error('Error signing document:', error);
-            this.showToast({
-                type: 'error',
-                title: 'Error',
-                message: 'Failed to sign document. Please try again.'
-            });
-        }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    this.showToast({
+                        type: 'error',
+                        title: 'Timeout',
+                        message: 'Signing timed out. Please refresh and try again.'
+                    });
+                } else {
+                    console.error('Error signing document:', error);
+                    this.showToast({
+                        type: 'error',
+                        title: 'Error',
+                        message: 'Failed to sign document. Please try again.'
+                    });
+                }
+            }
 
         if (window.addAuditLog) {
             window.addAuditLog('DOCUMENT_SIGNED', 'Document Management', `Signed document ${docId}`, docId, 'Document', 'INFO');
@@ -1749,9 +1762,9 @@ class DocumentNotificationSystem {
         }
 
         // Don't save empty notes unless there was a previous note
-        if (note === '' && (pendingStep.note || '') === '') {
-            return;
-        }
+        // if (note === '' && (pendingStep.note || '') === '') {
+        //     return;
+        // }
 
         // Show saving indicator
         const saveIndicator = document.getElementById('notesSaveIndicator');

@@ -3,11 +3,12 @@
 console.log('user-login.js loaded');
 
 function detectLoginType(userId) {
-    if (userId.startsWith('ADM')) {
+    const prefix = userId.substring(0, 3).toUpperCase(); // Convert to uppercase for case-insensitive check
+    if (prefix === 'ADM') {
         return 'admin';
-    } else if (userId.startsWith('EMP')) {
+    } else if (prefix === 'EMP') {
         return 'employee';
-    } else if (userId.startsWith('STU')) {
+    } else if (prefix === 'STU') {
         return 'student';
     } else {
         return null; // Invalid prefix

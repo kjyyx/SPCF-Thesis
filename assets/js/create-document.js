@@ -285,6 +285,18 @@ function collectProposalData() {
         if (start || end || act) programRows.push({ start, end, act });
     });
 
+    // Calculate earliest start time from program schedule
+    let earliestStartTime = null;
+    if (programRows.length > 0) {
+        const validTimes = programRows
+            .map(row => row.start)
+            .filter(time => time && time.trim() !== '')
+            .sort();
+        if (validTimes.length > 0) {
+            earliestStartTime = validTimes[0];
+        }
+    }
+
     // Return complete proposal data object
     return {
         date: document.getElementById('prop-date').value,
@@ -300,6 +312,7 @@ function collectProposalData() {
         venue: document.getElementById('prop-venue').value,
         mechanics: document.getElementById('prop-mechanics').value,
         scheduleSummary: document.getElementById('prop-schedule').value,
+        earliestStartTime: earliestStartTime,
         program: programRows,
         budget: budgetRows
     };

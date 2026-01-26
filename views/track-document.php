@@ -274,13 +274,14 @@ $pageTitle = 'Track Documents';
         </div>
     </div>
 
-    <!-- Admin-Style Document Details Modal -->
+    <!-- OneUI Document Details Modal -->
     <div class="modal fade" id="documentModal" tabindex="-1">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
-                <div class="modal-header bg-light">
+                <div class="modal-header">
                     <h5 class="modal-title" id="documentModalTitle">
-                        <i class="bi bi-file-earmark-text text-primary me-2"></i>Document Details
+                        <i class="bi bi-file-earmark-text"></i>
+                        <span>Document Details</span>
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -289,16 +290,16 @@ $pageTitle = 'Track Documents';
                         <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
                             <span class="visually-hidden">Loading...</span>
                         </div>
-                        <h6 class="mt-3 text-primary">Loading Details</h6>
-                        <p class="text-muted">Please wait while we fetch the document information...</p>
+                        <h6 class="mt-3 text-primary fw-bold">Loading Document Details</h6>
+                        <p class="text-muted">Please wait while we fetch the information...</p>
                     </div>
                 </div>
-                <div class="modal-footer bg-light">
+                <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                         <i class="bi bi-x-circle me-2"></i>Close
                     </button>
-                    <button type="button" class="btn btn-primary" id="printDocumentBtn" style="display: none;">
-                        <i class="bi bi-printer me-2"></i>Print
+                    <button type="button" class="btn btn-success" id="downloadDocumentBtn" style="display: none;">
+                        <i class="bi bi-download me-2"></i>Download PDF
                     </button>
                 </div>
             </div>

@@ -229,22 +229,26 @@ function handleGet()
         if (isset($_GET['action']) && $_GET['action'] === 'approved_events') {
             // Only allow employees/admins or student SSC President to fetch approved events
             // but approved events are generally public, so allow all authenticated users
-            $stmt = $db->prepare("SELECT id, title, doc_type, department, `date`, implDate, eventDate, uploaded_at
+            $stmt = $db->prepare("SELECT id, title, doc_type, department, `date`, implDate, eventDate, uploaded_at, venue, earliest_start_time
                                    FROM documents
-                                   WHERE status = 'approved'
+                                   WHERE status = 'approved' AND doc_type = 'proposal'
                                    ORDER BY uploaded_at DESC");
             $stmt->execute();
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $events = [];
             foreach ($rows as $r) {
-                // Prefer eventDate, then date, then implDate
-                $event_date = $r['eventDate'] ?: $r['date'] ?: $r['implDate'] ?: $r['uploaded_at'];
+                // Use the proposal date and earliest start time for calendar events
+                $event_date = $r['date'];
+                $event_time = $r['earliest_start_time'];
+                $venue = $r['venue'];
                 $events[] = [
                     'id' => (int)$r['id'],
                     'title' => $r['title'],
                     'doc_type' => $r['doc_type'],
                     'department' => $r['department'],
-                    'event_date' => $event_date
+                    'event_date' => $event_date,
+                    'event_time' => $event_time,
+                    'venue' => $venue
                 ];
             }
             echo json_encode(['success' => true, 'events' => $events]);
@@ -390,10 +394,8 @@ function handleGet()
 
             // Fetch workflow history
             $historyStmt = $db->prepare("
-                SELECT ds.*, e.first_name, e.last_name,
-                       CONCAT(e.first_name, ' ', e.last_name) as employee_name
+                SELECT ds.id, ds.status, ds.name, ds.acted_at
                 FROM document_steps ds
-                LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
                 WHERE ds.document_id = ?
                 ORDER BY ds.step_order ASC
             ");
@@ -437,20 +439,23 @@ function handleGet()
                 'description' => $doc['description'],
                 'file_path' => $doc['file_path'],
                 'workflow_history' => array_map(function($step) {
+                    $timestamp = $step['acted_at'] ?: date('Y-m-d H:i:s');
                     return [
-                        'created_at' => $step['acted_at'] ?: $step['created_at'],
+                        'created_at' => $timestamp,
+                        'status' => $step['status'] ?: 'pending',
                         'action' => $step['status'] === 'completed' ? 'Approved' : ($step['status'] === 'rejected' ? 'Rejected' : 'Pending'),
-                        'office_name' => $step['name'],
-                        'from_office' => $step['name']
+                        'office_name' => $step['name'] ?: 'Unknown',
+                        'from_office' => $step['name'] ?: 'Unknown'
                     ];
                 }, $workflow_history),
                 'notes' => array_map(function($note) {
                     return [
-                        'id' => $note['id'],
-                        'note' => $note['note'],
-                        'created_by_name' => $note['created_by_name'],
-                        'created_at' => $note['created_at'],
-                        'is_rejection' => ($note['step_status'] === 'rejected')
+                        'id' => $note['id'] ?: null,
+                        'note' => $note['note'] ?: '',
+                        'created_by_name' => $note['created_by_name'] ?: 'Unknown',
+                        'created_at' => $note['created_at'] ?: date('Y-m-d H:i:s'),
+                        'is_rejection' => ($note['step_status'] === 'rejected'),
+                        'step_status' => $note['step_status'] ?: 'pending'
                     ];
                 }, $notes)
             ];
@@ -743,6 +748,53 @@ function handleGet()
     }
 }
 
+function updateNote($input) {
+    global $db, $currentUser;
+
+    $documentId = $input['document_id'] ?? 0;
+    $stepId = $input['step_id'] ?? 0;
+    $note = trim($input['note'] ?? '');
+
+    error_log("updateNote called with document_id: $documentId, step_id: $stepId, note: '$note'");
+
+    if (!$documentId || !$stepId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
+        return;
+    }
+
+    // Check if the current user is assigned to this step (security check)
+    $checkStmt = $db->prepare("SELECT id FROM document_steps WHERE id = ? AND (assigned_to_employee_id = ? OR assigned_to_student_id = ?)");
+    $checkStmt->execute([$stepId, $currentUser['id'], $currentUser['id']]);
+    $stepExists = $checkStmt->fetch();
+    if (!$stepExists) {
+        error_log("Authorization failed for user {$currentUser['id']} on step $stepId");
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Not authorized to update this note']);
+        return;
+    }
+
+    error_log("Authorization passed, proceeding with update");
+
+    // Update the note in document_steps
+    $stmt = $db->prepare("UPDATE document_steps SET note = ? WHERE id = ?");
+    $result = $stmt->execute([$note, $stepId]);
+    $affectedRows = $stmt->rowCount();
+
+    error_log("Update executed, result: $result, affected rows: $affectedRows");
+
+    // Verify the step still exists after update
+    $verifyStmt = $db->prepare("SELECT id FROM document_steps WHERE id = ?");
+    $verifyStmt->execute([$stepId]);
+    if ($verifyStmt->fetch()) {
+        echo json_encode(['success' => true]);
+    } else {
+        error_log("Step verification failed after update");
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Failed to update note']);
+    }
+}
+
 function handlePost()
 {
     global $db, $currentUser;
@@ -862,9 +914,15 @@ function createDocument($input)
         $implDate = null;
         $eventName = null;
         $eventDate = null;
+        $venue = null;
+        $scheduleSummary = null;
+        $earliestStartTime = null;
 
         if ($docType === 'proposal') {
             $date = $data['date'] ?? null;
+            $venue = $data['venue'] ?? null;
+            $scheduleSummary = $data['scheduleSummary'] ?? null;
+            $earliestStartTime = $data['earliestStartTime'] ?? null;
         } elseif ($docType === 'saf') {
             $implDate = $data['implDate'] ?? null;
         } elseif ($docType === 'facility') {
@@ -875,8 +933,8 @@ function createDocument($input)
         }
 
         // Insert document
-        $stmt = $db->prepare("INSERT INTO documents (student_id, doc_type, title, description, status, current_step, uploaded_at, department, departmentFull, date, implDate, eventName, eventDate) VALUES (?, ?, ?, ?, 'submitted', 1, NOW(), ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$studentId, $docType, $data['title'] ?? 'Untitled', $data['rationale'] ?? '', $department, $departmentFull, $date, $implDate, $eventName, $eventDate]);
+        $stmt = $db->prepare("INSERT INTO documents (student_id, doc_type, title, description, status, current_step, uploaded_at, department, departmentFull, date, implDate, eventName, eventDate, venue, schedule_summary, earliest_start_time) VALUES (?, ?, ?, ?, 'submitted', 1, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$studentId, $docType, $data['title'] ?? 'Untitled', $data['rationale'] ?? '', $department, $departmentFull, $date, $implDate, $eventName, $eventDate, $venue, $scheduleSummary, $earliestStartTime]);
 
         $docId = (int) $db->lastInsertId();
 
@@ -1160,6 +1218,17 @@ function createDocument($input)
             }
         }
 
+        // Ensure file_path is set for document tracking
+        $checkStmt = $db->prepare("SELECT file_path FROM documents WHERE id = ?");
+        $checkStmt->execute([$docId]);
+        $existingFilePath = $checkStmt->fetchColumn();
+        if (!$existingFilePath) {
+            // Set a fallback file_path for tracking purposes
+            $fallbackPath = '../uploads/fallback.pdf';
+            $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
+            $stmt->execute([$fallbackPath, $docId]);
+        }
+
         // Create workflow steps based on document type
         if ($docType === 'proposal' || $docType === 'communication') {
             // Full workflow for proposal and communication
@@ -1390,160 +1459,211 @@ function signDocument($input, $files = null)
         }
     }
 
-    $db->beginTransaction();
+    $maxRetries = 3;
+    $retryCount = 0;
+    $isFullyApproved = false;
+    $signedSuccessfully = false;
 
-    try {
-        // Update document signature
-        if ($currentUser['role'] === 'employee') {
-            $stmt = $db->prepare("
-                INSERT INTO document_signatures (document_id, step_id, employee_id, status, signed_at)
-                VALUES (?, ?, ?, 'signed', NOW())
-                ON DUPLICATE KEY UPDATE
-                status = 'signed', signed_at = NOW()
-            ");
-            $stmt->execute([$documentId, $stepId, $currentUser['id']]);
-        } elseif ($currentUser['role'] === 'student') {
-            $stmt = $db->prepare("
-                INSERT INTO document_signatures (document_id, step_id, student_id, status, signed_at)
-                VALUES (?, ?, ?, 'signed', NOW())
-                ON DUPLICATE KEY UPDATE
-                status = 'signed', signed_at = NOW()
-            ");
-            $stmt->execute([$documentId, $stepId, $currentUser['id']]);
-        }
-
-        // Update document step
-        if ($currentUser['role'] === 'employee') {
-            $stmt = $db->prepare("
-                UPDATE document_steps
-                SET status = 'completed', acted_at = NOW(), note = ?
-                WHERE id = ? AND assigned_to_employee_id = ?
-            ");
-            $stmt->execute([$notes, $stepId, $currentUser['id']]);
-        } elseif ($currentUser['role'] === 'student') {
-            $stmt = $db->prepare("
-                UPDATE document_steps
-                SET status = 'completed', acted_at = NOW(), note = ?
-                WHERE id = ? AND assigned_to_student_id = ?
-            ");
-            $stmt->execute([$notes, $stepId, $currentUser['id']]);
-        }
-
-        // Fallback: if the role-restricted update did not affect any rows (e.g., assignment mismatch),
-        // ensure the step is still marked completed because the signature record was created above.
+    do {
         try {
-            if (isset($stmt) && $stmt->rowCount() === 0) {
-                $fallback = $db->prepare("UPDATE document_steps SET status = 'completed', acted_at = NOW(), note = ? WHERE id = ?");
-                $fallback->execute([$notes, $stepId]);
-                error_log("Fallback: marked step $stepId completed for document $documentId (role-restricted update affected 0 rows)");
-            }
-        } catch (Exception $e) {
-            // Log but do not fail the signing operation
-            error_log('Fallback step update failed: ' . $e->getMessage());
-        }
+            $db->beginTransaction();
 
-        // Persist signature mapping (percent-based) if provided - now per step
-        if (is_array($signatureMap)) {
+            // Update document signature
+            if ($currentUser['role'] === 'employee') {
+                $stmt = $db->prepare("
+                    INSERT INTO document_signatures (document_id, step_id, employee_id, status, signed_at)
+                    VALUES (?, ?, ?, 'signed', NOW())
+                    ON DUPLICATE KEY UPDATE
+                    status = 'signed', signed_at = NOW()
+                ");
+                $stmt->execute([$documentId, $stepId, $currentUser['id']]);
+            } elseif ($currentUser['role'] === 'student') {
+                $stmt = $db->prepare("
+                    INSERT INTO document_signatures (document_id, step_id, student_id, status, signed_at)
+                    VALUES (?, ?, ?, 'signed', NOW())
+                    ON DUPLICATE KEY UPDATE
+                    status = 'signed', signed_at = NOW()
+                ");
+                $stmt->execute([$documentId, $stepId, $currentUser['id']]);
+            }
+
+            // Update document step
+            if ($currentUser['role'] === 'employee') {
+                $stmt = $db->prepare("
+                    UPDATE document_steps
+                    SET status = 'completed', acted_at = NOW(), note = ?
+                    WHERE id = ? AND assigned_to_employee_id = ?
+                ");
+                $stmt->execute([$notes, $stepId, $currentUser['id']]);
+            } elseif ($currentUser['role'] === 'student') {
+                $stmt = $db->prepare("
+                    UPDATE document_steps
+                    SET status = 'completed', acted_at = NOW(), note = ?
+                    WHERE id = ? AND assigned_to_student_id = ?
+                ");
+                $stmt->execute([$notes, $stepId, $currentUser['id']]);
+            }
+
+            // Fallback: if the role-restricted update did not affect any rows (e.g., assignment mismatch),
+            // ensure the step is still marked completed because the signature record was created above.
             try {
-                $assetsDir = realpath(__DIR__ . '/../assets');
-                if (!$assetsDir) {
-                    $assetsDir = __DIR__ . '/../assets';
+                if (isset($stmt) && $stmt->rowCount() === 0) {
+                    $fallback = $db->prepare("UPDATE document_steps SET status = 'completed', acted_at = NOW(), note = ? WHERE id = ?");
+                    $fallback->execute([$notes, $stepId]);
+                    error_log("Fallback: marked step $stepId completed for document $documentId (role-restricted update affected 0 rows)");
                 }
-                $mockDir = rtrim($assetsDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'mock';
-                if (!is_dir($mockDir)) {
-                    @mkdir($mockDir, 0775, true);
-                }
-                $mapPath = $mockDir . DIRECTORY_SEPARATOR . 'signature_maps_' . $documentId . '.json';
-                
-                // Load existing maps or initialize empty array
-                $existingMaps = [];
-                if (file_exists($mapPath)) {
-                    $existingMaps = json_decode(file_get_contents($mapPath), true) ?: [];
-                }
-                
-                // Add/update map for this step
-                $existingMaps[$stepId] = $signatureMap;
-                
-                // Save back as JSON
-                @file_put_contents($mapPath, json_encode($existingMaps));
             } catch (Exception $e) {
-                // Do not fail signing if map persistence fails; just log
-                error_log('Failed to persist signature_maps: ' . $e->getMessage());
+                // Log but do not fail the signing operation
+                error_log('Fallback step update failed: ' . $e->getMessage());
             }
-        }
 
-        // Check if all steps are completed
-        $stmt = $db->prepare("
-            SELECT COUNT(*) as total_steps,
-                   COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_steps
-            FROM document_steps
-            WHERE document_id = ?
-        ");
-        $stmt->execute([$documentId]);
-        $progress = $stmt->fetch(PDO::FETCH_ASSOC);
+            // Persist signature mapping (percent-based) if provided - now per step
+            if (is_array($signatureMap)) {
+                try {
+                    $assetsDir = realpath(__DIR__ . '/../assets');
+                    if (!$assetsDir) {
+                        $assetsDir = __DIR__ . '/../assets';
+                    }
+                    $mockDir = rtrim($assetsDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'mock';
+                    if (!is_dir($mockDir)) {
+                        @mkdir($mockDir, 0775, true);
+                    }
+                    $mapPath = $mockDir . DIRECTORY_SEPARATOR . 'signature_maps_' . $documentId . '.json';
+                    
+                    // Load existing maps or initialize empty array
+                    $existingMaps = [];
+                    if (file_exists($mapPath)) {
+                        $existingMaps = json_decode(file_get_contents($mapPath), true) ?: [];
+                    }
+                    
+                    // Add/update map for this step
+                    $existingMaps[$stepId] = $signatureMap;
+                    
+                    // Save back as JSON
+                    @file_put_contents($mapPath, json_encode($existingMaps));
+                } catch (Exception $e) {
+                    // Do not fail signing if map persistence fails; just log
+                    error_log('Failed to persist signature_maps: ' . $e->getMessage());
+                }
+            }
 
-        if ($progress['total_steps'] == $progress['completed_steps']) {
-            // All steps completed, update document status
+            // Check if all steps are completed
             $stmt = $db->prepare("
-                UPDATE documents
-                SET status = 'approved', updated_at = NOW()
-                WHERE id = ?
+                SELECT COUNT(*) as total_steps,
+                       COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_steps
+                FROM document_steps
+                WHERE document_id = ?
             ");
             $stmt->execute([$documentId]);
+            $progress = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // Create calendar event for approved document
-            $docStmt = $db->prepare("SELECT doc_type, title, department, departmentFull, date, implDate, eventName, eventDate FROM documents WHERE id = ?");
-            $docStmt->execute([$documentId]);
-            $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
+            if ($progress['total_steps'] == $progress['completed_steps']) {
+                $isFullyApproved = true;
+                // All steps completed, update document status
+                $stmt = $db->prepare("
+                    UPDATE documents
+                    SET status = 'approved', updated_at = NOW()
+                    WHERE id = ?
+                ");
+                $stmt->execute([$documentId]);
+            } else {
+                // Update current step and status
+                $stmt = $db->prepare("
+                    UPDATE documents
+                    SET current_step = current_step + 1, status = 'in_review', updated_at = NOW()
+                    WHERE id = ?
+                ");
+                $stmt->execute([$documentId]);
+            }
 
-            if ($doc) {
-                $eventTitle = '';
-                $eventDate = '';
-                $department = $doc['departmentFull'] ?: $doc['department'];
+            // Add audit log
+            addAuditLog(
+                'DOCUMENT_SIGNED',
+                'Document Management',
+                "Document signed by {$currentUser['first_name']} {$currentUser['last_name']}",
+                $documentId,
+                'Document',
+                'INFO'
+            );
 
-                if ($doc['doc_type'] === 'proposal') {
-                    $eventTitle = $doc['date'] . ' ' . $department . ' ' . $doc['title'];
-                    $eventDate = $doc['date'];
-                } elseif ($doc['doc_type'] === 'saf') {
-                    $eventTitle = $doc['implDate'] . ' ' . $department . ' ' . $doc['title'];
-                    $eventDate = $doc['implDate'];
-                } elseif ($doc['doc_type'] === 'facility') {
-                    $eventTitle = $doc['eventName'] . ' ' . $department . ' ' . $doc['eventDate'];
-                    $eventDate = $doc['eventDate'];
-                } elseif ($doc['doc_type'] === 'communication') {
-                    $eventTitle = $doc['date'] . ' ' . $department . ' ' . $doc['title'];
-                    $eventDate = $doc['date'];
-                }
+            $db->commit();
+            $signedSuccessfully = true;
 
-                if ($eventTitle && $eventDate && $department) {
-                    // Check if event already exists for this document to avoid duplicates
-                    $stmt = $db->prepare("SELECT id FROM events WHERE title = ? AND event_date = ? AND department = ? LIMIT 1");
-                    $stmt->execute([$eventTitle, $eventDate, $department]);
-                    $existingEvent = $stmt->fetch(PDO::FETCH_ASSOC);
+            break;
 
-                    if (!$existingEvent) {
-                        // Create event via internal API call (use cURL to POST to api/events.php)
-                        $eventData = [
-                            'title' => $eventTitle,
-                            'event_date' => $eventDate,
-                            'department' => $department,
-                            'description' => 'Auto-generated from approved document: ' . $doc['title'],
-                            'event_time' => null // Optional, set if available
-                        ];
+        } catch (Exception $e) {
+            $db->rollBack();
+            if (strpos($e->getMessage(), 'Lock wait timeout') !== false && $retryCount < $maxRetries) {
+                $retryCount++;
+                sleep(1);
+                continue;
+            }
+            throw $e;
+        }
+    } while ($retryCount < $maxRetries);
 
-                        // Use cURL to POST to api/events.php (assuming session context is available)
-                        $ch = curl_init();
-                        curl_setopt($ch, CURLOPT_URL, 'http://localhost/SPCF-Thesis/api/events.php'); // Adjust URL as needed
-                        curl_setopt($ch, CURLOPT_POST, true);
-                        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($eventData));
-                        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                            'Content-Type: application/json',
-                            'Cookie: ' . session_name() . '=' . session_id() // Pass session for auth
-                        ]);
-                        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                        $response = curl_exec($ch);
-                        curl_close($ch);
+    // Send response immediately
+    if ($signedSuccessfully) {
+        echo json_encode([
+            'success' => true,
+            'message' => 'Document signed successfully. The updated file has been saved and passed to the next signer.',
+            'step_id' => $stepId
+        ]);
+    }
 
+    // Handle event creation asynchronously after response
+    if ($signedSuccessfully && $isFullyApproved) {
+        ignore_user_abort(true);  // Continue even if client disconnects
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();  // Send response immediately if using FastCGI
+        }
+
+        $docStmt = $db->prepare("SELECT doc_type, title, department, departmentFull, date, venue, earliest_start_time FROM documents WHERE id = ?");
+        $docStmt->execute([$documentId]);
+        $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($doc && $doc['doc_type'] === 'proposal') {
+            $eventTitle = $doc['date'] . ' ' . ($doc['departmentFull'] ?: $doc['department']) . ' ' . $doc['title'];
+            $eventDate = $doc['date'];
+            $venue = $doc['venue'];
+            $eventTime = $doc['earliest_start_time'];
+
+            if ($eventTitle && $eventDate) {
+                // Check if event already exists for this document to avoid duplicates
+                $stmt = $db->prepare("SELECT id FROM events WHERE title = ? AND event_date = ? LIMIT 1");
+                $stmt->execute([$eventTitle, $eventDate]);
+                $existingEvent = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$existingEvent) {
+                    // Create event via internal API call (use cURL to POST to api/events.php)
+                    $eventData = [
+                        'title' => $eventTitle,
+                        'event_date' => $eventDate,
+                        'venue' => $venue,
+                        'event_time' => $eventTime,
+                        'description' => $venue, // Use venue as description
+                        'approved' => 1  // Mark as approved
+                    ];
+
+                    // Use cURL to POST to api/events.php (assuming session context is available)
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, 'http://localhost/SPCF-Thesis/api/events.php'); // Adjust URL as needed
+                    curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($eventData));
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                        'Content-Type: application/json',
+                        'Cookie: ' . session_name() . '=' . session_id() // Pass session for auth
+                    ]);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 10);  // 10-second timeout to prevent hanging
+                    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);  // 5-second connection timeout
+                    $response = curl_exec($ch);
+                    $curlError = curl_error($ch);
+                    curl_close($ch);
+
+                    if ($curlError) {
+                        error_log("CURL error creating event for document $documentId: $curlError");
+                    } else {
                         $result = json_decode($response, true);
                         if (!$result || !$result['success']) {
                             error_log("Failed to create calendar event for document ID $documentId: " . ($result['message'] ?? 'Unknown error'));
@@ -1551,37 +1671,7 @@ function signDocument($input, $files = null)
                     }
                 }
             }
-        } else {
-            // Update current step and status
-            $stmt = $db->prepare("
-                UPDATE documents
-                SET current_step = current_step + 1, status = 'in_review', updated_at = NOW()
-                WHERE id = ?
-            ");
-            $stmt->execute([$documentId]);
         }
-
-        // Add audit log
-        addAuditLog(
-            'DOCUMENT_SIGNED',
-            'Document Management',
-            "Document signed by {$currentUser['first_name']} {$currentUser['last_name']}",
-            $documentId,
-            'Document',
-            'INFO'
-        );
-
-        $db->commit();
-
-        echo json_encode([
-            'success' => true,
-            'message' => 'Document signed successfully. The updated file has been saved and passed to the next signer.',
-            'step_id' => $stepId
-        ]);
-
-    } catch (Exception $e) {
-        $db->rollBack();
-        throw $e;
     }
 }
 

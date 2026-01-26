@@ -58,14 +58,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     if (!empty($userId) && !empty($password)) {
         // Automatic user role detection based on user ID prefix
         $loginType = '';
-        if (substr($userId, 0, 3) === 'ADM') {
+        $userIdUpper = strtoupper($userId); // Convert to uppercase for case-insensitive check
+        if (substr($userIdUpper, 0, 3) === 'ADM') {
             $loginType = 'admin';
-        } elseif (substr($userId, 0, 3) === 'EMP') {
+        } elseif (substr($userIdUpper, 0, 3) === 'EMP') {
             $loginType = 'employee';
-        } elseif (substr($userId, 0, 3) === 'STU') {
+        } elseif (substr($userIdUpper, 0, 3) === 'STU') {
             $loginType = 'student';
         } else {
-            $error = 'Invalid User ID format. User ID must start with ADM, EMP, or STU.';
+            $error = 'Invalid User ID format. User ID must start with ADM, EMP, or STU (case-insensitive).';
         }
 
         if ($loginType) {

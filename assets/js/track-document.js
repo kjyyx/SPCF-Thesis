@@ -10,6 +10,11 @@ let currentSortField = 'updated_at';
 let currentSortDirection = 'desc';
 let documentStats = { total: 0, pending: 0, approved: 0, inProgress: 0, underReview: 0 };
 
+// PDF viewer globals
+let pdfDoc = null;
+let currentPdfPage = 1;
+let totalPdfPages = 0;
+
 // Document type display mapping
 function getDocumentTypeDisplay(docType) {
     const typeMap = {
@@ -504,26 +509,22 @@ function downloadDocument(docId) {
     .then(response => response.json())
     .then(data => {
         if (data.success && data.document && data.document.file_path) {
-            // Only allow download after final approval
+            // Allow download for all statuses
             const status = (data.document.status || '').toLowerCase();
-            if (status === 'approved') {
-                // Optionally restrict to issuer: if issuer id field exists, check it
-                const currentUser = window.currentUser || null;
-                const issuerId = data.document.student_id || data.document.issuer_id || data.document.user_id || null;
-                if (!issuerId || !currentUser || currentUser.id == issuerId || currentUser.role === 'admin') {
-                    const link = document.createElement('a');
-                    link.href = data.document.file_path;
-                    link.download = (data.document.document_name || data.document.title || 'Document') + '.pdf';
-                    link.target = '_blank';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    showToast('Download started', 'success');
-                } else {
-                    showToast('Only the issuer or admin can download the final approved document.', 'warning');
-                }
+            // Optionally restrict to issuer: if issuer id field exists, check it
+            const currentUser = window.currentUser || null;
+            const issuerId = data.document.student_id || data.document.issuer_id || data.document.user_id || null;
+            if (!issuerId || !currentUser || currentUser.id == issuerId || currentUser.role === 'admin') {
+                const link = document.createElement('a');
+                link.href = data.document.file_path;
+                link.download = (data.document.document_name || data.document.title || 'Document') + '.pdf';
+                link.target = '_blank';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast('Download started', 'success');
             } else {
-                showToast('Document is not yet approved. Download is available after final approval.', 'info');
+                showToast('Only the issuer or admin can download the document.', 'warning');
             }
         } else {
             throw new Error('File not found');
@@ -732,136 +733,165 @@ async function viewDetails(docId) {
             headers: { 'Content-Type': 'application/json' }
         });
 
-        if (!response.ok) throw new Error('Failed to fetch document details');
+        if (!response.ok) {
+            if (response.status === 404) {
+                throw new Error('Document not found');
+            } else if (response.status === 403) {
+                throw new Error('Access denied to this document');
+            } else {
+                throw new Error(`Server error: ${response.status}`);
+            }
+        }
 
         const data = await response.json();
 
         if (data.success && data.document) {
             const doc = data.document;
-            modalTitle.textContent = doc.document_name || doc.title;
+            modalTitle.innerHTML = `<i class="bi bi-file-earmark-text"></i><span>${doc.document_name || doc.title}</span>`;
 
-            // Add PDF viewer section
+            // PDF Viewer Section
             let pdfHtml = '';
             if (doc.file_path && /\.pdf(\?|$)/i.test(doc.file_path)) {
                 pdfHtml = `
-                    <div class="mb-3">
-                        <h6>Document Preview:</h6>
-                        <div id="pdfViewer" style="border: 1px solid #ddd; height: 400px; overflow: auto;">
+                    <div class="pdf-viewer-section">
+                        <h6><i class="bi bi-file-pdf"></i> Document Preview</h6>
+                        <div id="pdfViewer">
                             <canvas id="pdfCanvas"></canvas>
+                        </div>
+                        <div id="pdfPageControls" class="d-flex justify-content-between align-items-center">
+                            <button id="prevPage" class="btn btn-sm btn-outline-primary" disabled>
+                                <i class="bi bi-chevron-left"></i> Prev
+                            </button>
+                            <span id="pageInfo" class="badge bg-primary">Page 1 of 1</span>
+                            <button id="nextPage" class="btn btn-sm btn-outline-primary" disabled>
+                                Next <i class="bi bi-chevron-right"></i>
+                            </button>
                         </div>
                     </div>
                 `;
             }
 
-            // Existing status and details HTML
-            let statusHtml = `<div class="mb-3">
-                <strong>Current Status:</strong>
-                <span class="badge ${getStatusBadgeClass(doc.status)} ms-2">${doc.status}</span>
-            </div>`;
+            // Document Info Section
+            let infoHtml = `
+                <div class="document-info-section">
+                    <h6><i class="bi bi-info-circle"></i> Document Information</h6>
+                    <div class="info-item">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value"><span class="badge ${getStatusBadgeClass(doc.status)}">${doc.status}</span></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Current Location:</span>
+                        <span class="info-value"><span class="badge ${getLocationBadgeClass(doc.current_location)}">${doc.current_location}</span></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Submitted:</span>
+                        <span class="info-value">${new Date(doc.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                    </div>
+                </div>
+            `;
 
-            let locationHtml = `<div class="mb-3">
-                <strong>Current Location:</strong>
-                <span class="badge bg-primary">${doc.current_location}</span>
-            </div>`;
-
-            let submittedHtml = `<div class="mb-3">
-                <strong>Submitted:</strong> ${new Date(doc.created_at).toLocaleDateString()}
-            </div>`;
-
-            let descriptionHtml = `<div class="mb-3">
-                <strong>Description:</strong> ${doc.description || 'No description available'}
-            </div>`;
-
-            // Notes section - Separate rejection reason from comments
-            let rejectionReasonHtml = '';
-            let notesHtml = '<div class="mb-3"><h6>Notes/Comments:</h6>';
+            // Rejection Alert
+            let rejectionHtml = '';
             if (doc.notes && doc.notes.length > 0) {
                 const rejectionNote = doc.notes.find(note => note.is_rejection);
-                const otherNotes = doc.notes.filter(note => !note.is_rejection);
-
-                // Rejection Reason section
                 if (rejectionNote) {
-                    rejectionReasonHtml = `
-                        <div class="mb-3">
-                            <h6 class="text-danger"><i class="bi bi-exclamation-triangle"></i> Rejection Reason:</h6>
-                            <div class="alert alert-danger">
-                                <strong>${rejectionNote.created_by_name}</strong> - ${new Date(rejectionNote.created_at).toLocaleString()}<br>
-                                ${rejectionNote.note}
+                    rejectionHtml = `
+                        <div class="rejection-alert">
+                            <h6><i class="bi bi-exclamation-triangle"></i> Rejection Reason</h6>
+                            <div class="alert-content">
+                                <strong>${rejectionNote.created_by_name}</strong>
+                                <small class="d-block text-muted mb-2">${new Date(rejectionNote.created_at).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>
+                                <p class="mb-0">${rejectionNote.note}</p>
                             </div>
                         </div>
                     `;
                 }
+            }
 
-                // Notes/Comments section
+            // Notes Section
+            let notesHtml = '';
+            if (doc.notes && doc.notes.length > 0) {
+                const otherNotes = doc.notes.filter(note => !note.is_rejection);
                 if (otherNotes.length > 0) {
-                    notesHtml += '<div class="notes-list">';
+                    notesHtml = '<div class="notes-section"><h6><i class="bi bi-chat-dots"></i> Notes & Comments</h6>';
                     otherNotes.forEach(note => {
+                        const approvalStatus = note.step_status === 'completed' ? 'Completed' : note.step_status === 'rejected' ? 'Rejected' : 'Pending';
                         notesHtml += `
-                            <div class="note-item mb-2 p-2 border rounded">
-                                <div class="note-meta text-muted small d-flex justify-content-between align-items-center">
-                                    <span><strong>${note.created_by_name}</strong> - ${new Date(note.created_at).toLocaleString()}</span>
+                            <div class="note-item">
+                                <div class="note-meta">
+                                    <strong>${note.created_by_name}</strong> (${approvalStatus}) · ${new Date(note.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                 </div>
                                 <div class="note-content">${note.note}</div>
                             </div>
                         `;
                     });
                     notesHtml += '</div>';
-                } else {
-                    notesHtml += '<p class="text-muted">No additional notes</p>';
                 }
-            } else {
-                notesHtml += '<p class="text-muted">No notes available</p>';
             }
-            notesHtml += '</div>';
 
-            // History/Timeline section
-            let historyHtml = '<div class="mb-3"><h6>Document History:</h6><div class="timeline">';
+            // Timeline Section
+            let timelineHtml = '<div class="timeline-section"><h6><i class="bi bi-clock-history"></i> Approval Timeline</h6>';
             if (doc.workflow_history && doc.workflow_history.length > 0) {
-                doc.workflow_history.forEach((item, index) => {
-                    historyHtml += `
+                timelineHtml += '<div class="timeline">';
+                doc.workflow_history.forEach((item) => {
+                    timelineHtml += `
                         <div class="timeline-item">
                             <div class="timeline-marker ${getStatusColorClass(item.status)}"></div>
                             <div class="timeline-content">
-                                <div class="timeline-date">${new Date(item.created_at).toLocaleDateString()}</div>
-                                <div class="timeline-action">${item.action} - ${item.office_name || item.from_office}</div>
+                                <div class="timeline-date">${new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                                <div class="timeline-action">${item.action} · ${item.office_name || item.from_office}</div>
                             </div>
                         </div>
                     `;
                 });
+                timelineHtml += '</div>';
             } else {
-                historyHtml += '<p class="text-muted">No history available</p>';
+                timelineHtml += '<p class="text-muted">No workflow history available</p>';
             }
-            historyHtml += '</div></div>';
+            timelineHtml += '</div>';
 
+            // Assemble final modal content
             modalBody.innerHTML = `
-                <div class="row">
-                    <div class="col-md-6">
+                <div class="row g-2">
+                    <div class="col-lg-6">
                         ${pdfHtml}
-                        ${statusHtml}
-                        ${locationHtml}
-                        ${submittedHtml}
-                        ${descriptionHtml}
-                        ${rejectionReasonHtml}
-                        ${notesHtml}
                     </div>
-                    <div class="col-md-6">
-                        ${historyHtml}
+                    <div class="col-lg-6">
+                        ${infoHtml}
+                        ${rejectionHtml}
+                        ${notesHtml}
+                        ${timelineHtml}
                     </div>
                 </div>
             `;
+
+            // Show download button if PDF available (regardless of status)
+            const downloadBtn = document.getElementById('downloadDocumentBtn');
+            if (downloadBtn && doc.file_path) {
+                downloadBtn.style.display = 'inline-block';
+                downloadBtn.onclick = () => downloadDocument(doc.id);
+            }
 
             // Load PDF if available
             if (doc.file_path && /\.pdf(\?|$)/i.test(doc.file_path)) {
                 loadPdfInModal(doc.file_path);
             }
         } else {
-            modalTitle.textContent = 'Error';
-            modalBody.innerHTML = '<p class="text-danger">Failed to load document details</p>';
+            modalTitle.innerHTML = '<i class="bi bi-exclamation-triangle"></i><span>Error</span>';
+            modalBody.innerHTML = '<div class="alert alert-danger"><i class="bi bi-x-circle me-2"></i>Failed to load document details</div>';
         }
     } catch (error) {
         console.error('Error fetching document details:', error);
-        modalTitle.textContent = 'Error';
-        modalBody.innerHTML = '<p class="text-danger">Failed to load document details</p>';
+        modalTitle.textContent = 'Error Loading Document';
+        let errorMessage = 'Failed to load document details';
+        if (error.message.includes('not found')) {
+            errorMessage = 'Document not found or has been deleted';
+        } else if (error.message.includes('Access denied')) {
+            errorMessage = 'You do not have permission to view this document';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+            errorMessage = 'Network error. Please check your connection and try again';
+        }
+        modalBody.innerHTML = `<p class="text-danger"><i class="bi bi-exclamation-triangle me-2"></i>${errorMessage}</p>`;
     }
 
     modal.show();
@@ -875,58 +905,132 @@ async function loadPdfInModal(url) {
     try {
         const pdfjsLib = window['pdfjsLib'];
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        const pdfDoc = await pdfjsLib.getDocument(url).promise;
-        const page = await pdfDoc.getPage(1);
-        const viewport = page.getViewport({ scale: 1.0 });
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-        const renderContext = {
-            canvasContext: canvas.getContext('2d'),
-            viewport: viewport
-        };
-        await page.render(renderContext).promise;
+        pdfDoc = await pdfjsLib.getDocument(url).promise;
+        totalPdfPages = pdfDoc.numPages;
+        currentPdfPage = 1;
+        
+        // Update page controls
+        updatePdfPageControls();
+        
+        // Render first page
+        await renderPdfPage(currentPdfPage);
     } catch (error) {
         console.error('Error loading PDF:', error);
         document.getElementById('pdfViewer').innerHTML = '<p class="text-danger">Failed to load PDF preview</p>';
     }
 }
 
+// Render specific PDF page
+async function renderPdfPage(pageNum) {
+    if (!pdfDoc) return;
+    
+    const canvas = document.getElementById('pdfCanvas');
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale: 1.0 });
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    const renderContext = {
+        canvasContext: canvas.getContext('2d'),
+        viewport: viewport
+    };
+    await page.render(renderContext).promise;
+}
+
+// Update PDF page controls
+function updatePdfPageControls() {
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    const pageInfo = document.getElementById('pageInfo');
+    
+    if (prevBtn) prevBtn.disabled = currentPdfPage <= 1;
+    if (nextBtn) nextBtn.disabled = currentPdfPage >= totalPdfPages;
+    if (pageInfo) pageInfo.textContent = `Page ${currentPdfPage} of ${totalPdfPages}`;
+    
+    // Add event listeners if not already added
+    if (prevBtn && !prevBtn.hasEventListener) {
+        prevBtn.addEventListener('click', () => {
+            if (currentPdfPage > 1) {
+                currentPdfPage--;
+                renderPdfPage(currentPdfPage);
+                updatePdfPageControls();
+            }
+        });
+        prevBtn.hasEventListener = true;
+    }
+    
+    if (nextBtn && !nextBtn.hasEventListener) {
+        nextBtn.addEventListener('click', () => {
+            if (currentPdfPage < totalPdfPages) {
+                currentPdfPage++;
+                renderPdfPage(currentPdfPage);
+                updatePdfPageControls();
+            }
+        });
+        nextBtn.hasEventListener = true;
+    }
+}
+
 // Helper function to get status badge class
 function getStatusBadgeClass(status) {
-    switch (status) {
-        case 'Pending': return 'bg-secondary';
-        case 'In Progress': return 'bg-warning';
-        case 'Under Review': return 'bg-info';
-        case 'Completed': return 'bg-success';
-        case 'Approved': return 'bg-success';
-        case 'Rejected': return 'bg-danger';
-        default: return 'bg-secondary';
+    switch (status.toLowerCase()) {
+        case 'submitted': return 'status-submitted';
+        case 'pending': return 'status-pending';
+        case 'in progress':
+        case 'in_progress': return 'status-in-progress';
+        case 'under review':
+        case 'under_review': return 'status-under-review';
+        case 'completed': return 'status-completed';
+        case 'approved': return 'status-approved';
+        case 'rejected': return 'status-rejected';
+        case 'timeout': return 'status-timeout';
+        case 'deleted': return 'status-deleted';
+        default: return 'status-submitted';
     }
 }
 
 // Helper function to get location badge class
 function getLocationBadgeClass(location) {
-    // You can customize these based on your office types
-    switch (location) {
-        case 'Finance Office': return 'bg-info';
-        case 'Student Affairs': return 'bg-success';
-        case 'Student Council': return 'bg-warning';
-        case 'Dean\'s Office': return 'bg-primary';
-        case 'Approved': return 'bg-success';
-        default: return 'bg-secondary';
+    // Custom colors for different office locations
+    switch (location.toLowerCase()) {
+        case 'finance office':
+        case 'cpa office':
+        case 'accounting': return 'location-finance';
+        case 'student affairs':
+        case 'osa':
+        case 'oic osa': return 'location-student-affairs';
+        case 'student council':
+        case 'ssc':
+        case 'ssc president': return 'location-student-council';
+        case 'dean\'s office':
+        case 'college dean':
+        case 'dean': return 'location-deans-office';
+        case 'vp office':
+        case 'vpaa':
+        case 'evp': return 'location-vp-office';
+        case 'csc office':
+        case 'csc adviser': return 'location-csc-office';
+        case 'approved': return 'location-approved';
+        default: return 'location-default';
     }
 }
 
 // Helper function to get status color class for timeline
 function getStatusColorClass(status) {
-    switch (status) {
-        case 'pending': return 'bg-secondary';
-        case 'inprogress': return 'bg-warning';
-        case 'review': return 'bg-info';
-        case 'completed': return 'bg-success';
-        case 'approved': return 'bg-success';
-        case 'rejected': return 'bg-danger';
-        default: return 'bg-secondary';
+    switch (status.toLowerCase()) {
+        case 'submitted': return 'timeline-submitted';
+        case 'pending': return 'timeline-pending';
+        case 'in progress':
+        case 'inprogress':
+        case 'in_progress': return 'timeline-in-progress';
+        case 'under review':
+        case 'review':
+        case 'under_review': return 'timeline-under-review';
+        case 'completed':
+        case 'approved': return 'timeline-approved';
+        case 'rejected': return 'timeline-rejected';
+        case 'timeout': return 'timeline-timeout';
+        case 'deleted': return 'timeline-deleted';
+        default: return 'timeline-submitted';
     }
 }
 

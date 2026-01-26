@@ -366,8 +366,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label for="eventDescription" class="form-label">Description</label>
-                            <textarea class="form-control" id="eventDescription" rows="3"></textarea>
+                            <label for="eventVenue" class="form-label">Venue</label>
+                            <input type="text" class="form-control" id="eventVenue">
                         </div>
                         <div class="mb-3">
                             <label for="eventDepartment" class="form-label">Department/College</label>
@@ -438,8 +438,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             </div>
                         </div>
                         <div class="detail-group">
-                            <label class="detail-label">Description</label>
-                            <div class="detail-value" id="viewEventDescription">-</div>
+                            <label class="detail-label">Venue</label>
+                            <div class="detail-value" id="viewEventVenue">-</div>
                         </div>
                         <div class="detail-group">
                             <label class="detail-label">Department/College</label>
@@ -669,7 +669,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                     
                                     <h6>Features</h6>
                                     <ul>
-                                        <li><strong>Search:</strong> Find events by title, description, or department</li>
+                                        <li><strong>Search:</strong> Find events by title or department</li>
                                         <li><strong>Filter:</strong> Filter by department or approval status</li>
                                         <li><strong>Export:</strong> Download events as CSV</li>
                                         <li><strong>Navigation:</strong> Use arrow keys or buttons to navigate</li>

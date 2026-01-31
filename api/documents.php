@@ -74,20 +74,20 @@ function convertDocxToPdf($docxPath)
     $logFile = __DIR__ . '/../conversion.log';
     $log = date('Y-m-d H:i:s') . " - Starting conversion for: " . $docxPath . "\n";
     file_put_contents($logFile, $log, FILE_APPEND);
-    
+
     $apiKey = $_ENV['CLOUDCONVERT_API_KEY'] ?? null;
     if (!$apiKey) {
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - ERROR: API key not found\n", FILE_APPEND);
         return $docxPath; // Return original path if conversion fails
     }
-    
+
     file_put_contents($logFile, date('Y-m-d H:i:s') . " - API key found\n", FILE_APPEND);
 
     if (!file_exists($docxPath)) {
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - ERROR: DOCX file does not exist: $docxPath\n", FILE_APPEND);
         return $docxPath;
     }
-    
+
     file_put_contents($logFile, date('Y-m-d H:i:s') . " - DOCX file exists, size: " . filesize($docxPath) . "\n", FILE_APPEND);
 
     try {
@@ -95,7 +95,7 @@ function convertDocxToPdf($docxPath)
             'api_key' => $apiKey,
             'sandbox' => false
         ]);
-        
+
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - CloudConvert client created\n", FILE_APPEND);
 
         $job = (new \CloudConvert\Models\Job())
@@ -109,7 +109,7 @@ function convertDocxToPdf($docxPath)
                 (new \CloudConvert\Models\Task('export/url', 'export-my-file'))
                     ->set('input', 'convert-my-file')
             );
-        
+
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - Creating job\n", FILE_APPEND);
         $job = $cloudconvert->jobs()->create($job);
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - Job created: " . $job->getId() . "\n", FILE_APPEND);
@@ -242,7 +242,7 @@ function handleGet()
                 $event_time = $r['earliest_start_time'];
                 $venue = $r['venue'];
                 $events[] = [
-                    'id' => (int)$r['id'],
+                    'id' => (int) $r['id'],
                     'title' => $r['title'],
                     'doc_type' => $r['doc_type'],
                     'department' => $r['department'],
@@ -385,7 +385,7 @@ function handleGet()
                                      WHERE d.id = ? AND d.student_id = ?");
             $docStmt->execute([$documentId, $currentUser['id']]);
             $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if (!$doc) {
                 http_response_code(404);
                 echo json_encode(['success' => false, 'message' => 'Document not found']);
@@ -435,10 +435,10 @@ function handleGet()
                 'status' => $doc['status'],
                 'current_location' => $current_location,
                 'created_at' => $doc['uploaded_at'],
-                'updated_at' => $doc['uploaded_at'], // You might want to track last update separately
+                'updated_at' => $doc['uploaded_at'],
                 'description' => $doc['description'],
                 'file_path' => $doc['file_path'],
-                'workflow_history' => array_map(function($step) {
+                'workflow_history' => array_map(function ($step) {
                     $timestamp = $step['acted_at'] ?: date('Y-m-d H:i:s');
                     return [
                         'created_at' => $timestamp,
@@ -448,7 +448,7 @@ function handleGet()
                         'from_office' => $step['name'] ?: 'Unknown'
                     ];
                 }, $workflow_history),
-                'notes' => array_map(function($note) {
+                'notes' => array_map(function ($note) {
                     return [
                         'id' => $note['id'] ?: null,
                         'note' => $note['note'] ?: '',
@@ -504,7 +504,7 @@ function handleGet()
                 } elseif ($s['assigned_to_student_id']) {
                     $assignee_name = ($s['stu_first'] || $s['stu_last']) ? trim($s['stu_first'] . ' ' . $s['stu_last']) : null;
                 }
-                
+
                 $steps[] = [
                     'id' => (int) $s['id'],
                     'step_order' => (int) $s['step_order'],
@@ -512,6 +512,7 @@ function handleGet()
                     'status' => $s['status'],
                     'note' => $s['note'],
                     'acted_at' => $s['acted_at'],
+                    'signature_map' => $s['signature_map'],
                     'assignee_id' => $assignee_id,
                     'assignee_name' => $assignee_name,
                     'assignee_type' => $s['assigned_to_employee_id'] ? 'employee' : 'student',
@@ -568,17 +569,7 @@ function handleGet()
                 'file_path' => $filePath
             ];
 
-            // Attach signature mappings if available (now per step)
-            $mockDir = realpath(__DIR__ . '/../assets') . DIRECTORY_SEPARATOR . 'mock';
-            if ($mockDir && is_dir($mockDir)) {
-                $mapFile = $mockDir . DIRECTORY_SEPARATOR . 'signature_maps_' . $documentId . '.json';
-                if (file_exists($mapFile)) {
-                    $mapJson = json_decode(file_get_contents($mapFile), true);
-                    if (is_array($mapJson)) {
-                        $payload['signature_maps'] = $mapJson;  // Array keyed by step_id
-                    }
-                }
-            }
+            // Attach signature mappings if available (now per step) - using database column
 
             // Return as a plain object (notifications.js expects no wrapper)
             echo json_encode($payload);
@@ -606,6 +597,8 @@ function handleGet()
                 d.status,
                 d.current_step,
                 d.uploaded_at,
+                d.date,
+                d.earliest_start_time,
                 s.id as student_id,
                 CONCAT(s.first_name, ' ', s.last_name) as student_name,
                 s.department as student_department,
@@ -653,6 +646,8 @@ function handleGet()
                 d.status,
                 d.current_step,
                 d.uploaded_at,
+                d.date,
+                d.earliest_start_time,
                 s.id as student_id,
                 CONCAT(s.first_name, ' ', s.last_name) as student_name,
                 s.department as student_department,
@@ -663,6 +658,7 @@ function handleGet()
                 ds.name as step_name,
                 ds.status as step_status,
                 ds.note,
+                ds.signature_map,
                 ds.acted_at,
                 ds.assigned_to_employee_id,
                 ds.assigned_to_student_id,
@@ -707,6 +703,8 @@ function handleGet()
                     'status' => $row['status'],
                     'current_step' => (int) $row['current_step'],
                     'uploaded_at' => $row['uploaded_at'],
+                    'date' => $row['date'],
+                    'earliest_start_time' => $row['earliest_start_time'],
                     'student' => [
                         'id' => $row['student_id'],
                         'name' => $row['student_name'],
@@ -748,7 +746,8 @@ function handleGet()
     }
 }
 
-function updateNote($input) {
+function updateNote($input)
+{
     global $db, $currentUser;
 
     $documentId = $input['document_id'] ?? 0;
@@ -933,8 +932,8 @@ function createDocument($input)
         }
 
         // Insert document
-        $stmt = $db->prepare("INSERT INTO documents (student_id, doc_type, title, description, status, current_step, uploaded_at, department, departmentFull, date, implDate, eventName, eventDate, venue, schedule_summary, earliest_start_time) VALUES (?, ?, ?, ?, 'submitted', 1, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$studentId, $docType, $data['title'] ?? 'Untitled', $data['rationale'] ?? '', $department, $departmentFull, $date, $implDate, $eventName, $eventDate, $venue, $scheduleSummary, $earliestStartTime]);
+        $stmt = $db->prepare("INSERT INTO documents (student_id, doc_type, title, description, status, current_step, uploaded_at, department, departmentFull, date, implDate, eventName, eventDate, venue, schedule_summary, earliest_start_time, data) VALUES (?, ?, ?, ?, 'submitted', 1, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$studentId, $docType, $data['title'] ?? 'Untitled', $data['rationale'] ?? '', $department, $departmentFull, $date, $implDate, $eventName, $eventDate, $venue, $scheduleSummary, $earliestStartTime, json_encode($data)]);
 
         $docId = (int) $db->lastInsertId();
 
@@ -1060,14 +1059,14 @@ function createDocument($input)
 
             // Process personnel lists
             if (isset($data['notedList']) && is_array($data['notedList'])) {
-                $data['noted'] = implode("\n", array_map(function($p) {
+                $data['noted'] = implode("\n", array_map(function ($p) {
                     return htmlspecialchars($p['name'] . ' - ' . $p['title']);
                 }, $data['notedList']));
                 unset($data['notedList']);
             }
 
             if (isset($data['approvedList']) && is_array($data['approvedList'])) {
-                $data['approved'] = implode("\n", array_map(function($p) {
+                $data['approved'] = implode("\n", array_map(function ($p) {
                     return htmlspecialchars($p['name'] . ' - ' . $p['title']);
                 }, $data['approvedList']));
                 unset($data['approvedList']);
@@ -1157,6 +1156,12 @@ function createDocument($input)
             $evp = $stmt->fetch(PDO::FETCH_ASSOC);
             $signatories['evp'] = $evp ? $evp['first_name'] . ' ' . $evp['last_name'] : 'EVP';
             $signatoryIds['evp'] = $evp ? $evp['id'] : null;
+
+            // Fetch Accounting Personnel
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position  = 'Accounting Officer' LIMIT 1");
+            $stmt->execute([]);
+            $accountingPersonnel = $stmt->fetch(PDO::FETCH_ASSOC);
+            $data['acp'] = $accountingPersonnel ? $accountingPersonnel['first_name'] . ' ' . $accountingPersonnel['last_name'] : 'Accounting Personnel';
 
             // Add signatories to data
             $data = array_merge($data, $signatories);
@@ -1371,6 +1376,11 @@ function signDocument($input, $files = null)
     $notes = $input['notes'] ?? '';
     $signatureMap = $input['signature_map'] ?? null; // optional percent-based coordinates
 
+    // Decode signature_map if it's a JSON string (from FormData)
+    if ($signatureMap && !is_array($signatureMap) && is_string($signatureMap)) {
+        $signatureMap = json_decode($signatureMap, true);
+    }
+
     if (!$documentId) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Document ID is required']);
@@ -1504,6 +1514,12 @@ function signDocument($input, $files = null)
                 $stmt->execute([$notes, $stepId, $currentUser['id']]);
             }
 
+            // Persist signature mapping (percent-based) to database
+            if ($signatureMap && $stepId) {
+                $stmt = $db->prepare("UPDATE document_steps SET signature_map = ? WHERE id = ?");
+                $stmt->execute([json_encode($signatureMap), $stepId]);
+            }
+
             // Fallback: if the role-restricted update did not affect any rows (e.g., assignment mismatch),
             // ensure the step is still marked completed because the signature record was created above.
             try {
@@ -1517,33 +1533,39 @@ function signDocument($input, $files = null)
                 error_log('Fallback step update failed: ' . $e->getMessage());
             }
 
-            // Persist signature mapping (percent-based) if provided - now per step
-            if (is_array($signatureMap)) {
-                try {
-                    $assetsDir = realpath(__DIR__ . '/../assets');
-                    if (!$assetsDir) {
-                        $assetsDir = __DIR__ . '/../assets';
+            // Update dates for SAF documents
+            $docStmt = $db->prepare("SELECT doc_type, data FROM documents WHERE id = ?");
+            $docStmt->execute([$documentId]);
+            $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
+            if ($doc && $doc['doc_type'] === 'saf') {
+                $data = json_decode($doc['data'], true);
+                if ($data) {
+                    $stepStmt = $db->prepare("SELECT name FROM document_steps WHERE id = ?");
+                    $stepStmt->execute([$stepId]);
+                    $step = $stepStmt->fetch(PDO::FETCH_ASSOC);
+                    $stepName = $step['name'];
+                    $dateField = '';
+                    if ($stepName === 'OIC OSA')
+                        $dateField = 'notedDate';
+                    elseif ($stepName === 'VPAA')
+                        $dateField = 'recDate';
+                    elseif ($stepName === 'EVP')
+                        $dateField = 'appDate';
+                    if ($dateField) {
+                        $data[$dateField] = date('Y-m-d');
                     }
-                    $mockDir = rtrim($assetsDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'mock';
-                    if (!is_dir($mockDir)) {
-                        @mkdir($mockDir, 0775, true);
+                    // Re-fill template
+                    $templatePath = '../assets/templates/SAF/SAF REQUEST.docx';
+                    if (file_exists($templatePath)) {
+                        try {
+                            $filledPath = fillDocxTemplate($templatePath, $data);
+                            $pdfPath = convertDocxToPdf($filledPath);
+                            $updateStmt = $db->prepare("UPDATE documents SET file_path = ?, data = ? WHERE id = ?");
+                            $updateStmt->execute([$pdfPath, json_encode($data), $documentId]);
+                        } catch (Exception $e) {
+                            error_log("SAF template re-filling failed: " . $e->getMessage());
+                        }
                     }
-                    $mapPath = $mockDir . DIRECTORY_SEPARATOR . 'signature_maps_' . $documentId . '.json';
-                    
-                    // Load existing maps or initialize empty array
-                    $existingMaps = [];
-                    if (file_exists($mapPath)) {
-                        $existingMaps = json_decode(file_get_contents($mapPath), true) ?: [];
-                    }
-                    
-                    // Add/update map for this step
-                    $existingMaps[$stepId] = $signatureMap;
-                    
-                    // Save back as JSON
-                    @file_put_contents($mapPath, json_encode($existingMaps));
-                } catch (Exception $e) {
-                    // Do not fail signing if map persistence fails; just log
-                    error_log('Failed to persist signature_maps: ' . $e->getMessage());
                 }
             }
 
@@ -1566,6 +1588,60 @@ function signDocument($input, $files = null)
                     WHERE id = ?
                 ");
                 $stmt->execute([$documentId]);
+
+                // Set releaseDate for SAF documents
+                $docStmt = $db->prepare("SELECT doc_type, data FROM documents WHERE id = ?");
+                $docStmt->execute([$documentId]);
+                $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
+                if ($doc && $doc['doc_type'] === 'saf') {
+                    $data = json_decode($doc['data'], true);
+                    if ($data) {
+                        $data['releaseDate'] = date('Y-m-d');
+                        // Re-fill template
+                        $templatePath = '../assets/templates/SAF/SAF REQUEST.docx';
+                        if (file_exists($templatePath)) {
+                            try {
+                                $filledPath = fillDocxTemplate($templatePath, $data);
+                                $pdfPath = convertDocxToPdf($filledPath);
+                                $updateStmt = $db->prepare("UPDATE documents SET file_path = ?, data = ? WHERE id = ?");
+                                $updateStmt->execute([$pdfPath, json_encode($data), $documentId]);
+                            } catch (Exception $e) {
+                                error_log("SAF template re-filling failed: " . $e->getMessage());
+                            }
+                        }
+                    }
+                }
+
+                // Deduct SAF funds if fully approved SAF document
+                if ($doc['doc_type'] === 'saf') {
+                    $data = json_decode($doc['data'], true);
+                    if ($data) {
+                        $reqSSC = $data['reqSSC'] ?? 0;
+                        $reqCSC = $data['reqCSC'] ?? 0;
+                        $totalDeduct = $reqSSC + $reqCSC;
+                        $department = $data['department'];
+
+                        if ($totalDeduct > 0 && $department) {
+                            // Update used_amount in saf_balances
+                            $updateStmt = $db->prepare("UPDATE saf_balances SET used_amount = used_amount + ? WHERE department_id = ?");
+                            $updateStmt->execute([$totalDeduct, $department]);
+
+                            // Add transaction record
+                            $transStmt = $db->prepare("INSERT INTO saf_transactions (department_id, transaction_type, amount, description, date) VALUES (?, 'deduct', ?, ?, NOW())");
+                            $transStmt->execute([$department, $totalDeduct, "SAF Request: " . ($data['title'] ?? 'Untitled')]);
+
+                            // Audit log for fund deduction
+                            addAuditLog(
+                                'SAF_DEDUCTED',
+                                'SAF Management',
+                                "Deducted ₱{$totalDeduct} from {$department} SAF balance for approved document",
+                                $documentId,
+                                'Document',
+                                'INFO'
+                            );
+                        }
+                    }
+                }
             } else {
                 // Update current step and status
                 $stmt = $db->prepare("
@@ -1623,7 +1699,7 @@ function signDocument($input, $files = null)
         $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
 
         if ($doc && $doc['doc_type'] === 'proposal') {
-            $eventTitle = $doc['date'] . ' ' . ($doc['departmentFull'] ?: $doc['department']) . ' ' . $doc['title'];
+            $eventTitle = $doc['title'];
             $eventDate = $doc['date'];
             $venue = $doc['venue'];
             $eventTime = $doc['earliest_start_time'];
@@ -1641,6 +1717,7 @@ function signDocument($input, $files = null)
                         'event_date' => $eventDate,
                         'venue' => $venue,
                         'event_time' => $eventTime,
+                        'department' => $doc['department'],
                         'description' => $venue, // Use venue as description
                         'approved' => 1  // Mark as approved
                     ];

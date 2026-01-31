@@ -160,6 +160,39 @@ body {
     border-color: var(--border-color-dark);
 }
 
+/* Sorting Container */
+.sorting-container {
+    margin: var(--spacing-md) 0;
+    max-width: 250px;
+}
+
+.sorting-container .input-group {
+    box-shadow: var(--shadow);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+}
+
+.sorting-container .form-select {
+    border: 1px solid var(--border-color);
+    padding: var(--spacing-md) var(--spacing-lg);
+    font-size: var(--font-size-base);
+    background-color: #ffffff;
+    cursor: pointer;
+}
+
+.sorting-container .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background-color: #ffffff;
+}
+
+.sorting-container .input-group-text {
+    background-color: #ffffff;
+    border: 1px solid var(--border-color);
+    color: var(--text-tertiary);
+    padding: var(--spacing-md) var(--spacing-md);
+}
+
 /* Header Improvements - Matching Calendar.css Style */
 .dashboard-header {
     background: #ffffff;
@@ -313,6 +346,83 @@ body {
 .document-actions-buttons {
     display: flex;
     gap: 0.5rem;
+}
+
+/* Status-based button colors to match status badges */
+.document-actions-buttons .btn {
+    font-weight: 600;
+    border-width: 2px;
+    transition: var(--transition);
+}
+
+.document-actions-buttons .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* All button - neutral/primary */
+.document-actions-buttons .btn-outline-primary {
+    border-color: #3b82f6;
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.document-actions-buttons .btn-outline-primary:hover {
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+}
+
+/* Pending/Submitted - urgent (red) */
+.document-actions-buttons button[onclick*="submitted"] {
+    border-color: #ef4444 !important;
+    color: #ef4444 !important;
+    background: rgba(239, 68, 68, 0.05) !important;
+}
+
+.document-actions-buttons button[onclick*="submitted"]:hover {
+    background: #ef4444 !important;
+    color: white !important;
+    border-color: #ef4444 !important;
+}
+
+/* In Review - high priority (orange) */
+.document-actions-buttons button[onclick*="in_review"] {
+    border-color: #f59e0b !important;
+    color: #f59e0b !important;
+    background: rgba(245, 158, 11, 0.05) !important;
+}
+
+.document-actions-buttons button[onclick*="in_review"]:hover {
+    background: #f59e0b !important;
+    color: white !important;
+    border-color: #f59e0b !important;
+}
+
+/* Done/Approved - success (green) */
+.document-actions-buttons button[onclick*="approved"] {
+    border-color: #10b981 !important;
+    color: #10b981 !important;
+    background: rgba(16, 185, 129, 0.05) !important;
+}
+
+.document-actions-buttons button[onclick*="approved"]:hover {
+    background: #10b981 !important;
+    color: white !important;
+    border-color: #10b981 !important;
+}
+
+/* Rejected - neutral (gray) */
+.document-actions-buttons button[onclick*="rejected"] {
+    border-color: #64748b !important;
+    color: #64748b !important;
+    background: rgba(100, 116, 139, 0.05) !important;
+}
+
+.document-actions-buttons button[onclick*="rejected"]:hover {
+    background: #64748b !important;
+    color: white !important;
+    border-color: #64748b !important;
 }
 
 .action-button {
@@ -1928,8 +2038,8 @@ body {
 
 /* Completed signature overlays */
 .completed-signature-container {
-    pointer-events: none; /* Don't interfere with interactions */
-    z-index: 10;
+    pointer-events: none; 
+
 }
 
 .signature-timestamp {
@@ -1941,21 +2051,16 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.blurred-signature {
-    position: relative;
-    overflow: hidden;
-    filter: blur(2px);
-    background: rgba(0, 0, 0, 0.1);
-}
-
-.blurred-signature::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.05);
+.signature-redaction {
+    /* Black box for redaction */
+    background: #000000 !important;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px; /* Match .signature-target padding */
 }
 
 @keyframes shimmer {

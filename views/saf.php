@@ -64,8 +64,6 @@ $pageTitle = 'Student Allocated Funds';
   <title><?php echo htmlspecialchars($pageTitle); ?></title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-  <script src="/_sdk/element_sdk.js"></script>
-  <script src="/_sdk/data_sdk.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <link href="../assets/css/global.css" rel="stylesheet"> <!-- Your global styles -->
   <link rel="stylesheet" href="../assets/css/global-notifications.css"><!-- Global notifications styles -->
@@ -227,7 +225,13 @@ $pageTitle = 'Student Allocated Funds';
    </div><!-- Single Department View -->
    <div id="single-dept-view" class="container-fluid p-4" style="display: none;">
     <div class="row">
-     <div class="col-lg-8 mx-auto"><!-- Department Header -->
+     <div class="col-lg-8 mx-auto">
+      <!-- Back Button -->
+      <div class="mb-3">
+       <button class="btn btn-outline-secondary" onclick="goBack()">
+        <i class="bi bi-arrow-left me-2"></i>Back to Departments
+       </button>
+      </div><!-- Department Header -->
       <div class="card shadow-sm mb-4">
        <div class="card-header bg-white border-0 pt-4">
         <h3 id="dept-name" class="fw-bold mb-0"></h3>
@@ -261,7 +265,7 @@ $pageTitle = 'Student Allocated Funds';
       <div id="level3-controls" class="card shadow-sm mb-4" style="display: none;">
        <div class="card-body">
         <h5 class="card-title mb-3"><i class="bi bi-gear me-2"></i>Manage SAF</h5>
-        <div class="d-flex flex-wrap gap-2"><button class="btn btn-success" onclick="showEditModal('add')"> <i class="bi bi-plus-circle me-1"></i>Add Funds </button> <button class="btn btn-danger" onclick="showEditModal('deduct')"> <i class="bi bi-dash-circle me-1"></i>Deduct Funds </button> <button class="btn btn-primary" onclick="showEditModal('set')"> <i class="bi bi-pencil-square me-1"></i>Set Initial Amount </button> <button class="btn btn-outline-danger" onclick="showDeleteConfirm()"> <i class="bi bi-arrow-clockwise me-1"></i>Reset Department </button>
+        <div class="d-flex flex-wrap gap-2"><button class="btn btn-success" onclick="showEditModal('add')"> <i class="bi bi-plus-circle me-1"></i>Add Funds </button> <button class="btn btn-danger" onclick="showEditModal('deduct')"> <i class="bi bi-dash-circle me-1"></i>Deduct Funds </button> <button class="btn btn-primary" onclick="showEditModal('set')"> <i class="bi bi-pencil-square me-1"></i>Set Initial Amount </button> <button class="btn btn-outline-danger" onclick="showResetConfirm()" title="Reset all SAF data and transaction history"> <i class="bi bi-arrow-counterclockwise me-1"></i>Reset SAF Data </button>
         </div>
        </div>
       </div><!-- Transaction History -->
@@ -300,15 +304,40 @@ $pageTitle = 'Student Allocated Funds';
     </div>
    </div>
   </div><!-- Delete Confirm Modal -->
-  <div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal fade" id="resetModal" tabindex="-1">
    <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-body text-center p-4">
-     <div class="mb-3"><i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 4rem;"></i>
+    <div class="modal-content border-danger">
+     <div class="modal-header bg-danger text-white">
+      <h5 class="modal-title">
+       <i class="bi bi-exclamation-triangle-fill me-2"></i>
+       Reset SAF Data
+      </h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
      </div>
-     <h4 class="fw-bold mb-3">Reset Department?</h4>
-     <p class="text-muted">This will reset all SAF data and transaction history for this department. This action cannot be undone.</p>
-    </div>
-    <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button> <button type="button" class="btn btn-danger" onclick="confirmDelete()"> <i class="bi bi-arrow-clockwise me-1"></i>Reset </button>
+     <div class="modal-body text-center p-4">
+      <div class="mb-4">
+       <i class="bi bi-cash-coin text-danger" style="font-size: 4rem;"></i>
+      </div>
+      <h4 class="fw-bold mb-3 text-danger">Reset All SAF Funds & History?</h4>
+      <div class="alert alert-warning text-start">
+       <strong>What will be reset:</strong>
+       <ul class="mb-0 mt-2">
+        <li>Initial allocated amount → ₱0.00</li>
+        <li>Used amount → ₱0.00</li>
+        <li>All transaction history → Cleared</li>
+       </ul>
+      </div>
+      <p class="text-muted mb-0"><strong>This action cannot be undone.</strong> All fund allocation data and transaction records for this department will be permanently deleted.</p>
+     </div>
+     <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+       <i class="bi bi-x-circle me-1"></i>Cancel
+      </button>
+      <button type="button" class="btn btn-danger" onclick="confirmReset()">
+       <i class="bi bi-arrow-counterclockwise me-1"></i>
+       Yes, Reset SAF Data
+      </button>
+     </div>
     </div>
    </div>
   </div><!-- Loading Spinner -->
@@ -324,515 +353,6 @@ $pageTitle = 'Student Allocated Funds';
    </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    // Departments data
-    const DEPARTMENTS = [
-      { id: 'casse', name: 'College of Arts and Social Sciences and Education', short: 'CASSE' },
-      { id: 'ccis', name: 'College of Computing and Information Sciences', short: 'CCIS' },
-      { id: 'chtm', name: 'College of Hospitality and Tourism Management', short: 'CHTM' },
-      { id: 'cob', name: 'College of Business', short: 'COB' },
-      { id: 'coc', name: 'College of Criminology', short: 'COC' },
-      { id: 'coe', name: 'College of Engineering', short: 'COE' },
-      { id: 'con', name: 'College of Nursing', short: 'CON' },
-      { id: 'miranda', name: 'SPCF Miranda', short: 'Miranda' }
-    ];
-
-    // State
-    let currentLevel = null;
-    let currentDeptId = null;
-    let allData = [];
-    let isLoading = false;
-    let editModal, deleteModal, toastInstance;
-
-    // Config
-    const defaultConfig = {
-      system_title: 'Student Allocated Funds',
-      currency_symbol: '₱',
-      primary_color: '#667eea',
-      secondary_color: '#764ba2',
-      success_color: '#10b981',
-      danger_color: '#ef4444',
-      text_color: '#1f2937'
-    };
-
-    // Initialize Element SDK
-    if (window.elementSdk) {
-      window.elementSdk.init({
-        defaultConfig,
-        onConfigChange: async (config) => {
-          const title = config.system_title || defaultConfig.system_title;
-          const titleElements = document.querySelectorAll('#login-title, #dashboard-title');
-          titleElements.forEach(el => el.textContent = title);
-        },
-        mapToCapabilities: (config) => ({
-          recolorables: [
-            {
-              get: () => config.primary_color || defaultConfig.primary_color,
-              set: (v) => { config.primary_color = v; window.elementSdk.setConfig({ primary_color: v }); }
-            },
-            {
-              get: () => config.secondary_color || defaultConfig.secondary_color,
-              set: (v) => { config.secondary_color = v; window.elementSdk.setConfig({ secondary_color: v }); }
-            },
-            {
-              get: () => config.success_color || defaultConfig.success_color,
-              set: (v) => { config.success_color = v; window.elementSdk.setConfig({ success_color: v }); }
-            },
-            {
-              get: () => config.danger_color || defaultConfig.danger_color,
-              set: (v) => { config.danger_color = v; window.elementSdk.setConfig({ danger_color: v }); }
-            },
-            {
-              get: () => config.text_color || defaultConfig.text_color,
-              set: (v) => { config.text_color = v; window.elementSdk.setConfig({ text_color: v }); }
-            }
-          ],
-          borderables: [],
-          fontEditable: undefined,
-          fontSizeable: undefined
-        }),
-        mapToEditPanelValues: (config) => new Map([
-          ['system_title', config.system_title || defaultConfig.system_title],
-          ['currency_symbol', config.currency_symbol || defaultConfig.currency_symbol]
-        ])
-      });
-    }
-
-    // Initialize Bootstrap components
-    document.addEventListener('DOMContentLoaded', function() {
-      editModal = new bootstrap.Modal(document.getElementById('editModal'));
-      deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
-      toastInstance = new bootstrap.Toast(document.getElementById('toast'));
-
-      // Set level and dept based on user
-      if (window.currentUser.role === 'student') {
-        currentLevel = 'level1';
-        currentDeptId = window.currentUser.department; // Assume department matches IDs
-      } else if (window.currentUser.role === 'employee') {
-        if (window.currentUser.position && window.currentUser.position.includes('Accounting')) {
-          currentLevel = 'level3';
-        } else if (window.currentUser.position && window.currentUser.position.includes('OSA')) {
-          currentLevel = 'level2';
-        }
-      }
-
-      initDataSdk();
-
-      // Show initial view
-      if (currentLevel === 'level1' && currentDeptId) {
-        showSingleDept(currentDeptId);
-      } else if (currentLevel === 'level2' || currentLevel === 'level3') {
-        showAllDepts();
-      }
-    });
-
-    // Data handler
-    const dataHandler = {
-      onDataChanged(data) {
-        allData = data;
-        renderCurrentView();
-      }
-    };
-
-    // Initialize Data SDK
-    async function initDataSdk() {
-      if (window.dataSdk) {
-        const result = await window.dataSdk.init(dataHandler);
-        if (!result.isOk) {
-          showToast('Failed to initialize data', 'danger');
-        }
-      }
-    }
-
-    // Utility functions
-    function getCurrencySymbol() {
-      return window.elementSdk?.config?.currency_symbol || defaultConfig.currency_symbol;
-    }
-
-    function formatCurrency(amount) {
-      return `${getCurrencySymbol()}${(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-
-    function showToast(message, type = 'success') {
-      const toast = document.getElementById('toast');
-      const toastMsg = document.getElementById('toast-message');
-      toastMsg.textContent = message;
-      
-      toast.className = `toast align-items-center border-0 ${type === 'danger' ? 'bg-danger' : 'bg-success'} text-white`;
-      toastInstance.show();
-    }
-
-    function showLoading() {
-      document.getElementById('loading-overlay').style.display = 'flex';
-      isLoading = true;
-    }
-
-    function hideLoading() {
-      document.getElementById('loading-overlay').style.display = 'none';
-      isLoading = false;
-    }
-
-    // Logout function - redirect to system logout
-    function logout() {
-      window.location.href = 'user-logout.php';
-    }
-
-    function goBack() {
-      if (currentDeptId && (currentLevel === 'level2' || currentLevel === 'level3')) {
-        currentDeptId = null;
-        showAllDepts();
-      } else {
-        logout();
-      }
-    }
-
-    // Get department SAF data
-    function getDeptSAF(deptId) {
-      const safRecord = allData.find(d => d.type === 'saf' && d.department_id === deptId);
-      return safRecord || { initial_amount: 0, used_amount: 0 };
-    }
-
-    function getDeptTransactions(deptId) {
-      return allData
-        .filter(d => d.type === 'transaction' && d.department_id === deptId)
-        .sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date));
-    }
-
-    // View functions
-    function showAllDepts() {
-      document.getElementById('all-depts-view').style.display = 'block';
-      document.getElementById('single-dept-view').style.display = 'none';
-      renderDeptCards();
-    }
-
-    function showSingleDept(deptId) {
-      currentDeptId = deptId;
-      document.getElementById('all-depts-view').style.display = 'none';
-      document.getElementById('single-dept-view').style.display = 'block';
-      
-      // Show/hide level 3 controls
-      document.getElementById('level3-controls').style.display = currentLevel === 'level3' ? 'block' : 'none';
-      
-      renderDeptDetails(deptId);
-    }
-
-    // Render functions
-    function renderCurrentView() {
-      if (currentDeptId) {
-        renderDeptDetails(currentDeptId);
-      } else if (currentLevel === 'level2' || currentLevel === 'level3') {
-        renderDeptCards();
-      }
-    }
-
-    function renderDeptCards() {
-      const container = document.getElementById('dept-cards');
-      let totalBalance = 0;
-
-      const cardsHtml = DEPARTMENTS.map(dept => {
-        const saf = getDeptSAF(dept.id);
-        const initial = saf.initial_amount || 0;
-        const used = saf.used_amount || 0;
-        const current = initial - used;
-        totalBalance += current;
-        const percentage = initial > 0 ? ((current / initial) * 100).toFixed(0) : 0;
-        
-        return `
-          <div class="col-md-6 col-lg-4 col-xl-3">
-            <div class="card dept-card h-100" onclick="showSingleDept('${dept.id}')">
-              <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                  <span class="badge bg-primary badge-dept">${dept.short}</span>
-                  <small class="text-muted fw-semibold">${percentage}%</small>
-                </div>
-                <h6 class="card-title mb-3" style="min-height: 48px;">${dept.name}</h6>
-                <div class="mb-2">
-                  <div class="d-flex justify-content-between text-sm mb-1">
-                    <small class="text-muted">Initial</small>
-                    <small class="text-primary fw-semibold">${formatCurrency(initial)}</small>
-                  </div>
-                  <div class="d-flex justify-content-between text-sm mb-1">
-                    <small class="text-muted">Used</small>
-                    <small class="text-danger fw-semibold">${formatCurrency(used)}</small>
-                  </div>
-                  <hr class="my-2">
-                  <div class="d-flex justify-content-between">
-                    <small class="fw-semibold">Balance</small>
-                    <small class="text-success fw-bold">${formatCurrency(current)}</small>
-                  </div>
-                </div>
-                <div class="progress progress-custom">
-                  <div class="progress-bar bg-success" role="progressbar" 
-                       style="width: ${Math.max(0, Math.min(100, percentage))}%"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      container.innerHTML = cardsHtml;
-      document.getElementById('total-saf').textContent = formatCurrency(totalBalance);
-    }
-
-    function renderDeptDetails(deptId) {
-      const dept = DEPARTMENTS.find(d => d.id === deptId);
-      const saf = getDeptSAF(deptId);
-      const transactions = getDeptTransactions(deptId);
-      
-      const initial = saf.initial_amount || 0;
-      const used = saf.used_amount || 0;
-      const current = initial - used;
-
-      document.getElementById('dept-name').textContent = dept.name;
-      document.getElementById('initial-amount').textContent = formatCurrency(initial);
-      document.getElementById('used-amount').textContent = formatCurrency(used);
-      document.getElementById('current-amount').textContent = formatCurrency(current);
-
-      const listContainer = document.getElementById('transaction-list');
-      
-      if (transactions.length === 0) {
-        listContainer.innerHTML = `
-          <div class="text-center py-5 text-muted">
-            <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
-            <p class="mt-3">No transactions yet</p>
-          </div>
-        `;
-        return;
-      }
-
-      const transactionsHtml = transactions.map(t => {
-        const isDeduction = t.transaction_type === 'deduct';
-        const isSet = t.transaction_type === 'set';
-        const date = new Date(t.transaction_date);
-        const formattedDate = date.toLocaleDateString('en-US', { 
-          month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' 
-        });
-        
-        let iconClass = 'bi-arrow-up-circle text-success';
-        let amountClass = 'text-success';
-        let prefix = '+';
-        
-        if (isSet) {
-          iconClass = 'bi-pencil-square text-primary';
-          amountClass = 'text-primary';
-          prefix = '';
-        } else if (isDeduction) {
-          iconClass = 'bi-arrow-down-circle text-danger';
-          amountClass = 'text-danger';
-          prefix = '-';
-        }
-        
-        return `
-          <div class="list-group-item transaction-item border-0 border-bottom">
-            <div class="d-flex align-items-center">
-              <div class="me-3">
-                <i class="bi ${iconClass}" style="font-size: 1.5rem;"></i>
-              </div>
-              <div class="flex-grow-1">
-                <h6 class="mb-1">${t.transaction_description || 'No description'}</h6>
-                <small class="text-muted">${formattedDate}</small>
-              </div>
-              <div class="text-end">
-                <h6 class="mb-0 ${amountClass} fw-bold">${prefix}${formatCurrency(t.transaction_amount)}</h6>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      listContainer.innerHTML = transactionsHtml;
-    }
-
-    // Modal functions
-    function showEditModal(type) {
-      const titleEl = document.getElementById('modal-title');
-      const submitBtn = document.getElementById('modal-submit-btn');
-      
-      document.getElementById('edit-type').value = type;
-      document.getElementById('edit-amount').value = '';
-      document.getElementById('edit-description').value = '';
-      
-      switch(type) {
-        case 'add':
-          titleEl.textContent = 'Add Funds';
-          submitBtn.textContent = 'Add Funds';
-          submitBtn.className = 'btn btn-success';
-          break;
-        case 'deduct':
-          titleEl.textContent = 'Deduct Funds';
-          submitBtn.textContent = 'Deduct Funds';
-          submitBtn.className = 'btn btn-danger';
-          break;
-        case 'set':
-          titleEl.textContent = 'Set Initial Amount';
-          submitBtn.textContent = 'Set Amount';
-          submitBtn.className = 'btn btn-primary';
-          break;
-      }
-      
-      editModal.show();
-    }
-
-    function showDeleteConfirm() {
-      deleteModal.show();
-    }
-
-    async function handleEditSubmit(e) {
-      e.preventDefault();
-      if (isLoading || !currentDeptId) return;
-
-      const type = document.getElementById('edit-type').value;
-      const amount = parseFloat(document.getElementById('edit-amount').value);
-      const description = document.getElementById('edit-description').value.trim();
-
-      if (isNaN(amount) || amount <= 0) {
-        showToast('Please enter a valid amount', 'danger');
-        return;
-      }
-
-      showLoading();
-      editModal.hide();
-
-      try {
-        const existingSAF = allData.find(d => d.type === 'saf' && d.department_id === currentDeptId);
-        
-        if (type === 'set') {
-          if (existingSAF) {
-            const result = await window.dataSdk.update({
-              ...existingSAF,
-              initial_amount: amount,
-              used_amount: 0
-            });
-            if (!result.isOk) throw new Error('Failed to update SAF');
-          } else {
-            if (allData.length >= 999) {
-              showToast('Maximum records reached (999)', 'danger');
-              hideLoading();
-              return;
-            }
-            const result = await window.dataSdk.create({
-              type: 'saf',
-              department_id: currentDeptId,
-              initial_amount: amount,
-              used_amount: 0
-            });
-            if (!result.isOk) throw new Error('Failed to create SAF');
-          }
-
-          if (allData.length < 999) {
-            await window.dataSdk.create({
-              type: 'transaction',
-              department_id: currentDeptId,
-              transaction_type: 'set',
-              transaction_amount: amount,
-              transaction_description: description || 'Initial amount set',
-              transaction_date: new Date().toISOString()
-            });
-          }
-          showToast('Initial amount set successfully');
-        } else if (type === 'add') {
-          const currentInitial = existingSAF?.initial_amount || 0;
-
-          if (existingSAF) {
-            const result = await window.dataSdk.update({
-              ...existingSAF,
-              initial_amount: currentInitial + amount
-            });
-            if (!result.isOk) throw new Error('Failed to update SAF');
-          } else {
-            if (allData.length >= 999) {
-              showToast('Maximum records reached (999)', 'danger');
-              hideLoading();
-              return;
-            }
-            const result = await window.dataSdk.create({
-              type: 'saf',
-              department_id: currentDeptId,
-              initial_amount: amount,
-              used_amount: 0
-            });
-            if (!result.isOk) throw new Error('Failed to create SAF');
-          }
-
-          if (allData.length < 999) {
-            await window.dataSdk.create({
-              type: 'transaction',
-              department_id: currentDeptId,
-              transaction_type: 'add',
-              transaction_amount: amount,
-              transaction_description: description || 'Funds added',
-              transaction_date: new Date().toISOString()
-            });
-          }
-          showToast('Funds added successfully');
-        } else if (type === 'deduct') {
-          const currentInitial = existingSAF?.initial_amount || 0;
-          const currentUsed = existingSAF?.used_amount || 0;
-          const currentBalance = currentInitial - currentUsed;
-
-          if (amount > currentBalance) {
-            showToast('Insufficient funds', 'danger');
-            hideLoading();
-            return;
-          }
-
-          if (existingSAF) {
-            const result = await window.dataSdk.update({
-              ...existingSAF,
-              used_amount: currentUsed + amount
-            });
-            if (!result.isOk) throw new Error('Failed to update SAF');
-          } else {
-            showToast('No SAF record found', 'danger');
-            hideLoading();
-            return;
-          }
-
-          if (allData.length < 999) {
-            await window.dataSdk.create({
-              type: 'transaction',
-              department_id: currentDeptId,
-              transaction_type: 'deduct',
-              transaction_amount: amount,
-              transaction_description: description || 'Funds deducted',
-              transaction_date: new Date().toISOString()
-            });
-          }
-          showToast('Funds deducted successfully');
-        }
-      } catch (error) {
-        showToast('Operation failed. Please try again.', 'danger');
-      }
-
-      hideLoading();
-    }
-
-    async function confirmDelete() {
-      if (isLoading || !currentDeptId) return;
-
-      showLoading();
-      deleteModal.hide();
-
-      try {
-        const safRecord = allData.find(d => d.type === 'saf' && d.department_id === currentDeptId);
-        if (safRecord) {
-          const result = await window.dataSdk.delete(safRecord);
-          if (!result.isOk) throw new Error('Failed to delete SAF');
-        }
-
-        const transactions = allData.filter(d => d.type === 'transaction' && d.department_id === currentDeptId);
-        for (const t of transactions) {
-          await window.dataSdk.delete(t);
-        }
-
-        showToast('Department SAF reset successfully');
-      } catch (error) {
-        showToast('Reset failed. Please try again.', 'danger');
-      }
-
-      hideLoading();
-    }
-  </script>
+  <script src="../assets/js/saf.js"></script>
  </body>
 </html>

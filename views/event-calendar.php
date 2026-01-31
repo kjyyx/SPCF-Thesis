@@ -167,6 +167,13 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                         <i class="bi bi-clipboard-check"></i>
                                         <span>Approvals</span>
                                     </button>
+                                    <?php if (stripos($currentUser['position'] ?? '', 'OSA') !== false): ?>
+                                    <button class="action-compact-btn" onclick="window.location.href='saf.php'"
+                                        title="Student Allocated Funds">
+                                        <i class="bi bi-cash-coin"></i>
+                                        <span>SAF</span>
+                                    </button>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         <?php endif; ?>

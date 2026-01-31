@@ -180,6 +180,23 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             </div>
                         </div>
 
+                        <!-- Sorting Options -->
+                        <div class="sorting-container">
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-sort-down" aria-hidden="true"></i>
+                                </span>
+                                <select class="form-select" id="sortSelect" aria-label="Sort documents">
+                                    <option value="date_desc">Date (Newest First)</option>
+                                    <option value="date_asc">Date (Oldest First)</option>
+                                    <option value="due_desc">Due Date (Soonest First)</option>
+                                    <option value="due_asc">Due Date (Latest First)</option>
+                                    <option value="name_asc">Name (A-Z)</option>
+                                    <option value="name_desc">Name (Z-A)</option>
+                                </select>
+                            </div>
+                        </div>
+
                         <!-- Quick Stats -->
                         <div class="header-stats-compact">
                             <div class="stat-item-compact">

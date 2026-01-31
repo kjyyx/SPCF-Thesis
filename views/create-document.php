@@ -382,28 +382,7 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                         <input id="saf-csc" class="form-check-input saf-cat" type="checkbox">
                         <label class="form-check-label" for="saf-csc">CSC</label>
                       </div>
-                      <div class="form-check">
-                        <input id="saf-cca" class="form-check-input saf-cat" type="checkbox">
-                        <label class="form-check-label" for="saf-cca">CCA</label>
-                      </div>
-                      <div class="form-check">
-                        <input id="saf-ex" class="form-check-input saf-cat" type="checkbox">
-                        <label class="form-check-label" for="saf-ex">Exemplar</label>
-                      </div>
-                      <div class="form-check">
-                        <input id="saf-osa" class="form-check-input saf-cat" type="checkbox">
-                        <label class="form-check-label" for="saf-osa">Office of Student Affairs</label>
-                      </div>
-                      <div class="form-check">
-                        <input id="saf-idev" class="form-check-input saf-cat" type="checkbox">
-                        <label class="form-check-label" for="saf-idev">Idev</label>
-                      </div>
-                      <div class="form-check">
-                        <input id="saf-others" class="form-check-input saf-cat" type="checkbox">
-                        <label class="form-check-label" for="saf-others">Others</label>
-                      </div>
                     </div>
-                    <input id="saf-others-text" class="form-control mt-3" placeholder="If Others, specify">
                   </div>
                 </div>
 
@@ -461,106 +440,6 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                             </div>
                           </td>
                           <td id="bal-csc" class="text-end">₱0.00</td>
-                        </tr>
-                        <tr id="row-cca" style="display:none">
-                          <td>CCA</td>
-                          <td><input id="avail-cca" class="form-control" type="number" min="0" step="1000"
-                              placeholder="0"></td>
-                          <td>
-                            <div class="input-group">
-                              <button class="btn btn-outline-secondary" type="button"
-                                onclick="changeRequestedSAF('req-cca', -1000)">
-                                <i class="bi bi-dash"></i>
-                              </button>
-                              <input id="req-cca" class="form-control text-center" type="number" min="0" step="1000"
-                                value="0" readonly>
-                              <button class="btn btn-outline-secondary" type="button"
-                                onclick="changeRequestedSAF('req-cca', 1000)">
-                                <i class="bi bi-plus"></i>
-                              </button>
-                            </div>
-                          </td>
-                          <td id="bal-cca" class="text-end">₱0.00</td>
-                        </tr>
-                        <tr id="row-ex" style="display:none">
-                          <td>Exemplar</td>
-                          <td><input id="avail-ex" class="form-control" type="number" min="0" step="1000"
-                              placeholder="0"></td>
-                          <td>
-                            <div class="input-group">
-                              <button class="btn btn-outline-secondary" type="button"
-                                onclick="changeRequestedSAF('req-ex', -1000)">
-                                <i class="bi bi-dash"></i>
-                              </button>
-                              <input id="req-ex" class="form-control text-center" type="number" min="0" step="1000"
-                                value="0" readonly>
-                              <button class="btn btn-outline-secondary" type="button"
-                                onclick="changeRequestedSAF('req-ex', 1000)">
-                                <i class="bi bi-plus"></i>
-                              </button>
-                            </div>
-                          </td>
-                          <td id="bal-ex" class="text-end">₱0.00</td>
-                        </tr>
-                        <tr id="row-osa" style="display:none">
-                          <td>Office of Student Affairs</td>
-                          <td><input id="avail-osa" class="form-control" type="number" min="0" step="1000"
-                              placeholder="0"></td>
-                          <td>
-                            <div class="input-group">
-                              <button class="btn btn-outline-secondary" type="button"
-                                onclick="changeRequestedSAF('req-osa', -1000)">
-                                <i class="bi bi-dash"></i>
-                              </button>
-                              <input id="req-osa" class="form-control text-center" type="number" min="0" step="1000"
-                                value="0" readonly>
-                              <button class="btn btn-outline-secondary" type="button"
-                                onclick="changeRequestedSAF('req-osa', 1000)">
-                                <i class="bi bi-plus"></i>
-                              </button>
-                            </div>
-                          </td>
-                          <td id="bal-osa" class="text-end">₱0.00</td>
-                        </tr>
-                        <tr id="row-idev" style="display:none">
-                          <td>Idev</td>
-                          <td><input id="avail-idev" class="form-control" type="number" min="0" step="1000"
-                              placeholder="0"></td>
-                          <td>
-                            <div class="input-group">
-                              <button class="btn btn-outline-secondary" type="button"
-                                onclick="changeRequestedSAF('req-idev', -1000)">
-                                <i class="bi bi-dash"></i>
-                              </button>
-                              <input id="req-idev" class="form-control text-center" type="number" min="0" step="1000"
-                                value="0" readonly>
-                              <button class="btn btn-outline-secondary" type="button"
-                                onclick="changeRequestedSAF('req-idev', 1000)">
-                                <i class="bi bi-plus"></i>
-                              </button>
-                            </div>
-                          </td>
-                          <td id="bal-idev" class="text-end">₱0.00</td>
-                        </tr>
-                        <tr id="row-others" style="display:none">
-                          <td>Others</td>
-                          <td><input id="avail-others" class="form-control" type="number" min="0" step="1000"
-                              placeholder="0"></td>
-                          <td>
-                            <div class="input-group">
-                              <button class="btn btn-outline-secondary" type="button"
-                                onclick="changeRequestedSAF('req-others', -1000)">
-                                <i class="bi bi-dash"></i>
-                              </button>
-                              <input id="req-others" class="form-control text-center" type="number" min="0" step="1000"
-                                value="0" readonly>
-                              <button class="btn btn-outline-secondary" type="button"
-                                onclick="changeRequestedSAF('req-others', 1000)">
-                                <i class="bi bi-plus"></i>
-                              </button>
-                            </div>
-                          </td>
-                          <td id="bal-others" class="text-end">₱0.00</td>
                         </tr>
                       </tbody>
                     </table>

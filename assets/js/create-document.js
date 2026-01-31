@@ -98,6 +98,12 @@ let totalPages = 1; // Total number of pages in the current document
 let genTimeout = null; // Timeout ID for debounced document generation
 
 /**
+ * SAF Balances State
+ * Stores SAF balances data for dynamic form updates
+ */
+let safBalances = []; // Array of SAF balances from API
+
+/**
  * @section Document Type Selection & Management
  * Functions for switching between different document types and managing form visibility
  */
@@ -138,6 +144,42 @@ function selectDocumentType(type) {
 
     // Trigger document regeneration with new form data
     scheduleGenerate();
+}
+
+/**
+ * Load SAF balances from API
+ * Fetches current SAF balances for all departments
+ */
+function loadSAFBalances() {
+    fetch('../api/saf.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                safBalances = data.data.filter(item => item.type === 'saf');
+            }
+        })
+        .catch(error => {
+            console.error('Failed to load SAF balances:', error);
+        });
+}
+
+/**
+ * Update SAF available amounts based on selected department
+ * Sets the available SSC and CSC amounts to the department's current balance
+ * @param {string} dept - The selected department name
+ */
+function updateSAFAvail(dept) {
+    if (!dept) return;
+    
+    const balance = safBalances.find(b => b.department_id === dept);
+    if (balance) {
+        const currentBal = balance.initial_amount - balance.used_amount;
+        const availSSC = document.getElementById('avail-ssc');
+        const availCSC = document.getElementById('avail-csc');
+        if (availSSC) availSSC.value = currentBal;
+        if (availCSC) availCSC.value = currentBal;
+        updateSAFBalances(); // Recalculate balances display
+    }
 }
 
 /**
@@ -327,38 +369,22 @@ function collectSAFData() {
     // Collect selected fund categories
     const categories = {
         ssc: document.getElementById('saf-ssc').checked,
-        csc: document.getElementById('saf-csc').checked,
-        cca: document.getElementById('saf-cca').checked,
-        ex: document.getElementById('saf-ex').checked,
-        osa: document.getElementById('saf-osa').checked,
-        idev: document.getElementById('saf-idev').checked,
-        others: document.getElementById('saf-others').checked,
-        othersText: document.getElementById('saf-others-text').value || ''
+        csc: document.getElementById('saf-csc').checked
     };
 
-    // Map categories to c1-c7
-    const categoryMap = ['ssc', 'csc', 'cca', 'ex', 'osa', 'idev', 'others'];
+    // Map categories to c1-c2
+    const categoryMap = ['ssc', 'csc'];
     const cValues = categoryMap.map(cat => categories[cat] ? '✓' : '');
 
     // Funds with balances
     const funds = {
         ssc: { available: parseFloat(document.getElementById('avail-ssc')?.value) || 0, requested: parseFloat(document.getElementById('req-ssc')?.value) || 0 },
-        csc: { available: parseFloat(document.getElementById('avail-csc')?.value) || 0, requested: parseFloat(document.getElementById('req-csc')?.value) || 0 },
-        cca: { available: parseFloat(document.getElementById('avail-cca')?.value) || 0, requested: parseFloat(document.getElementById('req-cca')?.value) || 0 },
-        ex: { available: parseFloat(document.getElementById('avail-ex')?.value) || 0, requested: parseFloat(document.getElementById('req-ex')?.value) || 0 },
-        osa: { available: parseFloat(document.getElementById('avail-osa')?.value) || 0, requested: parseFloat(document.getElementById('req-osa')?.value) || 0 },
-        idev: { available: parseFloat(document.getElementById('avail-idev')?.value) || 0, requested: parseFloat(document.getElementById('req-idev')?.value) || 0 },
-        others: { available: parseFloat(document.getElementById('avail-others')?.value) || 0, requested: parseFloat(document.getElementById('req-others')?.value) || 0 }
+        csc: { available: parseFloat(document.getElementById('avail-csc')?.value) || 0, requested: parseFloat(document.getElementById('req-csc')?.value) || 0 }
     };
 
     // Calculate balances
     const balSSC = funds.ssc.available - funds.ssc.requested;
     const balCSC = funds.csc.available - funds.csc.requested;
-    const balCCA = funds.cca.available - funds.cca.requested;
-    const balExemplar = funds.ex.available - funds.ex.requested;
-    const balOSA = funds.osa.available - funds.osa.requested;
-    const balIDEV = funds.idev.available - funds.idev.requested;
-    const balOther = funds.others.available - funds.others.requested;
 
     return {
         department: document.getElementById('saf-dept').value,
@@ -366,16 +392,9 @@ function collectSAFData() {
         reqDate: document.getElementById('saf-date').value,
         implDate: document.getElementById('saf-impl-date').value,
         departmentFull: '',  // Will be set in API
-        c1: cValues[0], c2: cValues[1], c3: cValues[2], c4: cValues[3], c5: cValues[4], c6: cValues[5], c7: cValues[6],
-        otherSpecify: categories.othersText,
+        c1: cValues[0], c2: cValues[1],
         availSSC: funds.ssc.available, reqSSC: funds.ssc.requested, balSSC,
         availCSC: funds.csc.available, reqCSC: funds.csc.requested, balCSC,
-        availCCA: funds.cca.available, reqCCA: funds.cca.requested, balCCA,
-        availExemplar: funds.ex.available, reqExemplar: funds.ex.requested, balExemplar,
-        availOSA: funds.osa.available, reqOSA: funds.osa.requested, balOSA,
-        availIDEV: funds.idev.available, reqIDEV: funds.idev.requested, balIDEV,
-        availOther: funds.others.available, reqOther: funds.others.requested, balOther,
-        otherFundDesc: categories.othersText,
         reqByName: window.currentUser?.firstName + ' ' + window.currentUser?.lastName,
         notedBy: '', recBy: '', appBy: '', relBy: '',  // Set in API if needed
         notedDate: '', recDate: '', appDate: '', releaseDate: ''  // Set in API if needed
@@ -530,14 +549,9 @@ function generateSAFHTML(d) {
     // Build funds table HTML
     const fundMap = {
         ssc: { label: 'SSC', avail: 'availSSC', req: 'reqSSC' },
-        csc: { label: 'CSC', avail: 'availCSC', req: 'reqCSC' },
-        cca: { label: 'CCA', avail: 'availCCA', req: 'reqCCA' },
-        ex: { label: 'Exemplar', avail: 'availExemplar', req: 'reqExemplar' },
-        osa: { label: 'Office of Student Affairs', avail: 'availOSA', req: 'reqOSA' },
-        idev: { label: 'Idev', avail: 'availIDEV', req: 'reqIDEV' },
-        others: { label: 'Others', avail: 'availOther', req: 'reqOther' }
+        csc: { label: 'CSC', avail: 'availCSC', req: 'reqCSC' }
     };
-    const funds = ['ssc', 'csc', 'cca', 'ex', 'osa', 'idev', 'others'];
+    const funds = ['ssc', 'csc'];
     const fundsHtml = `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #000;padding:6px">Fund/s</th><th style="border:1px solid #000;padding:6px">Available</th><th style="border:1px solid #000;padding:6px">Requested</th><th style="border:1px solid #000;padding:6px">Balance</th></tr></thead><tbody>${funds.map(code => {
         const info = fundMap[code];
         const label = info.label;
@@ -725,7 +739,7 @@ function changeRequestedSAF(id, delta) {
 }
 
 function updateSAFBalances() {
-    const codes = ['ssc', 'csc', 'cca', 'ex', 'osa', 'idev', 'others'];
+    const codes = ['ssc', 'csc'];
     codes.forEach(code => {
         const avail = parseFloat(document.getElementById(`avail-${code}`)?.value) || 0;
         const req = parseFloat(document.getElementById(`req-${code}`)?.value) || 0;
@@ -739,10 +753,9 @@ function updateSAFBalances() {
 }
 
 function updateSAFLocks() {
-    const codes = ['ssc', 'csc', 'cca', 'ex', 'osa', 'idev', 'others'];
+    const codes = ['ssc', 'csc'];
     codes.forEach(code => {
-        const cbId = code === 'ex' ? 'saf-ex' : (code === 'others' ? 'saf-others' : `saf-${code}`);
-        const cb = document.getElementById(cbId);
+        const cb = document.getElementById(`saf-${code}`);
         const avail = document.getElementById(`avail-${code}`);
         const req = document.getElementById(`req-${code}`);
         const row = document.getElementById(`row-${code}`);
@@ -821,6 +834,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize SAF form controls
     updateSAFLocks();
+
+    // Load SAF balances for dynamic form updates
+    loadSAFBalances();
+
+    // Set up department change listener for SAF form
+    const safDept = document.getElementById('saf-dept');
+    if (safDept) {
+        safDept.addEventListener('change', function() {
+            updateSAFAvail(this.value);
+        });
+    }
 
     // Set up dynamic form elements for proposal
     setupBudgetProp();

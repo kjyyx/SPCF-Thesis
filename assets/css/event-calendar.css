@@ -616,9 +616,10 @@ body {
     transition: all 0.3s ease;
     text-overflow: ellipsis;
     overflow: hidden;
-    white-space: nowrap;
     line-height: 1.3;
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+    max-width: 100%;
+    word-break: break-word;
 }
 
 .event-item:hover {

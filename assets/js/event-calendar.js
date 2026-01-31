@@ -32,14 +32,15 @@ class CalendarApp {
     this.COLOR_CLASSES = ['bg-primary','bg-success','bg-danger','bg-warning','bg-info','bg-secondary','bg-dark'];
         
         this.COLOR_MAP_RGB = {
-            'College of Arts and Social Sciences and Education': 'rgb(59, 130, 246)',
-            'College of Computing and Information Sciences': 'rgb(30, 41, 59)',
-            'College of Hospitality and Tourism Management': 'rgb(236, 72, 153)',
-            'College of Business': 'rgb(245, 158, 11)',
-            'College of Criminology': 'rgb(107, 114, 128)',
-            'College of Engineering': 'rgb(239, 68, 68)',
-            'College of Nursing': 'rgb(16, 185, 129)',
-            'SPCF Miranda': 'rgb(185, 28, 28)'
+            'College of Arts and Social Sciences and Education': 'rgb(59, 130, 246)', // Blue
+            'College of Computing and Information Sciences': 'rgb(30, 41, 59)', // Blue and Black
+            'College of Hospitality and Tourism Management': 'rgb(236, 72, 153)', // Pink
+            'College of Business': 'rgb(245, 158, 11)', // Yellow
+            'College of Criminology': 'rgb(107, 114, 128)', // Gray
+            'College of Engineering': 'rgb(239, 68, 68)', // Red
+            'College of Nursing': 'rgb(34, 197, 94)', // Green
+            'SPCF Miranda': 'rgb(127, 29, 29)', // Maroon
+            'Supreme Student Council': 'rgb(249, 115, 22)' // Orange
         };
         console.log('Initializing calendar...');
         this.init();
@@ -322,8 +323,8 @@ class CalendarApp {
                         venue: ev.venue || '',
                         isApproved: isApproved,
                         isPencilBooked: isPencilBooked,
-                        color: isApproved ? this.getDepartmentColorRGB(ev.department || '') : 'rgb(107, 114, 128)',
-                        textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.department || '')) : 'white'
+                        color: isApproved ? this.getDepartmentColorRGB(ev.department || '') : 'rgb(148, 163, 184)',
+textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.department || '')) : 'white'
                     });
                 });
                 this.events = map;
@@ -341,59 +342,41 @@ class CalendarApp {
     }
 
     async populateDepartments() {
-        try {
-            const select = document.getElementById('eventDepartment');
-            if (!select) {
-                // Still render legend if available
-                const resp = await fetch('../api/units.php');
-                const data = await resp.json();
-                if (data && data.success) this.renderDepartmentLegend(data.units || []);
-                return;
-            }
-            // Keep existing placeholder option, then append from API
-            const resp = await fetch('../api/units.php');
-            const data = await resp.json();
-            if (data && data.success) {
-                // Clear all except first placeholder
-                const first = select.querySelector('option');
-                select.innerHTML = '';
-                if (first && first.value === '') {
-                    select.appendChild(first);
-                } else {
-                    const placeholder = document.createElement('option');
-                    placeholder.value = '';
-                    placeholder.textContent = 'Select Department';
-                    select.appendChild(placeholder);
-                }
-                (data.units || []).forEach(u => {
-                    const opt = document.createElement('option');
-                    opt.value = u.name; // UI still uses name; API maps to unit_id on save
-                    opt.textContent = u.name;
-                    select.appendChild(opt);
-                });
-                
-                // Also populate the department filter
-                const filterSelect = document.getElementById('departmentFilter');
-                if (filterSelect) {
-                    // Clear existing options except "All Departments"
-                    const allOption = filterSelect.querySelector('option[value=""]');
-                    filterSelect.innerHTML = '';
-                    if (allOption) filterSelect.appendChild(allOption);
-                    
-                    (data.units || []).forEach(u => {
-                        const opt = document.createElement('option');
-                        opt.value = u.name;
-                        opt.textContent = u.name;
-                        filterSelect.appendChild(opt);
-                    });
-                }
-                
-                // Also render legend if a container exists
-                this.renderDepartmentLegend(data.units || []);
-            }
-        } catch (e) {
-            console.error('Failed to load units', e);
+        const units = [
+            { name: 'College of Arts and Social Sciences and Education' },
+            { name: 'College of Computing and Information Sciences' },
+            { name: 'College of Hospitality and Tourism Management' },
+            { name: 'College of Business' },
+            { name: 'College of Criminology' },
+            { name: 'College of Engineering' },
+            { name: 'College of Nursing' },
+            { name: 'SPCF Miranda' },
+            { name: 'Supreme Student Council' }
+        ];
+
+        const select = document.getElementById('eventDepartment');
+        if (select) {
+            select.innerHTML = '<option value="">Select Department</option>';
+            units.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.name;
+                opt.textContent = u.name;
+                select.appendChild(opt);
+            });
         }
+
+        const filterSelect = document.getElementById('departmentFilter');
+        if (filterSelect) {
+            filterSelect.innerHTML = '<option value="">All Departments</option>';
+            units.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.name;
+                opt.textContent = u.name;
+                filterSelect.appendChild(opt);
+            });
+        }
+
+        this.renderDepartmentLegend(units);
     }
 
     // Fetch approved documents from API and merge them into this.events keyed by date
@@ -476,41 +459,6 @@ class CalendarApp {
         renderGroup('Colleges', byType.college);
     }
     
-    getSampleEvents() {
-        const today = new Date();
-        const currentMonth = today.getMonth();
-        const currentYear = today.getFullYear();
-        
-        const sampleEvents = {};
-        
-        // Sample events
-        sampleEvents[`${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-15`] = [{
-            id: '1',
-            title: 'Engineering Symposium',
-            time: '09:00',
-            department: 'College of Engineering and Technology',
-            color: 'bg-warning'
-        }];
-
-        sampleEvents[`${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-22`] = [{
-            id: '2',
-            title: 'Nursing Skills Competition',
-            time: '14:00',
-            department: 'College of Health Sciences and Nursing',
-            color: 'bg-info'
-        }];
-
-        sampleEvents[`${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-28`] = [{
-            id: '3',
-            title: 'Business Plan Presentation',
-            time: '10:30',
-            department: 'College of Business and Accountancy',
-            color: 'bg-success'
-        }];
-        
-        return sampleEvents;
-    }
-    
     // Color utilities and mapping
     hashToColorIndex(name) {
         let h = 0;
@@ -527,34 +475,17 @@ class CalendarApp {
 
     // Department color mapping function
     getDepartmentColor(department) {
-        // Map known unit names (aligned with schema.sql seed data) to bootstrap color classes
-        // EDIT: PPFO & ADMIN
+        // Map known unit names to bootstrap color classes
         const colorMap = {
-            // Offices
-            'Administration Office': 'bg-secondary',
-            'Academic Affairs': 'bg-info',
-            'Student Affairs': 'bg-success',
-            'Finance Office': 'bg-warning',
-            'HR Department': 'bg-primary',
-            'IT Department': 'bg-dark',
-            'Library': 'bg-secondary',
-            'Registrar': 'bg-info',
-            // Colleges (exact names from schema.sql)
-            'College of Engineering': 'bg-warning',
-            'College of Nursing': 'bg-info',
-            'College of Business': 'bg-success',
-            'College of Criminology': 'bg-dark',
-            'College of Computing and Information Sciences': 'bg-danger',
-            'College of Art and Social Sciences and Education': 'bg-primary',
-            'College of Hospitality and Tourism Management': 'bg-secondary',
-            // Backward-compat keys from older placeholder data
-            'College of Arts, Sciences and Education': 'bg-primary',
-            'College of Business and Accountancy': 'bg-success',
-            'College of Computer Science and Information Systems': 'bg-danger',
-            'College of Engineering and Technology': 'bg-warning',
-            'College of Health Sciences and Nursing': 'bg-info',
-            'College of Law and Criminology': 'bg-dark',
-            'College of Tourism, Hospitality Management and Transportation': 'bg-secondary'
+            'College of Arts and Social Sciences and Education': 'bg-primary',
+            'College of Computing and Information Sciences': 'bg-secondary',
+            'College of Hospitality and Tourism Management': 'bg-success',
+            'College of Business': 'bg-warning',
+            'College of Criminology': 'bg-info',
+            'College of Engineering': 'bg-danger',
+            'College of Nursing': 'bg-dark',
+            'SPCF Miranda': 'bg-danger',
+            'Supreme Student Council': 'bg-info'
         };
         if (department && colorMap[department]) return colorMap[department];
         if (department) return this.COLOR_CLASSES[this.hashToColorIndex(department)];

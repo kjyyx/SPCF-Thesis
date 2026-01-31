@@ -85,6 +85,7 @@ try {
             $event_date = $data['event_date'] ?? null;
             $event_time = $data['event_time'] ?? null; // can be null
             $departmentName = $data['department'] ?? null; // UI sends department name; map to unit_id
+            $approved = $data['approved'] ?? 0; // Default to 0 (pencil-booked)
 
             // Map department name to unit_id (optional)
             $unit_id = null;
@@ -92,11 +93,13 @@ try {
                 $u = $db->prepare("SELECT id FROM units WHERE name = :name LIMIT 1");
                 $u->execute([':name' => $departmentName]);
                 $row = $u->fetch(PDO::FETCH_ASSOC);
-                if ($row) { $unit_id = (int)$row['id']; }
+                if ($row) {
+                    $unit_id = (int) $row['id'];
+                }
             }
 
-            $query = "INSERT INTO events (title, description, venue, event_date, event_time, unit_id, created_by, created_by_role)
-                      VALUES (:title, :description, :venue, :event_date, :event_time, :unit_id, :created_by, :created_by_role)";
+            $query = "INSERT INTO events (title, description, venue, event_date, event_time, unit_id, created_by, created_by_role, approved)
+                      VALUES (:title, :description, :venue, :event_date, :event_time, :unit_id, :created_by, :created_by_role, :approved)";
             $stmt = $db->prepare($query);
             $ok = $stmt->execute([
                 ':title' => $title,
@@ -107,6 +110,7 @@ try {
                 ':unit_id' => $unit_id,
                 ':created_by' => $userId,
                 ':created_by_role' => $role,
+                ':approved' => $approved
             ]);
 
             if ($ok) {
@@ -177,7 +181,9 @@ try {
                 $u = $db->prepare("SELECT id FROM units WHERE name = :name LIMIT 1");
                 $u->execute([':name' => $departmentName]);
                 $row = $u->fetch(PDO::FETCH_ASSOC);
-                if ($row) { $unit_id = (int)$row['id']; }
+                if ($row) {
+                    $unit_id = (int) $row['id'];
+                }
             }
 
             $stmt = $db->prepare("UPDATE events 

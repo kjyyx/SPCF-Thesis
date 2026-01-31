@@ -144,6 +144,33 @@ ALTER TABLE documents ADD COLUMN venue VARCHAR(200) NULL AFTER description;
 ALTER TABLE documents ADD COLUMN schedule_summary TEXT NULL AFTER venue;
 ALTER TABLE documents ADD COLUMN earliest_start_time DATETIME NULL AFTER schedule_summary;
 
+-- Add data column for storing document data as JSON
+ALTER TABLE documents ADD COLUMN data JSON NULL AFTER earliest_start_time;
+
+-- Add date column for due dates
+ALTER TABLE documents ADD COLUMN date DATE NULL AFTER data;
+
+-- SAF (Student Allocated Funds) tables
+CREATE TABLE IF NOT EXISTS saf_balances (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    department_id VARCHAR(100) NOT NULL UNIQUE,
+    initial_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+    used_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS saf_transactions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    department_id VARCHAR(100) NOT NULL,
+    transaction_type ENUM('add','deduct','set') NOT NULL,
+    transaction_amount DECIMAL(10,2) NOT NULL,
+    transaction_description TEXT,
+    transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(20),
+    INDEX idx_dept_date (department_id, transaction_date)
+);
+
 -- Per-document workflow steps
 CREATE TABLE IF NOT EXISTS document_steps (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -155,6 +182,7 @@ CREATE TABLE IF NOT EXISTS document_steps (
     status ENUM('pending','completed','rejected','skipped') NOT NULL DEFAULT 'pending',
     acted_at DATETIME NULL,
     note TEXT NULL,
+    signature_map TEXT NULL,
     creates_event TINYINT(1) NOT NULL DEFAULT 0,
     CONSTRAINT fk_steps_document FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
     CONSTRAINT fk_steps_employee FOREIGN KEY (assigned_to_employee_id) REFERENCES employees(id) ON DELETE SET NULL,

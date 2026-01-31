@@ -24,6 +24,7 @@ class DocumentNotificationSystem {
         this.ctx = null;
         this.searchTerm = '';
         this.currentFilter = 'all';
+        this.sortOption = 'date_desc';
         this.isLoading = false;
         this.retryCount = 0;
         this.maxRetries = 3;
@@ -294,6 +295,16 @@ class DocumentNotificationSystem {
             }
         });
 
+        // Sort select event listener
+        const sortSelect = document.getElementById('sortSelect');
+        if (sortSelect) {
+            sortSelect.value = this.sortOption; // Set default value
+            sortSelect.addEventListener('change', (e) => {
+                this.sortOption = e.target.value;
+                this.applyFiltersAndSearch();
+            });
+        }
+
         // Add scroll optimization for large lists
         this.setupVirtualScrolling();
     }
@@ -332,10 +343,12 @@ class DocumentNotificationSystem {
         // Apply status filter
         if (this.currentFilter === 'all') {
             filtered = [...this.pendingDocuments, ...this.completedDocuments];
-        } else if (this.currentFilter === 'pending') {
+        } else if (this.currentFilter === 'submitted') {
             filtered = this.pendingDocuments.filter(doc => doc.status !== 'signed' && doc.status !== 'rejected');
-        } else if (this.currentFilter === 'done') {
-            filtered = this.completedDocuments.filter(doc => doc.status !== 'rejected');
+        } else if (this.currentFilter === 'in_review') {
+            filtered = this.pendingDocuments.filter(doc => doc.status === 'in_review');
+        } else if (this.currentFilter === 'approved') {
+            filtered = [...this.pendingDocuments, ...this.completedDocuments].filter(doc => doc.status === 'approved');
         } else if (this.currentFilter === 'rejected') {
             filtered = this.completedDocuments.filter(doc => doc.status === 'rejected');
         } else {
@@ -352,6 +365,9 @@ class DocumentNotificationSystem {
                 (doc.from && doc.from.toLowerCase().includes(term))
             );
         }
+
+        // Apply sorting
+        filtered = this.sortDocuments([...filtered], this.sortOption);
 
         this.filteredDocuments = filtered;
         this.renderFilteredDocuments();
@@ -387,6 +403,79 @@ class DocumentNotificationSystem {
         });
 
         this.updateStatsDisplay();
+    }
+
+    // Sort documents based on selected option
+    sortDocuments(documents, sortOption) {
+        // Create a copy to avoid modifying the original
+        const docs = [...documents];
+
+        return docs.sort((a, b) => {
+            let result = 0;
+            
+            switch (sortOption) {
+                case 'date_desc':
+                    // Newest first - using uploaded_at field
+                    const dateA = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
+                    const dateB = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
+                    result = dateB - dateA;
+                    // Secondary sort by title if dates are equal
+                    if (result === 0) {
+                        result = (a.title || '').localeCompare(b.title || '');
+                    }
+                    break;
+                case 'date_asc':
+                    // Oldest first
+                    const dateAscA = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
+                    const dateAscB = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
+                    result = dateAscA - dateAscB;
+                    // Secondary sort by title if dates are equal
+                    if (result === 0) {
+                        result = (a.title || '').localeCompare(b.title || '');
+                    }
+                    break;
+                case 'due_desc':
+                    // Due date - soonest first (earliest dates first)
+                    const dueA = (a.date ? new Date(a.date).getTime() :
+                                 a.earliest_start_time ? new Date(a.earliest_start_time).getTime() :
+                                 a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0);
+                    const dueB = (b.date ? new Date(b.date).getTime() :
+                                 b.earliest_start_time ? new Date(b.earliest_start_time).getTime() :
+                                 b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0);
+                    result = dueA - dueB;
+                    // Secondary sort by title if dates are equal
+                    if (result === 0) {
+                        result = (a.title || '').localeCompare(b.title || '');
+                    }
+                    break;
+                case 'due_asc':
+                    // Due date - latest first (latest dates first)
+                    const dueAscA = (a.date ? new Date(a.date).getTime() :
+                                    a.earliest_start_time ? new Date(a.earliest_start_time).getTime() :
+                                    a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0);
+                    const dueAscB = (b.date ? new Date(b.date).getTime() :
+                                    b.earliest_start_time ? new Date(b.earliest_start_time).getTime() :
+                                    b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0);
+                    result = dueAscB - dueAscA;
+                    // Secondary sort by title if dates are equal
+                    if (result === 0) {
+                        result = (a.title || '').localeCompare(b.title || '');
+                    }
+                    break;
+                case 'name_asc':
+                    // A-Z by title
+                    result = (a.title || '').toLowerCase().localeCompare((b.title || '').toLowerCase());
+                    break;
+                case 'name_desc':
+                    // Z-A by title
+                    result = (b.title || '').toLowerCase().localeCompare((a.title || '').toLowerCase());
+                    break;
+                default:
+                    result = 0;
+            }
+            
+            return result;
+        });
     }
 
     // Utility function for debouncing
@@ -537,20 +626,14 @@ class DocumentNotificationSystem {
         const wf = Array.isArray(doc.workflow) ? doc.workflow : [];
         if (wf.length === 0) return 0;
         
+        // Progress based on current_step (hierarchy level)
+        const currentStep = doc.current_step || 1;
         const totalSteps = wf.length;
-        const completedSteps = wf.filter(s => s.status === 'completed').length;
-        const pendingStep = wf.find(s => s.status === 'pending');
         
-        if (pendingStep && pendingStep.order) {
-            // Progress up to the pending step (e.g., if step 3/5 is pending, progress is 40% for steps 1-2 completed)
-            return Math.round(((pendingStep.order - 1) / totalSteps) * 100);
-        } else if (completedSteps === totalSteps) {
-            // All steps completed
-            return 100;
-        } else {
-            // Fallback: Use completed ratio (e.g., for rejected documents or incomplete workflows)
-            return Math.round((completedSteps / totalSteps) * 100);
-        }
+        // If current_step > totalSteps, it's completed
+        if (currentStep > totalSteps) return 100;
+        
+        return Math.round(((currentStep - 1) / totalSteps) * 100);
     }
 
     // Escape for safe HTML injection
@@ -1020,12 +1103,15 @@ class DocumentNotificationSystem {
             box.style.height = rect.height + 'px';
             box.textContent = map.label || 'Sign here';
 
+            // Update the current signature map to reflect the box position
+            this.updateSignatureMap(box, content);
+
             if (this.signatureImage) this.updateSignatureOverlayImage();
         }
     }
 
     // Render completed signatures as blurred overlays with timestamps
-    renderCompletedSignatures(doc, content) {
+renderCompletedSignatures(doc, content) {
         if (!doc.workflow) return;
         // Position completed signatures relative to the rendered canvas to keep them in sync
         const canvas = this.canvas;
@@ -1036,93 +1122,87 @@ class DocumentNotificationSystem {
         const signatureMap = doc.signature_map || { x_pct: 0.62, y_pct: 0.78, w_pct: 0.28, h_pct: 0.1 };
         const { x_pct, y_pct, w_pct, h_pct, page } = signatureMap;
 
-        // Only show blur on the page where signed
+        // Only show on the page where signed
         if (page && page !== this.currentPage) return;
 
         // Find completed steps with signatures
         const completedSignatures = doc.workflow.filter(step => step.status === 'completed' && step.signed_at);
 
-            const isEVP = !!(this.currentUser && (String(this.currentUser.role || '').toLowerCase().includes('evp') || String(this.currentUser.position || '').toLowerCase().includes('evp')));
+        // Check if current user is the document issuer (sender)
+        const isIssuer = this.currentUser && doc.student && doc.student.id === this.currentUser.id;
 
-            completedSignatures.forEach((step, index) => {
-                // Determine signature_map for this specific step (if saved on server)
-                let stepMap = signatureMap;
-                if (step.signature_map) {
-                    try {
-                        const parsed = typeof step.signature_map === 'string' ? JSON.parse(step.signature_map) : step.signature_map;
-                        if (parsed && parsed.x_pct != null) stepMap = parsed;
-                    } catch (e) {
-                        console.warn('Failed to parse step.signature_map', e);
-                    }
+        completedSignatures.forEach((step, index) => {
+            // Determine signature_map for this specific step (if saved on server)
+            let stepMap = signatureMap;
+            if (step.signature_map) {
+                try {
+                    const parsed = typeof step.signature_map === 'string' ? JSON.parse(step.signature_map) : step.signature_map;
+                    if (parsed && parsed.x_pct != null) stepMap = parsed;
+                } catch (e) {
+                    console.warn('Failed to parse step.signature_map', e);
                 }
+            }
 
-                const sx = stepMap.x_pct || x_pct;
-                const sy = stepMap.y_pct || y_pct;
-                const sw = stepMap.w_pct || w_pct;
-                const sh = stepMap.h_pct || h_pct;
+            const sx = stepMap.x_pct || x_pct;
+            const sy = stepMap.y_pct || y_pct;
+            const sw = stepMap.w_pct || w_pct;
+            const sh = stepMap.h_pct || h_pct;
 
-                // Create container for timestamp and blurred signature
-                const signatureContainer = document.createElement('div');
-                signatureContainer.className = 'completed-signature-container';
-                signatureContainer.style.position = 'absolute';
+            // Create container for timestamp and redaction
+            const signatureContainer = document.createElement('div');
+            signatureContainer.className = 'completed-signature-container';
+            signatureContainer.style.position = 'absolute';
 
-                // Position at the same place as the signature target using canvas metrics (relative to content)
-                let pixelRect = this.computeSignaturePixelRect({ x_pct: sx, y_pct: sy, w_pct: sw, h_pct: sh });
-                if (!pixelRect) return;
-                signatureContainer.style.left = pixelRect.left + 'px';
-                signatureContainer.style.top = pixelRect.top + 'px';
-                signatureContainer.style.width = pixelRect.width + 'px';
-                signatureContainer.style.height = pixelRect.height + 'px';
+            // Position at the same place as the signature target using canvas metrics (relative to content)
+            let pixelRect = this.computeSignaturePixelRect({ x_pct: sx, y_pct: sy, w_pct: sw, h_pct: sh });
+            if (!pixelRect) return;
+            signatureContainer.style.left = pixelRect.left + 'px';
+            signatureContainer.style.top = pixelRect.top + 'px';
+            signatureContainer.style.width = pixelRect.width + 'px';
+            signatureContainer.style.height = pixelRect.height + 'px';
 
-                // Create timestamp display
-                const timestamp = document.createElement('div');
-                timestamp.className = 'signature-timestamp';
-                timestamp.textContent = new Date(step.signed_at).toLocaleString();
-                timestamp.style.fontSize = '10px';
-                timestamp.style.color = '#666';
-                timestamp.style.textAlign = 'center';
-                timestamp.style.marginBottom = '2px';
-                timestamp.style.fontWeight = '500';
+            // Create timestamp display
+            const timestamp = document.createElement('div');
+            timestamp.className = 'signature-timestamp';
+            timestamp.textContent = new Date(step.signed_at).toLocaleString();
+            timestamp.style.fontSize = '10px';
+            timestamp.style.color = '#666';
+            timestamp.style.textAlign = 'center';
+            timestamp.style.marginBottom = '2px';
+            timestamp.style.fontWeight = '500';
 
-                if (isEVP) {
-                    // EVP users can see signature details (unblurred). Show name and role.
-                    const detail = document.createElement('div');
-                    detail.className = 'signature-detail';
-                    detail.style.width = '100%';
-                    detail.style.height = '100%';
-                    detail.style.display = 'flex';
-                    detail.style.alignItems = 'center';
-                    detail.style.justifyContent = 'center';
-                    detail.style.borderRadius = '4px';
-                    detail.style.background = 'rgba(255,255,255,0.9)';
-                    detail.style.color = '#111827';
-                    detail.style.fontWeight = '600';
-                    detail.textContent = `Signed by ${step.assignee_name || 'Unknown'} (${step.name || 'Unknown Role'})`;
+            if (isIssuer) {
+                // Issuer sees the actual signature (unredacted)
+                const signatureDetail = document.createElement('div');
+                signatureDetail.className = 'signature-detail';
+                signatureDetail.style.width = '100%';
+                signatureDetail.style.height = '100%';
+                signatureDetail.style.display = 'flex';
+                signatureDetail.style.alignItems = 'center';
+                signatureDetail.style.justifyContent = 'center';
+                signatureDetail.style.borderRadius = '4px';
+                signatureDetail.style.background = 'rgba(255,255,255,0.9)';
+                signatureDetail.style.color = '#111827';
+                signatureDetail.style.fontWeight = '600';
+                signatureDetail.textContent = `Signed by ${step.assignee_name || 'Unknown'}`;
 
-                    signatureContainer.appendChild(timestamp);
-                    signatureContainer.appendChild(detail);
-                } else {
-                    // Non-EVP: show blurred placeholder to hide signature
-                    const blurredSignature = document.createElement('div');
-                    blurredSignature.className = 'blurred-signature';
-                    blurredSignature.style.width = '100%';
-                    blurredSignature.style.height = '100%';
-                    blurredSignature.style.backgroundColor = 'rgba(128, 128, 128, 0.9)';
-                    blurredSignature.style.color = 'white';
-                    blurredSignature.style.display = 'flex';
-                    blurredSignature.style.alignItems = 'center';
-                    blurredSignature.style.justifyContent = 'center';
-                    blurredSignature.style.borderRadius = '4px';
-                    blurredSignature.style.fontWeight = '700';
-                    blurredSignature.style.fontSize = '12px';
-                    blurredSignature.textContent = `Signed by ${step.assignee_name || 'Unknown'}`;
+                signatureContainer.appendChild(timestamp);
+                signatureContainer.appendChild(signatureDetail);
+            } else {
+                // Non-issuer: apply redaction (solid black box, no text, no signature)
+                const redactionBox = document.createElement('div');
+                redactionBox.className = 'signature-redaction';
+                redactionBox.style.width = '100%';
+                redactionBox.style.height = '100%';
+                redactionBox.style.backgroundColor = '#000000'; // Black for redaction
+                redactionBox.style.display = 'block';
+                redactionBox.style.borderRadius = '4px';
+                // Remove any text or signature image
+                signatureContainer.appendChild(redactionBox);
+            }
 
-                    signatureContainer.appendChild(timestamp);
-                    signatureContainer.appendChild(blurredSignature);
-                }
-
-                content.appendChild(signatureContainer);
-            });
+            content.appendChild(signatureContainer);
+        });
     }
 
     // Check if current user is assigned to any pending step

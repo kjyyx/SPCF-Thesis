@@ -20,7 +20,7 @@ if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '
 
 // Define constants for better maintainability
 const ALLOWED_ROLES = ['employee'];
-const ALLOWED_STUDENT_POSITIONS = ['SSC President'];
+const ALLOWED_STUDENT_POSITIONS = ['SSC President', 'CSC President'];
 
 // Allow employees and SSC President students only
 $userHasAccess = in_array($currentUser['role'], ALLOWED_ROLES) ||

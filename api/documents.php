@@ -579,7 +579,7 @@ function handleGet()
         $params = [];
         if ($currentUser['role'] === 'employee') {
             $params = [$currentUser['id'], 'employee', $currentUser['id'], 'student'];
-        } elseif ($currentUser['role'] === 'student' && $currentUser['position'] === 'SSC President') {
+        } elseif ($currentUser['role'] === 'student' && ($currentUser['position'] === 'SSC President' || $currentUser['position'] === 'CSC President')) {
             $params = [$currentUser['id'], 'employee', $currentUser['id'], 'student'];
         } else {
             // No documents for other student roles
@@ -1387,12 +1387,12 @@ function signDocument($input, $files = null)
         return;
     }
 
-    // If stepId not provided, infer the current pending step assigned to this user (employee or SSC President student)
+    // If stepId not provided, infer the current pending step assigned to this user (employee or SSC/CSC President student)
     if (!$stepId) {
         if ($currentUser['role'] === 'employee') {
             $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
             $q->execute([$documentId, $currentUser['id']]);
-        } elseif ($currentUser['role'] === 'student' && $currentUser['position'] === 'SSC President') {
+        } elseif ($currentUser['role'] === 'student' && ($currentUser['position'] === 'SSC President' || $currentUser['position'] === 'CSC President')) {
             $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_student_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
             $q->execute([$documentId, $currentUser['id']]);
         } else {
@@ -1439,24 +1439,29 @@ function signDocument($input, $files = null)
         $isFullyApproved = ($progress['total_steps'] == $progress['completed_steps']);
 
         if (!$isFullyApproved) {
-            // Archive old file only if not fully approved
-            $oldFilePath = $uploadDir . basename($doc['file_path']);
-            if (file_exists($oldFilePath)) {
-                $archiveDir = $uploadDir . 'archive/';
-                if (!is_dir($archiveDir)) {
-                    mkdir($archiveDir, 0755, true);
-                }
-                $archivedPath = $archiveDir . basename($oldFilePath) . '.old';
-                if (!rename($oldFilePath, $archivedPath)) {
-                    error_log("Failed to archive old file: $oldFilePath to $archivedPath");
-                }
-            }
+            // Archive old file only if new file is successfully saved
+            // Moved archive logic after successful upload
         }
 
         // Save new signed PDF
         $newFileName = 'signed_doc_' . $documentId . '_' . time() . '.pdf';
         $newPath = $uploadDir . $newFileName;
         if (move_uploaded_file($files['signed_pdf']['tmp_name'], $newPath)) {
+            // Archive old file after successful save
+            if (!$isFullyApproved) {
+                $oldFilePath = $uploadDir . basename($doc['file_path']);
+                if (file_exists($oldFilePath)) {
+                    $archiveDir = $uploadDir . 'archive/';
+                    if (!is_dir($archiveDir)) {
+                        mkdir($archiveDir, 0755, true);
+                    }
+                    $archivedPath = $archiveDir . basename($oldFilePath) . '.old';
+                    if (!rename($oldFilePath, $archivedPath)) {
+                        error_log("Failed to archive old file: $oldFilePath to $archivedPath");
+                    }
+                }
+            }
+
             // Update database with new file path (store full relative path)
             $relativePath = '../uploads/' . $newFileName;
             $updateStmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
@@ -1540,32 +1545,52 @@ function signDocument($input, $files = null)
             if ($doc && $doc['doc_type'] === 'saf') {
                 $data = json_decode($doc['data'], true);
                 if ($data) {
+                    // Ensure departmentFull is set
+                    $departmentFullMap = [
+                        'College of Arts, Social Sciences, and Education' => 'College of Arts, Social Sciences, and Education',
+                        'College of Business' => 'College of Business',
+                        'College of Computing and Information Sciences' => 'College of Computing and Information Sciences',
+                        'College of Criminology' => 'College of Criminology',
+                        'College of Engineering' => 'College of Engineering',
+                        'College of Hospitality and Tourism Management' => 'College of Hospitality and Tourism Management',
+                        'College of Nursing' => 'College of Nursing',
+                        'SPCF Miranda' => 'SPCF Miranda',
+                        'Supreme Student Council' => 'Supreme Student Council',
+                    ];
+                    $dept = $data['department'] ?? '';
+                    $data['departmentFull'] = $departmentFullMap[$dept] ?? $dept;
+
                     $stepStmt = $db->prepare("SELECT name FROM document_steps WHERE id = ?");
                     $stepStmt->execute([$stepId]);
                     $step = $stepStmt->fetch(PDO::FETCH_ASSOC);
                     $stepName = $step['name'];
                     $dateField = '';
-                    if ($stepName === 'OIC OSA')
-                        $dateField = 'notedDate';
-                    elseif ($stepName === 'VPAA')
+                    $nameField = '';
+                    if ($stepName === 'OIC OSA Approval') {
+                        $dateField = 'dNoteDate';
+                        $nameField = 'notedBy';
+                    } elseif ($stepName === 'VPAA Approval') {
                         $dateField = 'recDate';
-                    elseif ($stepName === 'EVP')
+                        $nameField = 'recBy';
+                    } elseif ($stepName === 'EVP Approval') {
                         $dateField = 'appDate';
+                        $nameField = 'appBy';
+                    }
                     if ($dateField) {
                         $data[$dateField] = date('Y-m-d');
                     }
-                    // Re-fill template
-                    $templatePath = '../assets/templates/SAF/SAF REQUEST.docx';
-                    if (file_exists($templatePath)) {
-                        try {
-                            $filledPath = fillDocxTemplate($templatePath, $data);
-                            $pdfPath = convertDocxToPdf($filledPath);
-                            $updateStmt = $db->prepare("UPDATE documents SET file_path = ?, data = ? WHERE id = ?");
-                            $updateStmt->execute([$pdfPath, json_encode($data), $documentId]);
-                        } catch (Exception $e) {
-                            error_log("SAF template re-filling failed: " . $e->getMessage());
+                    if ($nameField) {
+                        // Get the current approver's name
+                        $approverStmt = $db->prepare("SELECT first_name, last_name FROM employees WHERE id = ?");
+                        $approverStmt->execute([$currentUser['id']]);
+                        $approver = $approverStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($approver) {
+                            $data[$nameField] = $approver['first_name'] . ' ' . $approver['last_name'];
                         }
                     }
+                    // Update data without re-converting to save CloudConvert credits
+                    $updateStmt = $db->prepare("UPDATE documents SET data = ? WHERE id = ?");
+                    $updateStmt->execute([json_encode($data), $documentId]);
                 }
             }
 
@@ -1596,19 +1621,32 @@ function signDocument($input, $files = null)
                 if ($doc && $doc['doc_type'] === 'saf') {
                     $data = json_decode($doc['data'], true);
                     if ($data) {
+                        // Ensure departmentFull is set
+                        $departmentFullMap = [
+                            'College of Arts, Social Sciences, and Education' => 'College of Arts, Social Sciences, and Education',
+                            'College of Business' => 'College of Business',
+                            'College of Computing and Information Sciences' => 'College of Computing and Information Sciences',
+                            'College of Criminology' => 'College of Criminology',
+                            'College of Engineering' => 'College of Engineering',
+                            'College of Hospitality and Tourism Management' => 'College of Hospitality and Tourism Management',
+                            'College of Nursing' => 'College of Nursing',
+                            'SPCF Miranda' => 'SPCF Miranda',
+                            'Supreme Student Council' => 'Supreme Student Council',
+                        ];
+                        $dept = $data['department'] ?? '';
+                        $data['departmentFull'] = $departmentFullMap[$dept] ?? $dept;
+
                         $data['releaseDate'] = date('Y-m-d');
-                        // Re-fill template
-                        $templatePath = '../assets/templates/SAF/SAF REQUEST.docx';
-                        if (file_exists($templatePath)) {
-                            try {
-                                $filledPath = fillDocxTemplate($templatePath, $data);
-                                $pdfPath = convertDocxToPdf($filledPath);
-                                $updateStmt = $db->prepare("UPDATE documents SET file_path = ?, data = ? WHERE id = ?");
-                                $updateStmt->execute([$pdfPath, json_encode($data), $documentId]);
-                            } catch (Exception $e) {
-                                error_log("SAF template re-filling failed: " . $e->getMessage());
-                            }
+                        // Get the accounting officer's name for relBy
+                        $accountingStmt = $db->prepare("SELECT first_name, last_name FROM employees WHERE position = 'Accounting Officer' LIMIT 1");
+                        $accountingStmt->execute([]);
+                        $accounting = $accountingStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($accounting) {
+                            $data['relBy'] = $accounting['first_name'] . ' ' . $accounting['last_name'];
                         }
+                        // Update data without re-converting to save CloudConvert credits
+                        $updateStmt = $db->prepare("UPDATE documents SET data = ? WHERE id = ?");
+                        $updateStmt->execute([json_encode($data), $documentId]);
                     }
                 }
 
@@ -1618,23 +1656,43 @@ function signDocument($input, $files = null)
                     if ($data) {
                         $reqSSC = $data['reqSSC'] ?? 0;
                         $reqCSC = $data['reqCSC'] ?? 0;
-                        $totalDeduct = $reqSSC + $reqCSC;
-                        $department = $data['department'];
+                        $department = $data['department']; // This is the CSC department
 
-                        if ($totalDeduct > 0 && $department) {
-                            // Update used_amount in saf_balances
+                        // Prepare transaction statement
+                        $transStmt = $db->prepare("INSERT INTO saf_transactions (department_id, transaction_type, transaction_amount, transaction_description, transaction_date) VALUES (?, 'deduct', ?, ?, NOW())");
+
+                        // Deduct SSC funds from 'ssc' department
+                        if ($reqSSC > 0) {
                             $updateStmt = $db->prepare("UPDATE saf_balances SET used_amount = used_amount + ? WHERE department_id = ?");
-                            $updateStmt->execute([$totalDeduct, $department]);
+                            $updateStmt->execute([$reqSSC, 'ssc']);
 
-                            // Add transaction record
-                            $transStmt = $db->prepare("INSERT INTO saf_transactions (department_id, transaction_type, amount, description, date) VALUES (?, 'deduct', ?, ?, NOW())");
-                            $transStmt->execute([$department, $totalDeduct, "SAF Request: " . ($data['title'] ?? 'Untitled')]);
+                            // Add transaction record for SSC
+                            $transStmt->execute(['ssc', $reqSSC, "SAF Request (SSC): " . ($data['title'] ?? 'Untitled')]);
 
-                            // Audit log for fund deduction
+                            // Audit log for SSC fund deduction
                             addAuditLog(
                                 'SAF_DEDUCTED',
                                 'SAF Management',
-                                "Deducted ₱{$totalDeduct} from {$department} SAF balance for approved document",
+                                "Deducted ₱{$reqSSC} from SSC SAF balance for approved document",
+                                $documentId,
+                                'Document',
+                                'INFO'
+                            );
+                        }
+
+                        // Deduct CSC funds from selected department
+                        if ($reqCSC > 0 && $department) {
+                            $updateStmt = $db->prepare("UPDATE saf_balances SET used_amount = used_amount + ? WHERE department_id = ?");
+                            $updateStmt->execute([$reqCSC, $department]);
+
+                            // Add transaction record for CSC
+                            $transStmt->execute([$department, $reqCSC, "SAF Request (CSC): " . ($data['title'] ?? 'Untitled')]);
+
+                            // Audit log for CSC fund deduction
+                            addAuditLog(
+                                'SAF_DEDUCTED',
+                                'SAF Management',
+                                "Deducted ₱{$reqCSC} from {$department} SAF balance for approved document",
                                 $documentId,
                                 'Document',
                                 'INFO'
@@ -1779,7 +1837,7 @@ function rejectDocument($input)
                 $q2->execute([$documentId, $currentUser['id']]);
                 $row = $q2->fetch(PDO::FETCH_ASSOC);
             }
-        } elseif ($currentUser['role'] === 'student' && $currentUser['position'] === 'SSC President') {
+        } elseif ($currentUser['role'] === 'student' && ($currentUser['position'] === 'SSC President' || $currentUser['position'] === 'CSC President')) {
             // Prefer a pending step owned by this student
             $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_student_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
             $q->execute([$documentId, $currentUser['id']]);

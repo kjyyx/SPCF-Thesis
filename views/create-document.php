@@ -269,6 +269,8 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                   </div>
                 </div>
 
+                <hr class="my-4" style="border: none; height: 1px; background: #e5e7eb;">
+
                 <div class="mt-3">
                   <label class="form-label">Program Schedule (detailed rows)</label>
                   <div id="program-rows-prop" class="mt-2">
@@ -283,6 +285,8 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                   <div class="mt-2"><button class="btn btn-sm btn-success" onclick="addProgramRowProp()">+ Add
                       Activity</button></div>
                 </div>
+
+                <hr class="my-4" style="border: none; height: 1px; background: #e5e7eb;">
 
                 <div class="mt-3">
                   <label class="form-label">
@@ -327,44 +331,12 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label">
-                      <i class="bi bi-building"></i>College / Department
-                    </label>
-                    <select id="saf-dept" class="form-select">
-                      <option value="">Select Department</option>
-                      <option value="College of Arts, Social Sciences, and Education">College of Arts, Social Sciences, and Education (CASSED)</option>
-                      <option value="College of Business">College of Business (COB)</option>
-                      <option value="College of Computing and Information Sciences">College of Computing and Information Sciences (CCIS)</option>
-                      <option value="College of Criminology">College of Criminology (COC)</option>
-                      <option value="College of Engineering">College of Engineering (COE)</option>
-                      <option value="College of Hospitality and Tourism Management">College of Hospitality and Tourism Management (CHTM)</option>
-                      <option value="College of Nursing">College of Nursing (CON)</option>
-                      <option value="SPCF Miranda">SPCF Miranda (MIRANDA)</option>
-                      <option value="Supreme Student Council">Supreme Student Council (SSC)</option>
-                    </select>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">
                       <i class="bi bi-flag"></i>Project Title
                     </label>
                     <input id="saf-title" class="form-control" placeholder="Project Title">
                   </div>
-                </div>
-
-                <div class="row g-3 mt-2">
-                  <div class="col-md-4">
-                    <label class="form-label">
-                      <i class="bi bi-calendar3"></i>Date Requested
-                    </label>
-                    <input id="saf-date" type="date" class="form-control">
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label">
-                      <i class="bi bi-calendar3"></i>Implementation Date
-                    </label>
-                    <input id="saf-impl-date" type="date" class="form-control">
-                  </div>
-                  <div class="col-md-4">
-                    <!-- Placeholder for future fields -->
+                  <div class="col-md-6">
+                    <!-- Placeholder -->
                   </div>
                 </div>
 
@@ -386,6 +358,47 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                   </div>
                 </div>
 
+                <div class="row g-3 mt-2">
+                  <div class="col-md-4">
+                    <label class="form-label">
+                      <i class="bi bi-calendar3"></i>Date Requested
+                    </label>
+                    <input id="saf-date" type="date" class="form-control">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">
+                      <i class="bi bi-calendar3"></i>Implementation Date
+                    </label>
+                    <input id="saf-impl-date" type="date" class="form-control">
+                  </div>
+                  <div class="col-md-4">
+                    <!-- Placeholder for future fields -->
+                  </div>
+                </div>
+
+                <div id="row-dept" class="row g-3 mt-2" style="display:none">
+                  <div class="col-md-6">
+                    <label class="form-label">
+                      <i class="bi bi-building"></i>College / Department
+                    </label>
+                    <select id="saf-dept" class="form-select">
+                      <option value="">Select Department</option>
+                      <option value="casse" <?php echo ($currentUser['department'] === 'College of Arts, Social Sciences, and Education') ? 'selected' : ''; ?>>College of Arts, Social Sciences, and Education</option>
+                      <option value="cob" <?php echo ($currentUser['department'] === 'College of Business') ? 'selected' : ''; ?>>College of Business</option>
+                      <option value="ccis" <?php echo ($currentUser['department'] === 'College of Computing and Information Sciences') ? 'selected' : ''; ?>>College of Computing and Information Sciences</option>
+                      <option value="coc" <?php echo ($currentUser['department'] === 'College of Criminology') ? 'selected' : ''; ?>>College of Criminology</option>
+                      <option value="coe" <?php echo ($currentUser['department'] === 'College of Engineering') ? 'selected' : ''; ?>>College of Engineering</option>
+                      <option value="chtm" <?php echo ($currentUser['department'] === 'College of Hospitality and Tourism Management') ? 'selected' : ''; ?>>College of Hospitality and Tourism Management</option>
+                      <option value="con" <?php echo ($currentUser['department'] === 'College of Nursing') ? 'selected' : ''; ?>>College of Nursing</option>
+                      <option value="miranda" <?php echo ($currentUser['department'] === 'SPCF Miranda') ? 'selected' : ''; ?>>SPCF Miranda</option>
+                      <option value="ssc">Supreme Student Council</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <!-- Placeholder -->
+                  </div>
+                </div>
+
                 <div class="mt-4">
                   <label class="form-label">
                     <i class="bi bi-currency-dollar"></i>Fund Amounts
@@ -403,40 +416,36 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                       <tbody>
                         <tr id="row-ssc" style="display:none">
                           <td>SSC</td>
-                          <td><input id="avail-ssc" class="form-control" type="number" min="0" step="1000"
-                              placeholder="0"></td>
+                          <td><input id="avail-ssc" class="form-control" type="number" min="0" step="1"
+                              placeholder="0" readonly></td>
                           <td>
-                            <div class="input-group">
-                              <button class="btn btn-outline-secondary" type="button"
-                                onclick="changeRequestedSAF('req-ssc', -1000)">
-                                <i class="bi bi-dash"></i>
-                              </button>
-                              <input id="req-ssc" class="form-control text-center" type="number" min="0" step="1000"
-                                value="0" readonly>
-                              <button class="btn btn-outline-secondary" type="button"
-                                onclick="changeRequestedSAF('req-ssc', 1000)">
-                                <i class="bi bi-plus"></i>
-                              </button>
+                            <div class="saf-input-wrapper">
+                              <input id="req-ssc" class="form-control text-center" type="number" min="0" step="100"
+                                value="0" oninput="validateSAFAmount('req-ssc')" placeholder="Enter amount">
+                              <div class="saf-quick-buttons">
+                                <button type="button" onclick="changeRequestedSAF('req-ssc', 100)">+100</button>
+                                <button type="button" onclick="changeRequestedSAF('req-ssc', 500)">+500</button>
+                                <button type="button" onclick="changeRequestedSAF('req-ssc', 1000)">+1K</button>
+                                <button type="button" onclick="changeRequestedSAF('req-ssc', 'clear')" class="clear-btn">Clear</button>
+                              </div>
                             </div>
                           </td>
                           <td id="bal-ssc" class="text-end">₱0.00</td>
                         </tr>
                         <tr id="row-csc" style="display:none">
                           <td>CSC</td>
-                          <td><input id="avail-csc" class="form-control" type="number" min="0" step="1000"
-                              placeholder="0"></td>
+                          <td><input id="avail-csc" class="form-control" type="number" min="0" step="1"
+                              placeholder="0" readonly></td>
                           <td>
-                            <div class="input-group">
-                              <button class="btn btn-outline-secondary" type="button"
-                                onclick="changeRequestedSAF('req-csc', -1000)">
-                                <i class="bi bi-dash"></i>
-                              </button>
-                              <input id="req-csc" class="form-control text-center" type="number" min="0" step="1000"
-                                value="0" readonly>
-                              <button class="btn btn-outline-secondary" type="button"
-                                onclick="changeRequestedSAF('req-csc', 1000)">
-                                <i class="bi bi-plus"></i>
-                              </button>
+                            <div class="saf-input-wrapper">
+                              <input id="req-csc" class="form-control text-center" type="number" min="0" step="100"
+                                value="0" oninput="validateSAFAmount('req-csc')" placeholder="Enter amount">
+                              <div class="saf-quick-buttons">
+                                <button type="button" onclick="changeRequestedSAF('req-csc', 100)">+100</button>
+                                <button type="button" onclick="changeRequestedSAF('req-csc', 500)">+500</button>
+                                <button type="button" onclick="changeRequestedSAF('req-csc', 1000)">+1K</button>
+                                <button type="button" onclick="changeRequestedSAF('req-csc', 'clear')" class="clear-btn">Clear</button>
+                              </div>
                             </div>
                           </td>
                           <td id="bal-csc" class="text-end">₱0.00</td>
@@ -446,8 +455,12 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                   </div>
                 </div>
 
-                <div class="small text-muted mt-2">Check categories to enable the inputs. Amount controls change by
-                  ₱1,000 per click.</div>
+                <div class="alert alert-info mt-3" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 1rem;">
+                  <small class="text-primary" style="display: flex; align-items: start; gap: 0.5rem;">
+                    <i class="bi bi-info-circle" style="margin-top: 2px;"></i>
+                    <span>Check categories to enable the inputs. Type amounts directly or use quick add buttons (+100, +500, +1K). Click Clear to reset.</span>
+                  </small>
+                </div>
               </div>
               
               <!-- === Facility Request === -->

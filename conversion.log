@@ -630,3 +630,235 @@
 2026-02-01 00:46:26 - PDF saved to: ../uploads/filled_doc_697e31dd252231.40539701.pdf
 2026-02-01 00:46:26 - DOCX cleaned up successfully
 2026-02-01 00:46:26 - Conversion successful
+2026-02-02 22:04:22 - Starting conversion for: ../uploads/filled_doc_6980aee6e3cfa8.20102342.docx
+2026-02-02 22:04:22 - API key found
+2026-02-02 22:04:22 - DOCX file exists, size: 87245
+2026-02-02 22:04:22 - CloudConvert client created
+2026-02-02 22:04:22 - Creating job
+2026-02-02 22:04:23 - Job created: 7199d832-681d-430c-9fb4-2002ba59dec4
+2026-02-02 22:04:23 - Uploading file
+2026-02-02 22:04:24 - File uploaded
+2026-02-02 22:04:24 - Waiting for completion
+2026-02-02 22:04:26 - Job completed, status: finished
+2026-02-02 22:04:26 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/42c91b4d-ad9f-43ef-92fa-bd0da52aed9d/filled_doc_6980aee6e3cfa8.20102342.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260202%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260202T140425Z&X-Amz-Expires=86400&X-Amz-Signature=cdafa806ee4a40397b33409060c5c58e69fddf657189b73a9fe59f95ced38f7d&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_6980aee6e3cfa8.20102342.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-02 22:04:28 - PDF saved to: ../uploads/filled_doc_6980aee6e3cfa8.20102342.pdf
+2026-02-02 22:04:28 - DOCX cleaned up successfully
+2026-02-02 22:04:28 - Conversion successful
+2026-02-02 22:11:55 - Starting conversion for: ../uploads/filled_doc_6980b0abceef32.27874269.docx
+2026-02-02 22:11:55 - API key found
+2026-02-02 22:11:55 - DOCX file exists, size: 87228
+2026-02-02 22:11:55 - CloudConvert client created
+2026-02-02 22:11:55 - Creating job
+2026-02-02 22:11:56 - Job created: cd01822e-087a-4987-b740-7188efa0a2da
+2026-02-02 22:11:56 - Uploading file
+2026-02-02 22:11:58 - File uploaded
+2026-02-02 22:11:58 - Waiting for completion
+2026-02-02 22:11:59 - Job completed, status: finished
+2026-02-02 22:11:59 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/d6efa957-f272-4105-ac95-1cadd2ec2c64/filled_doc_6980b0abceef32.27874269.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260202%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260202T141158Z&X-Amz-Expires=86400&X-Amz-Signature=51e45d55399b8542f2d5372529288a84cf7dcaf5668739737327385a17cdb4f3&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_6980b0abceef32.27874269.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-02 22:12:01 - PDF saved to: ../uploads/filled_doc_6980b0abceef32.27874269.pdf
+2026-02-02 22:12:01 - DOCX cleaned up successfully
+2026-02-02 22:12:01 - Conversion successful
+2026-02-02 22:15:25 - Starting conversion for: ../uploads/filled_doc_6980b17dca6785.59276706.docx
+2026-02-02 22:15:25 - API key found
+2026-02-02 22:15:25 - DOCX file exists, size: 87192
+2026-02-02 22:15:25 - CloudConvert client created
+2026-02-02 22:15:25 - Creating job
+2026-02-02 22:15:26 - Job created: 9d95cea6-7f74-4302-b1d1-2e312d4f9182
+2026-02-02 22:15:26 - Uploading file
+2026-02-02 22:15:27 - File uploaded
+2026-02-02 22:15:27 - Waiting for completion
+2026-02-02 22:15:29 - Job completed, status: finished
+2026-02-02 22:15:29 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/ed57ec8a-aa8d-46b8-ac79-3456e716a3d1/filled_doc_6980b17dca6785.59276706.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260202%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260202T141528Z&X-Amz-Expires=86400&X-Amz-Signature=1f20e104179f54b7bfa49a8ae60842151cf21954b85386e6f5de47f3f924014d&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_6980b17dca6785.59276706.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-02 22:15:30 - PDF saved to: ../uploads/filled_doc_6980b17dca6785.59276706.pdf
+2026-02-02 22:15:30 - DOCX cleaned up successfully
+2026-02-02 22:15:30 - Conversion successful
+2026-02-02 22:16:25 - Starting conversion for: ../uploads/filled_doc_6980b1b99b1753.55784218.docx
+2026-02-02 22:16:25 - API key found
+2026-02-02 22:16:25 - DOCX file exists, size: 87192
+2026-02-02 22:16:25 - CloudConvert client created
+2026-02-02 22:16:25 - Creating job
+2026-02-02 22:16:26 - Job created: eacf74a2-9d85-4259-bba8-383cdf0a3af4
+2026-02-02 22:16:26 - Uploading file
+2026-02-02 22:16:27 - File uploaded
+2026-02-02 22:16:27 - Waiting for completion
+2026-02-02 22:16:28 - Job completed, status: finished
+2026-02-02 22:16:28 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/5a08487d-e2f1-40fd-bc7a-5a07f7ed882b/filled_doc_6980b1b99b1753.55784218.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260202%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260202T141627Z&X-Amz-Expires=86400&X-Amz-Signature=0d71558045854db0a042d44b5ccb3df3dd80c23b30c09b3f2e77ee477cfb910d&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_6980b1b99b1753.55784218.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-02 22:16:30 - PDF saved to: ../uploads/filled_doc_6980b1b99b1753.55784218.pdf
+2026-02-02 22:16:30 - DOCX cleaned up successfully
+2026-02-02 22:16:30 - Conversion successful
+2026-02-02 22:17:26 - Starting conversion for: ../uploads/filled_doc_6980b1f6b0a725.77714232.docx
+2026-02-02 22:17:26 - API key found
+2026-02-02 22:17:26 - DOCX file exists, size: 87192
+2026-02-02 22:17:26 - CloudConvert client created
+2026-02-02 22:17:26 - Creating job
+2026-02-02 22:17:27 - Job created: 5076fe7a-9ed8-4632-a527-294792177999
+2026-02-02 22:17:27 - Uploading file
+2026-02-02 22:17:28 - File uploaded
+2026-02-02 22:17:28 - Waiting for completion
+2026-02-02 22:17:31 - Job completed, status: finished
+2026-02-02 22:17:31 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/41554278-4687-4f79-9dc8-bf23d363d070/filled_doc_6980b1f6b0a725.77714232.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260202%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260202T141730Z&X-Amz-Expires=86400&X-Amz-Signature=4dade712255a2e7e3c0b9349cc22e70f904d57f5c5d0307b7ff6c54a5b9be100&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_6980b1f6b0a725.77714232.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-02 22:17:33 - PDF saved to: ../uploads/filled_doc_6980b1f6b0a725.77714232.pdf
+2026-02-02 22:17:33 - DOCX cleaned up successfully
+2026-02-02 22:17:33 - Conversion successful
+2026-02-02 22:17:33 - Starting conversion for: ../uploads/filled_doc_6980b1fd14a557.46942472.docx
+2026-02-02 22:17:33 - API key found
+2026-02-02 22:17:33 - DOCX file exists, size: 87196
+2026-02-02 22:17:33 - CloudConvert client created
+2026-02-02 22:17:33 - Creating job
+2026-02-02 22:17:33 - Job created: 0be87363-7d9b-4d4c-a8b1-0ea9d823de97
+2026-02-02 22:17:33 - Uploading file
+2026-02-02 22:17:34 - File uploaded
+2026-02-02 22:17:34 - Waiting for completion
+2026-02-02 22:17:36 - Job completed, status: finished
+2026-02-02 22:17:36 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/a11b65a4-df1a-44ef-8002-30bc0721ecd5/filled_doc_6980b1fd14a557.46942472.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260202%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260202T141735Z&X-Amz-Expires=86400&X-Amz-Signature=4d10b1d19c54bc122bd0d75efdb01b628aa4a8b109f2dd420b81f21d8e5b8ae1&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_6980b1fd14a557.46942472.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-02 22:17:37 - PDF saved to: ../uploads/filled_doc_6980b1fd14a557.46942472.pdf
+2026-02-02 22:17:37 - DOCX cleaned up successfully
+2026-02-02 22:17:37 - Conversion successful
+2026-02-02 22:22:53 - Starting conversion for: ../uploads/filled_doc_6980b33d4b75a7.08949306.docx
+2026-02-02 22:22:53 - API key found
+2026-02-02 22:22:53 - DOCX file exists, size: 87175
+2026-02-02 22:22:53 - CloudConvert client created
+2026-02-02 22:22:53 - Creating job
+2026-02-02 22:22:53 - EXCEPTION: Your account has run out of conversion credits
+2026-02-02 22:22:53 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(1562): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(811): signDocument(Array, Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2026-02-02 22:22:53 - Returning original path: ../uploads/filled_doc_6980b33d4b75a7.08949306.docx
+2026-02-02 22:26:17 - Starting conversion for: ../uploads/filled_doc_6980b4094ed9a3.35158145.docx
+2026-02-02 22:26:17 - API key found
+2026-02-02 22:26:17 - DOCX file exists, size: 87262
+2026-02-02 22:26:17 - CloudConvert client created
+2026-02-02 22:26:17 - Creating job
+2026-02-02 22:26:18 - EXCEPTION: Your account has run out of conversion credits
+2026-02-02 22:26:18 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(1175): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(850): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2026-02-02 22:26:18 - Returning original path: ../uploads/filled_doc_6980b4094ed9a3.35158145.docx
+2026-02-02 22:35:06 - Starting conversion for: ../uploads/filled_doc_6980b61a8d39b1.44360232.docx
+2026-02-02 22:35:06 - API key found
+2026-02-02 22:35:06 - DOCX file exists, size: 87278
+2026-02-02 22:35:06 - CloudConvert client created
+2026-02-02 22:35:06 - Creating job
+2026-02-02 22:35:07 - Job created: 4cbabce5-eea2-4b08-9e2d-7e8c8c1387a2
+2026-02-02 22:35:07 - Uploading file
+2026-02-02 22:35:08 - File uploaded
+2026-02-02 22:35:08 - Waiting for completion
+2026-02-02 22:35:10 - Job completed, status: finished
+2026-02-02 22:35:10 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/af191a3b-5ffa-4cf2-90a4-5777ff44538f/filled_doc_6980b61a8d39b1.44360232.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260202%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260202T143509Z&X-Amz-Expires=86400&X-Amz-Signature=b8948ae9dfa2df3fecda5c31f6bd6353fc2764d3645abbf7ec97ad5a38e20e10&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_6980b61a8d39b1.44360232.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-02 22:35:11 - PDF saved to: ../uploads/filled_doc_6980b61a8d39b1.44360232.pdf
+2026-02-02 22:35:11 - DOCX cleaned up successfully
+2026-02-02 22:35:11 - Conversion successful
+2026-02-02 22:36:53 - Starting conversion for: ../uploads/filled_doc_6980b6859d6317.38551581.docx
+2026-02-02 22:36:53 - API key found
+2026-02-02 22:36:53 - DOCX file exists, size: 87225
+2026-02-02 22:36:53 - CloudConvert client created
+2026-02-02 22:36:53 - Creating job
+2026-02-02 22:36:54 - Job created: 5782e858-b535-419f-b074-5e4673bf2ead
+2026-02-02 22:36:54 - Uploading file
+2026-02-02 22:36:55 - File uploaded
+2026-02-02 22:36:55 - Waiting for completion
+2026-02-02 22:36:57 - Job completed, status: finished
+2026-02-02 22:36:57 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/28fa7c3f-bef8-43ad-a2c8-16aab1bdf935/filled_doc_6980b6859d6317.38551581.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260202%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260202T143656Z&X-Amz-Expires=86400&X-Amz-Signature=e6eb33a7798da4be17df5f4e712d026565c9f5c1d85f1c2669b8689e3624ff60&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_6980b6859d6317.38551581.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-02 22:36:58 - PDF saved to: ../uploads/filled_doc_6980b6859d6317.38551581.pdf
+2026-02-02 22:36:58 - DOCX cleaned up successfully
+2026-02-02 22:36:58 - Conversion successful
+2026-02-02 22:46:34 - Starting conversion for: ../uploads/filled_doc_6980b8ca4e7706.42421817.docx
+2026-02-02 22:46:34 - API key found
+2026-02-02 22:46:34 - DOCX file exists, size: 87241
+2026-02-02 22:46:34 - CloudConvert client created
+2026-02-02 22:46:34 - Creating job
+2026-02-02 22:46:34 - Job created: 8ecaad89-5704-4d7d-bf6e-e20e3e992e19
+2026-02-02 22:46:34 - Uploading file
+2026-02-02 22:46:37 - File uploaded
+2026-02-02 22:46:37 - Waiting for completion
+2026-02-02 22:46:38 - Job completed, status: finished
+2026-02-02 22:46:38 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/f5b653ac-fbdc-4399-af64-5f92bd877450/filled_doc_6980b8ca4e7706.42421817.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260202%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260202T144637Z&X-Amz-Expires=86400&X-Amz-Signature=25101b34370b695a4617250d11f7fedc2798bc00559099bdd32beec90fa12ad6&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_6980b8ca4e7706.42421817.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-02 22:46:40 - PDF saved to: ../uploads/filled_doc_6980b8ca4e7706.42421817.pdf
+2026-02-02 22:46:40 - DOCX cleaned up successfully
+2026-02-02 22:46:40 - Conversion successful
+2026-02-02 22:47:19 - Starting conversion for: ../uploads/filled_doc_6980b8f75db3e4.87568836.docx
+2026-02-02 22:47:19 - API key found
+2026-02-02 22:47:19 - DOCX file exists, size: 87188
+2026-02-02 22:47:19 - CloudConvert client created
+2026-02-02 22:47:19 - Creating job
+2026-02-02 22:47:20 - Job created: 43d118bb-d5a3-4814-93bb-4f01579ba0ac
+2026-02-02 22:47:20 - Uploading file
+2026-02-02 22:47:21 - File uploaded
+2026-02-02 22:47:21 - Waiting for completion
+2026-02-02 22:47:22 - Job completed, status: finished
+2026-02-02 22:47:22 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/305ccaf5-7075-46fc-ab48-fac9b70c6c7b/filled_doc_6980b8f75db3e4.87568836.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260202%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260202T144721Z&X-Amz-Expires=86400&X-Amz-Signature=79ff50ae2a084d31018a68592694f75d56ba0cff18940db6c57741b573106e64&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_6980b8f75db3e4.87568836.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-02 22:47:24 - PDF saved to: ../uploads/filled_doc_6980b8f75db3e4.87568836.pdf
+2026-02-02 22:47:24 - DOCX cleaned up successfully
+2026-02-02 22:47:24 - Conversion successful
+2026-02-02 22:50:01 - Starting conversion for: ../uploads/filled_doc_6980b9998331d1.71484032.docx
+2026-02-02 22:50:01 - API key found
+2026-02-02 22:50:01 - DOCX file exists, size: 156419
+2026-02-02 22:50:01 - CloudConvert client created
+2026-02-02 22:50:01 - Creating job
+2026-02-02 22:50:02 - Job created: 7295362f-9f3a-46fc-8edb-3608f48e1a36
+2026-02-02 22:50:02 - Uploading file
+2026-02-02 22:50:03 - File uploaded
+2026-02-02 22:50:03 - Waiting for completion
+2026-02-02 22:50:04 - Job completed, status: finished
+2026-02-02 22:50:04 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/7372840d-63e5-418b-b8c5-ada1c43cb51f/filled_doc_6980b9998331d1.71484032.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260202%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260202T145003Z&X-Amz-Expires=86400&X-Amz-Signature=2ea7f9f1f9d0d4885c05a564a16039cef2acb73897a076664f384b588bddff3c&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_6980b9998331d1.71484032.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-02 22:50:06 - PDF saved to: ../uploads/filled_doc_6980b9998331d1.71484032.pdf
+2026-02-02 22:50:06 - DOCX cleaned up successfully
+2026-02-02 22:50:06 - Conversion successful
+2026-02-02 22:52:13 - Starting conversion for: ../uploads/filled_doc_6980ba1dea3244.51718993.docx
+2026-02-02 22:52:13 - API key found
+2026-02-02 22:52:13 - DOCX file exists, size: 87188
+2026-02-02 22:52:13 - CloudConvert client created
+2026-02-02 22:52:14 - Creating job
+2026-02-02 22:52:14 - EXCEPTION: Your account has run out of conversion credits
+2026-02-02 22:52:14 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(279): CloudConvert\Exceptions\HttpClientException::paymentRequired(Object(Nyholm\Psr7\Response))
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(1591): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(811): signDocument(Array, Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2026-02-02 22:52:14 - Returning original path: ../uploads/filled_doc_6980ba1dea3244.51718993.docx
+2026-02-02 23:54:14 - Starting conversion for: ../uploads/filled_doc_6980c8a61b9966.76396065.docx
+2026-02-02 23:54:14 - API key found
+2026-02-02 23:54:14 - DOCX file exists, size: 89120
+2026-02-02 23:54:14 - CloudConvert client created
+2026-02-02 23:54:14 - Creating job
+2026-02-02 23:54:15 - EXCEPTION: An unexpected error occurred at CloudConvert's servers. Try again later.
+2026-02-02 23:54:15 - Stack trace: #0 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(287): CloudConvert\Exceptions\HttpServerException::serverError(502)
+#1 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(257): CloudConvert\Transport\HttpTransport->handleErrors(Object(Nyholm\Psr7\Response))
+#2 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Transport\HttpTransport.php(166): CloudConvert\Transport\HttpTransport->sendRequest(Object(Nyholm\Psr7\Request))
+#3 C:\xampp\htdocs\SPCF-Thesis\vendor\cloudconvert\cloudconvert-php\src\Resources\JobsResource.php(47): CloudConvert\Transport\HttpTransport->post('https://api.clo...', Array)
+#4 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(114): CloudConvert\Resources\JobsResource->create(Object(CloudConvert\Models\Job))
+#5 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(1175): convertDocxToPdf('../uploads/fill...')
+#6 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(850): createDocument(Array)
+#7 C:\xampp\htdocs\SPCF-Thesis\api\documents.php(198): handlePost()
+#8 {main}
+2026-02-02 23:54:15 - Returning original path: ../uploads/filled_doc_6980c8a61b9966.76396065.docx
+2026-02-02 23:56:10 - Starting conversion for: ../uploads/filled_doc_6980c91acaf4d0.12458781.docx
+2026-02-02 23:56:10 - API key found
+2026-02-02 23:56:10 - DOCX file exists, size: 89126
+2026-02-02 23:56:10 - CloudConvert client created
+2026-02-02 23:56:10 - Creating job
+2026-02-02 23:56:11 - Job created: eff8328e-9694-4be9-99bf-32ac19bb410f
+2026-02-02 23:56:11 - Uploading file
+2026-02-02 23:56:12 - File uploaded
+2026-02-02 23:56:12 - Waiting for completion
+2026-02-02 23:56:14 - Job completed, status: finished
+2026-02-02 23:56:14 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/2c32b191-ac07-4185-a27a-325129803678/filled_doc_6980c91acaf4d0.12458781.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260202%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260202T155613Z&X-Amz-Expires=86400&X-Amz-Signature=66682d29c19154c4e5c7bd0c00deb72109cd442eab612b33e72147a3bb8ab9b0&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_6980c91acaf4d0.12458781.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-02 23:56:16 - PDF saved to: ../uploads/filled_doc_6980c91acaf4d0.12458781.pdf
+2026-02-02 23:56:16 - DOCX cleaned up successfully
+2026-02-02 23:56:16 - Conversion successful

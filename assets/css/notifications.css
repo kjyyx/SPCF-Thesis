@@ -929,7 +929,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative;
+    position: relative !important;
 }
 
 .pdf-content h4 {
@@ -2038,8 +2038,9 @@ body {
 
 /* Completed signature overlays */
 .completed-signature-container {
-    pointer-events: none; 
-
+    position: absolute;
+    z-index: 50;
+    pointer-events: none; /* So clicks go through to the PDF if needed */
 }
 
 .signature-timestamp {

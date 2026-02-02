@@ -143,7 +143,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                         <span>SAF</span>
                                     </button>
                                     
-                                                                        <?php if ($currentUser['position'] === 'SSC President'): ?>
+                                                                        <?php if ($currentUser['position'] === 'SSC President' || $currentUser['position'] === 'CSC President'): ?>
                                         <button class="action-compact-btn" onclick="openPendingApprovals()" id="approvalsBtn"
                                             title="View Pending Approvals">
                                             <i class="bi bi-clipboard-check"></i>

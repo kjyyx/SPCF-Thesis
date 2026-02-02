@@ -17,6 +17,7 @@ class DocumentNotificationSystem {
         this.signatureImage = null;
         this.currentSignatureMap = null;
         this.pdfDoc = null;
+        this.filledPdfBytes = null; // Keep filled PDF bytes for signing
         this.currentPage = 1;
         this.totalPages = 1;
         this.scale = 1.0;
@@ -36,7 +37,7 @@ class DocumentNotificationSystem {
             // Validate user access
             const userHasAccess = this.currentUser &&
                 (this.currentUser.role === 'employee' ||
-                 (this.currentUser.role === 'student' && this.currentUser.position === 'SSC President'));
+                    (this.currentUser.role === 'student' && this.currentUser.position === 'SSC President'));
 
             if (!userHasAccess) {
                 console.error('Access denied: Invalid user role or position');
@@ -412,7 +413,7 @@ class DocumentNotificationSystem {
 
         return docs.sort((a, b) => {
             let result = 0;
-            
+
             switch (sortOption) {
                 case 'date_desc':
                     // Newest first - using uploaded_at field
@@ -437,11 +438,11 @@ class DocumentNotificationSystem {
                 case 'due_desc':
                     // Due date - soonest first (earliest dates first)
                     const dueA = (a.date ? new Date(a.date).getTime() :
-                                 a.earliest_start_time ? new Date(a.earliest_start_time).getTime() :
-                                 a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0);
+                        a.earliest_start_time ? new Date(a.earliest_start_time).getTime() :
+                            a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0);
                     const dueB = (b.date ? new Date(b.date).getTime() :
-                                 b.earliest_start_time ? new Date(b.earliest_start_time).getTime() :
-                                 b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0);
+                        b.earliest_start_time ? new Date(b.earliest_start_time).getTime() :
+                            b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0);
                     result = dueA - dueB;
                     // Secondary sort by title if dates are equal
                     if (result === 0) {
@@ -451,11 +452,11 @@ class DocumentNotificationSystem {
                 case 'due_asc':
                     // Due date - latest first (latest dates first)
                     const dueAscA = (a.date ? new Date(a.date).getTime() :
-                                    a.earliest_start_time ? new Date(a.earliest_start_time).getTime() :
-                                    a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0);
+                        a.earliest_start_time ? new Date(a.earliest_start_time).getTime() :
+                            a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0);
                     const dueAscB = (b.date ? new Date(b.date).getTime() :
-                                    b.earliest_start_time ? new Date(b.earliest_start_time).getTime() :
-                                    b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0);
+                        b.earliest_start_time ? new Date(b.earliest_start_time).getTime() :
+                            b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0);
                     result = dueAscB - dueAscA;
                     // Secondary sort by title if dates are equal
                     if (result === 0) {
@@ -473,7 +474,7 @@ class DocumentNotificationSystem {
                 default:
                     result = 0;
             }
-            
+
             return result;
         });
     }
@@ -625,14 +626,14 @@ class DocumentNotificationSystem {
     computeProgress(doc) {
         const wf = Array.isArray(doc.workflow) ? doc.workflow : [];
         if (wf.length === 0) return 0;
-        
+
         // Progress based on current_step (hierarchy level)
         const currentStep = doc.current_step || 1;
         const totalSteps = wf.length;
-        
+
         // If current_step > totalSteps, it's completed
         if (currentStep > totalSteps) return 100;
-        
+
         return Math.round(((currentStep - 1) / totalSteps) * 100);
     }
 
@@ -814,9 +815,9 @@ class DocumentNotificationSystem {
                             </div>
                             <div class="step-date-modern">
                                 ${isCompleted ? `Completed: ${new Date(step.acted_at).toLocaleDateString()}` :
-                                  isPending ? 'Pending action required' :
-                                  isRejected ? `Rejected: ${new Date(step.acted_at).toLocaleDateString()}` :
-                                  'Not started yet'}
+                        isPending ? 'Pending action required' :
+                            isRejected ? `Rejected: ${new Date(step.acted_at).toLocaleDateString()}` :
+                                'Not started yet'}
                             </div>
                             ${step.note ? `<div class="step-note-modern">"${this.escapeHtml(step.note)}"</div>` : ''}
                             <div class="step-status-message ${statusClass}">${statusMessage}</div>
@@ -863,7 +864,7 @@ class DocumentNotificationSystem {
 
         // Find the pending step
         const pendingStep = doc.workflow?.find(step => step.status === 'pending');
-        
+
         if (!pendingStep) {
             // No pending steps, hide all approval UI
             signBtn.style.display = 'none';
@@ -915,11 +916,17 @@ class DocumentNotificationSystem {
         if (loadingDiv) loadingDiv.style.display = 'flex';
         if (pdfContent) pdfContent.style.display = 'none';
         try {
+            this.filledPdfBytes = null; // Clear any previous filled PDF data
             const pdfjsLib = window['pdfjsLib'];
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
             this.pdfDoc = await pdfjsLib.getDocument(url).promise;
             this.totalPages = this.pdfDoc.numPages;
             this.currentPage = 1;
+
+            // For SAF documents, fill form fields with data before rendering
+            if (this.currentDocument && this.currentDocument.doc_type === 'saf') {
+                await this.fillSafFormFields();
+            }
 
             // Create canvas for PDF rendering in modern container
             const canvas = document.createElement('canvas');
@@ -957,6 +964,9 @@ class DocumentNotificationSystem {
     // Render current page to canvas
     async renderPage() {
         if (!this.pdfDoc || !this.canvas) return;
+
+        console.debug('Rendering page', this.currentPage);
+
         const page = await this.pdfDoc.getPage(this.currentPage);
         const viewport = page.getViewport({ scale: this.scale });
         this.canvas.height = viewport.height;
@@ -967,6 +977,14 @@ class DocumentNotificationSystem {
         };
         await page.render(renderContext).promise;
         this.updatePageControls();
+
+        // Re-render signature overlays after the page is rendered
+        setTimeout(() => {
+            if (this.currentDocument) {
+                console.debug('Re-rendering signature overlays for page', this.currentPage);
+                this.renderSignatureOverlay(this.currentDocument);
+            }
+        }, 100);
     }
 
     // Update page controls
@@ -1001,8 +1019,14 @@ class DocumentNotificationSystem {
     goToPage(pageNum) {
         pageNum = parseInt(pageNum);
         if (pageNum >= 1 && pageNum <= this.totalPages) {
+            console.debug('Navigating to page', pageNum, 'from', this.currentPage);
             this.currentPage = pageNum;
-            this.renderPage();
+            this.renderPage().then(() => {
+                // Re-render signature overlays when page changes
+                if (this.currentDocument) {
+                    this.renderSignatureOverlay(this.currentDocument);
+                }
+            });
         }
     }
 
@@ -1111,65 +1135,70 @@ class DocumentNotificationSystem {
     }
 
     // Render completed signatures as blurred overlays with timestamps
-renderCompletedSignatures(doc, content) {
+    renderCompletedSignatures(doc, content) {
         if (!doc.workflow) return;
+
         // Position completed signatures relative to the rendered canvas to keep them in sync
         const canvas = this.canvas;
         if (!canvas) return;
         const canvasRect = canvas.getBoundingClientRect();
 
-        // Use signature_map if available, otherwise use default position
-        const signatureMap = doc.signature_map || { x_pct: 0.62, y_pct: 0.78, w_pct: 0.28, h_pct: 0.1 };
-        const { x_pct, y_pct, w_pct, h_pct, page } = signatureMap;
-
-        // Only show on the page where signed
-        if (page && page !== this.currentPage) return;
-
         // Find completed steps with signatures
-        const completedSignatures = doc.workflow.filter(step => step.status === 'completed' && step.signed_at);
+        const completedSignatures = doc.workflow.filter(step =>
+            step.status === 'completed' && step.signed_at
+        );
 
         // Check if current user is the document issuer (sender)
         const isIssuer = this.currentUser && doc.student && doc.student.id === this.currentUser.id;
 
         completedSignatures.forEach((step, index) => {
-            // Determine signature_map for this specific step (if saved on server)
-            let stepMap = signatureMap;
-            if (step.signature_map) {
-                try {
-                    const parsed = typeof step.signature_map === 'string' ? JSON.parse(step.signature_map) : step.signature_map;
-                    if (parsed && parsed.x_pct != null) stepMap = parsed;
-                } catch (e) {
-                    console.warn('Failed to parse step.signature_map', e);
+            // Get signature map for this step
+            let signatureMap = null;
+            try {
+                if (step.signature_map) {
+                    signatureMap = typeof step.signature_map === 'string'
+                        ? JSON.parse(step.signature_map)
+                        : step.signature_map;
+                } else if (doc.signature_map) {
+                    // Fallback to document signature map
+                    signatureMap = typeof doc.signature_map === 'string'
+                        ? JSON.parse(doc.signature_map)
+                        : doc.signature_map;
                 }
+            } catch (e) {
+                console.warn('Failed to parse signature map', e);
+                return;
             }
 
-            const sx = stepMap.x_pct || x_pct;
-            const sy = stepMap.y_pct || y_pct;
-            const sw = stepMap.w_pct || w_pct;
-            const sh = stepMap.h_pct || h_pct;
+            if (!signatureMap) return;
+
+            // CRITICAL FIX: Check if this signature belongs on the current page
+            const signaturePage = signatureMap.page || 1;
+            if (signaturePage !== this.currentPage) {
+                return; // Skip rendering on wrong page
+            }
+
+            const { x_pct, y_pct, w_pct, h_pct } = signatureMap;
+
+            // Calculate pixel position
+            let pixelRect = this.computeSignaturePixelRect({
+                x_pct: x_pct || 0.62,
+                y_pct: y_pct || 0.78,
+                w_pct: w_pct || 0.28,
+                h_pct: h_pct || 0.1
+            });
+
+            if (!pixelRect) return;
 
             // Create container for timestamp and redaction
             const signatureContainer = document.createElement('div');
             signatureContainer.className = 'completed-signature-container';
             signatureContainer.style.position = 'absolute';
-
-            // Position at the same place as the signature target using canvas metrics (relative to content)
-            let pixelRect = this.computeSignaturePixelRect({ x_pct: sx, y_pct: sy, w_pct: sw, h_pct: sh });
-            if (!pixelRect) return;
             signatureContainer.style.left = pixelRect.left + 'px';
             signatureContainer.style.top = pixelRect.top + 'px';
             signatureContainer.style.width = pixelRect.width + 'px';
             signatureContainer.style.height = pixelRect.height + 'px';
-
-            // Create timestamp display
-            const timestamp = document.createElement('div');
-            timestamp.className = 'signature-timestamp';
-            timestamp.textContent = new Date(step.signed_at).toLocaleString();
-            timestamp.style.fontSize = '10px';
-            timestamp.style.color = '#666';
-            timestamp.style.textAlign = 'center';
-            timestamp.style.marginBottom = '2px';
-            timestamp.style.fontWeight = '500';
+            signatureContainer.style.zIndex = '15'; // Below draggable signature target
 
             if (isIssuer) {
                 // Issuer sees the actual signature (unredacted)
@@ -1184,9 +1213,11 @@ renderCompletedSignatures(doc, content) {
                 signatureDetail.style.background = 'rgba(255,255,255,0.9)';
                 signatureDetail.style.color = '#111827';
                 signatureDetail.style.fontWeight = '600';
+                signatureDetail.style.fontSize = '12px';
+                signatureDetail.style.padding = '4px';
+                signatureDetail.style.textAlign = 'center';
                 signatureDetail.textContent = `Signed by ${step.assignee_name || 'Unknown'}`;
 
-                signatureContainer.appendChild(timestamp);
                 signatureContainer.appendChild(signatureDetail);
             } else {
                 // Non-issuer: apply redaction (solid black box, no text, no signature)
@@ -1201,6 +1232,21 @@ renderCompletedSignatures(doc, content) {
                 signatureContainer.appendChild(redactionBox);
             }
 
+            // Add timestamp below the redaction box
+            const timestamp = document.createElement('div');
+            timestamp.className = 'signature-timestamp';
+            timestamp.textContent = new Date(step.signed_at).toLocaleString();
+            timestamp.style.fontSize = '10px';
+            timestamp.style.color = '#666';
+            timestamp.style.textAlign = 'center';
+            timestamp.style.marginTop = '4px';
+            timestamp.style.fontWeight = '500';
+            timestamp.style.position = 'absolute';
+            timestamp.style.top = '100%';
+            timestamp.style.left = '0';
+            timestamp.style.width = '100%';
+
+            signatureContainer.appendChild(timestamp);
             content.appendChild(signatureContainer);
         });
     }
@@ -1362,7 +1408,6 @@ renderCompletedSignatures(doc, content) {
         const canvas = this.canvas;
         if (!canvas) return;
 
-        // Use the rendered canvas bounds to compute accurate percentages
         const canvasRect = canvas.getBoundingClientRect();
         const elRect = element.getBoundingClientRect();
 
@@ -1380,10 +1425,10 @@ renderCompletedSignatures(doc, content) {
             w_pct: clamp(w_pct),
             h_pct: clamp(h_pct),
             label: 'Sign here',
-            page: this.currentPage
+            page: this.currentPage  // <-- IMPORTANT: Store the page number
         };
 
-        console.debug('updateSignatureMap ->', this.currentSignatureMap, 'canvas size', canvasRect ? {w: canvasRect.width, h: canvasRect.height} : null);
+        console.debug('updateSignatureMap ->', this.currentSignatureMap);
     }
 
     // Compute pixel rectangle from a signature map (supports percent values or absolute px)
@@ -1392,7 +1437,7 @@ renderCompletedSignatures(doc, content) {
         if (!canvas) return null;
         const canvasRect = canvas.getBoundingClientRect();
         const content = document.getElementById('pdfContent');
-        const contentRect = content ? content.getBoundingClientRect() : {left:0, top:0};
+        const contentRect = content ? content.getBoundingClientRect() : { left: 0, top: 0 };
 
         // Helper to normalize a value that might be percent (0..1) or absolute px (>1)
         const norm = (v, axisSize, canvasAttrSize) => {
@@ -1420,7 +1465,7 @@ renderCompletedSignatures(doc, content) {
         const height = Math.max(1, norm(hRaw, canvasRect.height, canvasAttrHeight));
 
         const rect = { left, top, width, height, canvasRect, contentRect };
-        console.debug('computeSignaturePixelRect', {map, rect});
+        console.debug('computeSignaturePixelRect', { map, rect });
         return rect;
     }
 
@@ -1561,7 +1606,8 @@ renderCompletedSignatures(doc, content) {
     async applySignatureToPdf() {
         if (!this.pdfDoc || !this.signatureImage || !this.currentSignatureMap) return null;
         try {
-            const pdfBytes = await this.pdfDoc.getData();
+            // Use filled PDF bytes if available (for SAF documents), otherwise get from PDF.js
+            const pdfBytes = this.filledPdfBytes || await this.pdfDoc.getData();
             const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
             const pageIndex = (this.currentSignatureMap.page || this.currentPage) - 1; // 0-indexed
             const page = pdfDoc.getPage(pageIndex);
@@ -1583,7 +1629,106 @@ renderCompletedSignatures(doc, content) {
         }
     }
 
-    // Get action buttons based on document status and user role
+    // Fill SAF form fields with document data
+    async fillSafFormFields() {
+        if (!this.pdfDoc || !this.currentDocument) return;
+
+        try {
+            // Get original PDF bytes
+            const pdfBytes = await this.pdfDoc.getData();
+
+            // Load with PDF-lib for modification
+            const pdfDocLib = await PDFLib.PDFDocument.load(pdfBytes);
+            const form = pdfDocLib.getForm();
+            const data = this.currentDocument.data || {};
+
+            // Get all form fields to check what exists
+            const fields = form.getFields();
+            const fieldNames = fields.map(field => field.getName());
+
+            console.log('Available PDF form fields:', fieldNames);
+            console.log('SAF data to fill:', data);
+            console.log('Current document data:', this.currentDocument.data);
+
+            // Fill date fields - only if they exist in the PDF
+            const dateFields = ['reqDate', 'dNoteDate', 'hNoteDate', 'recDate', 'appDate', 'releaseDate'];
+            dateFields.forEach(field => {
+                try {
+                    if (fieldNames.includes(field) && data[field]) {
+                        const textField = form.getTextField(field);
+                        // Format date nicely for display
+                        const dateValue = new Date(data[field]);
+                        const formattedDate = dateValue.toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        });
+                        textField.setText(formattedDate);
+                        console.log(`Filled date field ${field} with formatted value: ${formattedDate} (original: ${data[field]})`);
+                    }
+                } catch (fieldError) {
+                    console.warn(`Could not fill date field ${field}:`, fieldError.message);
+                }
+            });
+
+            // Fill signatory name fields - only if they exist in the PDF
+            const signatoryFields = ['studentRepresentative', 'collegeDean', 'oic-osa', 'vpaa', 'evp', 'acp'];
+            signatoryFields.forEach(field => {
+                try {
+                    if (fieldNames.includes(field) && data[field]) {
+                        const textField = form.getTextField(field);
+                        textField.setText(data[field]);
+                        console.log(`Filled signatory ${field} with value: ${data[field]}`);
+                    }
+                } catch (fieldError) {
+                    console.warn(`Could not fill signatory ${field}:`, fieldError.message);
+                }
+            });
+
+            // Fill checkbox fields - try checkbox fields first, then text fields
+            const checkboxFields = ['sscChecked', 'cscChecked'];
+            checkboxFields.forEach(field => {
+                try {
+                    if (fieldNames.includes(field)) {
+                        const isChecked = data[field] && data[field] !== '';
+                        console.log(`Processing checkbox ${field}, data value: "${data[field]}", should be checked: ${isChecked}`);
+                        
+                        // Try checkbox field first
+                        try {
+                            const checkBox = form.getCheckBox(field);
+                            if (isChecked) {
+                                checkBox.check();
+                            } else {
+                                checkBox.uncheck();
+                            }
+                            console.log(`Set checkbox ${field} to ${isChecked ? 'checked' : 'unchecked'}`);
+                        } catch (checkboxError) {
+                            // If checkbox field doesn't exist, try text field
+                            console.warn(`Checkbox field ${field} not found, trying text field:`, checkboxError.message);
+                            const textField = form.getTextField(field);
+                            textField.setText(isChecked ? '✓' : '');
+                            console.log(`Filled text field ${field} with value: ${isChecked ? '✓' : ''}`);
+                        }
+                    }
+                } catch (fieldError) {
+                    console.warn(`Could not fill checkbox ${field}:`, fieldError.message);
+                }
+            });
+
+            // Save modified PDF bytes for signing
+            this.filledPdfBytes = await pdfDocLib.save();
+
+            // Reload with PDF.js for display
+            const pdfjsLib = window['pdfjsLib'];
+            this.pdfDoc = await pdfjsLib.getDocument({data: this.filledPdfBytes}).promise;
+            this.totalPages = this.pdfDoc.numPages;
+        } catch (error) {
+            console.error('Error filling SAF form fields:', error);
+            // Continue with original PDF if filling fails
+        }
+    }
+
+    // Get action buttons for document modal
     getActionButtons(doc) {
         const currentStep = doc.workflow.find(step => step.status === 'pending');
         if (!currentStep) return '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>';
@@ -1662,6 +1807,22 @@ renderCompletedSignatures(doc, content) {
                 this.signatureImage = null;
                 this.currentSignatureMap = null;
 
+                // Refresh document data from server to get updated dates/names
+                try {
+                    const response = await fetch(`../api/documents.php?id=${docId}`, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (response.ok) {
+                        const freshDoc = await response.json();
+                        this.currentDocument = freshDoc;
+                        doc = freshDoc; // Use fresh data for rendering
+                        this.filledPdfBytes = null; // Clear filled PDF so it gets re-filled with new data
+                    }
+                } catch (refreshError) {
+                    console.warn('Could not refresh document data after signing:', refreshError);
+                }
+
                 // Update local document status to 'approved' and step to 'completed'
                 if (doc) {
                     doc.status = 'approved';
@@ -1681,22 +1842,22 @@ renderCompletedSignatures(doc, content) {
             } else {
                 throw new Error(result.message || 'Failed to sign document');
             }
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    this.showToast({
-                        type: 'error',
-                        title: 'Timeout',
-                        message: 'Signing timed out. Please refresh and try again.'
-                    });
-                } else {
-                    console.error('Error signing document:', error);
-                    this.showToast({
-                        type: 'error',
-                        title: 'Error',
-                        message: 'Failed to sign document. Please try again.'
-                    });
-                }
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                this.showToast({
+                    type: 'error',
+                    title: 'Timeout',
+                    message: 'Signing timed out. Please refresh and try again.'
+                });
+            } else {
+                console.error('Error signing document:', error);
+                this.showToast({
+                    type: 'error',
+                    title: 'Error',
+                    message: 'Failed to sign document. Please try again.'
+                });
             }
+        }
 
         if (window.addAuditLog) {
             window.addAuditLog('DOCUMENT_SIGNED', 'Document Management', `Signed document ${docId}`, docId, 'Document', 'INFO');
@@ -1941,7 +2102,7 @@ function openProfileSettings() {
         document.getElementById('profilePhone').value = '';
         document.getElementById('darkModeToggle').checked = localStorage.getItem('darkMode') === 'true';
     }
-    
+
     const modal = new bootstrap.Modal(document.getElementById('profileSettingsModal'));
     modal.show();
 }
@@ -1951,11 +2112,11 @@ function openPreferences() {
     const emailNotifications = localStorage.getItem('emailNotifications') !== 'false'; // default true
     const browserNotifications = localStorage.getItem('browserNotifications') !== 'false'; // default true
     const defaultView = localStorage.getItem('defaultView') || 'month';
-    
+
     document.getElementById('emailNotifications').checked = emailNotifications;
     document.getElementById('browserNotifications').checked = browserNotifications;
     document.getElementById('defaultView').value = defaultView;
-    
+
     const modal = new bootstrap.Modal(document.getElementById('preferencesModal'));
     modal.show();
 }
@@ -1969,19 +2130,19 @@ function savePreferences() {
     const emailNotifications = document.getElementById('emailNotifications').checked;
     const browserNotifications = document.getElementById('browserNotifications').checked;
     const defaultView = document.getElementById('defaultView').value;
-    
+
     // Save to localStorage
     localStorage.setItem('emailNotifications', emailNotifications);
     localStorage.setItem('browserNotifications', browserNotifications);
     localStorage.setItem('defaultView', defaultView);
-    
+
     // Show success message
     const messagesDiv = document.getElementById('preferencesMessages');
     if (messagesDiv) {
         messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Preferences saved successfully!</div>';
         setTimeout(() => messagesDiv.innerHTML = '', 3000);
     }
-    
+
     // Close modal
     bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
 }
@@ -2010,7 +2171,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Show success message
             if (messagesDiv) messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Profile updated successfully!</div>';
-            
+
             // Apply theme
             document.body.classList.toggle('dark-theme', darkMode);
 

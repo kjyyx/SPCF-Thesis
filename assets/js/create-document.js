@@ -104,6 +104,22 @@ let genTimeout = null; // Timeout ID for debounced document generation
 let safBalances = []; // Array of SAF balances from API
 
 /**
+ * Department Name Mapping
+ * Maps short department IDs to full department names for document generation
+ */
+const deptNameMap = {
+    'ssc': 'Supreme Student Council',
+    'casse': 'College of Arts, Social Sciences, and Education',
+    'cob': 'College of Business',
+    'ccis': 'College of Computing and Information Sciences',
+    'coc': 'College of Criminology',
+    'coe': 'College of Engineering',
+    'chtm': 'College of Hospitality and Tourism Management',
+    'con': 'College of Nursing',
+    'miranda': 'SPCF Miranda'
+};
+
+/**
  * @section Document Type Selection & Management
  * Functions for switching between different document types and managing form visibility
  */
@@ -116,6 +132,9 @@ let safBalances = []; // Array of SAF balances from API
 function selectDocumentType(type) {
     // Update global state
     currentDocumentType = type;
+
+    // Save to localStorage for persistence
+    localStorage.setItem('selectedDocumentType', type);
 
     // Map document types to display names
     const map = {
@@ -151,15 +170,19 @@ function selectDocumentType(type) {
  * Fetches current SAF balances for all departments
  */
 function loadSAFBalances() {
-    fetch('../api/saf.php')
+    console.log('DEBUG: Loading SAF balances...');
+    return fetch('../api/saf.php')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 safBalances = data.data.filter(item => item.type === 'saf');
+                console.log('DEBUG: SAF balances loaded:', safBalances);
+            } else {
+                console.error('DEBUG: Failed to load SAF balances:', data.message);
             }
         })
         .catch(error => {
-            console.error('Failed to load SAF balances:', error);
+            console.error('DEBUG: Failed to load SAF balances:', error);
         });
 }
 
@@ -169,17 +192,34 @@ function loadSAFBalances() {
  * @param {string} dept - The selected department name
  */
 function updateSAFAvail(dept) {
-    if (!dept) return;
-    
-    const balance = safBalances.find(b => b.department_id === dept);
-    if (balance) {
-        const currentBal = balance.initial_amount - balance.used_amount;
+    console.log('DEBUG: updateSAFAvail called with dept:', dept);
+    if (!dept) {
+        // If no department selected, set CSC to 0, SSC to SSC balance
+        console.log('DEBUG: No dept selected, setting CSC to 0, SSC to SSC balance');
         const availSSC = document.getElementById('avail-ssc');
         const availCSC = document.getElementById('avail-csc');
-        if (availSSC) availSSC.value = currentBal;
-        if (availCSC) availCSC.value = currentBal;
-        updateSAFBalances(); // Recalculate balances display
+        const sscBalance = safBalances.find(b => b.department_id === 'ssc');
+        const sscCurrent = sscBalance ? sscBalance.initial_amount - sscBalance.used_amount : 0;
+        if (availSSC) availSSC.value = sscCurrent;
+        if (availCSC) availCSC.value = 0;
+        updateSAFBalances();
+        return;
     }
+
+    // For SSC, always use SSC balance
+    const sscBalance = safBalances.find(b => b.department_id === 'ssc');
+    const sscCurrent = sscBalance ? sscBalance.initial_amount - sscBalance.used_amount : 0;
+
+    // For CSC, use selected department balance
+    const deptBalance = safBalances.find(b => b.department_id === dept);
+    const deptCurrent = deptBalance ? deptBalance.initial_amount - deptBalance.used_amount : 0;
+
+    console.log('DEBUG: SSC balance:', sscCurrent, 'Dept balance:', deptCurrent);
+    const availSSC = document.getElementById('avail-ssc');
+    const availCSC = document.getElementById('avail-csc');
+    if (availSSC) availSSC.value = sscCurrent;
+    if (availCSC) availCSC.value = deptCurrent;
+    updateSAFBalances();
 }
 
 /**
@@ -376,28 +416,46 @@ function collectSAFData() {
     const categoryMap = ['ssc', 'csc'];
     const cValues = categoryMap.map(cat => categories[cat] ? '✓' : '');
 
-    // Funds with balances
+    // Funds with balances - only include requested amounts if checkboxes are checked
     const funds = {
-        ssc: { available: parseFloat(document.getElementById('avail-ssc')?.value) || 0, requested: parseFloat(document.getElementById('req-ssc')?.value) || 0 },
-        csc: { available: parseFloat(document.getElementById('avail-csc')?.value) || 0, requested: parseFloat(document.getElementById('req-csc')?.value) || 0 }
+        ssc: {
+            available: categories.ssc ? parseFloat(document.getElementById('avail-ssc')?.value) || 0 : 0,
+            requested: categories.ssc ? parseFloat(document.getElementById('req-ssc')?.value) || 0 : 0
+        },
+        csc: {
+            available: categories.csc ? parseFloat(document.getElementById('avail-csc')?.value) || 0 : 0,
+            requested: categories.csc ? parseFloat(document.getElementById('req-csc')?.value) || 0 : 0
+        }
     };
 
-    // Calculate balances
-    const balSSC = funds.ssc.available - funds.ssc.requested;
-    const balCSC = funds.csc.available - funds.csc.requested;
+    // Calculate balances only for selected funds
+    const balSSC = categories.ssc ? funds.ssc.available - funds.ssc.requested : 0;
+    const balCSC = categories.csc ? funds.csc.available - funds.csc.requested : 0;
+
+    const deptValue = document.getElementById('saf-dept').value;
+    const deptFull = deptNameMap[deptValue] || deptValue;
 
     return {
-        department: document.getElementById('saf-dept').value,
+        department: deptFull, // Use full name for department field
         title: document.getElementById('saf-title').value,
         reqDate: document.getElementById('saf-date').value,
         implDate: document.getElementById('saf-impl-date').value,
-        departmentFull: '',  // Will be set in API
+        departmentFull: deptFull, // Also set departmentFull for consistency
         c1: cValues[0], c2: cValues[1],
-        availSSC: funds.ssc.available, reqSSC: funds.ssc.requested, balSSC,
-        availCSC: funds.csc.available, reqCSC: funds.csc.requested, balCSC,
+        sscChecked: cValues[0], cscChecked: cValues[1],
+        ...(categories.ssc && {
+            availSSC: funds.ssc.available,
+            reqSSC: funds.ssc.requested,
+            balSSC
+        }),
+        ...(categories.csc && {
+            availCSC: funds.csc.available,
+            reqCSC: funds.csc.requested,
+            balCSC
+        }),
         reqByName: window.currentUser?.firstName + ' ' + window.currentUser?.lastName,
         notedBy: '', recBy: '', appBy: '', relBy: '',  // Set in API if needed
-        notedDate: '', recDate: '', appDate: '', releaseDate: ''  // Set in API if needed
+        dNoteDate: '', hNoteDate: '', recDate: '', appDate: '', releaseDate: ''  // Set in API if needed
     };
 }
 
@@ -551,15 +609,19 @@ function generateSAFHTML(d) {
         ssc: { label: 'SSC', avail: 'availSSC', req: 'reqSSC' },
         csc: { label: 'CSC', avail: 'availCSC', req: 'reqCSC' }
     };
-    const funds = ['ssc', 'csc'];
-    const fundsHtml = `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #000;padding:6px">Fund/s</th><th style="border:1px solid #000;padding:6px">Available</th><th style="border:1px solid #000;padding:6px">Requested</th><th style="border:1px solid #000;padding:6px">Balance</th></tr></thead><tbody>${funds.map(code => {
+    // Only include funds that are checked
+    const selectedFunds = [];
+    if (d.c1 === '✓') selectedFunds.push('ssc');
+    if (d.c2 === '✓') selectedFunds.push('csc');
+
+    const fundsHtml = selectedFunds.length > 0 ? `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #000;padding:6px">Fund/s</th><th style="border:1px solid #000;padding:6px">Available</th><th style="border:1px solid #000;padding:6px">Requested</th><th style="border:1px solid #000;padding:6px">Balance</th></tr></thead><tbody>${selectedFunds.map(code => {
         const info = fundMap[code];
         const label = info.label;
         const available = d[info.avail] || 0;
         const requested = d[info.req] || 0;
         const bal = available - requested;
         return `<tr><td style="border:1px solid #000;padding:6px">${label}</td><td style="border:1px solid #000;padding:6px;text-align:right">₱${available.toFixed(2)}</td><td style="border:1px solid #000;padding:6px;text-align:right">₱${requested.toFixed(2)}</td><td style="border:1px solid #000;padding:6px;text-align:right;color:${bal < 0 ? '#dc3545' : '#000'}">₱${bal.toFixed(2)}</td></tr>`;
-    }).join('')}</tbody></table>`;
+    }).join('')}</tbody></table>` : '<div class="text-muted">No funds selected</div>';
 
     // Signature row HTML
     const signatureRow = `<div style="margin-top:12px"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #000;padding:8px">Requested by</th><th style="border:1px solid #000;padding:8px">Noted by</th><th style="border:1px solid #000;padding:8px">Recommended by</th><th style="border:1px solid #000;padding:8px">Approved by</th><th style="border:1px solid #000;padding:8px">Released by</th></tr></thead><tbody><tr><td style="border:1px solid #000;padding:18px;text-align:center;vertical-align:bottom"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.reqByName || 'Requester')}</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-size:.95rem">${escapeHtml(d.notedBy || 'Noted')}</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.recBy || 'Recommender')}</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.appBy || 'Approver')}</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.relBy || 'Accounting')}</div></td></tr><tr><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.notedDate || '______')}</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.notedDate || '______')}</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.recDate || '______')}</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.appDate || '______')}</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.releaseDate || '______')}</td></tr></tbody></table></div>`;
@@ -730,9 +792,49 @@ function removeProgramRow(btn) {
 function changeRequestedSAF(id, delta) {
     const el = document.getElementById(id);
     if (!el || el.disabled) return;
+
     let val = parseFloat(el.value) || 0;
-    val += delta;
+
+    // Handle special 'clear' action
+    if (delta === 'clear') {
+        val = 0;
+    } else {
+        val += delta;
+        if (val < 0) val = 0;
+    }
+
+    // Validate against available amount
+    const code = id.replace('req-', '');
+    const availEl = document.getElementById(`avail-${code}`);
+    const avail = parseFloat(availEl?.value) || 0;
+
+    if (val > avail) {
+        val = avail; // Cap at available amount
+        window.ToastManager?.error('Cannot request more than available amount', 'Amount Exceeded');
+    }
+
+    el.value = val;
+    updateSAFBalances();
+    scheduleGenerate();
+}
+
+function validateSAFAmount(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    let val = parseFloat(el.value) || 0;
     if (val < 0) val = 0;
+
+    // Validate against available amount
+    const code = id.replace('req-', '');
+    const availEl = document.getElementById(`avail-${code}`);
+    const avail = parseFloat(availEl?.value) || 0;
+
+    if (val > avail) {
+        val = avail; // Cap at available amount
+        window.ToastManager?.error('Cannot request more than available amount', 'Amount Exceeded');
+    }
+
     el.value = val;
     updateSAFBalances();
     scheduleGenerate();
@@ -753,6 +855,7 @@ function updateSAFBalances() {
 }
 
 function updateSAFLocks() {
+    console.log('DEBUG: updateSAFLocks called');
     const codes = ['ssc', 'csc'];
     codes.forEach(code => {
         const cb = document.getElementById(`saf-${code}`);
@@ -760,15 +863,29 @@ function updateSAFLocks() {
         const req = document.getElementById(`req-${code}`);
         const row = document.getElementById(`row-${code}`);
 
-        if (!cb || !avail || !req || !row) return;
+        if (!cb || !avail || !req || !row) {
+            console.log('DEBUG: Missing element for', code);
+            return;
+        }
 
         if (cb.checked) {
+            console.log('DEBUG: Checkbox checked for', code);
             row.style.display = '';
             avail.disabled = false;
             req.disabled = false;
             avail.style.background = '';
             req.style.background = '';
+            // Trigger fund update immediately when checkbox is checked
+            const dept = document.getElementById('saf-dept').value;
+            console.log('DEBUG: Triggering updateSAFAvail with dept:', dept);
+            updateSAFAvail(dept);
+            // For SSC, set department to 'ssc'
+            if (code === 'ssc') {
+                const deptSelect = document.getElementById('saf-dept');
+                if (deptSelect) deptSelect.value = 'ssc';
+            }
         } else {
+            console.log('DEBUG: Checkbox not checked for', code);
             row.style.display = 'none';
             avail.disabled = true;
             req.disabled = true;
@@ -781,6 +898,15 @@ function updateSAFLocks() {
             req.style.background = '#f8f9fa';
         }
     });
+
+    // Show department row when SSC or CSC is checked
+    const deptRow = document.getElementById('row-dept');
+    const sscCb = document.getElementById('saf-ssc');
+    const cscCb = document.getElementById('saf-csc');
+    if (deptRow && sscCb && cscCb) {
+        deptRow.style.display = (sscCb.checked || cscCb.checked) ? '' : 'none';
+    }
+
     updateSAFBalances();
 }
 
@@ -818,6 +944,14 @@ function removePerson(listId) {
  * Sets up event listeners, form handlers, and initial state
  */
 document.addEventListener('DOMContentLoaded', () => {
+    // Load persisted document type on page load
+    let typeSelected = false;
+    const persistedType = localStorage.getItem('selectedDocumentType');
+    if (persistedType && ['proposal', 'saf', 'facility', 'communication'].includes(persistedType)) {
+        selectDocumentType(persistedType);
+        typeSelected = true;
+    }
+
     // Set up live preview for all form inputs
     document.querySelectorAll('input, textarea, select').forEach(el => {
         el.addEventListener('input', scheduleGenerate);
@@ -836,12 +970,24 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSAFLocks();
 
     // Load SAF balances for dynamic form updates
-    loadSAFBalances();
+    loadSAFBalances().then(() => {
+        console.log('DEBUG: SAF balances loaded, pre-selecting department');
+        // Pre-select department and update funds on load
+        const deptSelect = document.getElementById('saf-dept');
+        if (deptSelect && window.currentUser?.department) {
+            console.log('DEBUG: Pre-selecting department:', window.currentUser.department);
+            deptSelect.value = window.currentUser.department;
+            updateSAFAvail(window.currentUser.department);
+        } else {
+            console.log('DEBUG: No department to pre-select or deptSelect not found');
+        }
+    });
 
     // Set up department change listener for SAF form
     const safDept = document.getElementById('saf-dept');
     if (safDept) {
-        safDept.addEventListener('change', function() {
+        safDept.addEventListener('change', function () {
+            console.log('DEBUG: Department changed to:', this.value);
             updateSAFAvail(this.value);
         });
     }
@@ -849,8 +995,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Set up dynamic form elements for proposal
     setupBudgetProp();
 
-    // Start with proposal form as default
-    selectDocumentType('proposal');
+    // Start with proposal form as default if no persisted type
+    if (!typeSelected) {
+        selectDocumentType('proposal');
+    }
 });
 
 /**
@@ -906,11 +1054,32 @@ async function submitDocument() {
         return;
     }
 
+    // Validate SAF amounts don't exceed available
+    if (currentType === 'saf') {
+        const sscAvail = parseFloat(document.getElementById('avail-ssc')?.value) || 0;
+        const sscReq = parseFloat(document.getElementById('req-ssc')?.value) || 0;
+        const cscAvail = parseFloat(document.getElementById('avail-csc')?.value) || 0;
+        const cscReq = parseFloat(document.getElementById('req-csc')?.value) || 0;
+
+        if (sscReq > sscAvail) {
+            window.ToastManager?.error('SSC requested amount exceeds available balance', 'Error');
+            return;
+        }
+        if (cscReq > cscAvail) {
+            window.ToastManager?.error('CSC requested amount exceeds available balance', 'Error');
+            return;
+        }
+        if (sscReq === 0 && cscReq === 0) {
+            window.ToastManager?.error('Please request at least some funds', 'Error');
+            return;
+        }
+    }
+
     // Show confirmation modal
     showConfirmModal(
         'Create Document',
         `Are you sure you want to create this ${docType.replace('_', ' ')} document? It will be submitted for approval.`,
-        async function() {
+        async function () {
             try {
                 const response = await fetch('../api/documents.php', {
                     method: 'POST',
@@ -925,6 +1094,8 @@ async function submitDocument() {
                 const result = await response.json();
                 if (result.success) {
                     window.ToastManager?.success('Document created successfully!', 'Success');
+                    // Clear the form after successful creation
+                    clearCurrentForm();
                     // Redirect to track-document for students to track their documents
                     // window.location.href = 'track-document.php';
                 } else {
@@ -937,6 +1108,86 @@ async function submitDocument() {
         'Create Document',
         'btn-success'
     );
+}
+
+/**
+ * Clear the current form after successful document creation
+ * Resets all form fields based on the current document type
+ */
+function clearCurrentForm() {
+    const currentType = currentDocumentType;
+
+    if (currentType === 'proposal') {
+        // Clear proposal form
+        document.getElementById('proposal-title').value = '';
+        document.getElementById('proposal-objective').value = '';
+        document.getElementById('proposal-beneficiaries').value = '';
+        document.getElementById('proposal-venue').value = '';
+        document.getElementById('proposal-date').value = '';
+        document.getElementById('proposal-time').value = '';
+        document.getElementById('proposal-budget').value = '';
+        document.getElementById('proposal-program').value = '';
+
+        // Clear budget table rows
+        const budgetBody = document.getElementById('budget-body-prop');
+        if (budgetBody) {
+            budgetBody.innerHTML = '';
+        }
+
+        // Clear program rows
+        const programRows = document.getElementById('program-rows-prop');
+        if (programRows) {
+            programRows.innerHTML = '';
+        }
+
+    } else if (currentType === 'saf') {
+        // Clear SAF form
+        document.getElementById('saf-dept').value = '';
+        document.getElementById('saf-activity').value = '';
+        document.getElementById('saf-date').value = '';
+        document.getElementById('saf-venue').value = '';
+        document.getElementById('saf-objective').value = '';
+        document.getElementById('saf-beneficiaries').value = '';
+
+        // Clear SAF category checkboxes
+        document.querySelectorAll('.saf-cat').forEach(cb => cb.checked = false);
+
+        // Clear SAF amounts
+        document.getElementById('req-ssc').value = '';
+        document.getElementById('req-csc').value = '';
+
+        // Reset SAF locks
+        updateSAFLocks();
+
+    } else if (currentType === 'facility') {
+        // Clear facility form
+        document.getElementById('facility-activity').value = '';
+        document.getElementById('facility-date').value = '';
+        document.getElementById('facility-time').value = '';
+        document.getElementById('facility-venue').value = '';
+        document.getElementById('facility-purpose').value = '';
+
+    } else if (currentType === 'communication') {
+        // Clear communication form
+        document.getElementById('comm-subject').value = '';
+        document.getElementById('comm-recipient').value = '';
+        document.getElementById('comm-body').value = '';
+
+        // Clear sender list
+        const senderList = document.getElementById('sender-list');
+        if (senderList) {
+            senderList.innerHTML = '';
+        }
+
+        // Clear recipient list
+        const recipientList = document.getElementById('recipient-list');
+        if (recipientList) {
+            recipientList.innerHTML = '';
+        }
+    }
+
+    // Trigger document regeneration to update preview
+    scheduleGenerate();
 }
 
 /**
@@ -954,7 +1205,7 @@ function openProfileSettings() {
         document.getElementById('profilePhone').value = '';
         document.getElementById('darkModeToggle').checked = localStorage.getItem('darkMode') === 'true';
     }
-    
+
     const modal = new bootstrap.Modal(document.getElementById('profileSettingsModal'));
     modal.show();
 }
@@ -964,11 +1215,11 @@ function openPreferences() {
     const emailNotifications = localStorage.getItem('emailNotifications') !== 'false'; // default true
     const browserNotifications = localStorage.getItem('browserNotifications') !== 'false'; // default true
     const defaultView = localStorage.getItem('defaultView') || 'month';
-    
+
     document.getElementById('emailNotifications').checked = emailNotifications;
     document.getElementById('browserNotifications').checked = browserNotifications;
     document.getElementById('defaultView').value = defaultView;
-    
+
     const modal = new bootstrap.Modal(document.getElementById('preferencesModal'));
     modal.show();
 }
@@ -982,19 +1233,19 @@ function savePreferences() {
     const emailNotifications = document.getElementById('emailNotifications').checked;
     const browserNotifications = document.getElementById('browserNotifications').checked;
     const defaultView = document.getElementById('defaultView').value;
-    
+
     // Save to localStorage
     localStorage.setItem('emailNotifications', emailNotifications);
     localStorage.setItem('browserNotifications', browserNotifications);
     localStorage.setItem('defaultView', defaultView);
-    
+
     // Show success message
     const messagesDiv = document.getElementById('preferencesMessages');
     if (messagesDiv) {
         messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Preferences saved successfully!</div>';
         setTimeout(() => messagesDiv.innerHTML = '', 3000);
     }
-    
+
     // Close modal
     bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
 }
@@ -1023,7 +1274,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Show success message
             if (messagesDiv) messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Profile updated successfully!</div>';
-            
+
             // Apply theme
             document.body.classList.toggle('dark-theme', darkMode);
 
@@ -1061,7 +1312,7 @@ function showConfirmModal(title, message, onConfirm, confirmText = 'Confirm', co
     confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
 
     // Add new event listener
-    newConfirmBtn.addEventListener('click', function() {
+    newConfirmBtn.addEventListener('click', function () {
         modal.hide();
         onConfirm();
     });

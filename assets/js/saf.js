@@ -1,20 +1,23 @@
 // saf.js - Student Allocated Funds JavaScript
 // Departments data with mapping
 const DEPARTMENTS = [
-  { id: 'casse', name: 'College of Arts and Social Sciences and Education', short: 'CASSE', db_id: 'College of Arts, Social Sciences, and Education' },
-  { id: 'ccis', name: 'College of Computing and Information Sciences', short: 'CCIS', db_id: 'College of Computing and Information Sciences' },
-  { id: 'chtm', name: 'College of Hospitality and Tourism Management', short: 'CHTM', db_id: 'College of Hospitality and Tourism Management' },
-  { id: 'cob', name: 'College of Business', short: 'COB', db_id: 'College of Business' },
-  { id: 'coc', name: 'College of Criminology', short: 'COC', db_id: 'College of Criminology' },
-  { id: 'coe', name: 'College of Engineering', short: 'COE', db_id: 'College of Engineering' },
-  { id: 'con', name: 'College of Nursing', short: 'CON', db_id: 'College of Nursing' },
-  { id: 'miranda', name: 'SPCF Miranda', short: 'Miranda', db_id: 'SPCF Miranda' }
+  { id: 'casse', name: 'College of Arts and Social Sciences and Education', short: 'CASSE', db_id: 'casse' },
+  { id: 'ccis', name: 'College of Computing and Information Sciences', short: 'CCIS', db_id: 'ccis' },
+  { id: 'chtm', name: 'College of Hospitality and Tourism Management', short: 'CHTM', db_id: 'chtm' },
+  { id: 'cob', name: 'College of Business', short: 'COB', db_id: 'cob' },
+  { id: 'coc', name: 'College of Criminology', short: 'COC', db_id: 'coc' },
+  { id: 'coe', name: 'College of Engineering', short: 'COE', db_id: 'coe' },
+  { id: 'con', name: 'College of Nursing', short: 'CON', db_id: 'con' },
+  { id: 'miranda', name: 'SPCF Miranda', short: 'Miranda', db_id: 'miranda' },
+  { id: 'ssc', name: 'Supreme Student Council', short: 'SSC', db_id: 'ssc' }
 ];
 
 // Department mapping
 const deptMap = {};
+const deptNameToIdMap = {};
 DEPARTMENTS.forEach(dept => {
   deptMap[dept.db_id] = dept.id;
+  deptNameToIdMap[dept.name.trim().toLowerCase()] = dept.id;
 });
 
 // State
@@ -87,7 +90,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // Set level and dept based on user
   if (window.currentUser.role === 'student') {
     currentLevel = 'level1';
-    currentDeptId = deptMap[window.currentUser.department] || window.currentUser.department;
+    const originalDept = window.currentUser.department;
+    currentDeptId = deptNameToIdMap[originalDept.trim().toLowerCase()] || originalDept;
+    console.log('DEBUG: Student department mapping:', { originalDept, currentDeptId, level: currentLevel });
   } else if (window.currentUser.role === 'employee') {
     if (window.currentUser.position && window.currentUser.position.includes('Accounting')) {
       currentLevel = 'level3';
@@ -222,7 +227,7 @@ function renderDeptCards() {
   let totalBalance = 0;
 
   const cardsHtml = DEPARTMENTS.map(dept => {
-    const saf = getDeptSAF(dept.id);
+    const saf = getDeptSAF(dept.db_id);
     const initial = saf.initial_amount || 0;
     const used = saf.used_amount || 0;
     const current = initial - used;
@@ -231,7 +236,7 @@ function renderDeptCards() {
 
     return `
       <div class="col-md-6 col-lg-4 col-xl-3">
-        <div class="card dept-card h-100" onclick="showSingleDept('${dept.id}')">
+        <div class="card dept-card h-100" onclick="showSingleDept('${dept.db_id}')">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-start mb-3">
               <span class="badge bg-primary badge-dept">${dept.short}</span>
@@ -268,11 +273,10 @@ function renderDeptCards() {
 }
 
 function renderDeptDetails(deptId) {
-  // Find department by id or by db_id
-  let dept = DEPARTMENTS.find(d => d.id === deptId);
-  if (!dept) {
-    dept = DEPARTMENTS.find(d => d.db_id === deptId);
-  }
+  console.log('DEBUG: renderDeptDetails called with deptId:', deptId);
+  // Find department by db_id first
+  let dept = DEPARTMENTS.find(d => d.db_id === deptId);
+  console.log('DEBUG: Found department:', dept);
 
   // If department not found in predefined list, create a fallback
   if (!dept) {
@@ -285,6 +289,8 @@ function renderDeptDetails(deptId) {
 
   const saf = getDeptSAF(dept.id);
   const transactions = getDeptTransactions(dept.id);
+  console.log('DEBUG: SAF data:', saf);
+  console.log('DEBUG: Transactions:', transactions);
 
   const initial = saf.initial_amount || 0;
   const used = saf.used_amount || 0;

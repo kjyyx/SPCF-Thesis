@@ -19,7 +19,9 @@ function getCurrentUser()
             'role' => $_SESSION['user_role'],
             'first_name' => $_SESSION['first_name'] ?? '',
             'last_name' => $_SESSION['last_name'] ?? '',
-            'email' => $_SESSION['email'] ?? ''
+            'email' => $_SESSION['email'] ?? '',
+            'department' => $_SESSION['department'] ?? '',
+            'position' => $_SESSION['position'] ?? ''
         ];
     }
     return null;
@@ -73,6 +75,8 @@ function loginUser($userData)
     $_SESSION['first_name'] = $userData['first_name'];
     $_SESSION['last_name'] = $userData['last_name'];
     $_SESSION['email'] = $userData['email'];
+    $_SESSION['department'] = $userData['department'] ?? '';
+    $_SESSION['position'] = $userData['position'] ?? '';
     if (isset($userData['must_change_password'])) {
         $_SESSION['must_change_password'] = (int) $userData['must_change_password'];
     }

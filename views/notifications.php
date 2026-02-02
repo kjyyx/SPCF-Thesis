@@ -134,143 +134,134 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     include '../includes/notifications.php';
     ?>
 
-    <!-- Main Content -->
-    <div class="main-content">
-        <!-- Page Header -->
-        <div class="page-header-section">
+    <!-- Main Content - OneUI Compact Design -->
+    <div class="main-content notifications-page">
+        <!-- Unified Header Bar -->
+        <div class="notifications-header">
             <div class="container-fluid">
-                <div class="page-header-content">
-                    <h1 class="page-title">
-                        <i class="bi bi-bell me-3"></i>
-                        Document Notifications
-                    </h1>
-                    <p class="page-subtitle">Track document approvals, rejections, and signing status updates</p>
+                <div class="header-row">
+                    <!-- Left: Title & Stats -->
+                    <div class="header-title-group">
+                        <div class="title-wrapper">
+                            <div class="title-icon">
+                                <i class="bi bi-inbox-fill"></i>
+                            </div>
+                            <div class="title-content">
+                                <h1>Documents</h1>
+                                <p class="title-meta">
+                                    <span id="totalDocsCount" class="meta-count">0</span> documents • 
+                                    <span id="pendingCount" class="meta-pending">0</span> pending action
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Center: Search -->
+                    <div class="header-search">
+                        <div class="search-wrapper">
+                            <i class="bi bi-search search-icon"></i>
+                            <input type="text" id="documentSearch" class="search-input" 
+                                   placeholder="Search documents..." aria-label="Search documents">
+                            <button class="search-clear" id="clearSearch" aria-label="Clear search">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right: Sort & View Toggle -->
+                    <div class="header-controls">
+                        <div class="sort-dropdown">
+                            <select id="sortSelect" class="sort-select" aria-label="Sort documents">
+                                <option value="date_desc">Newest First</option>
+                                <option value="date_asc">Oldest First</option>
+                                <option value="due_desc">Due Soon</option>
+                                <option value="due_asc">Due Later</option>
+                                <option value="name_asc">A-Z</option>
+                                <option value="name_desc">Z-A</option>
+                            </select>
+                            <i class="bi bi-chevron-down sort-arrow"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Compact Notification Header -->
-        <div class="calendar-header-compact">
+        <!-- Filter Tabs -->
+        <div class="filter-tabs-container">
             <div class="container-fluid">
-                <div class="header-compact-content">
-                    <div class="header-left">
-                        <!-- Notification Info Compact -->
-                        <div class="document-info-compact">
-                            <div class="document-badge">
-                                <i class="bi bi-bell-fill me-2" aria-hidden="true"></i>
-                                <span class="fw-bold">Document Notifications</span>
-                                <span class="badge bg-danger ms-2" id="pendingCount"
-                                    aria-label="Pending documents count">3</span>
-                            </div>
-                        </div>
-
-                        <!-- Search Bar -->
-                        <div class="search-container">
-                            <div class="input-group">
-                                <span class="input-group-text" id="search-icon">
-                                    <i class="bi bi-search" aria-hidden="true"></i>
-                                </span>
-                                <input type="text" class="form-control" id="documentSearch"
-                                    placeholder="Search documents..." aria-label="Search documents"
-                                    aria-describedby="search-icon">
-                                <button class="btn btn-outline-secondary" type="button" id="clearSearch"
-                                    aria-label="Clear search">
-                                    <i class="bi bi-x" aria-hidden="true"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Sorting Options -->
-                        <div class="sorting-container">
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="bi bi-sort-down" aria-hidden="true"></i>
-                                </span>
-                                <select class="form-select" id="sortSelect" aria-label="Sort documents">
-                                    <option value="date_desc">Date (Newest First)</option>
-                                    <option value="date_asc">Date (Oldest First)</option>
-                                    <option value="due_desc">Due Date (Soonest First)</option>
-                                    <option value="due_asc">Due Date (Latest First)</option>
-                                    <option value="name_asc">Name (A-Z)</option>
-                                    <option value="name_desc">Name (Z-A)</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Quick Stats -->
-                        <div class="header-stats-compact">
-                            <div class="stat-item-compact">
-                                <div class="stat-number-compact text-danger" id="urgentCount"
-                                    aria-label="Urgent documents">1</div>
-                                <div class="stat-label-compact">Urgent</div>
-                            </div>
-                            <div class="stat-item-compact">
-                                <div class="stat-number-compact text-warning" id="highCount"
-                                    aria-label="High priority documents">1</div>
-                                <div class="stat-label-compact">High Priority</div>
-                            </div>
-                            <div class="stat-item-compact">
-                                <div class="stat-number-compact text-info" id="normalCount"
-                                    aria-label="Normal priority documents">1</div>
-                                <div class="stat-label-compact">Normal</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Actions -->
-                    <div class="document-actions-buttons">
-                        <!-- 'urgent' maps to 'submitted' status in JS binding below -->
-                        <button class="btn btn-outline-primary btn-sm"
-                            onclick="documentSystem.filterDocuments('all')">All</button>
-                        <button class="btn btn-outline-warning btn-sm"
-                            onclick="documentSystem.filterDocuments('submitted')">Pending</button>
-                        <button class="btn btn-outline-info btn-sm"
-                            onclick="documentSystem.filterDocuments('in_review')">In Review</button>
-                        <button class="btn btn-outline-success btn-sm"
-                            onclick="documentSystem.filterDocuments('approved')">Done</button>
-                        <button class="btn btn-outline-danger btn-sm"
-                            onclick="documentSystem.filterDocuments('rejected')">Rejected</button>
-                    </div>
+                <div class="filter-tabs" role="tablist">
+                    <button class="filter-tab active" data-filter="all" onclick="documentSystem.filterDocuments('all')" role="tab">
+                        <span class="tab-label">All</span>
+                        <span class="tab-count" id="allCount">0</span>
+                    </button>
+                    <button class="filter-tab" data-filter="submitted" onclick="documentSystem.filterDocuments('submitted')" role="tab">
+                        <span class="tab-indicator pending"></span>
+                        <span class="tab-label">Pending</span>
+                        <span class="tab-count" id="submittedCount">0</span>
+                    </button>
+                    <button class="filter-tab" data-filter="in_review" onclick="documentSystem.filterDocuments('in_review')" role="tab">
+                        <span class="tab-indicator review"></span>
+                        <span class="tab-label">In Review</span>
+                        <span class="tab-count" id="inReviewCount">0</span>
+                    </button>
+                    <button class="filter-tab" data-filter="approved" onclick="documentSystem.filterDocuments('approved')" role="tab">
+                        <span class="tab-indicator approved"></span>
+                        <span class="tab-label">Approved</span>
+                        <span class="tab-count" id="approvedCount">0</span>
+                    </button>
+                    <button class="filter-tab" data-filter="rejected" onclick="documentSystem.filterDocuments('rejected')" role="tab">
+                        <span class="tab-indicator rejected"></span>
+                        <span class="tab-label">Rejected</span>
+                        <span class="tab-count" id="rejectedCount">0</span>
+                    </button>
                 </div>
             </div>
         </div>
 
         <!-- Dashboard View -->
-        <div id="dashboardView" class="container-fluid">
-            <div class="row">
-                <div class="col-12">
-                    <div class="container">
-                        <div class="row g-3" id="documentsContainer">
-                            <!-- Documents will be populated here -->
-                        </div>
+        <div id="dashboardView" class="documents-dashboard">
+            <div class="container-fluid">
+                <!-- Documents List Container -->
+                <div class="documents-list" id="documentsContainer" role="list">
+                    <!-- Documents will be populated here -->
+                </div>
+
+                <!-- Empty State -->
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">
+                        <i class="bi bi-inbox"></i>
                     </div>
+                    <h3>No Documents Found</h3>
+                    <p>There are no documents matching your current filter.</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modern Document Detail View -->
-    <div id="documentView" class="document-detail" style="display: none;">
-        <!-- Enhanced Header with Better Controls -->
-        <div class="document-header">
+    <!-- Document Detail View - OneUI Compact Design -->
+    <div id="documentView" class="document-detail-view" style="display: none;">
+        <!-- Compact Header -->
+        <div class="detail-header">
             <div class="container-fluid">
-                <div class="header-content">
-                    <div class="header-left">
-                        <button class="back-btn" onclick="goBack()" title="Back to Dashboard">
+                <div class="detail-header-content">
+                    <div class="detail-header-left">
+                        <button class="back-btn-compact" onclick="goBack()" title="Back to Documents">
                             <i class="bi bi-arrow-left"></i>
-                            <span>Back to Documents</span>
                         </button>
-                        <div class="document-info">
-                            <h2 id="docTitle" class="document-title">Document Title</h2>
-                            <div class="document-meta">
-                                <span id="docStatus" class="status-badge">Status</span>
-                                <span class="meta-separator">•</span>
-                                <span id="pdfFileName" class="file-name">Document.pdf</span>
+                        <div class="detail-title-group">
+                            <h1 id="docTitle" class="detail-title">Document Title</h1>
+                            <div class="detail-meta">
+                                <span id="docStatus" class="detail-status-badge">Status</span>
+                                <span class="detail-separator">•</span>
+                                <span id="pdfFileName" class="detail-filename">
+                                    <i class="bi bi-file-earmark-pdf"></i>
+                                    Document.pdf
+                                </span>
                             </div>
                         </div>
                     </div>
-                    <div class="header-actions">
-                        <button class="action-btn primary" onclick="downloadPDF()" title="Download PDF">
+                    <div class="detail-header-actions">
+                        <button class="detail-action-btn" onclick="downloadPDF()" title="Download PDF">
                             <i class="bi bi-download"></i>
                             <span>Download</span>
                         </button>
@@ -279,228 +270,183 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
             </div>
         </div>
 
-        <!-- Modern Layout Container -->
-        <div class="document-layout">
+        <!-- Main Content Area -->
+        <div class="detail-content">
             <div class="container-fluid">
-                <div class="layout-grid">
-                    <!-- Main PDF Viewer -->
-                    <div class="pdf-section">
-                        <div class="pdf-viewer-modern">
-                            <!-- Enhanced PDF Controls -->
-                            <div class="pdf-toolbar">
-                                <div class="toolbar-group">
-                                    <div class="page-controls">
-                                        <button class="tool-btn" onclick="documentSystem.prevPage()" id="prevPageBtn"
-                                            title="Previous Page" aria-label="Previous Page">
+                <div class="detail-grid">
+                    <!-- PDF Viewer Panel -->
+                    <div class="pdf-panel">
+                        <div class="pdf-viewer-card">
+                            <!-- PDF Toolbar -->
+                            <div class="pdf-toolbar-compact">
+                                <div class="toolbar-left">
+                                    <div class="page-nav">
+                                        <button class="toolbar-btn" onclick="documentSystem.prevPage()" id="prevPageBtn" title="Previous">
                                             <i class="bi bi-chevron-left"></i>
                                         </button>
-                                        <div class="page-info">
-                                            <input type="number" id="pageInput" min="1"
-                                                onchange="documentSystem.goToPage(this.value)" class="page-input"
-                                                title="Current Page" />
-                                            <span class="page-separator">/</span>
-                                            <span id="pageTotal" class="page-total">1</span>
+                                        <div class="page-indicator">
+                                            <input type="number" id="pageInput" min="1" class="page-num-input"
+                                                onchange="documentSystem.goToPage(this.value)" />
+                                            <span class="page-divider">/</span>
+                                            <span id="pageTotal" class="page-total-num">1</span>
                                         </div>
-                                        <button class="tool-btn" onclick="documentSystem.nextPage()" id="nextPageBtn"
-                                            title="Next Page" aria-label="Next Page">
+                                        <button class="toolbar-btn" onclick="documentSystem.nextPage()" id="nextPageBtn" title="Next">
                                             <i class="bi bi-chevron-right"></i>
                                         </button>
                                     </div>
                                 </div>
-
-                                <div class="toolbar-group">
-                                    <div class="zoom-controls">
-                                        <button class="tool-btn" onclick="documentSystem.zoomOut()" title="Zoom Out">
-                                            <i class="bi bi-dash"></i>
+                                <div class="toolbar-right">
+                                    <div class="zoom-nav">
+                                        <button class="toolbar-btn" onclick="documentSystem.zoomOut()" title="Zoom Out">
+                                            <i class="bi bi-zoom-out"></i>
                                         </button>
-                                        <div class="zoom-info">
-                                            <span id="zoomIndicator" class="zoom-level">100%</span>
-                                        </div>
-                                        <button class="tool-btn" onclick="documentSystem.zoomIn()" title="Zoom In">
-                                            <i class="bi bi-plus"></i>
+                                        <span id="zoomIndicator" class="zoom-percent">100%</span>
+                                        <button class="toolbar-btn" onclick="documentSystem.zoomIn()" title="Zoom In">
+                                            <i class="bi bi-zoom-in"></i>
                                         </button>
-                                        <div class="toolbar-separator"></div>
-                                        <button class="tool-btn" onclick="documentSystem.fitToWidth()"
-                                            title="Fit to Width">
-                                            <i class="bi bi-arrows-angle-expand"></i>
+                                        <span class="toolbar-divider"></span>
+                                        <button class="toolbar-btn" onclick="documentSystem.fitToWidth()" title="Fit Width">
+                                            <i class="bi bi-arrows-expand"></i>
                                         </button>
-                                        <button class="tool-btn" onclick="documentSystem.resetZoom()"
-                                            title="Reset Zoom">
-                                            <i class="bi bi-arrow-clockwise"></i>
+                                        <button class="toolbar-btn" onclick="documentSystem.resetZoom()" title="Reset">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
                                         </button>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- PDF Canvas Container -->
-                            <div class="pdf-canvas-container" id="pdfContent">
-                                <div id="pdfLoading" class="pdf-loading-modern">
-                                    <div class="loading-spinner">
-                                        <div class="spinner"></div>
-                                    </div>
-                                    <p class="loading-text">Loading document...</p>
+                            <!-- PDF Canvas -->
+                            <div class="pdf-canvas-area" id="pdfContent">
+                                <div id="pdfLoading" class="pdf-loader">
+                                    <div class="loader-spinner"></div>
+                                    <p class="loader-text">Loading document...</p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Enhanced Sidebar -->
-                    <div class="actions-sidebar">
-                        <!-- Document Actions Card -->
-                        <div class="sidebar-card">
-                            <div class="card-header">
-                                <h3 class="card-title">
-                                    <i class="bi bi-lightning-charge"></i>
-                                    Quick Actions
+                    <!-- Sidebar Panel -->
+                    <div class="sidebar-panel">
+                        <!-- Quick Actions -->
+                        <div class="panel-card">
+                            <div class="panel-header">
+                                <h3 class="panel-title">
+                                    <i class="bi bi-lightning-charge-fill"></i>
+                                    Actions
                                 </h3>
                             </div>
-                            <div class="card-content">
-                                <div class="action-buttons">
-                                    <button class="action-btn-full success" onclick="signDocument()"
-                                        title="Sign this document">
-                                        <div class="btn-icon">
-                                            <i class="bi bi-pen-fill"></i>
-                                        </div>
-                                        <div class="btn-content">
-                                            <span class="btn-title">Sign Document</span>
-                                            <span class="btn-subtitle">Apply your signature</span>
-                                        </div>
-                                        <i class="bi bi-chevron-right btn-arrow"></i>
+                            <div class="panel-body">
+                                <div class="action-stack">
+                                    <button class="action-btn-full success" onclick="signDocument()">
+                                        <i class="bi bi-check-circle-fill"></i>
+                                        <span>Sign & Approve</span>
                                     </button>
-
-                                    <button class="action-btn-full danger" onclick="showRejectModal()"
-                                        title="Reject this document">
-                                        <div class="btn-icon">
-                                            <i class="bi bi-x-circle"></i>
-                                        </div>
-                                        <div class="btn-content">
-                                            <span class="btn-title">Reject Document</span>
-                                            <span class="btn-subtitle">Provide rejection reason</span>
-                                        </div>
-                                        <i class="bi bi-chevron-right btn-arrow"></i>
+                                    <button class="action-btn-full danger" onclick="showRejectModal()">
+                                        <i class="bi bi-x-circle-fill"></i>
+                                        <span>Reject</span>
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Signature Status Card -->
-                        <div class="sidebar-card">
-                            <div class="card-header">
-                                <h3 class="card-title">
-                                    <i class="bi bi-pen"></i>
-                                    Signature Status
+                        <!-- Signature Section -->
+                        <div class="panel-card">
+                            <div class="panel-header">
+                                <h3 class="panel-title">
+                                    <i class="bi bi-pen-fill"></i>
+                                    Signature
                                 </h3>
                             </div>
-                            <div class="card-content">
-                                <div class="signature-status" id="signatureStatusContainer">
-                                    <div class="signature-placeholder" id="signaturePlaceholder">
-                                        <div class="placeholder-icon">
+                            <div class="panel-body">
+                                <div class="signature-status-box" id="signatureStatusContainer">
+                                    <div class="sig-status pending" id="signaturePlaceholder">
+                                        <div class="sig-icon">
                                             <i class="bi bi-pen"></i>
                                         </div>
-                                        <div class="placeholder-text">
-                                            <span class="status-title">Ready to Sign</span>
-                                            <span class="status-subtitle">Click above to add your signature</span>
+                                        <div class="sig-info">
+                                            <span class="sig-label">Ready to Sign</span>
+                                            <span class="sig-hint">Add your signature below</span>
                                         </div>
                                     </div>
-
-                                    <div class="signed-status d-none" id="signedStatus">
-                                        <div class="status-icon success">
+                                    <div class="sig-status complete d-none" id="signedStatus">
+                                        <div class="sig-icon success">
                                             <i class="bi bi-check-circle-fill"></i>
                                         </div>
-                                        <div class="status-text">
-                                            <span class="status-title">Document Signed</span>
-                                            <span class="status-subtitle">Signature applied successfully</span>
+                                        <div class="sig-info">
+                                            <span class="sig-label">Signed</span>
+                                            <span class="sig-hint">Signature applied</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <button class="signature-pad-toggle" onclick="toggleSignaturePad()"
-                                    id="signaturePadToggle">
-                                    <i class="bi bi-pencil-square me-2"></i>
+                                <button class="sig-toggle-btn" onclick="toggleSignaturePad()" id="signaturePadToggle">
+                                    <i class="bi bi-pencil-square"></i>
                                     Open Signature Pad
                                 </button>
 
-                                <!-- Enhanced Signature Pad -->
-                                <div id="signaturePadContainer" class="signature-pad-modern d-none">
-                                    <div class="signature-header">
-                                        <span class="signature-title">Add Your Signature</span>
-                                        <button class="close-signature" onclick="toggleSignaturePad()">
-                                            <i class="bi bi-x"></i>
+                                <!-- Signature Pad (collapsed by default) -->
+                                <div id="signaturePadContainer" class="sig-pad-container d-none">
+                                    <div class="sig-pad-header">
+                                        <span>Add Signature</span>
+                                        <button class="sig-pad-close" onclick="toggleSignaturePad()">
+                                            <i class="bi bi-x-lg"></i>
                                         </button>
                                     </div>
-                                    <div class="signature-upload-section">
-                                        <label for="signatureUpload" class="upload-label">
-                                            <i class="bi bi-upload me-2"></i>
-                                            Upload Signature Image
+                                    
+                                    <div class="sig-upload-area">
+                                        <label for="signatureUpload" class="sig-upload-label">
+                                            <i class="bi bi-cloud-arrow-up"></i>
+                                            <span>Upload Image</span>
                                         </label>
-                                        <input type="file" id="signatureUpload" accept="image/*"
-                                            class="signature-upload-input">
-                                        <div class="upload-hint">
-                                            <i class="bi bi-info-circle"></i>
-                                            Upload a PNG, JPG, or GIF image of your signature
-                                        </div>
+                                        <input type="file" id="signatureUpload" accept="image/*" class="sig-upload-input">
                                     </div>
-                                    <div class="signature-divider">
-                                        <span>or</span>
+                                    
+                                    <div class="sig-divider"><span>or draw below</span></div>
+                                    
+                                    <div class="sig-canvas-container">
+                                        <canvas id="signatureCanvas" class="sig-canvas"></canvas>
                                     </div>
-                                    <div class="signature-draw-section">
-                                        <div class="draw-header">Draw Your Signature</div>
-                                        <div class="signature-canvas-wrapper">
-                                            <canvas id="signatureCanvas" class="signature-canvas"></canvas>
-                                        </div>
-                                    </div>
-                                    <div class="signature-actions">
-                                        <button type="button" class="btn-signature clear" id="sigClearBtn">
-                                            <i class="bi bi-eraser"></i>
-                                            Clear
+                                    
+                                    <div class="sig-pad-actions">
+                                        <button type="button" class="sig-btn clear" id="sigClearBtn">
+                                            <i class="bi bi-eraser"></i> Clear
                                         </button>
-                                        <button type="button" class="btn-signature save" id="sigSaveBtn">
-                                            <i class="bi bi-check2"></i>
-                                            Use Signature
-                                        </button>
-                                    </div>
-                                    <div class="signature-hint">
-                                        <i class="bi bi-info-circle"></i>
-                                        Upload an image or draw your signature using your mouse or touch device
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Notes Card -->
-                        <div class="sidebar-card">
-                            <div class="card-header">
-                                <h3 class="card-title">
-                                    <i class="bi bi-journal-text"></i>
-                                    Notes & Comments
-                                </h3>
-                            </div>
-                            <div class="card-content">
-                                <div class="notes-container">
-                                    <textarea class="notes-input" id="notesInput" rows="4"
-                                        placeholder="Add your notes or comments about this document..."></textarea>
-                                    <div class="notes-actions">
-                                        <button class="btn-notes save" onclick="documentSystem.saveNotes()">
-                                            <i class="bi bi-check2"></i>
-                                            Save Notes
+                                        <button type="button" class="sig-btn save" id="sigSaveBtn">
+                                            <i class="bi bi-check2"></i> Apply
                                         </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Workflow Progress Card -->
-                        <div class="sidebar-card">
-                            <div class="card-header">
-                                <h3 class="card-title">
-                                    <i class="bi bi-diagram-3"></i>
-                                    Approval Hierarchy
+                        <!-- Notes Section -->
+                        <div class="panel-card">
+                            <div class="panel-header">
+                                <h3 class="panel-title">
+                                    <i class="bi bi-chat-left-text-fill"></i>
+                                    Notes
                                 </h3>
-                                <p class="card-subtitle">Document routing through organizational levels</p>
                             </div>
-                            <div class="card-content">
-                                <div id="workflowSteps" class="workflow-timeline">
-                                    <!-- Workflow steps will be populated here -->
+                            <div class="panel-body">
+                                <textarea class="notes-textarea" id="notesInput" rows="3"
+                                    placeholder="Add notes or comments..."></textarea>
+                                <button class="notes-save-btn" onclick="documentSystem.saveNotes()">
+                                    <i class="bi bi-check2"></i> Save
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Workflow Progress -->
+                        <div class="panel-card">
+                            <div class="panel-header">
+                                <h3 class="panel-title">
+                                    <i class="bi bi-diagram-3-fill"></i>
+                                    Approval Flow
+                                </h3>
+                            </div>
+                            <div class="panel-body">
+                                <div id="workflowSteps" class="workflow-steps">
+                                    <!-- Workflow steps populated by JS -->
                                 </div>
                             </div>
                         </div>

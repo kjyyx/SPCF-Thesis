@@ -7,17 +7,17 @@ $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
 $dotenv->load();
 
 // Database configuration
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'spcf_thesis_db');
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_USER', getenv('DB_USER') ?: 'root');
+define('DB_PASS', getenv('DB_PASS') ?: '');
+define('DB_NAME', getenv('DB_NAME') ?: 'spcf_thesis_db');
 
 // Application settings
-define('BASE_URL', 'http://localhost/SPCF-Thesis/');
-define('SITE_NAME', 'Sign-um');
+define('BASE_URL', getenv('BASE_URL') ?: 'http://localhost/SPCF-Thesis/');
+define('SITE_NAME', getenv('SITE_NAME') ?: 'Sign-um');
 
 // Environment (change to 'production' when deploying)
-define('ENVIRONMENT', 'development');
+define('ENVIRONMENT', getenv('ENVIRONMENT') ?: 'development');
 
 // Error reporting
 if (ENVIRONMENT === 'development') {

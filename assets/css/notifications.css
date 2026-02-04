@@ -3688,3 +3688,71 @@ body {
         margin-top: 0;
     }
 }
+
+/* SAF Dual Signature Styling */
+.saf-accounting {
+    border-left: 3px solid #3b82f6 !important;
+}
+
+.saf-issuer {
+    border-left: 3px solid #10b981 !important;
+}
+
+.saf-role-badge {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.saf-resize-handle {
+    transition: all 0.2s ease;
+}
+
+.saf-resize-handle:hover {
+    transform: scale(1.2);
+    box-shadow: 0 0 4px rgba(0,0,0,0.3);
+}
+
+.linked-connection {
+    pointer-events: none;
+}
+
+.saf-dual-signature-status {
+    background: linear-gradient(135deg, #f0f9ff, #f0fdf4);
+    border: 1px solid #dbeafe;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.saf-signature-positions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+/* Instruction tooltip */
+.saf-instruction {
+    position: absolute;
+    top: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e40af;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+}
+
+.saf-instruction::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid #1e40af;
+}

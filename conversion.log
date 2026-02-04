@@ -862,3 +862,45 @@
 2026-02-02 23:56:16 - PDF saved to: ../uploads/filled_doc_6980c91acaf4d0.12458781.pdf
 2026-02-02 23:56:16 - DOCX cleaned up successfully
 2026-02-02 23:56:16 - Conversion successful
+2026-02-03 10:04:39 - Starting conversion for: ../uploads/filled_doc_698157b6f1bf97.79004612.docx
+2026-02-03 10:04:39 - API key found
+2026-02-03 10:04:39 - DOCX file exists, size: 157230
+2026-02-03 10:04:39 - CloudConvert client created
+2026-02-03 10:04:39 - Creating job
+2026-02-03 10:04:39 - Job created: 13a5843d-f417-42bb-a6c0-275b1f160c88
+2026-02-03 10:04:39 - Uploading file
+2026-02-03 10:04:41 - File uploaded
+2026-02-03 10:04:41 - Waiting for completion
+2026-02-03 10:04:42 - Job completed, status: finished
+2026-02-03 10:04:42 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/ee6274c2-9700-4669-93ef-e41dc3429daa/filled_doc_698157b6f1bf97.79004612.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260203%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260203T020442Z&X-Amz-Expires=86400&X-Amz-Signature=f0db58c6720d7ac644a56ff37c814bd886c79961fe57d0c2822c402cab1da8e3&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_698157b6f1bf97.79004612.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-03 10:04:44 - PDF saved to: ../uploads/filled_doc_698157b6f1bf97.79004612.pdf
+2026-02-03 10:04:44 - DOCX cleaned up successfully
+2026-02-03 10:04:44 - Conversion successful
+2026-02-03 10:32:11 - Starting conversion for: ../uploads/filled_doc_69815e2b4d45b1.94068322.docx
+2026-02-03 10:32:11 - API key found
+2026-02-03 10:32:11 - DOCX file exists, size: 89403
+2026-02-03 10:32:11 - CloudConvert client created
+2026-02-03 10:32:11 - Creating job
+2026-02-03 10:32:11 - Job created: 2c469230-9a2c-4190-8b33-afeaa9e13fd2
+2026-02-03 10:32:11 - Uploading file
+2026-02-03 10:32:13 - File uploaded
+2026-02-03 10:32:13 - Waiting for completion
+2026-02-03 10:32:14 - Job completed, status: finished
+2026-02-03 10:32:14 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/b489ff7d-9b18-4afa-ae0c-7d5fac2b4e52/filled_doc_69815e2b4d45b1.94068322.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260203%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260203T023213Z&X-Amz-Expires=86400&X-Amz-Signature=4b7f7044a6fea1b8a3bda4591f5c61c8d67cd9acac460517a35cc6349060222a&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_69815e2b4d45b1.94068322.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-03 10:32:16 - PDF saved to: ../uploads/filled_doc_69815e2b4d45b1.94068322.pdf
+2026-02-03 10:32:16 - DOCX cleaned up successfully
+2026-02-03 10:32:16 - Conversion successful
+2026-02-03 11:18:42 - Starting conversion for: ../uploads/filled_doc_69816911ed7b72.93982982.docx
+2026-02-03 11:18:42 - API key found
+2026-02-03 11:18:42 - DOCX file exists, size: 89340
+2026-02-03 11:18:42 - CloudConvert client created
+2026-02-03 11:18:42 - Creating job
+2026-02-03 11:18:42 - Job created: 2be91993-997a-4c4c-a873-3f72608982b1
+2026-02-03 11:18:42 - Uploading file
+2026-02-03 11:18:43 - File uploaded
+2026-02-03 11:18:43 - Waiting for completion
+2026-02-03 11:18:45 - Job completed, status: finished
+2026-02-03 11:18:45 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/0cc0f7c5-ff45-4e3f-a198-5eed8c3d3074/filled_doc_69816911ed7b72.93982982.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260203%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260203T031845Z&X-Amz-Expires=86400&X-Amz-Signature=9e8e3f679a145ca6ad3cd46f92abeeabddfedcb44debef7717764fbbe484ccc4&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_69816911ed7b72.93982982.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-03 11:18:47 - PDF saved to: ../uploads/filled_doc_69816911ed7b72.93982982.pdf
+2026-02-03 11:18:47 - DOCX cleaned up successfully
+2026-02-03 11:18:47 - Conversion successful

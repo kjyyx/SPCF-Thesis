@@ -67,16 +67,21 @@ class CalendarApp {
         const employeeInfoCompact = document.getElementById('employeeInfoCompact');
         const addEventBtn = document.getElementById('addEventBtn');
         const approvalsBtn = document.getElementById('approvalsBtn'); // Add Approvals button reference
-    
+
         // Hide all role-specific sections first
         if (studentInfoCompact) studentInfoCompact.style.display = 'none';
         if (employeeInfoCompact) employeeInfoCompact.style.display = 'none';
         if (approvalsBtn) approvalsBtn.style.display = 'none'; // Hide by default
-    
-        if (currentUser.role === 'student' && currentUser.position === 'SSC President') {
-            // Show student info section for SSC President
+
+        if (currentUser.role === 'student') {
+            // Show student info section for all students
             if (studentInfoCompact) studentInfoCompact.style.display = 'flex';
-            if (approvalsBtn) approvalsBtn.style.display = 'inline-flex'; // Show Approvals button
+            // Show Approvals button for all student council presidents
+            if (approvalsBtn && (currentUser.position === 'Supreme Student Council President' || currentUser.position === 'College Student Council President')) {
+                approvalsBtn.style.display = 'inline-flex';
+            } else if (approvalsBtn) {
+                approvalsBtn.style.display = 'none';
+            }
         } else if (currentUser.role === 'employee') {
             // Show employee info section for employees
             if (employeeInfoCompact) employeeInfoCompact.style.display = 'flex';
@@ -85,7 +90,7 @@ class CalendarApp {
             // Admins don't show either section but can add events
             if (addEventBtn) addEventBtn.style.display = 'inline-flex';
         }
-    
+
         this.updateUserInfo();
     }
     
@@ -1028,7 +1033,7 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         document.getElementById('deleteBtn').style.display = 'inline-block';
 
         // Show approve/disapprove buttons for EVP
-        const isEVP = currentUser && currentUser.role === 'employee' && (currentUser.position === 'EVP' || currentUser.position === 'Executive Vice President');
+        const isEVP = currentUser && currentUser.role === 'employee' && currentUser.position === 'Executive Vice-President / Student Services (EVP)';
         document.getElementById('approveBtn').style.display = isEVP ? 'inline-block' : 'none';
         document.getElementById('disapproveBtn').style.display = isEVP ? 'inline-block' : 'none';
 

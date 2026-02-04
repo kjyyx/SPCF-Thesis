@@ -1,3 +1,36 @@
+/**
+ * Show a generic confirmation modal (global helper)
+ * @param {string} title - Modal title
+ * @param {string} message - Confirmation message
+ * @param {Function} onConfirm - Callback function when confirmed
+ * @param {string} confirmText - Text for confirm button (default: 'Confirm')
+ * @param {string} confirmClass - Bootstrap class for confirm button (default: 'btn-primary')
+ */
+function showConfirmModal(title, message, onConfirm, confirmText = 'Confirm', confirmClass = 'btn-primary') {
+    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    const modalLabel = document.getElementById('confirmModalLabel');
+    const modalMessage = document.getElementById('confirmModalMessage');
+    const confirmBtn = document.getElementById('confirmModalBtn');
+
+    if (modalLabel) modalLabel.textContent = title;
+    if (modalMessage) modalMessage.textContent = message;
+    if (confirmBtn) {
+        confirmBtn.textContent = confirmText;
+        confirmBtn.className = `btn ${confirmClass}`;
+    }
+
+    // Remove previous event listeners
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    // Add new event listener
+    newConfirmBtn.addEventListener('click', function () {
+        modal.hide();
+        onConfirm();
+    });
+
+    modal.show();
+}
 // Document Notification System JavaScript
 // Enhanced professional version with improved error handling, search, and performance
 // Notes for future developers:
@@ -29,6 +62,9 @@ class DocumentNotificationSystem {
         this.isLoading = false;
         this.retryCount = 0;
         this.maxRetries = 3;
+        this.linkedTargets = null; // Store linked signature targets for SAF
+        this.linkedSignatureMaps = null; // Store positions for both signatures
+        this.isSafDualSigning = false; // Flag for SAF dual signature mode
     }
 
     // Initialize the application with enhanced error handling
@@ -37,7 +73,8 @@ class DocumentNotificationSystem {
             // Validate user access
             const userHasAccess = this.currentUser &&
                 (this.currentUser.role === 'employee' ||
-                    (this.currentUser.role === 'student' && this.currentUser.position === 'SSC President'));
+                    (this.currentUser.position === 'Supreme Student Council President' ||
+                        this.currentUser.position === 'College Student Council President'));
 
             if (!userHasAccess) {
                 console.error('Access denied: Invalid user role or position');
@@ -1075,6 +1112,7 @@ class DocumentNotificationSystem {
     }
 
     // Overlay signature target area based on signature_map (inline)
+    // MODIFIED: Overlay signature target area based on signature_map (inline)
     renderSignatureOverlay(doc) {
         const content = document.getElementById('pdfContent');
         if (!content) return;
@@ -1082,7 +1120,7 @@ class DocumentNotificationSystem {
         content.style.position = 'relative';
 
         // Clear previous overlays to prevent duplicates
-        content.querySelectorAll('.signature-target, .completed-signature-container').forEach(el => el.remove());
+        content.querySelectorAll('.signature-target, .completed-signature-container, .linked-connection').forEach(el => el.remove());
 
         // First, render completed signatures as blurred overlays
         this.renderCompletedSignatures(doc, content);
@@ -1091,46 +1129,15 @@ class DocumentNotificationSystem {
         const hasPendingStep = doc.workflow?.some(step => step.status === 'pending');
         const isCurrentUserAssigned = this.isUserAssignedToPendingStep(doc);
 
-        if (hasPendingStep && isCurrentUserAssigned && doc.signature_map) {
-            let map = doc.signature_map;
-            try {
-                map = (typeof map === 'string') ? JSON.parse(map) : map;
-            } catch (e) {
-                console.warn('Invalid doc.signature_map JSON', e);
+        if (hasPendingStep && isCurrentUserAssigned) {
+            // SPECIAL HANDLING FOR SAF DOCUMENTS
+            if (doc.doc_type === 'saf') {
+                this.isSafDualSigning = true;
+                this.createLinkedSafSignatureTargets(content, doc);
+            } else {
+                // Regular single signature for other document types
+                this.createSingleSignatureTarget(content, doc);
             }
-
-            let box = content.querySelector('.signature-target');
-            if (!box) {
-                box = document.createElement('div');
-                box.className = 'signature-target draggable';
-                box.title = 'Drag to move, resize handle to adjust size';
-                box.style.position = 'absolute';
-                box.style.display = 'flex';
-                box.style.alignItems = 'center';
-                box.style.justifyContent = 'center';
-                box.style.cursor = 'grab';
-                box.style.zIndex = 20;
-                content.appendChild(box);
-                this.makeDraggable(box, content);
-                this.makeResizable(box, content);
-            }
-
-            const rect = this.computeSignaturePixelRect(map);
-            if (!rect) return;
-
-            // Debug info
-            console.debug('renderSignatureOverlay rect:', rect, 'map:', map);
-
-            box.style.left = rect.left + 'px';
-            box.style.top = rect.top + 'px';
-            box.style.width = rect.width + 'px';
-            box.style.height = rect.height + 'px';
-            box.textContent = map.label || 'Sign here';
-
-            // Update the current signature map to reflect the box position
-            this.updateSignatureMap(box, content);
-
-            if (this.signatureImage) this.updateSignatureOverlayImage();
         }
     }
 
@@ -1249,6 +1256,527 @@ class DocumentNotificationSystem {
             signatureContainer.appendChild(timestamp);
             content.appendChild(signatureContainer);
         });
+    }
+
+    // Create linked signature targets for SAF documents
+    createLinkedSafSignatureTargets(content, doc) {
+        // Clear any existing targets
+        this.linkedTargets = null;
+        this.linkedSignatureMaps = null;
+
+        // Calculate vertical offset (0.48 = 48% of page height between Accounting and Issuer copies)
+        const verticalOffset = 0.45;
+
+        // Get initial position from doc signature_map or use default
+        let initialMap = null;
+        if (doc.signature_map) {
+            try {
+                initialMap = typeof doc.signature_map === 'string' ? 
+                    JSON.parse(doc.signature_map) : doc.signature_map;
+            } catch (e) {
+                console.warn('Invalid signature_map, using defaults', e);
+            }
+        }
+
+        // Default positions if not specified
+        if (!initialMap) {
+            initialMap = {
+                x_pct: 0.62,
+                y_pct: 0.30,  // Accounting copy (top half)
+                w_pct: 0.28,
+                h_pct: 0.08,
+                page: 1
+            };
+        }
+
+        // Create primary target (Accounting Copy)
+        const primaryTarget = this.createSignatureTarget(
+            content,
+            'accounting',
+            initialMap,
+            'rgba(59, 130, 246, 0.15)', // Blue
+            '#3b82f6'
+        );
+
+        // Create secondary target (Issuer Copy) - same X position, offset Y
+        const issuerMap = {
+            ...initialMap,
+            y_pct: initialMap.y_pct + verticalOffset
+        };
+
+        const secondaryTarget = this.createSignatureTarget(
+            content,
+            'issuer',
+            issuerMap,
+            'rgba(16, 185, 129, 0.15)', // Green
+            '#10b981'
+        );
+
+        // Store references
+        this.linkedTargets = {
+            primary: primaryTarget,
+            secondary: secondaryTarget,
+            verticalOffset: verticalOffset
+        };
+
+        // Link them together
+        this.linkSafSignatureTargets(primaryTarget, secondaryTarget, content);
+
+        // Create visual connection line
+        this.createConnectionLine(primaryTarget, secondaryTarget, content);
+
+        // Update signature maps
+        this.updateLinkedSignatureMaps(content);
+
+        // Show instruction toast
+        this.showToast({
+            type: 'info',
+            title: 'SAF Dual Signature',
+            message: 'Drag the blue box to position your signature. Both Accounting and Issuer copies will move together.'
+        });
+
+        // If signature already drawn, update both targets
+        if (this.signatureImage) {
+            this.updateLinkedSignatureOverlay();
+        }
+    }
+
+    // Create a signature target element
+    createSignatureTarget(content, role, map, bgColor, borderColor) {
+        const box = document.createElement('div');
+        box.className = `signature-target draggable saf-${role}`;
+        box.dataset.role = role;
+        box.dataset.saf = 'true';
+        
+        // Set position
+        const rect = this.computeSignaturePixelRect(map);
+        if (!rect) return null;
+        
+        box.style.position = 'absolute';
+        box.style.left = rect.left + 'px';
+        box.style.top = rect.top + 'px';
+        box.style.width = rect.width + 'px';
+        box.style.height = rect.height + 'px';
+        box.style.zIndex = role === 'accounting' ? 25 : 24;
+        box.style.backgroundColor = bgColor;
+        box.style.border = `2px dashed ${borderColor}`;
+        box.style.borderRadius = '4px';
+        box.style.display = 'flex';
+        box.style.alignItems = 'center';
+        box.style.justifyContent = 'center';
+        box.style.cursor = 'move';
+        box.style.fontWeight = '600';
+        box.style.fontSize = '12px';
+        box.style.color = borderColor;
+        box.style.overflow = 'hidden';
+        box.textContent = `${role === 'accounting' ? 'Accounting' : 'Issuer'} Copy`;
+        
+        // Add role badge
+        const badge = document.createElement('div');
+        badge.className = 'saf-role-badge';
+        badge.textContent = role === 'accounting' ? 'A' : 'I';
+        badge.style.position = 'absolute';
+        badge.style.top = '-8px';
+        badge.style.right = '-8px';
+        badge.style.width = '16px';
+        badge.style.height = '16px';
+        badge.style.backgroundColor = borderColor;
+        badge.style.color = 'white';
+        badge.style.borderRadius = '50%';
+        badge.style.display = 'flex';
+        badge.style.alignItems = 'center';
+        badge.style.justifyContent = 'center';
+        badge.style.fontSize = '9px';
+        badge.style.fontWeight = 'bold';
+        badge.style.zIndex = '30';
+        
+        box.appendChild(badge);
+        content.appendChild(box);
+        
+        // Add resize handle
+        this.addResizeHandle(box, content, role);
+        
+        return box;
+    }
+
+    // Add resize handle to target
+    addResizeHandle(element, content, role) {
+        const handle = document.createElement('div');
+        handle.className = 'saf-resize-handle';
+        handle.dataset.role = role;
+        handle.style.position = 'absolute';
+        handle.style.bottom = '0';
+        handle.style.right = '0';
+        handle.style.width = '12px';
+        handle.style.height = '12px';
+        handle.style.backgroundColor = role === 'accounting' ? '#3b82f6' : '#10b981';
+        handle.style.borderRadius = '2px';
+        handle.style.cursor = 'se-resize';
+        handle.style.zIndex = '30';
+        
+        element.appendChild(handle);
+        
+        // Resize logic
+        let isResizing = false;
+        let startX, startY, startWidth, startHeight;
+        
+        handle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startWidth = element.offsetWidth;
+            startHeight = element.offsetHeight;
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            
+            const newWidth = Math.max(80, startWidth + dx);
+            const newHeight = Math.max(50, startHeight + dy);
+            
+            // Resize primary
+            element.style.width = newWidth + 'px';
+            element.style.height = newHeight + 'px';
+            
+            // Resize secondary if it exists
+            if (this.linkedTargets && this.linkedTargets.secondary) {
+                const otherRole = role === 'accounting' ? 'issuer' : 'accounting';
+                const otherTarget = this.linkedTargets[otherRole === 'accounting' ? 'primary' : 'secondary'];
+                if (otherTarget) {
+                    otherTarget.style.width = newWidth + 'px';
+                    otherTarget.style.height = newHeight + 'px';
+                }
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                this.updateLinkedSignatureMaps(content);
+            }
+        });
+    }
+
+    // Link the two SAF signature targets together
+    linkSafSignatureTargets(primaryTarget, secondaryTarget, content) {
+        let isDragging = false;
+        let startX, startY, initialPrimaryX, initialPrimaryY;
+        let initialSecondaryX, initialSecondaryY;
+        
+        // Make primary target draggable
+        primaryTarget.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('saf-resize-handle')) return;
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            const primaryRect = primaryTarget.getBoundingClientRect();
+            const secondaryRect = secondaryTarget.getBoundingClientRect();
+            const contentRect = content.getBoundingClientRect();
+            
+            initialPrimaryX = primaryRect.left - contentRect.left;
+            initialPrimaryY = primaryRect.top - contentRect.top;
+            initialSecondaryX = secondaryRect.left - contentRect.left;
+            initialSecondaryY = secondaryRect.top - contentRect.top;
+            
+            primaryTarget.style.cursor = 'grabbing';
+            secondaryTarget.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            
+            // Calculate new positions
+            let newPrimaryX = initialPrimaryX + dx;
+            let newPrimaryY = initialPrimaryY + dy;
+            
+            let newSecondaryX = initialSecondaryX + dx;
+            let newSecondaryY = initialSecondaryY + dy;
+            
+            // Constrain to canvas
+            const canvas = this.canvas;
+            if (!canvas) return;
+            
+            const canvasRect = canvas.getBoundingClientRect();
+            const contentRect = content.getBoundingClientRect();
+            
+            const maxX = canvasRect.width - primaryTarget.offsetWidth;
+            const maxYPrimary = canvasRect.height - primaryTarget.offsetHeight;
+            const maxYSecondary = canvasRect.height - secondaryTarget.offsetHeight;
+            
+            // Apply constraints
+            newPrimaryX = Math.max(0, Math.min(newPrimaryX, maxX));
+            newPrimaryY = Math.max(0, Math.min(newPrimaryY, maxYPrimary));
+            
+            newSecondaryX = Math.max(0, Math.min(newSecondaryX, maxX));
+            newSecondaryY = Math.max(0, Math.min(newSecondaryY, maxYSecondary));
+            
+            // Move both targets
+            primaryTarget.style.left = newPrimaryX + 'px';
+            primaryTarget.style.top = newPrimaryY + 'px';
+            
+            secondaryTarget.style.left = newSecondaryX + 'px';
+            secondaryTarget.style.top = newSecondaryY + 'px';
+            
+            // Update connection line
+            this.updateConnectionLine(primaryTarget, secondaryTarget, content);
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                primaryTarget.style.cursor = 'move';
+                secondaryTarget.style.cursor = 'move';
+                this.updateLinkedSignatureMaps(content);
+            }
+        });
+        
+        // Also make secondary target draggable (moves both)
+        secondaryTarget.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('saf-resize-handle')) return;
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            const primaryRect = primaryTarget.getBoundingClientRect();
+            const secondaryRect = secondaryTarget.getBoundingClientRect();
+            const contentRect = content.getBoundingClientRect();
+            
+            initialPrimaryX = primaryRect.left - contentRect.left;
+            initialPrimaryY = primaryRect.top - contentRect.top;
+            initialSecondaryX = secondaryRect.left - contentRect.left;
+            initialSecondaryY = secondaryRect.top - contentRect.top;
+            
+            primaryTarget.style.cursor = 'grabbing';
+            secondaryTarget.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+    }
+
+    // Create visual connection line between targets
+    createConnectionLine(primaryTarget, secondaryTarget, content) {
+        const line = document.createElement('div');
+        line.className = 'linked-connection';
+        line.style.position = 'absolute';
+        line.style.zIndex = '20';
+        content.appendChild(line);
+        
+        this.updateConnectionLine(primaryTarget, secondaryTarget, content);
+    }
+
+    // Update connection line position
+    updateConnectionLine(primaryTarget, secondaryTarget, content) {
+        const line = content.querySelector('.linked-connection');
+        if (!line) return;
+        
+        const primaryRect = primaryTarget.getBoundingClientRect();
+        const secondaryRect = secondaryTarget.getBoundingClientRect();
+        const contentRect = content.getBoundingClientRect();
+        
+        // Calculate midpoint positions
+        const primaryCenterX = primaryRect.left - contentRect.left + (primaryRect.width / 2);
+        const primaryCenterY = primaryRect.top - contentRect.top + (primaryRect.height / 2);
+        
+        const secondaryCenterX = secondaryRect.left - contentRect.left + (secondaryRect.width / 2);
+        const secondaryCenterY = secondaryRect.top - contentRect.top + (secondaryRect.height / 2);
+        
+        // Calculate line properties
+        const length = Math.sqrt(
+            Math.pow(secondaryCenterX - primaryCenterX, 2) + 
+            Math.pow(secondaryCenterY - primaryCenterY, 2)
+        );
+        
+        const angle = Math.atan2(
+            secondaryCenterY - primaryCenterY,
+            secondaryCenterX - primaryCenterX
+        ) * 180 / Math.PI;
+        
+        // Position the line
+        line.style.left = primaryCenterX + 'px';
+        line.style.top = primaryCenterY + 'px';
+        line.style.width = length + 'px';
+        line.style.height = '2px';
+        line.style.transformOrigin = '0 0';
+        line.style.transform = `rotate(${angle}deg)`;
+        line.style.background = 'linear-gradient(to bottom, #3b82f6, #10b981)';
+        line.style.opacity = '0.6';
+    }
+
+    // Update linked signature maps for both positions
+    updateLinkedSignatureMaps(content) {
+        if (!this.linkedTargets || !this.canvas) return;
+        
+        const canvas = this.canvas;
+        const canvasRect = canvas.getBoundingClientRect();
+        const contentRect = content.getBoundingClientRect();
+        
+        // Calculate positions for both targets
+        const primaryRect = this.linkedTargets.primary.getBoundingClientRect();
+        const secondaryRect = this.linkedTargets.secondary.getBoundingClientRect();
+        
+        // Primary (Accounting) position
+        const primaryX = (primaryRect.left - contentRect.left) / canvasRect.width;
+        const primaryY = (primaryRect.top - contentRect.top) / canvasRect.height;
+        const primaryW = primaryRect.width / canvasRect.width;
+        const primaryH = primaryRect.height / canvasRect.height;
+        
+        // Secondary (Issuer) position
+        const secondaryX = (secondaryRect.left - contentRect.left) / canvasRect.width;
+        const secondaryY = (secondaryRect.top - contentRect.top) / canvasRect.height;
+        const secondaryW = secondaryRect.width / canvasRect.width;
+        const secondaryH = secondaryRect.height / canvasRect.height;
+        
+        // Store both positions
+        this.linkedSignatureMaps = {
+            accounting: {
+                x_pct: primaryX,
+                y_pct: primaryY,
+                w_pct: primaryW,
+                h_pct: primaryH,
+                page: this.currentPage,
+                label: 'Accounting Copy'
+            },
+            issuer: {
+                x_pct: secondaryX,
+                y_pct: secondaryY,
+                w_pct: secondaryW,
+                h_pct: secondaryH,
+                page: this.currentPage,
+                label: 'Issuer Copy'
+            }
+        };
+        
+        // Also update currentSignatureMap for backward compatibility
+        this.currentSignatureMap = this.linkedSignatureMaps.accounting;
+        
+        console.log('Linked SAF signature maps updated:', this.linkedSignatureMaps);
+    }
+
+    // When signature is drawn, show it in BOTH SAF targets
+    updateSignatureOverlayImage() {
+        const content = document.getElementById('pdfContent');
+        if (!content || !this.signatureImage) return;
+        
+        // For SAF documents with linked targets
+        if (this.isSafDualSigning && this.linkedTargets) {
+            this.updateLinkedSignatureOverlay();
+            return;
+        }
+        
+        // Regular single signature target (existing code)
+        const box = content.querySelector('.signature-target:not(.saf-accounting):not(.saf-issuer)');
+        if (!box) return;
+        
+        box.textContent = '';
+        const img = new Image();
+        img.src = this.signatureImage;
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '100%';
+        img.style.objectFit = 'contain';
+        box.appendChild(img);
+    }
+
+    // Update both linked SAF targets with signature
+    updateLinkedSignatureOverlay() {
+        if (!this.signatureImage || !this.linkedTargets) return;
+        
+        // Update primary target
+        this.linkedTargets.primary.innerHTML = '';
+        const img1 = new Image();
+        img1.src = this.signatureImage;
+        img1.style.maxWidth = '100%';
+        img1.style.maxHeight = '100%';
+        img1.style.objectFit = 'contain';
+        this.linkedTargets.primary.appendChild(img1);
+        
+        // Update secondary target
+        this.linkedTargets.secondary.innerHTML = '';
+        const img2 = new Image();
+        img2.src = this.signatureImage;
+        img2.style.maxWidth = '100%';
+        img2.style.maxHeight = '100%';
+        img2.style.objectFit = 'contain';
+        this.linkedTargets.secondary.appendChild(img2);
+        
+        // Update UI status
+        this.updateSafDualSignatureUI();
+    }
+
+    // Update UI for SAF dual signature
+    updateSafDualSignatureUI() {
+        const statusContainer = document.getElementById('signatureStatusContainer');
+        if (statusContainer) {
+            statusContainer.innerHTML = `
+                <div class="saf-dual-signature-status">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        <span class="fw-semibold">SAF Dual Signature Ready</span>
+                    </div>
+                    <div class="saf-signature-positions">
+                        <span class="badge bg-primary me-2">
+                            <i class="bi bi-file-earmark-text me-1"></i>Accounting Copy
+                        </span>
+                        <span class="badge bg-success">
+                            <i class="bi bi-file-earmark-text me-1"></i>Issuer Copy
+                        </span>
+                    </div>
+                    <small class="text-muted d-block mt-1">
+                        Your signature will appear in both positions
+                    </small>
+                </div>
+            `;
+        }
+    }
+
+    // Helper method for regular single signature target
+    createSingleSignatureTarget(content, doc) {
+        let map = doc.signature_map;
+        try {
+            map = (typeof map === 'string') ? JSON.parse(map) : map;
+        } catch (e) {
+            console.warn('Invalid doc.signature_map JSON', e);
+            map = null;
+        }
+
+        if (!map) return;
+
+        let box = content.querySelector('.signature-target:not(.saf-accounting):not(.saf-issuer)');
+        if (!box) {
+            box = document.createElement('div');
+            box.className = 'signature-target draggable';
+            box.title = 'Drag to move, resize handle to adjust size';
+            box.style.position = 'absolute';
+            box.style.display = 'flex';
+            box.style.alignItems = 'center';
+            box.style.justifyContent = 'center';
+            box.style.cursor = 'grab';
+            box.style.zIndex = 20;
+            content.appendChild(box);
+            this.makeDraggable(box, content);
+            this.makeResizable(box, content);
+        }
+
+        const rect = this.computeSignaturePixelRect(map);
+        if (!rect) return;
+
+        box.style.left = rect.left + 'px';
+        box.style.top = rect.top + 'px';
+        box.style.width = rect.width + 'px';
+        box.style.height = rect.height + 'px';
+        box.textContent = map.label || 'Sign here';
+
+        this.updateSignatureMap(box, content);
+
+        if (this.signatureImage) this.updateSignatureOverlayImage();
     }
 
     // Check if current user is assigned to any pending step
@@ -1603,28 +2131,109 @@ class DocumentNotificationSystem {
     }
 
     // Apply signature to PDF using PDF-LIB and return blob for upload
+    // MODIFIED: Apply signature to PDF for SAF dual signing
     async applySignatureToPdf() {
-        if (!this.pdfDoc || !this.signatureImage || !this.currentSignatureMap) return null;
+        if (!this.signatureImage) {
+            console.error('No signature image available');
+            return null;
+        }
+
         try {
-            // Use filled PDF bytes if available (for SAF documents), otherwise get from PDF.js
-            const pdfBytes = this.filledPdfBytes || await this.pdfDoc.getData();
-            const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
-            const pageIndex = (this.currentSignatureMap.page || this.currentPage) - 1; // 0-indexed
-            const page = pdfDoc.getPage(pageIndex);
-            const { x_pct, y_pct, w_pct, h_pct } = this.currentSignatureMap;
-            const pageWidth = page.getWidth();
-            const pageHeight = page.getHeight();
-            const x = x_pct * pageWidth;
-            const y = pageHeight - (y_pct * pageHeight) - (h_pct * pageHeight); // Flip Y
-            const width = w_pct * pageWidth;
-            const height = h_pct * pageHeight;
-            const img = await pdfDoc.embedPng(this.signatureImage);
-            page.drawImage(img, { x, y, width, height });
+            // Get the original PDF URL
+            const doc = this.currentDocument;
+            let pdfUrl = doc.file_path;
+            if (!pdfUrl.startsWith('/') && !pdfUrl.startsWith('http') && !pdfUrl.startsWith('../')) {
+                pdfUrl = '../uploads/' + pdfUrl;
+            }
+
+            // Fetch the original PDF
+            const response = await fetch(pdfUrl);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch PDF: ${response.status}`);
+            }
+
+            const arrayBuffer = await response.arrayBuffer();
+
+            // Validate PDF header
+            const header = new Uint8Array(arrayBuffer.slice(0, 5));
+            const headerStr = String.fromCharCode(...header);
+            if (headerStr !== '%PDF-') {
+                throw new Error('Invalid PDF header: ' + headerStr);
+            }
+
+            // Load with PDF-LIB
+            const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+            const page = pdfDoc.getPage(0); // SAF is always page 1 (0-indexed)
+
+            // Embed signature image
+            const signatureImage = await pdfDoc.embedPng(this.signatureImage);
+
+            // For SAF documents with dual signing
+            if (this.isSafDualSigning && this.linkedSignatureMaps) {
+                // Apply to Accounting position
+                const acct = this.linkedSignatureMaps.accounting;
+                const acctX = acct.x_pct * page.getWidth();
+                const acctY = page.getHeight() - (acct.y_pct * page.getHeight()) - (acct.h_pct * page.getHeight());
+                
+                page.drawImage(signatureImage, {
+                    x: acctX,
+                    y: acctY,
+                    width: acct.w_pct * page.getWidth(),
+                    height: acct.h_pct * page.getHeight()
+                });
+
+                // Apply to Issuer position
+                const issuer = this.linkedSignatureMaps.issuer;
+                const issuerX = issuer.x_pct * page.getWidth();
+                const issuerY = page.getHeight() - (issuer.y_pct * page.getHeight()) - (issuer.h_pct * page.getHeight());
+                
+                page.drawImage(signatureImage, {
+                    x: issuerX,
+                    y: issuerY,
+                    width: issuer.w_pct * page.getWidth(),
+                    height: issuer.h_pct * page.getHeight()
+                });
+
+                // Add labels if needed
+                page.drawText('Accounting Copy', {
+                    x: acctX,
+                    y: acctY - 10,
+                    size: 8,
+                    color: PDFLib.rgb(0.3, 0.3, 0.3)
+                });
+
+                page.drawText('Issuer Copy', {
+                    x: issuerX,
+                    y: issuerY - 10,
+                    size: 8,
+                    color: PDFLib.rgb(0.3, 0.3, 0.3)
+                });
+
+            } else {
+                // Regular single signature
+                const pageIndex = (this.currentSignatureMap.page || this.currentPage) - 1;
+                const page = pdfDoc.getPage(pageIndex);
+                const { x_pct, y_pct, w_pct, h_pct } = this.currentSignatureMap;
+                const pageWidth = page.getWidth();
+                const pageHeight = page.getHeight();
+                const x = x_pct * pageWidth;
+                const y = pageHeight - (y_pct * pageHeight) - (h_pct * pageHeight);
+                const width = w_pct * pageWidth;
+                const height = h_pct * pageHeight;
+
+                page.drawImage(signatureImage, { x, y, width, height });
+            }
+
             const modifiedPdfBytes = await pdfDoc.save();
-            // Return blob for upload
             return new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+
         } catch (error) {
-            console.error('Error applying signature:', error);
+            console.error('Error in applySignatureToPdf:', error);
+            this.showToast({
+                type: 'error',
+                title: 'Signature Error',
+                message: 'Failed to apply signature to PDF. Please try again.'
+            });
             throw error;
         }
     }
@@ -1692,7 +2301,7 @@ class DocumentNotificationSystem {
                     if (fieldNames.includes(field)) {
                         const isChecked = data[field] && data[field] !== '';
                         console.log(`Processing checkbox ${field}, data value: "${data[field]}", should be checked: ${isChecked}`);
-                        
+
                         // Try checkbox field first
                         try {
                             const checkBox = form.getCheckBox(field);
@@ -1762,106 +2371,93 @@ class DocumentNotificationSystem {
     }
 
     // Sign document
+    // MODIFIED: Sign document with SAF dual signature support
     async signDocument(docId) {
-        if (!confirm('Are you sure you want to sign and approve this document?')) return;
+        const doc = this.currentDocument && this.currentDocument.id === docId
+            ? this.currentDocument
+            : this.documents.find(d => d.id === docId);
 
-        try {
-            // Apply signature to PDF if available
-            const signedPdfBlob = await this.applySignatureToPdf();
+        // Custom message for SAF dual signing
+        const isSaf = doc?.doc_type === 'saf';
+        const message = isSaf 
+            ? 'Your signature will be placed on both Accounting and Issuer copies. Proceed?'
+            : 'Are you sure you want to sign and approve this document?';
 
-            // Find step id: prefer currentDocument pending step for accuracy
-            const doc = this.currentDocument && this.currentDocument.id === docId
-                ? this.currentDocument
-                : this.documents.find(d => d.id === docId);
-            const pendingStep = doc?.workflow?.find(s => s.status === 'pending');
-            const stepId = pendingStep?.id || undefined;
-
-            // Prepare form data for file upload
-            const formData = new FormData();
-            formData.append('action', 'sign');
-            formData.append('document_id', docId);
-            formData.append('step_id', stepId);
-            // Note: signature_image is not sent to avoid saving it on the server
-            if (this.currentSignatureMap) formData.append('signature_map', JSON.stringify(this.currentSignatureMap));
-            if (signedPdfBlob) formData.append('signed_pdf', signedPdfBlob, 'signed_document.pdf');
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000);  // 30-second timeout
-
-            const response = await fetch('../api/documents.php', {
-                method: 'POST',
-                body: formData,  // Use FormData for file upload
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-            const result = await response.json();
-
-            if (result.success) {
-                this.showToast({
-                    type: 'success',
-                    title: 'Document Signed',
-                    message: 'Document has been successfully signed and approved. The updated file has been saved and passed to the next signer.'
-                });
-
-                // Clear signature from memory after successful signing
-                this.signatureImage = null;
-                this.currentSignatureMap = null;
-
-                // Refresh document data from server to get updated dates/names
+        showConfirmModal(
+            'Sign Document',
+            message,
+            async () => {
                 try {
-                    const response = await fetch(`../api/documents.php?id=${docId}`, {
-                        method: 'GET',
-                        headers: { 'Content-Type': 'application/json' }
+                    // Apply signature to PDF
+                    const signedPdfBlob = await this.applySignatureToPdf();
+
+                    // Find step id
+                    const pendingStep = doc?.workflow?.find(s => s.status === 'pending');
+                    const stepId = pendingStep?.id || undefined;
+
+                    // Prepare form data
+                    const formData = new FormData();
+                    formData.append('action', 'sign');
+                    formData.append('document_id', docId);
+                    formData.append('step_id', stepId);
+                    
+                    // For SAF, send both signature positions
+                    if (isSaf && this.linkedSignatureMaps) {
+                        formData.append('signature_map', JSON.stringify(this.linkedSignatureMaps));
+                        formData.append('dual_signature', 'true');
+                    } else if (this.currentSignatureMap) {
+                        formData.append('signature_map', JSON.stringify(this.currentSignatureMap));
+                    }
+                    
+                    if (signedPdfBlob) {
+                        formData.append('signed_pdf', signedPdfBlob, 'signed_document.pdf');
+                    }
+
+                    const response = await fetch('../api/documents.php', {
+                        method: 'POST',
+                        body: formData
                     });
-                    if (response.ok) {
-                        const freshDoc = await response.json();
-                        this.currentDocument = freshDoc;
-                        doc = freshDoc; // Use fresh data for rendering
-                        this.filledPdfBytes = null; // Clear filled PDF so it gets re-filled with new data
+                    
+                    const result = await response.json();
+
+                    if (result.success) {
+                        const successMessage = isSaf
+                            ? 'Signature placed on both Accounting and Issuer copies successfully.'
+                            : 'Document has been successfully signed and approved.';
+                        
+                        this.showToast({
+                            type: 'success',
+                            title: isSaf ? 'SAF Dual Signed' : 'Document Signed',
+                            message: successMessage
+                        });
+
+                        // Clear signature data
+                        this.signatureImage = null;
+                        this.currentSignatureMap = null;
+                        this.linkedSignatureMaps = null;
+                        this.linkedTargets = null;
+                        this.isSafDualSigning = false;
+
+                        // Return to dashboard
+                        setTimeout(() => {
+                            this.goBack();
+                            this.loadDocuments();
+                        }, 1200);
+                    } else {
+                        throw new Error(result.message || 'Failed to sign document');
                     }
-                } catch (refreshError) {
-                    console.warn('Could not refresh document data after signing:', refreshError);
+                } catch (error) {
+                    console.error('Error signing document:', error);
+                    this.showToast({
+                        type: 'error',
+                        title: 'Error',
+                        message: 'Failed to sign document. Please try again.'
+                    });
                 }
-
-                // Update local document status to 'approved' and step to 'completed'
-                if (doc) {
-                    doc.status = 'approved';
-                    if (pendingStep) {
-                        pendingStep.status = 'completed';
-                        pendingStep.acted_at = new Date().toISOString();
-                        pendingStep.signed_at = new Date().toISOString();
-                    }
-                }
-
-                // Re-render the detail view to show updated status and signatures (do NOT go back to dashboard)
-                this.renderDocumentDetail(doc);
-
-                // Refresh data in background for dashboard (but stay on current view)
-                await this.loadDocuments();
-                // Do not call renderDocuments() or goBack() here
-            } else {
-                throw new Error(result.message || 'Failed to sign document');
-            }
-        } catch (error) {
-            if (error.name === 'AbortError') {
-                this.showToast({
-                    type: 'error',
-                    title: 'Timeout',
-                    message: 'Signing timed out. Please refresh and try again.'
-                });
-            } else {
-                console.error('Error signing document:', error);
-                this.showToast({
-                    type: 'error',
-                    title: 'Error',
-                    message: 'Failed to sign document. Please try again.'
-                });
-            }
-        }
-
-        if (window.addAuditLog) {
-            window.addAuditLog('DOCUMENT_SIGNED', 'Document Management', `Signed document ${docId}`, docId, 'Document', 'INFO');
-        }
+            },
+            isSaf ? 'Sign Both Copies' : 'Sign & Approve',
+            'btn-success'
+        );
     }
 
     async rejectDocument(docId, reason) {

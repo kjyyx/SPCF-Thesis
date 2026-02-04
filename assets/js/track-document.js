@@ -27,6 +27,11 @@ function getDocumentTypeDisplay(docType) {
     return typeMap[docType] || docType || 'Document';
 }
 
+// Standardized placeholder for all documents
+function getDocumentPlaceholder(docType) {
+    return '[Name / Position]';
+}
+
 // Toast notification function
 function showToast(message, type = 'info', title = null) {
     if (window.ToastManager) {
@@ -1000,7 +1005,7 @@ function getLocationBadgeClass(location) {
         case 'oic osa': return 'location-student-affairs';
         case 'student council':
         case 'ssc':
-        case 'ssc president': return 'location-student-council';
+        case 'Supreme Student Council President': return 'location-student-council';
         case 'dean\'s office':
         case 'college dean':
         case 'dean': return 'location-deans-office';

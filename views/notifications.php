@@ -20,9 +20,9 @@ if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '
 
 // Define constants for better maintainability
 const ALLOWED_ROLES = ['employee'];
-const ALLOWED_STUDENT_POSITIONS = ['SSC President', 'CSC President'];
+const ALLOWED_STUDENT_POSITIONS = ['Supreme Student Council President', 'College Student Council President'];
 
-// Allow employees and SSC President students only
+// Allow employees and student council president students only
 $userHasAccess = in_array($currentUser['role'], ALLOWED_ROLES) ||
     ($currentUser['role'] === 'student' && in_array($currentUser['position'], ALLOWED_STUDENT_POSITIONS));
 
@@ -842,6 +842,25 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                         <button type="submit" class="btn btn-danger">Reject</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Confirmation Modal -->
+    <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmModalLabel">Confirm Action</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmModalMessage">Are you sure you want to proceed?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmModalBtn">Confirm</button>
+                </div>
             </div>
         </div>
     </div>

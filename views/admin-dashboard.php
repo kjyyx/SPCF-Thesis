@@ -823,17 +823,13 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                             <label for="employeePosition" class="form-label">Employee Position</label>
                                             <select class="form-select" id="employeePosition" required>
                                                 <option value="">Select Position</option>
-                                                <option value="Student Services">Student Services</option>
-                                                <option value="Office of Student Affairs">Office of Student Affairs
-                                                </option>
-                                                <option value="Center for Performing Arts Organization">Center for
-                                                    Performing Arts Organization</option>
-                                                <option value="Academic Affairs">Academic Affairs</option>
-                                                <option value="Physical Plant and Facilities Office">Physical Plant and
-                                                    Facilities Office</option>
-                                                <option value="Accounting Office">Accounting Office</option>
-                                                <option value="Department Dean">Department Dean</option>
-                                                <option value="CSC Adviser">CSC Adviser</option>
+                                                <option value="College Dean">College Dean</option>
+                                                <option value="College Student Council Adviser">College Student Council Adviser</option>
+                                                <option value="Officer-in-Charge, Office of Student Affairs (OIC-OSA)">Officer-in-Charge, Office of Student Affairs (OIC-OSA)</option>
+                                                <option value="Center for Performing Arts Organization (CPAO)">Center for Performing Arts Organization (CPAO)</option>
+                                                <option value="Vice President for Academic Affairs (VPAA)">Vice President for Academic Affairs (VPAA)</option>
+                                                <option value="Executive Vice-President / Student Services (EVP)">Executive Vice-President / Student Services (EVP)</option>
+                                                <option value="Accounting Personnel (AP)">Accounting Personnel (AP)</option>
                                             </select>
                                         </div>
                                     </div>
@@ -842,20 +838,15 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                             <label for="employeeDepartment" class="form-label">Department</label>
                                             <select class="form-select" id="employeeDepartment" required>
                                                 <option value="">Select Department</option>
-                                                <option value="Supreme Student Council">Supreme Student Council
-                                                </option>
+                                                <option value="Supreme Student Council (SSC)">Supreme Student Council (SSC)</option>
                                                 <option value="SPCF Miranda">SPCF Miranda</option>
-                                                <option value="College of Engineering">College of Engineering
-                                                </option>
+                                                <option value="College of Engineering">College of Engineering</option>
                                                 <option value="College of Nursing">College of Nursing</option>
                                                 <option value="College of Business">College of Business</option>
                                                 <option value="College of Criminology">College of Criminology</option>
-                                                <option value="College of Computing and Information Sciences">College of
-                                                    Computing and Information Sciences</option>
-                                                <option value="College of Arts, Social Sciences and Education">College
-                                                    of Arts, Social Sciences and Education</option>
-                                                <option value="College of Hospitality and Tourism Management">College of
-                                                    Hospitality and Tourism Management</option>
+                                                <option value="College of Computing and Information Sciences">College of Computing and Information Sciences</option>
+                                                <option value="College of Arts, Social Sciences and Education">College of Arts, Social Sciences and Education</option>
+                                                <option value="College of Hospitality and Tourism Management">College of Hospitality and Tourism Management</option>
                                             </select>
                                         </div>
                                     </div>
@@ -869,20 +860,15 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                             <label for="studentDepartment" class="form-label">Department/College</label>
                                             <select class="form-select" id="studentDepartment" required>
                                                 <option value="">Select Department</option>
-                                                <option value="Supreme Student Council (SSC)">Supreme Student Council
-                                                    (SSC)</option>
+                                                <option value="Supreme Student Council (SSC)">Supreme Student Council (SSC)</option>
                                                 <option value="SPCF Miranda">SPCF Miranda</option>
-                                                <option value="College of Engineering (COE)">College of Engineering
-                                                    (COE)</option>
+                                                <option value="College of Engineering">College of Engineering</option>
                                                 <option value="College of Nursing">College of Nursing</option>
                                                 <option value="College of Business">College of Business</option>
                                                 <option value="College of Criminology">College of Criminology</option>
-                                                <option value="College of Computing and Information Sciences">College of
-                                                    Computing and Information Sciences</option>
-                                                <option value="College of Arts, Social Sciences and Education">College
-                                                    of Arts, Social Sciences and Education</option>
-                                                <option value="College of Hospitality and Tourism Management">College of
-                                                    Hospitality and Tourism Management</option>
+                                                <option value="College of Computing and Information Sciences">College of Computing and Information Sciences</option>
+                                                <option value="College of Arts, Social Sciences, and Education">College of Arts, Social Sciences, and Education</option>
+                                                <option value="College of Hospitality and Tourism Management">College of Hospitality and Tourism Management</option>
                                             </select>
                                         </div>
                                     </div>
@@ -892,14 +878,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                                 Position</label>
                                             <select class="form-select" id="studentPosition">
                                                 <option value="">Select Position (Optional)</option>
-                                                <option value="Student Council President">Student Council President
-                                                </option>
-                                                <option value="Student Council Vice President">Student Council Vice
-                                                    President</option>
-                                                <option value="Student Council Secretary">Student Council Secretary
-                                                </option>
-                                                <option value="Student Council Treasurer">Student Council Treasurer
-                                                </option>
+                                                <option value="College Student Council President">College Student Council President</option>
+                                                <option value="Supreme Student Council President">Supreme Student Council President</option>
                                             </select>
                                         </div>
                                     </div>

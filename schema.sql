@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS events (
 );
 
 -- Add venue column to events table
-ALTER TABLE events ADD COLUMN venue VARCHAR(200) NULL AFTER description;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS venue VARCHAR(200) NULL AFTER description;
 
 -- Core document record (submitted by students)
 CREATE TABLE IF NOT EXISTS documents (
@@ -140,15 +140,15 @@ CREATE TABLE IF NOT EXISTS documents (
 );
 
 -- Add new columns for project proposals
-ALTER TABLE documents ADD COLUMN venue VARCHAR(200) NULL AFTER description;
-ALTER TABLE documents ADD COLUMN schedule_summary TEXT NULL AFTER venue;
-ALTER TABLE documents ADD COLUMN earliest_start_time DATETIME NULL AFTER schedule_summary;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS venue VARCHAR(200) NULL AFTER description;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS schedule_summary TEXT NULL AFTER venue;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS earliest_start_time DATETIME NULL AFTER schedule_summary;
 
 -- Add data column for storing document data as JSON
-ALTER TABLE documents ADD COLUMN data JSON NULL AFTER earliest_start_time;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS data JSON NULL AFTER earliest_start_time;
 
 -- Add date column for due dates
-ALTER TABLE documents ADD COLUMN date DATE NULL AFTER data;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS date DATE NULL AFTER data;
 
 -- SAF (Student Allocated Funds) tables
 CREATE TABLE IF NOT EXISTS saf_balances (
@@ -326,3 +326,98 @@ ALTER TABLE employees ADD COLUMN IF NOT EXISTS 2fa_secret VARCHAR(32) DEFAULT NU
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS 2fa_enabled TINYINT(1) NOT NULL DEFAULT 0;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS 2fa_secret VARCHAR(32) DEFAULT NULL;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS 2fa_enabled TINYINT(1) NOT NULL DEFAULT 0;
+
+-- Database Cleanup and Standardization Updates
+-- Update existing units to standardize names (case-insensitive matching)
+UPDATE units SET name = 'College of Arts, Social Sciences and Education' WHERE LOWER(name) LIKE '%arts%social%sciences%education%';
+UPDATE units SET name = 'College of Business' WHERE LOWER(name) LIKE '%business%';
+UPDATE units SET name = 'College of Computing and Information Sciences' WHERE LOWER(name) LIKE '%computing%information%sciences%';
+UPDATE units SET name = 'College of Criminology' WHERE LOWER(name) LIKE '%criminology%';
+UPDATE units SET name = 'College of Engineering' WHERE LOWER(name) LIKE '%engineering%';
+UPDATE units SET name = 'College of Hospitality and Tourism Management' WHERE LOWER(name) LIKE '%hospitality%tourism%management%';
+UPDATE units SET name = 'College of Nursing' WHERE LOWER(name) LIKE '%nursing%';
+UPDATE units SET name = 'SPCF Miranda' WHERE LOWER(name) LIKE '%miranda%';
+UPDATE units SET name = 'Supreme Student Council (SSC)' WHERE LOWER(name) LIKE '%supreme%student%council%';
+
+-- Remove duplicates (if any) by keeping the first occurrence
+DELETE u1 FROM units u1
+INNER JOIN units u2 
+WHERE u1.id > u2.id AND u1.name = u2.name AND u1.type = u2.type;
+
+-- Insert missing colleges (ignore if exists)
+INSERT IGNORE INTO units (name, code, type) VALUES
+('College of Arts, Social Sciences and Education', 'CASSE', 'college'),
+('College of Business', 'COB', 'college'),
+('College of Computing and Information Sciences', 'CCIS', 'college'),
+('College of Criminology', 'COC', 'college'),
+('College of Engineering', 'COE', 'college'),
+('College of Hospitality and Tourism Management', 'CHTM', 'college'),
+('College of Nursing', 'CON', 'college'),
+('SPCF Miranda', 'MIRANDA', 'college'),
+('Supreme Student Council (SSC)', 'SSC', 'college');
+
+-- Ensure offices are present (from your implied list, e.g., OIC-OSA, etc.)
+INSERT IGNORE INTO units (name, code, type) VALUES
+('Office of Student Affairs', 'OSA', 'office'),
+('Center for Performing Arts Organization', 'CPAO', 'office'),
+('Academic Affairs', 'ACAD', 'office'),
+('Physical Plant and Facilities Office', 'PPFO', 'office'),
+('Student Services', 'STUD_SERV', 'office'),
+('Accounting Office', 'ACCT', 'office');
+
+-- Standardize position names in employees and students tables
+UPDATE employees SET position = 'CSC Adviser' WHERE LOWER(position) LIKE '%csc%adviser%';
+UPDATE employees SET position = 'College Dean' WHERE LOWER(position) LIKE '%college%dean%';
+UPDATE employees SET position = 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)' WHERE LOWER(position) LIKE '%oic%osa%';
+UPDATE employees SET position = 'Center for Performing Arts Organization (CPAO)' WHERE LOWER(position) LIKE '%cpao%';
+UPDATE employees SET position = 'Vice President for Academic Affairs (VPAA)' WHERE LOWER(position) LIKE '%vpaa%';
+UPDATE employees SET position = 'Physical Plant and Facilities Office (PPFO)' WHERE LOWER(position) LIKE '%ppfo%';
+UPDATE employees SET position = 'Executive Vice-President/Student Services (EVP)' WHERE LOWER(position) LIKE '%evp%';
+UPDATE employees SET position = 'Accounting Personnel (AP)' WHERE LOWER(position) LIKE '%acp%' OR LOWER(position) LIKE '%accounting%';
+
+UPDATE students SET position = 'College Student Council President' WHERE LOWER(position) LIKE '%csc%president%';
+UPDATE students SET position = 'Supreme Student Council President' WHERE LOWER(position) LIKE '%ssc%president%';
+
+-- Assign/update roles per department (assuming departments are set; adjust IDs as needed)
+-- For each college (exclude SSC), ensure College Student Council President (student), CSC Adviser (employee), College Dean (employee)
+-- Example for College of Engineering (repeat for others, replacing department name)
+UPDATE students SET position = 'College Student Council President' WHERE department = 'College of Engineering' AND position IS NULL LIMIT 1;
+INSERT IGNORE INTO employees (id, first_name, last_name, email, password, office, position, department) 
+VALUES ('EMP_CSC_ADV_COE', 'Adviser', 'Engineering', 'adviser.coe@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Academic Affairs', 'CSC Adviser', 'College of Engineering');
+INSERT IGNORE INTO employees (id, first_name, last_name, email, password, office, position, department) 
+VALUES ('EMP_DEAN_COE', 'Dean', 'Engineering', 'dean.coe@university.edu', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Academic Affairs', 'College Dean', 'College of Engineering');
+
+-- For SSC, ensure only Supreme Student Council President (student)
+UPDATE students SET position = 'Supreme Student Council President' WHERE department = 'Supreme Student Council (SSC)' AND position IS NULL LIMIT 1;
+
+-- Remove worthless accounts: Delete users not matching standardized departments/positions or with placeholder data
+DELETE FROM students WHERE department NOT IN ('College of Arts, Social Sciences and Education', 'College of Business', 'College of Computing and Information Sciences', 'College of Criminology', 'College of Engineering', 'College of Hospitality and Tourism Management', 'College of Nursing', 'SPCF Miranda', 'Supreme Student Council (SSC)') OR position NOT IN ('College Student Council President', 'Supreme Student Council President');
+DELETE FROM employees WHERE position NOT IN ('CSC Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)', 'Center for Performing Arts Organization (CPAO)', 'Vice President for Academic Affairs (VPAA)', 'Physical Plant and Facilities Office (PPFO)', 'Executive Vice-President/Student Services (EVP)', 'Accounting Personnel (AP)') OR (department IS NOT NULL AND department NOT IN ('College of Arts, Social Sciences and Education', 'College of Business', 'College of Computing and Information Sciences', 'College of Criminology', 'College of Engineering', 'College of Hospitality and Tourism Management', 'College of Nursing', 'SPCF Miranda'));
+
+-- Example: Update/insert steps for Project Proposal (repeat for other types: Communication Letter, SAF, Facility Request)
+-- Note: These are examples; adjust document_id dynamically in code if needed
+-- INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) 
+-- VALUES (1, 1, 'College Student Council President', NULL, 'STU_CSC_PRES', 'pending')  -- Document Creator
+-- ON DUPLICATE KEY UPDATE name = VALUES(name), assigned_to_student_id = VALUES(assigned_to_student_id);
+
+-- INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id) 
+-- VALUES (1, 2, 'CSC Adviser', 'EMP_CSC_ADV', 'pending'),
+--        (1, 3, 'Supreme Student Council President', NULL, 'STU_SSC_PRES', 'pending'),
+--        (1, 4, 'College Dean', 'EMP_DEAN', 'pending'),
+--        (1, 5, 'OIC-OSA', 'EMP_OIC_OSA', 'pending'),
+--        (1, 6, 'CPAO', 'EMP_CPAO', 'pending'),
+--        (1, 7, 'VPAA', 'EMP_VPAA', 'pending'),
+--        (1, 8, 'EVP', 'EMP_EVP', 'pending')
+-- ON DUPLICATE KEY UPDATE assigned_to_employee_id = VALUES(assigned_to_employee_id);
+
+-- Similar inserts for other document types, adjusting step_order and names per your hierarchy.
+
+-- Update position names to match expected assignments
+UPDATE positions SET name = 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)' WHERE id = 'POS013';
+UPDATE positions SET name = 'Vice President for Academic Affairs (VPAA)' WHERE id = 'POS015';
+UPDATE positions SET name = 'Accounting Personnel (AP)' WHERE id = 'POS016';
+
+-- Add additional positions for complete role assignments
+INSERT IGNORE INTO positions (id, name, unit_id) VALUES
+('POS017', 'Executive Vice-President/Student Services (EVP)', 'UNT002'),
+('POS018', 'Dean of Miranda', 'UNT002');

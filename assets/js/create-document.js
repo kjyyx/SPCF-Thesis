@@ -614,14 +614,20 @@ function generateSAFHTML(d) {
     if (d.c1 === '✓') selectedFunds.push('ssc');
     if (d.c2 === '✓') selectedFunds.push('csc');
 
-    const fundsHtml = selectedFunds.length > 0 ? `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #000;padding:6px">Fund/s</th><th style="border:1px solid #000;padding:6px">Available</th><th style="border:1px solid #000;padding:6px">Requested</th><th style="border:1px solid #000;padding:6px">Balance</th></tr></thead><tbody>${selectedFunds.map(code => {
-        const info = fundMap[code];
-        const label = info.label;
-        const available = d[info.avail] || 0;
-        const requested = d[info.req] || 0;
-        const bal = available - requested;
-        return `<tr><td style="border:1px solid #000;padding:6px">${label}</td><td style="border:1px solid #000;padding:6px;text-align:right">₱${available.toFixed(2)}</td><td style="border:1px solid #000;padding:6px;text-align:right">₱${requested.toFixed(2)}</td><td style="border:1px solid #000;padding:6px;text-align:right;color:${bal < 0 ? '#dc3545' : '#000'}">₱${bal.toFixed(2)}</td></tr>`;
-    }).join('')}</tbody></table>` : '<div class="text-muted">No funds selected</div>';
+    // Only show the table if at least one fund is selected, otherwise show a message
+    let fundsHtml = '';
+    if (selectedFunds.length > 0) {
+        fundsHtml = `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #000;padding:6px">Fund/s</th><th style="border:1px solid #000;padding:6px">Available</th><th style="border:1px solid #000;padding:6px">Requested</th><th style="border:1px solid #000;padding:6px">Balance</th></tr></thead><tbody>${selectedFunds.map(code => {
+            const info = fundMap[code];
+            const label = info.label;
+            const available = d[info.avail] || 0;
+            const requested = d[info.req] || 0;
+            const bal = available - requested;
+            return `<tr><td style="border:1px solid #000;padding:6px">${label}</td><td style="border:1px solid #000;padding:6px;text-align:right">₱${available.toFixed(2)}</td><td style="border:1px solid #000;padding:6px;text-align:right">₱${requested.toFixed(2)}</td><td style="border:1px solid #000;padding:6px;text-align:right;color:${bal < 0 ? '#dc3545' : '#000'}">₱${bal.toFixed(2)}</td></tr>`;
+        }).join('')}</tbody></table>`;
+    } else {
+        fundsHtml = '<div class="text-muted">No funds selected</div>';
+    }
 
     // Signature row HTML
     const signatureRow = `<div style="margin-top:12px"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #000;padding:8px">Requested by</th><th style="border:1px solid #000;padding:8px">Noted by</th><th style="border:1px solid #000;padding:8px">Recommended by</th><th style="border:1px solid #000;padding:8px">Approved by</th><th style="border:1px solid #000;padding:8px">Released by</th></tr></thead><tbody><tr><td style="border:1px solid #000;padding:18px;text-align:center;vertical-align:bottom"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.reqByName || 'Requester')}</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-size:.95rem">${escapeHtml(d.notedBy || 'Noted')}</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.recBy || 'Recommender')}</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.appBy || 'Approver')}</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.relBy || 'Accounting')}</div></td></tr><tr><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.notedDate || '______')}</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.notedDate || '______')}</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.recDate || '______')}</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.appDate || '______')}</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.releaseDate || '______')}</td></tr></tbody></table></div>`;
@@ -1119,71 +1125,87 @@ function clearCurrentForm() {
 
     if (currentType === 'proposal') {
         // Clear proposal form
-        document.getElementById('proposal-title').value = '';
-        document.getElementById('proposal-objective').value = '';
-        document.getElementById('proposal-beneficiaries').value = '';
-        document.getElementById('proposal-venue').value = '';
-        document.getElementById('proposal-date').value = '';
-        document.getElementById('proposal-time').value = '';
-        document.getElementById('proposal-budget').value = '';
-        document.getElementById('proposal-program').value = '';
+        const title = document.getElementById('proposal-title');
+        if (title) title.value = '';
+        const objective = document.getElementById('proposal-objective');
+        if (objective) objective.value = '';
+        const beneficiaries = document.getElementById('proposal-beneficiaries');
+        if (beneficiaries) beneficiaries.value = '';
+        const venue = document.getElementById('proposal-venue');
+        if (venue) venue.value = '';
+        const date = document.getElementById('proposal-date');
+        if (date) date.value = '';
+        const time = document.getElementById('proposal-time');
+        if (time) time.value = '';
+        const budget = document.getElementById('proposal-budget');
+        if (budget) budget.value = '';
+        const program = document.getElementById('proposal-program');
+        if (program) program.value = '';
 
         // Clear budget table rows
         const budgetBody = document.getElementById('budget-body-prop');
-        if (budgetBody) {
-            budgetBody.innerHTML = '';
-        }
+        if (budgetBody) budgetBody.innerHTML = '';
 
         // Clear program rows
         const programRows = document.getElementById('program-rows-prop');
-        if (programRows) {
-            programRows.innerHTML = '';
-        }
+        if (programRows) programRows.innerHTML = '';
 
     } else if (currentType === 'saf') {
         // Clear SAF form
-        document.getElementById('saf-dept').value = '';
-        document.getElementById('saf-activity').value = '';
-        document.getElementById('saf-date').value = '';
-        document.getElementById('saf-venue').value = '';
-        document.getElementById('saf-objective').value = '';
-        document.getElementById('saf-beneficiaries').value = '';
+        const dept = document.getElementById('saf-dept');
+        if (dept) dept.value = '';
+        const activity = document.getElementById('saf-activity');
+        if (activity) activity.value = '';
+        const date = document.getElementById('saf-date');
+        if (date) date.value = '';
+        const venue = document.getElementById('saf-venue');
+        if (venue) venue.value = '';
+        const objective = document.getElementById('saf-objective');
+        if (objective) objective.value = '';
+        const beneficiaries = document.getElementById('saf-beneficiaries');
+        if (beneficiaries) beneficiaries.value = '';
 
         // Clear SAF category checkboxes
         document.querySelectorAll('.saf-cat').forEach(cb => cb.checked = false);
 
         // Clear SAF amounts
-        document.getElementById('req-ssc').value = '';
-        document.getElementById('req-csc').value = '';
+        const reqSSC = document.getElementById('req-ssc');
+        if (reqSSC) reqSSC.value = '';
+        const reqCSC = document.getElementById('req-csc');
+        if (reqCSC) reqCSC.value = '';
 
         // Reset SAF locks
         updateSAFLocks();
 
     } else if (currentType === 'facility') {
         // Clear facility form
-        document.getElementById('facility-activity').value = '';
-        document.getElementById('facility-date').value = '';
-        document.getElementById('facility-time').value = '';
-        document.getElementById('facility-venue').value = '';
-        document.getElementById('facility-purpose').value = '';
+        const activity = document.getElementById('facility-activity');
+        if (activity) activity.value = '';
+        const date = document.getElementById('facility-date');
+        if (date) date.value = '';
+        const time = document.getElementById('facility-time');
+        if (time) time.value = '';
+        const venue = document.getElementById('facility-venue');
+        if (venue) venue.value = '';
+        const purpose = document.getElementById('facility-purpose');
+        if (purpose) purpose.value = '';
 
     } else if (currentType === 'communication') {
         // Clear communication form
-        document.getElementById('comm-subject').value = '';
-        document.getElementById('comm-recipient').value = '';
-        document.getElementById('comm-body').value = '';
+        const subject = document.getElementById('comm-subject');
+        if (subject) subject.value = '';
+        const recipient = document.getElementById('comm-recipient');
+        if (recipient) recipient.value = '';
+        const body = document.getElementById('comm-body');
+        if (body) body.value = '';
 
         // Clear sender list
         const senderList = document.getElementById('sender-list');
-        if (senderList) {
-            senderList.innerHTML = '';
-        }
+        if (senderList) senderList.innerHTML = '';
 
         // Clear recipient list
         const recipientList = document.getElementById('recipient-list');
-        if (recipientList) {
-            recipientList.innerHTML = '';
-        }
+        if (recipientList) recipientList.innerHTML = '';
     }
 
     // Trigger document regeneration to update preview

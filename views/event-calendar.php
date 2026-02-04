@@ -13,6 +13,8 @@ if (!$currentUser) {
     exit();
 }
 
+error_log("Current position: " . $currentUser['position']);
+
 // Restrict Accounting employees to only SAF access
 if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
     header('Location: saf.php');
@@ -143,7 +145,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                         <span>SAF</span>
                                     </button>
                                     
-                                                                        <?php if ($currentUser['position'] === 'SSC President' || $currentUser['position'] === 'CSC President'): ?>
+                                                                        <?php if ($currentUser['position'] === 'Supreme Student Council President' || $currentUser['position'] === 'College Student Council President'): ?>
                                         <button class="action-compact-btn" onclick="openPendingApprovals()" id="approvalsBtn"
                                             title="View Pending Approvals">
                                             <i class="bi bi-clipboard-check"></i>

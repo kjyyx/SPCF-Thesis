@@ -21,7 +21,7 @@ try {
     $notifications = [];
     $unreadCount = 0;
 
-    if ($currentUser['role'] === 'employee' || ($currentUser['role'] === 'student' && ($currentUser['position'] === 'SSC President' || $currentUser['position'] === 'CSC President'))) {
+    if ($currentUser['role'] === 'employee' || ($currentUser['role'] === 'student' && ($currentUser['position'] === 'Supreme Student Council President' || $currentUser['position'] === 'College Student Council President'))) {
         // Pending documents to sign
         $stmt = $db->prepare("
             SELECT d.id, d.title, 'pending_document' as type, d.uploaded_at as timestamp

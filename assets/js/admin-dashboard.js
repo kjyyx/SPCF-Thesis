@@ -763,8 +763,23 @@ function editUser(userId) {
         const employeeDepartment = document.getElementById('employeeDepartment');
         const employeePosition = document.getElementById('employeePosition');
         if (employeeOffice) employeeOffice.value = user.office || '';
-        if (employeeDepartment) employeeDepartment.value = user.department || '';
-        if (employeePosition) employeePosition.value = user.position || '';
+        
+        // Handle position mapping for display
+        let displayPosition = user.position;
+        let displayDepartment = user.department;
+        if (user.position && user.position.startsWith('Dean of ')) {
+            const code = user.position.split(' ')[2];
+            displayPosition = 'College Dean';
+            displayDepartment = CODE_TO_DEPARTMENT[code] || user.department;
+        } else if (user.position === 'College Student Council Adviser') {
+            displayPosition = 'College Student Council Adviser';
+            displayDepartment = user.department;
+        }
+        
+        if (employeeDepartment) employeeDepartment.value = displayDepartment || '';
+        if (employeePosition) employeePosition.value = displayPosition || '';
+        // Trigger change event to populate department dropdown
+        document.getElementById('employeePosition').dispatchEvent(new Event('change'));
     } else if (user.role === 'student') {
         const studentDepartment = document.getElementById('studentDepartment');
         const studentPosition = document.getElementById('studentPosition');
@@ -822,39 +837,58 @@ function setRoleFieldConstraints(role) {
 
 // Department lists used in multiple places
 const DEPARTMENTS_FULL = [
-    'Supreme Student Council',
+    'Supreme Student Council (SSC)',
     'SPCF Miranda',
     'College of Engineering',
     'College of Nursing',
     'College of Business',
     'College of Criminology',
     'College of Computing and Information Sciences',
-    'College of Arts, Social Sciences, and Education',
+    'College of Arts, Social Sciences and Education',
     'College of Hospitality and Tourism Management'
 ];
 
+// Colleges for dean and adviser positions
+const COLLEGES = [
+    'SPCF Miranda',
+    'College of Engineering',
+    'College of Nursing',
+    'College of Business',
+    'College of Criminology',
+    'College of Computing and Information Sciences',
+    'College of Arts, Social Sciences and Education',
+    'College of Hospitality and Tourism Management'
+];
+
+// Department code mappings
+const DEPARTMENT_CODES = {
+    'College of Business': 'COB',
+    'College of Engineering': 'COE',
+    'College of Criminology': 'COC',
+    'College of Arts, Social Sciences and Education': 'COA',
+    'College of Nursing': 'CON',
+    'College of Hospitality and Tourism Management': 'CHTM',
+    'College of Computing and Information Sciences': 'COCS',
+    'SPCF Miranda': 'MIRANDA',
+    'Supreme Student Council (SSC)': 'SSC'
+};
+
+const CODE_TO_DEPARTMENT = Object.fromEntries(Object.entries(DEPARTMENT_CODES).map(([k, v]) => [v, k]));
+
 // Employee roles that require department dropdown
 const EMPLOYEE_ROLES_WITH_DEPT = [
-    'Student Services',
-    'Office of Student Affairs',
-    'Center for Performing Arts Organization',
-    'Academic Affairs',
-    'Physical Plant and Facilities Office',
-    'Accounting Office',
-    'Department Dean',
-    'CSC Adviser'
+    'College Dean',
+    'College Student Council Adviser'
 ];
 
 // Helper to populate a select with department options
 function populateDepartmentSelect(selectEl, options) {
     if (!selectEl) return;
-    selectEl.innerHTML = '<option value="">Select Department</option>';
+    let html = '<option value="">Select Department</option>';
     options.forEach(opt => {
-        const o = document.createElement('option');
-        o.value = opt;
-        o.textContent = opt;
-        selectEl.appendChild(o);
+        html += `<option value="${opt}">${opt}</option>`;
     });
+    selectEl.innerHTML = html;
 }
 
 // Listen for employeePosition changes to toggle employeeDepartment
@@ -862,8 +896,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const employeePosition = document.getElementById('employeePosition');
     const employeeDepartment = document.getElementById('employeeDepartment');
     if (employeeDepartment) {
-        // default populate with full departments (excluding SSC for employee departments by default)
-        populateDepartmentSelect(employeeDepartment, DEPARTMENTS_FULL.filter(d => d !== 'Supreme Student Council (SSC)'));
+        // default populate with colleges for employee departments
+        populateDepartmentSelect(employeeDepartment, COLLEGES);
         employeeDepartment.style.display = 'none';
     }
     // Set student department list to full including SSC
@@ -877,12 +911,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const val = e.target.value;
             if (!employeeDepartment) return;
             if (EMPLOYEE_ROLES_WITH_DEPT.includes(val)) {
-                // For Department Dean and CSC Adviser, exclude SSC
-                if (val === 'Department Dean' || val === 'CSC Adviser') {
-                    populateDepartmentSelect(employeeDepartment, DEPARTMENTS_FULL.filter(d => d !== 'Supreme Student Council (SSC)'));
-                } else {
-                    populateDepartmentSelect(employeeDepartment, DEPARTMENTS_FULL);
-                }
+                populateDepartmentSelect(employeeDepartment, COLLEGES);
                 employeeDepartment.style.display = 'block';
                 employeeDepartment.disabled = false;
                 employeeDepartment.required = true;
@@ -1142,6 +1171,12 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
             showUserFormError('Please select Office, Department, and Employee Position for employees.');
             return;
         }
+
+        // Map display positions to database positions
+        if (position === 'College Dean') {
+            position = 'Dean of ' + DEPARTMENT_CODES[department];
+        }
+        // College Student Council Adviser is already the correct value
     } else if (selectedUserRole === 'student') {
         department = document.getElementById('studentDepartment').value;
         studentPosition = document.getElementById('studentPosition').value;

@@ -55,12 +55,12 @@ chmod -R 775 "$PROJECT_DIR/assets" 2>/dev/null || log "Warning: Could not set as
 # Check for database migration files
 if [ -f "$PROJECT_DIR/schema.sql" ]; then
     log "Database schema file found. Please run manually if needed:"
-    log "mysql -u YOUR_DB_USER -p YOUR_DB_NAME < $PROJECT_DIR/schema.sql"
+    log "mysql -u u710690202_mciocmc -p YOUR_DB_PASSWORD u710690202_mciocmc < $PROJECT_DIR/schema.sql"
 fi
 
 if [ -f "$PROJECT_DIR/add_status.sql" ]; then
     log "Additional SQL file found. Please run manually if needed:"
-    log "mysql -u YOUR_DB_USER -p YOUR_DB_NAME < $PROJECT_DIR/add_status.sql"
+    log "mysql -u u710690202_mciocmc -p YOUR_DB_PASSWORD u710690202_mciocmc < $PROJECT_DIR/add_status.sql"
 fi
 
 # Clear any PHP opcache if available

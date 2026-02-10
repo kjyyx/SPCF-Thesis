@@ -1,24 +1,30 @@
 <?php
-// includes/config.php - Application configuration
+// includes/config.php
+
+require_once __DIR__ . '/../vendor/autoload.php';
 
 // Load environment variables
-require_once __DIR__ . '/../vendor/autoload.php';
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
 $dotenv->load();
 
+// Make sure BASE_URL exists
+if (!isset($_ENV['BASE_URL']) || empty($_ENV['BASE_URL'])) {
+    die('❌ BASE_URL is not defined in .env');
+}
+
 // Database configuration
-define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
-define('DB_USER', getenv('DB_USER') ?: 'root');
-define('DB_PASS', getenv('DB_PASS') ?: '');
-define('DB_NAME', getenv('DB_NAME') ?: 'spcf_thesis_db');
+define('DB_HOST', $_ENV['DB_HOST']);
+define('DB_USER', $_ENV['DB_USER']);
+define('DB_PASS', $_ENV['DB_PASS']);
+define('DB_NAME', $_ENV['DB_NAME']);
 
 // Application settings
-define('BASE_URL', getenv('BASE_URL') ?: 'http://localhost/SPCF-Thesis/');
+define('BASE_URL', rtrim($_ENV['BASE_URL'], '/') . '/');
 define('ROOT_PATH', __DIR__ . '/../');
-define('SITE_NAME', getenv('SITE_NAME') ?: 'Sign-um');
+define('SITE_NAME', $_ENV['SITE_NAME'] ?? 'Sign-um');
 
-// Environment (change to 'production' when deploying)
-define('ENVIRONMENT', getenv('ENVIRONMENT') ?: 'development');
+// Environment
+define('ENVIRONMENT', $_ENV['ENVIRONMENT'] ?? 'production');
 
 // Error reporting
 if (ENVIRONMENT === 'development') {
@@ -31,4 +37,3 @@ if (ENVIRONMENT === 'development') {
 
 // Timezone
 date_default_timezone_set('Asia/Manila');
-?>

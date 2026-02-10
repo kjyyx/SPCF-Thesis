@@ -620,10 +620,10 @@ function generateSAFHTML(d) {
         fundsHtml = `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #000;padding:6px">Fund/s</th><th style="border:1px solid #000;padding:6px">Available</th><th style="border:1px solid #000;padding:6px">Requested</th><th style="border:1px solid #000;padding:6px">Balance</th></tr></thead><tbody>${selectedFunds.map(code => {
             const info = fundMap[code];
             const label = info.label;
-            const available = d[info.avail] || 0;
-            const requested = d[info.req] || 0;
-            const bal = available - requested;
-            return `<tr><td style="border:1px solid #000;padding:6px">${label}</td><td style="border:1px solid #000;padding:6px;text-align:right">₱${available.toFixed(2)}</td><td style="border:1px solid #000;padding:6px;text-align:right">₱${requested.toFixed(2)}</td><td style="border:1px solid #000;padding:6px;text-align:right;color:${bal < 0 ? '#dc3545' : '#000'}">₱${bal.toFixed(2)}</td></tr>`;
+            const available = d[info.avail] !== undefined ? d[info.avail] : 0;
+            const requested = d[info.req] !== undefined ? d[info.req] : 0;
+            const bal = Number(available) - Number(requested);
+            return `<tr><td style="border:1px solid #000;padding:6px">${label}</td><td style="border:1px solid #000;padding:6px;text-align:right">₱${Number(available).toFixed(2)}</td><td style="border:1px solid #000;padding:6px;text-align:right">₱${Number(requested).toFixed(2)}</td><td style="border:1px solid #000;padding:6px;text-align:right;color:${bal < 0 ? '#dc3545' : '#000'}">₱${Number(bal).toFixed(2)}</td></tr>`;
         }).join('')}</tbody></table>`;
     } else {
         fundsHtml = '<div class="text-muted">No funds selected</div>';

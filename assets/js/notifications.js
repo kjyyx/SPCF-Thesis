@@ -1151,15 +1151,21 @@ class DocumentNotificationSystem {
         const canvasRect = canvas.getBoundingClientRect();
 
         // Find completed steps with signatures
-        const completedSignatures = doc.workflow.filter(step =>
+        let completedSignatures = doc.workflow.filter(step =>
             step.status === 'completed' && step.signed_at
         );
+
+        // For SAF, only allow two redactions (dual signature) and only for the correct steps
+        if (doc.doc_type === 'saf') {
+            // Find the two steps that correspond to the dual signature
+            // Typically, these are the first two completed steps with a signature_map
+            completedSignatures = completedSignatures.filter(step => step.signature_map).slice(0, 2);
+        }
 
         // Check if current user is the document issuer (sender)
         const isIssuer = this.currentUser && doc.student && doc.student.id === this.currentUser.id;
 
         completedSignatures.forEach((step, index) => {
-            // Get signature map for this step
             let signatureMap = null;
             try {
                 if (step.signature_map) {
@@ -1167,7 +1173,6 @@ class DocumentNotificationSystem {
                         ? JSON.parse(step.signature_map)
                         : step.signature_map;
                 } else if (doc.signature_map) {
-                    // Fallback to document signature map
                     signatureMap = typeof doc.signature_map === 'string'
                         ? JSON.parse(doc.signature_map)
                         : doc.signature_map;
@@ -1179,55 +1184,38 @@ class DocumentNotificationSystem {
 
             if (!signatureMap) return;
 
-            // CRITICAL FIX: Check if this signature belongs on the current page
-            const signaturePage = signatureMap.page || 1;
-            if (signaturePage !== this.currentPage) {
-                return; // Skip rendering on wrong page
+            // For SAF, use the accounting and issuer maps directly
+            let mapsToRender = [signatureMap];
+            if (doc.doc_type === 'saf' && typeof signatureMap === 'object' && signatureMap.accounting && signatureMap.issuer) {
+                mapsToRender = [signatureMap.accounting, signatureMap.issuer];
             }
 
-            const { x_pct, y_pct, w_pct, h_pct } = signatureMap;
+            mapsToRender.forEach((map) => {
+                const signaturePage = map.page || 1;
+                if (signaturePage !== this.currentPage) {
+                    return; // Skip rendering on wrong page
+                }
+                const { x_pct, y_pct, w_pct, h_pct } = map;
+                let pixelRect = this.computeSignaturePixelRect({
+                    x_pct: x_pct || 0.62,
+                    y_pct: y_pct || 0.78,
+                    w_pct: w_pct || 0.28,
+                    h_pct: h_pct || 0.1
+                });
+                if (!pixelRect) return;
+                // Create container for timestamp and redaction
+                const signatureContainer = document.createElement('div');
+                signatureContainer.className = 'completed-signature-container';
+                signatureContainer.style.position = 'absolute';
+                signatureContainer.style.left = pixelRect.left + 'px';
+                signatureContainer.style.top = pixelRect.top + 'px';
+                // Fixed size for SAF, same as original signature box
+                // Match original signature-target box size
+                signatureContainer.style.width = '120px';
+                signatureContainer.style.height = '60px';
+                signatureContainer.style.zIndex = '15';
 
-            // Calculate pixel position
-            let pixelRect = this.computeSignaturePixelRect({
-                x_pct: x_pct || 0.62,
-                y_pct: y_pct || 0.78,
-                w_pct: w_pct || 0.28,
-                h_pct: h_pct || 0.1
-            });
-
-            if (!pixelRect) return;
-
-            // Create container for timestamp and redaction
-            const signatureContainer = document.createElement('div');
-            signatureContainer.className = 'completed-signature-container';
-            signatureContainer.style.position = 'absolute';
-            signatureContainer.style.left = pixelRect.left + 'px';
-            signatureContainer.style.top = pixelRect.top + 'px';
-            signatureContainer.style.width = pixelRect.width + 'px';
-            signatureContainer.style.height = pixelRect.height + 'px';
-            signatureContainer.style.zIndex = '15'; // Below draggable signature target
-
-            if (isIssuer) {
-                // Issuer sees the actual signature (unredacted)
-                const signatureDetail = document.createElement('div');
-                signatureDetail.className = 'signature-detail';
-                signatureDetail.style.width = '100%';
-                signatureDetail.style.height = '100%';
-                signatureDetail.style.display = 'flex';
-                signatureDetail.style.alignItems = 'center';
-                signatureDetail.style.justifyContent = 'center';
-                signatureDetail.style.borderRadius = '4px';
-                signatureDetail.style.background = 'rgba(255,255,255,0.9)';
-                signatureDetail.style.color = '#111827';
-                signatureDetail.style.fontWeight = '600';
-                signatureDetail.style.fontSize = '12px';
-                signatureDetail.style.padding = '4px';
-                signatureDetail.style.textAlign = 'center';
-                signatureDetail.textContent = `Signed by ${step.assignee_name || 'Unknown'}`;
-
-                signatureContainer.appendChild(signatureDetail);
-            } else {
-                // Non-issuer: apply redaction (solid black box, no text, no signature)
+                // Redaction box with signing user's name and position
                 const redactionBox = document.createElement('div');
                 redactionBox.className = 'signature-redaction';
                 redactionBox.style.width = '100%';
@@ -1235,26 +1223,32 @@ class DocumentNotificationSystem {
                 redactionBox.style.backgroundColor = '#000000'; // Black for redaction
                 redactionBox.style.display = 'block';
                 redactionBox.style.borderRadius = '4px';
-                // Remove any text or signature image
+                redactionBox.style.color = '#fff';
+                redactionBox.style.fontWeight = '600';
+                redactionBox.style.fontSize = '12px';
+                redactionBox.style.padding = '4px';
+                // Show signing user's name and position
+                const name = step.assignee_name || 'Unknown';
+                const position = step.assignee_position || '';
+                redactionBox.innerHTML = `<div>${name}</div><div style="font-size:11px;font-weight:400;">${position}</div>`;
                 signatureContainer.appendChild(redactionBox);
-            }
 
-            // Add timestamp below the redaction box
-            const timestamp = document.createElement('div');
-            timestamp.className = 'signature-timestamp';
-            timestamp.textContent = new Date(step.signed_at).toLocaleString();
-            timestamp.style.fontSize = '10px';
-            timestamp.style.color = '#666';
-            timestamp.style.textAlign = 'center';
-            timestamp.style.marginTop = '4px';
-            timestamp.style.fontWeight = '500';
-            timestamp.style.position = 'absolute';
-            timestamp.style.top = '100%';
-            timestamp.style.left = '0';
-            timestamp.style.width = '100%';
-
-            signatureContainer.appendChild(timestamp);
-            content.appendChild(signatureContainer);
+                // Add timestamp below the redaction box
+                const timestamp = document.createElement('div');
+                timestamp.className = 'signature-timestamp';
+                timestamp.textContent = new Date(step.signed_at).toLocaleString();
+                timestamp.style.fontSize = '10px';
+                timestamp.style.color = '#666';
+                timestamp.style.textAlign = 'center';
+                timestamp.style.marginTop = '4px';
+                timestamp.style.fontWeight = '500';
+                timestamp.style.position = 'absolute';
+                timestamp.style.top = '100%';
+                timestamp.style.left = '0';
+                timestamp.style.width = '100%';
+                signatureContainer.appendChild(timestamp);
+                content.appendChild(signatureContainer);
+            });
         });
     }
 
@@ -1355,8 +1349,14 @@ class DocumentNotificationSystem {
         box.style.position = 'absolute';
         box.style.left = rect.left + 'px';
         box.style.top = rect.top + 'px';
-        box.style.width = rect.width + 'px';
-        box.style.height = rect.height + 'px';
+        // For SAF, use fixed size to match original signature-target
+        if (box.classList.contains('saf-accounting') || box.classList.contains('saf-issuer')) {
+            box.style.width = '120px';
+            box.style.height = '60px';
+        } else {
+            box.style.width = rect.width + 'px';
+            box.style.height = rect.height + 'px';
+        }
         box.style.zIndex = role === 'accounting' ? 25 : 24;
         box.style.backgroundColor = bgColor;
         box.style.border = `2px dashed ${borderColor}`;
@@ -1393,8 +1393,10 @@ class DocumentNotificationSystem {
         box.appendChild(badge);
         content.appendChild(box);
         
-        // Add resize handle
-        this.addResizeHandle(box, content, role);
+        // Only add resize handle for non-SAF targets
+        if (!box.classList.contains('saf-accounting') && !box.classList.contains('saf-issuer')) {
+            this.addResizeHandle(box, content, role);
+        }
         
         return box;
     }
@@ -1614,50 +1616,42 @@ class DocumentNotificationSystem {
     // Update linked signature maps for both positions
     updateLinkedSignatureMaps(content) {
         if (!this.linkedTargets || !this.canvas) return;
-        
         const canvas = this.canvas;
-        const canvasRect = canvas.getBoundingClientRect();
-        const contentRect = content.getBoundingClientRect();
-        
-        // Calculate positions for both targets
-        const primaryRect = this.linkedTargets.primary.getBoundingClientRect();
-        const secondaryRect = this.linkedTargets.secondary.getBoundingClientRect();
-        
-        // Primary (Accounting) position
-        const primaryX = (primaryRect.left - contentRect.left) / canvasRect.width;
-        const primaryY = (primaryRect.top - contentRect.top) / canvasRect.height;
-        const primaryW = primaryRect.width / canvasRect.width;
-        const primaryH = primaryRect.height / canvasRect.height;
-        
-        // Secondary (Issuer) position
-        const secondaryX = (secondaryRect.left - contentRect.left) / canvasRect.width;
-        const secondaryY = (secondaryRect.top - contentRect.top) / canvasRect.height;
-        const secondaryW = secondaryRect.width / canvasRect.width;
-        const secondaryH = secondaryRect.height / canvasRect.height;
-        
-        // Store both positions
+        const width = canvas.width;
+        const height = canvas.height;
+        const primary = this.linkedTargets.primary;
+        const secondary = this.linkedTargets.secondary;
+        if (!primary || !secondary) return;
+        // SAF: Use offsetLeft/offsetTop relative to canvas for accurate mapping
+        const w = 120;
+        const h = 60;
+        const primaryLeft = primary.offsetLeft;
+        const primaryTop = primary.offsetTop;
+        const secondaryLeft = secondary.offsetLeft;
+        const secondaryTop = secondary.offsetTop;
+        const x_pct = primaryLeft / width;
+        const y_pct = primaryTop / height;
+        const x_pct2 = secondaryLeft / width;
+        const y_pct2 = secondaryTop / height;
         this.linkedSignatureMaps = {
             accounting: {
-                x_pct: primaryX,
-                y_pct: primaryY,
-                w_pct: primaryW,
-                h_pct: primaryH,
+                x_pct,
+                y_pct,
+                w_pct: w / width,
+                h_pct: h / height,
                 page: this.currentPage,
                 label: 'Accounting Copy'
             },
             issuer: {
-                x_pct: secondaryX,
-                y_pct: secondaryY,
-                w_pct: secondaryW,
-                h_pct: secondaryH,
+                x_pct: x_pct2,
+                y_pct: y_pct2,
+                w_pct: w / width,
+                h_pct: h / height,
                 page: this.currentPage,
                 label: 'Issuer Copy'
             }
         };
-        
-        // Also update currentSignatureMap for backward compatibility
         this.currentSignatureMap = this.linkedSignatureMaps.accounting;
-        
         console.log('Linked SAF signature maps updated:', this.linkedSignatureMaps);
     }
 

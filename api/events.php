@@ -125,8 +125,8 @@ try {
             $action = $data['action'] ?? null;
 
             if ($action === 'approve' || $action === 'disapprove') {
-                // Approval action - only EVP or admin
-                if (!in_array($role, ['admin']) && !($role === 'employee' && strpos($currentUser['position'] ?? '', 'EVP') !== false)) {
+                // Approval action - only PPFO, EVP or admin
+                if (!in_array($role, ['admin']) && !($role === 'employee' && (strpos($currentUser['position'] ?? '', 'EVP') !== false || strpos($currentUser['position'] ?? '', 'Physical Plant and Facilities Office') !== false))) {
                     echo json_encode(['success' => false, 'message' => 'Not authorized to approve events']);
                     exit();
                 }
@@ -159,13 +159,17 @@ try {
                 exit();
             }
 
-            // Admin can edit any; employee can edit only own
+            // Admin can edit any; PPFO/EVP can edit any; other employees can edit only own
             if ($role === 'employee') {
-                $ownCheck = $db->prepare("SELECT COUNT(*) FROM events WHERE id = :id AND created_by = :uid");
-                $ownCheck->execute([':id' => $id, ':uid' => $userId]);
-                if ($ownCheck->fetchColumn() == 0) {
-                    echo json_encode(['success' => false, 'message' => 'Not authorized to edit this event']);
-                    exit();
+                $position = $currentUser['position'] ?? '';
+                $isAuthorized = strpos($position, 'Physical Plant and Facilities Office') !== false || strpos($position, 'Executive Vice-President') !== false;
+                if (!$isAuthorized) {
+                    $ownCheck = $db->prepare("SELECT COUNT(*) FROM events WHERE id = :id AND created_by = :uid");
+                    $ownCheck->execute([':id' => $id, ':uid' => $userId]);
+                    if ($ownCheck->fetchColumn() == 0) {
+                        echo json_encode(['success' => false, 'message' => 'Not authorized to edit this event']);
+                        exit();
+                    }
                 }
             }
 
@@ -215,13 +219,17 @@ try {
                 exit();
             }
 
-            // Admin can delete any; employee can delete only own
+            // Admin can delete any; PPFO/EVP can delete any; other employees can delete only own
             if ($role === 'employee') {
-                $ownCheck = $db->prepare("SELECT COUNT(*) FROM events WHERE id = :id AND created_by = :uid");
-                $ownCheck->execute([':id' => $id, ':uid' => $userId]);
-                if ($ownCheck->fetchColumn() == 0) {
-                    echo json_encode(['success' => false, 'message' => 'Not authorized to delete this event']);
-                    exit();
+                $position = $currentUser['position'] ?? '';
+                $isAuthorized = strpos($position, 'Physical Plant and Facilities Office') !== false || strpos($position, 'Executive Vice-President') !== false;
+                if (!$isAuthorized) {
+                    $ownCheck = $db->prepare("SELECT COUNT(*) FROM events WHERE id = :id AND created_by = :uid");
+                    $ownCheck->execute([':id' => $id, ':uid' => $userId]);
+                    if ($ownCheck->fetchColumn() == 0) {
+                        echo json_encode(['success' => false, 'message' => 'Not authorized to delete this event']);
+                        exit();
+                    }
                 }
             }
 

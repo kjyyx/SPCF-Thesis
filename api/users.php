@@ -121,12 +121,20 @@ function unify_user_row(array $row, string $role): array
         'status' => $row['status'] ?? 'active',
         'twoFactorEnabled' => ($row['2fa_enabled'] ?? 0) == 1
     ];
+
+    // Always include these fields, even if null
     if ($role === 'student') {
         $user['department'] = $row['department'] ?? null;
         $user['position'] = $row['position'] ?? null;
-    } else {
+        $user['office'] = null; // Students don't have office
+    } elseif ($role === 'employee') {
+        $user['department'] = $row['department'] ?? null;
+        $user['position'] = $row['position'] ?? null;
+        $user['office'] = null; // Employees might have office, but not in current schema
+    } else { // admin
         $user['office'] = $row['office'] ?? null;
         $user['position'] = $row['position'] ?? null;
+        $user['department'] = null; // Admins don't have department
     }
     return $user;
 }
@@ -149,7 +157,7 @@ try {
         $userId = $_SESSION['user_id'];
         $role = $_SESSION['user_role'];
         $table = get_table_by_role($role);
-        
+
         if (!$table) {
             json_error('Invalid user role', 400);
         }
@@ -167,7 +175,7 @@ try {
         $emailCheckSql = "SELECT id FROM $table WHERE email = :email AND id != :userId";
         $emailCheck = $db->prepare($emailCheckSql);
         $emailCheck->execute([':email' => $email, ':userId' => $userId]);
-        
+
         if ($emailCheck->fetch()) {
             json_error('Email address is already in use', 409);
         }
@@ -220,6 +228,8 @@ try {
                 $searchTerm = "%$search%";
                 if ($r === 'student') {
                     $whereClause = " WHERE (first_name LIKE :search OR last_name LIKE :search OR email LIKE :search OR department LIKE :search OR position LIKE :search OR phone LIKE :search)";
+                } elseif ($r === 'employee') {
+                    $whereClause = " WHERE (first_name LIKE :search OR last_name LIKE :search OR email LIKE :search OR department LIKE :search OR position LIKE :search OR phone LIKE :search)";
                 } else {
                     $whereClause = " WHERE (first_name LIKE :search OR last_name LIKE :search OR email LIKE :search OR office LIKE :search OR position LIKE :search OR phone LIKE :search)";
                 }
@@ -249,6 +259,8 @@ try {
 
             // Select role-specific fields with pagination
             if ($r === 'student') {
+                $sql = "SELECT id, first_name, last_name, email, department, position, phone, status, 2fa_enabled FROM $table" . $whereClause . " ORDER BY id LIMIT :limit OFFSET :offset";
+            } elseif ($r === 'employee') {
                 $sql = "SELECT id, first_name, last_name, email, department, position, phone, status, 2fa_enabled FROM $table" . $whereClause . " ORDER BY id LIMIT :limit OFFSET :offset";
             } else {
                 $sql = "SELECT id, first_name, last_name, email, office, position, phone, status, 2fa_enabled FROM $table" . $whereClause . " ORDER BY id LIMIT :limit OFFSET :offset";
@@ -290,7 +302,7 @@ try {
         $phone = trim($payload['phone'] ?? '');
         $position = trim($payload['position'] ?? '');
         $office = $role !== 'student' ? trim($payload['office'] ?? '') : null;
-        $department = $role === 'student' ? trim($payload['department'] ?? '') : null;
+        $department = trim($payload['department'] ?? ''); // Department can be for both students and employees
 
         if (!$id || !$first || !$last || !$email) {
             json_error('Missing required fields', 400);
@@ -311,6 +323,19 @@ try {
         $hash = password_hash($defaultPassword, PASSWORD_BCRYPT);
 
         if ($role === 'student') {
+            $ins = $db->prepare("INSERT INTO $table (id, first_name, last_name, email, password, department, position, phone, must_change_password)
+                                 VALUES (:id,:first,:last,:email,:password,:department,:position,:phone,1)");
+            $ok = $ins->execute([
+                ':id' => $id,
+                ':first' => $first,
+                ':last' => $last,
+                ':email' => $email,
+                ':password' => $hash,
+                ':department' => $department,
+                ':position' => $position,
+                ':phone' => $phone
+            ]);
+        } elseif ($role === 'employee') {
             $ins = $db->prepare("INSERT INTO $table (id, first_name, last_name, email, password, department, position, phone, must_change_password)
                                  VALUES (:id,:first,:last,:email,:password,:department,:position,:phone,1)");
             $ok = $ins->execute([
@@ -403,8 +428,8 @@ try {
         $email = trim($payload['email'] ?? '');
         $phone = trim($payload['phone'] ?? '');
         $position = trim($payload['position'] ?? '');
-        $office = $role !== 'student' ? trim($payload['office'] ?? '') : null;
-        $department = $role === 'student' ? trim($payload['department'] ?? '') : ($role === 'employee' ? trim($payload['department'] ?? '') : null);  // Add for employees
+        $office = $role === 'admin' ? trim($payload['office'] ?? '') : null;  // Only for admins
+        $department = $role === 'student' ? trim($payload['department'] ?? '') : ($role === 'employee' ? trim($payload['department'] ?? '') : null);
 
         if ($role === 'student') {
             $sql = "UPDATE $table SET first_name=:first, last_name=:last, email=:email, department=:department, position=:position, phone=:phone WHERE id=:id";
@@ -418,21 +443,22 @@ try {
                 ':id' => $id
             ];
         } else {
-            // For employees and admins, include department only for employees
+            // For employees and admins
             $sql = $role === 'employee'
-                ? "UPDATE $table SET first_name=:first, last_name=:last, email=:email, office=:office, department=:department, position=:position, phone=:phone WHERE id=:id"
+                ? "UPDATE $table SET first_name=:first, last_name=:last, email=:email, department=:department, position=:position, phone=:phone WHERE id=:id"
                 : "UPDATE $table SET first_name=:first, last_name=:last, email=:email, office=:office, position=:position, phone=:phone WHERE id=:id";
             $params = [
                 ':first' => $first,
                 ':last' => $last,
                 ':email' => $email,
-                ':office' => $office,
                 ':position' => $position,
                 ':phone' => $phone,
                 ':id' => $id
             ];
             if ($role === 'employee') {
-                $params[':department'] = $department;
+                $params[':department'] = $department; // This is included
+            } else {
+                $params[':office'] = $office;
             }
         }
         $stmt = $db->prepare($sql);

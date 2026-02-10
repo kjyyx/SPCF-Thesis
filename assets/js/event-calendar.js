@@ -85,7 +85,10 @@ class CalendarApp {
         } else if (currentUser.role === 'employee') {
             // Show employee info section for employees
             if (employeeInfoCompact) employeeInfoCompact.style.display = 'flex';
-            if (addEventBtn) addEventBtn.style.display = 'inline-flex';
+            // Only PPFO and EVP can add events
+            if (addEventBtn && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)')) {
+                addEventBtn.style.display = 'inline-flex';
+            }
         } else if (currentUser.role === 'admin') {
             // Admins don't show either section but can add events
             if (addEventBtn) addEventBtn.style.display = 'inline-flex';
@@ -131,8 +134,8 @@ class CalendarApp {
             });
         });
         
-        // Event management (employees and admins only)
-        if (currentUser.role === 'employee' || currentUser.role === 'admin') {
+        // Event management (only for PPFO, EVP, and admins)
+        if (currentUser.role === 'admin' || (currentUser.role === 'employee' && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)'))) {
             document.getElementById('addEventBtn')?.addEventListener('click', () => this.openEventModal());
             document.getElementById('saveEventBtn')?.addEventListener('click', () => this.saveEvent());
             document.getElementById('deleteBtn')?.addEventListener('click', () => this.deleteEvent());
@@ -966,7 +969,8 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
     }
     
     handleEventClick(eventId, dateStr) {
-        if (currentUser.role === 'student') {
+        const canEdit = currentUser.role === 'admin' || (currentUser.role === 'employee' && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)'));
+        if (currentUser.role === 'student' || !canEdit) {
             this.viewEventDetails(eventId, dateStr);
         } else {
             this.editEvent(eventId, dateStr);
@@ -974,7 +978,8 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
     }
     
     openEventModal(selectedDate = null) {
-        if (currentUser && currentUser.role === 'student') {
+        const canEdit = currentUser.role === 'admin' || (currentUser.role === 'employee' && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)'));
+        if (currentUser && (currentUser.role === 'student' || !canEdit)) {
             return;
         }
 
@@ -985,6 +990,8 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         form.reset();
         editingEventId = null;
         deleteBtn.style.display = 'none';
+        document.getElementById('approveBtn').style.display = 'none';
+        document.getElementById('disapproveBtn').style.display = 'none';
         document.getElementById('eventModalLabel').textContent = 'Add New Event';
 
         if (selectedDate) {
@@ -1032,10 +1039,10 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         }
         document.getElementById('deleteBtn').style.display = 'inline-block';
 
-        // Show approve/disapprove buttons for EVP
-        const isEVP = currentUser && currentUser.role === 'employee' && currentUser.position === 'Executive Vice-President / Student Services (EVP)';
-        document.getElementById('approveBtn').style.display = isEVP ? 'inline-block' : 'none';
-        document.getElementById('disapproveBtn').style.display = isEVP ? 'inline-block' : 'none';
+        // Show approve/disapprove buttons for authorized users (PPFO, EVP, admins)
+        const canApprove = currentUser.role === 'admin' || (currentUser.role === 'employee' && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)'));
+        document.getElementById('approveBtn').style.display = canApprove ? 'inline-block' : 'none';
+        document.getElementById('disapproveBtn').style.display = canApprove ? 'inline-block' : 'none';
 
         const modal = new bootstrap.Modal(document.getElementById('eventModal'));
         modal.show();

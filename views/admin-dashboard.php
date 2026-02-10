@@ -802,23 +802,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                             </div>
                             <div id="employeeFields" class="role-fields" style="display: none;">
                                 <div class="row">
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="employeeOffice" class="form-label">Office</label>
-                                            <select class="form-select" id="employeeOffice" required>
-                                                <option value="">Select Office</option>
-                                                <option value="Administration Office">Administration Office</option>
-                                                <option value="Academic Affairs">Academic Affairs</option>
-                                                <option value="Student Affairs">Student Affairs</option>
-                                                <option value="Finance Office">Finance Office</option>
-                                                <option value="HR Department">HR Department</option>
-                                                <option value="IT Department">IT Department</option>
-                                                <option value="Library">Library</option>
-                                                <option value="Registrar">Registrar</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <div class="mb-3">
                                             <label for="employeePosition" class="form-label">Employee Position</label>
                                             <select class="form-select" id="employeePosition" required>
@@ -833,7 +817,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <div class="mb-3">
                                             <label for="employeeDepartment" class="form-label">Department</label>
                                             <select class="form-select" id="employeeDepartment" required>
@@ -867,7 +851,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                                 <option value="College of Business">College of Business</option>
                                                 <option value="College of Criminology">College of Criminology</option>
                                                 <option value="College of Computing and Information Sciences">College of Computing and Information Sciences</option>
-                                                <option value="College of Arts, Social Sciences, and Education">College of Arts, Social Sciences, and Education</option>
+                                                <option value="College of Arts, Social Sciences and Education">College of Arts, Social Sciences and Education</option>
                                                 <option value="College of Hospitality and Tourism Management">College of Hospitality and Tourism Management</option>
                                             </select>
                                         </div>

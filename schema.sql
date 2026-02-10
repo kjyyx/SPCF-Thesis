@@ -372,7 +372,7 @@ UPDATE employees SET position = 'Officer-in-Charge, Office of Student Affairs (O
 UPDATE employees SET position = 'Center for Performing Arts Organization (CPAO)' WHERE LOWER(position) LIKE '%cpao%';
 UPDATE employees SET position = 'Vice President for Academic Affairs (VPAA)' WHERE LOWER(position) LIKE '%vpaa%';
 UPDATE employees SET position = 'Physical Plant and Facilities Office (PPFO)' WHERE LOWER(position) LIKE '%ppfo%';
-UPDATE employees SET position = 'Executive Vice-President/Student Services (EVP)' WHERE LOWER(position) LIKE '%evp%';
+UPDATE employees SET position = 'Executive Vice-President / Student Services (EVP)' WHERE LOWER(position) LIKE '%evp%';
 UPDATE employees SET position = 'Accounting Personnel (AP)' WHERE LOWER(position) LIKE '%acp%' OR LOWER(position) LIKE '%accounting%';
 
 UPDATE students SET position = 'College Student Council President' WHERE LOWER(position) LIKE '%csc%president%';
@@ -392,7 +392,7 @@ UPDATE students SET position = 'Supreme Student Council President' WHERE departm
 
 -- Remove worthless accounts: Delete users not matching standardized departments/positions or with placeholder data
 DELETE FROM students WHERE department NOT IN ('College of Arts, Social Sciences and Education', 'College of Business', 'College of Computing and Information Sciences', 'College of Criminology', 'College of Engineering', 'College of Hospitality and Tourism Management', 'College of Nursing', 'SPCF Miranda', 'Supreme Student Council (SSC)') OR position NOT IN ('College Student Council President', 'Supreme Student Council President');
-DELETE FROM employees WHERE position NOT IN ('CSC Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)', 'Center for Performing Arts Organization (CPAO)', 'Vice President for Academic Affairs (VPAA)', 'Physical Plant and Facilities Office (PPFO)', 'Executive Vice-President/Student Services (EVP)', 'Accounting Personnel (AP)') OR (department IS NOT NULL AND department NOT IN ('College of Arts, Social Sciences and Education', 'College of Business', 'College of Computing and Information Sciences', 'College of Criminology', 'College of Engineering', 'College of Hospitality and Tourism Management', 'College of Nursing', 'SPCF Miranda'));
+DELETE FROM employees WHERE position NOT IN ('CSC Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)', 'Center for Performing Arts Organization (CPAO)', 'Vice President for Academic Affairs (VPAA)', 'Physical Plant and Facilities Office (PPFO)', 'Executive Vice-President / Student Services (EVP)', 'Accounting Personnel (AP)') OR (department IS NOT NULL AND department NOT IN ('College of Arts, Social Sciences and Education', 'College of Business', 'College of Computing and Information Sciences', 'College of Criminology', 'College of Engineering', 'College of Hospitality and Tourism Management', 'College of Nursing', 'SPCF Miranda'));
 
 -- Example: Update/insert steps for Project Proposal (repeat for other types: Communication Letter, SAF, Facility Request)
 -- Note: These are examples; adjust document_id dynamically in code if needed
@@ -419,5 +419,5 @@ UPDATE positions SET name = 'Accounting Personnel (AP)' WHERE id = 'POS016';
 
 -- Add additional positions for complete role assignments
 INSERT IGNORE INTO positions (id, name, unit_id) VALUES
-('POS017', 'Executive Vice-President/Student Services (EVP)', 'UNT002'),
+('POS017', 'Executive Vice-President / Student Services (EVP)', 'UNT002'),
 ('POS018', 'Dean of Miranda', 'UNT002');

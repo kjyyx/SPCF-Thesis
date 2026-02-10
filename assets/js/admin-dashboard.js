@@ -759,11 +759,8 @@ function editUser(userId) {
         if (adminOffice) adminOffice.value = user.office || '';
         if (adminPosition) adminPosition.value = user.position || '';
     } else if (user.role === 'employee') {
-        const employeeOffice = document.getElementById('employeeOffice');
         const employeeDepartment = document.getElementById('employeeDepartment');
         const employeePosition = document.getElementById('employeePosition');
-        if (employeeOffice) employeeOffice.value = user.office || '';
-        
         // Handle position mapping for display
         let displayPosition = user.position;
         let displayDepartment = user.department;
@@ -775,11 +772,19 @@ function editUser(userId) {
             displayPosition = 'College Student Council Adviser';
             displayDepartment = user.department;
         }
-        
-        if (employeeDepartment) employeeDepartment.value = displayDepartment || '';
+        // Ensure department select is populated before setting value
+        if (employeeDepartment) {
+            if (employeeDepartment.options.length <= 1) {
+                populateDepartmentSelect(employeeDepartment, COLLEGES);
+            }
+            employeeDepartment.value = displayDepartment || '';
+            employeeDepartment.style.display = 'block';
+            employeeDepartment.disabled = false;
+            employeeDepartment.required = true;
+        }
         if (employeePosition) employeePosition.value = displayPosition || '';
         // Trigger change event to populate department dropdown
-        document.getElementById('employeePosition').dispatchEvent(new Event('change'));
+        if (employeePosition) employeePosition.dispatchEvent(new Event('change'));
     } else if (user.role === 'student') {
         const studentDepartment = document.getElementById('studentDepartment');
         const studentPosition = document.getElementById('studentPosition');
@@ -808,22 +813,19 @@ function editUser(userId) {
 function setRoleFieldConstraints(role) {
     const adminOffice = document.getElementById('adminOffice');
     const adminPosition = document.getElementById('adminPosition');
-    const employeeOffice = document.getElementById('employeeOffice');
     const employeeDepartment = document.getElementById('employeeDepartment');
     const employeePosition = document.getElementById('employeePosition');
     const studentDepartment = document.getElementById('studentDepartment');
     const studentPosition = document.getElementById('studentPosition');
 
     // Reset all to not required and disabled when role is null
-    [adminOffice, adminPosition, employeeOffice, employeeDepartment, employeePosition, studentDepartment, studentPosition]
+    [adminOffice, adminPosition, employeeDepartment, employeePosition, studentDepartment, studentPosition]
         .forEach(el => { if (el) { el.required = false; el.disabled = true; } });
 
     // Admin: no office/position dropdowns per request (keep fields disabled)
     if (role === 'employee') {
-        if (employeeOffice) { employeeOffice.disabled = false; employeeOffice.required = true; }
         if (employeePosition) { employeePosition.disabled = false; employeePosition.required = true; }
-        // employeeDepartment shown only for specific employee positions via listener
-        if (employeeDepartment) { employeeDepartment.disabled = true; employeeDepartment.required = false; employeeDepartment.style.display = 'none'; }
+        if (employeeDepartment) { employeeDepartment.disabled = false; employeeDepartment.required = false; employeeDepartment.style.display = 'block'; }
     } else if (role === 'student') {
         if (studentDepartment) { studentDepartment.disabled = false; studentDepartment.required = true; studentDepartment.style.display = 'block'; }
         if (studentPosition) { studentPosition.disabled = false; /* optional */ studentPosition.style.display = 'block'; }
@@ -1063,7 +1065,7 @@ function exportUsers() {
         if (user.role === 'student') {
             departmentOrOffice = user.department;
         } else if (user.role === 'employee') {
-            departmentOrOffice = `${user.office || ''}${user.office && user.department ? ' / ' : ''}${user.department || ''}`;
+            departmentOrOffice = user.department || '';
         } else {
             departmentOrOffice = user.office;
         }
@@ -1163,12 +1165,11 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
             return;
         }
     } else if (selectedUserRole === 'employee') {
-        office = document.getElementById('employeeOffice').value;
         department = document.getElementById('employeeDepartment').value;
         position = document.getElementById('employeePosition').value;
 
-        if (!office || !department || !position) {
-            showUserFormError('Please select Office, Department, and Employee Position for employees.');
+        if (!department || !position) {
+            showUserFormError('Please select Department and Employee Position for employees.');
             return;
         }
 
@@ -1206,9 +1207,10 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
         payload.department = department;
         payload.position = studentPosition || 'Regular Student';
     } else {
-        payload.office = office;
         payload.position = position;
-        if (selectedUserRole === 'employee') {
+        if (selectedUserRole === 'admin') {
+            payload.office = office;
+        } else if (selectedUserRole === 'employee') {
             payload.department = department;
         }
     }

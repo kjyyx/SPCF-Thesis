@@ -48,15 +48,15 @@
                             <i class="bi bi-question-circle me-2" aria-hidden="true"></i>Help & Support</a></li>
                     <li role="none"><hr class="dropdown-divider"></li>
                     <?php if (!($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false)): ?>
-                        <li role="none"><a class="dropdown-item" href="event-calendar.php" title="View university calendar" role="menuitem">
+                        <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>calendar" title="View university calendar" role="menuitem">
                                 <i class="bi bi-calendar-event me-2" aria-hidden="true"></i>Calendar</a></li>
                     <?php endif; ?>
                     <?php if ($currentUser['role'] === 'admin'): ?>
-                        <li role="none"><a class="dropdown-item" href="admin-dashboard.php" title="Access admin dashboard" role="menuitem">
+                        <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>dashboard" title="Access admin dashboard" role="menuitem">
                                 <i class="bi bi-shield-check me-2" aria-hidden="true"></i>Admin Dashboard</a></li>
                     <?php endif; ?>
                     <li role="none"><hr class="dropdown-divider"></li>
-                    <li role="none"><a class="dropdown-item text-danger" href="user-logout.php" title="Sign out of your account" role="menuitem">
+                    <li role="none"><a class="dropdown-item text-danger" href="<?php echo BASE_URL; ?>logout" title="Sign out of your account" role="menuitem">
                             <i class="bi bi-box-arrow-right me-2" aria-hidden="true"></i>Logout</a></li>
                 </ul>
             </div>

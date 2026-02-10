@@ -29,7 +29,7 @@ function getCurrentUser()
 
 function redirectTo404()
 {
-    header('Location: ../views/404.php');
+    header('Location: ' . BASE_URL . '404');
     exit();
 }
 
@@ -43,13 +43,7 @@ function requireAuth()
             echo json_encode(['success' => false, 'message' => 'Authentication required']);
             exit();
         }
-        // Determine the correct path based on current script location
-        $currentDir = dirname($_SERVER['SCRIPT_NAME']);
-        if (strpos($currentDir, '/views') !== false) {
-            header('Location: user-login.php');
-        } else {
-            header('Location: views/user-login.php');
-        }
+        header('Location: ' . BASE_URL . 'login');
         exit();
     }
 }
@@ -57,13 +51,7 @@ function requireAuth()
 function requireRole($allowedRoles)
 {
     if (!isLoggedIn() || !in_array($_SESSION['user_role'], (array) $allowedRoles)) {
-        // Determine the correct path based on current script location
-        $currentDir = dirname($_SERVER['SCRIPT_NAME']);
-        if (strpos($currentDir, '/views') !== false) {
-            header('Location: user-login.php');
-        } else {
-            header('Location: views/user-login.php');
-        }
+        header('Location: ' . BASE_URL . 'login');
         exit();
     }
 }

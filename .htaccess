@@ -1,0 +1,13 @@
+RewriteEngine On
+
+# Handle API routes first
+RewriteRule ^api/(.*)$ api/$1 [L,QSA]
+
+# Rewrite pretty URLs to index.php?page=page
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^([^/]+)$ index.php?page=$1 [L,QSA]
+
+# Handle assets, uploads, etc.
+RewriteCond %{REQUEST_URI} ^/(assets|uploads|vendor)/
+RewriteRule ^ - [L]

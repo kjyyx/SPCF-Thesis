@@ -1,6 +1,6 @@
 <?php
-require_once '../includes/session.php';
-require_once '../includes/auth.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'includes/auth.php';
 requireAuth(); // Requires login
 
 // Get current user
@@ -9,19 +9,19 @@ $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 
 if (!$currentUser) {
   logoutUser();
-  header('Location: user-login.php');
+  header('Location: ' . BASE_URL . 'login');
   exit();
 }
 
 // Restrict Accounting employees to only SAF access
 if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
-    header('Location: saf.php');
+    header('Location: ' . BASE_URL . 'saf');
     exit();
 }
 
 // Restrict to students only
 if ($currentUser['role'] !== 'student') {
-  header('Location: user-login.php?error=access_denied');
+  header('Location: ' . BASE_URL . 'login?error=access_denied');
   exit();
 }
 
@@ -65,17 +65,17 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="icon" type="image/jpeg" href="../assets/images/sign-um-favicon.jpg">
+  <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
   <title>Sign-um - Document Creator</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="../assets/css/global.css"> <!-- Global shared UI styles -->
-  <link rel="stylesheet" href="../assets/css/event-calendar.css"> <!-- Reuse shared navbar/dropdown/modal styles -->
-  <link rel="stylesheet" href="../assets/css/create-document.css"> <!-- Updated path -->
-  <link rel="stylesheet" href="../assets/css/toast.css">
-  <link rel="stylesheet" href="../assets/css/global-notifications.css"><!-- Global notifications styles -->
+  <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global.css"> <!-- Global shared UI styles -->
+  <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/event-calendar.css"> <!-- Reuse shared navbar/dropdown/modal styles -->
+  <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/create-document.css"> <!-- Updated path -->
+  <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/toast.css">
+  <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global-notifications.css"><!-- Global notifications styles -->
 
   <script>
     // Pass user data to JavaScript (for consistency with event-calendar.php)
@@ -88,6 +88,7 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
     echo json_encode($jsUser);
     ?>;
     window.isAdmin = <?php echo ($currentUser['role'] === 'admin') ? 'true' : 'false'; ?>;
+    window.BASE_URL = "<?php echo BASE_URL; ?>";
 
     // REMOVE: Duplicate loadNotifications function and interval (handled by global-notifications.js)
   </script>
@@ -97,8 +98,8 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
   <?php
   // Set page title for navbar
   $pageTitle = 'Document Creator';
-  include '../includes/navbar.php';
-  include '../includes/notifications.php';
+  include ROOT_PATH . 'includes/navbar.php';
+  include ROOT_PATH . 'includes/notifications.php';
   ?>
 
   <!-- Main Content -->
@@ -916,10 +917,10 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
   <!-- Toast Utils -->
-  <script src="../assets/js/toast.js"></script>
+  <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
 
   <!-- Custom JavaScript -->
-  <script src="../assets/js/create-document.js"></script>
+  <script src="<?php echo BASE_URL; ?>assets/js/create-document.js"></script>
 
   <!-- Profile Settings Modal -->
   <div class="modal fade" id="profileSettingsModal" tabindex="-1" aria-labelledby="profileSettingsLabel" aria-hidden="true">

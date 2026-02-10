@@ -1,4 +1,5 @@
 // Event Calendar JavaScript
+var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
 // High-level: Renders a month view calendar with events; employees/admins can CRUD, students view-only.
 // Notes for future developers:
 // - Keep global functions used by HTML intact (openChangePassword, logout, showNotifications).
@@ -313,7 +314,7 @@ class CalendarApp {
         if (loadingEl) loadingEl.style.display = 'block';
         
         try {
-            const resp = await fetch('../api/events.php');
+            const resp = await fetch(BASE_URL + 'api/events.php');
             const data = await resp.json();
             if (data && data.success) {
                 // Normalize into map keyed by date
@@ -390,7 +391,7 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
     // Fetch approved documents from API and merge them into this.events keyed by date
     async _mergeApprovedEvents() {
         try {
-            const resp = await fetch('../api/documents.php?action=approved_events');
+            const resp = await fetch(BASE_URL + 'api/documents.php?action=approved_events');
             const data = await resp.json();
             if (!data || !data.success) return;
             const approved = data.events || [];
@@ -1107,7 +1108,7 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         };
 
         const isUpdate = Boolean(editingEventId);
-        const url = isUpdate ? `../api/events.php?id=${encodeURIComponent(editingEventId)}` : '../api/events.php';
+        const url = BASE_URL + 'api/events.php' + (isUpdate ? `?id=${encodeURIComponent(editingEventId)}` : '');
         const method = isUpdate ? 'PUT' : 'POST';
 
         fetch(url, {
@@ -1143,7 +1144,7 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         if (!event) return;
 
         // Persist via API
-        fetch(`../api/events.php?id=${encodeURIComponent(editingEventId)}`, { method: 'DELETE' })
+        fetch(BASE_URL + `api/events.php?id=${encodeURIComponent(editingEventId)}`, { method: 'DELETE' })
             .then(r => r.json())
             .then(res => {
                 if (res.success) {
@@ -1162,7 +1163,7 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
     approveEvent() {
         if (!editingEventId) return;
 
-        fetch(`../api/events.php?id=${encodeURIComponent(editingEventId)}`, {
+        fetch(BASE_URL + `api/events.php?id=${encodeURIComponent(editingEventId)}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'approve' })
@@ -1185,7 +1186,7 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
     disapproveEvent() {
         if (!editingEventId) return;
 
-        fetch(`../api/events.php?id=${encodeURIComponent(editingEventId)}`, {
+        fetch(BASE_URL + `api/events.php?id=${encodeURIComponent(editingEventId)}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'disapprove' })
@@ -1266,7 +1267,7 @@ document.getElementById('changePasswordForm').addEventListener('submit', async f
     if (!policy.test(newPassword)) { show(err('Password must be 8+ chars with upper, lower, number, special.')); return; }
 
     try {
-        const resp = await fetch('../api/auth.php', {
+        const resp = await fetch(BASE_URL + 'api/auth.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'change_password', current_password: currentPassword, new_password: newPassword })
@@ -1302,7 +1303,7 @@ function logout() {
     localStorage.removeItem('currentUser');
     currentUser = null;
     
-    window.location.href = 'user-logout.php';
+    window.location.href = BASE_URL + 'logout';
 }
 
 function showNotifications() {
@@ -1422,7 +1423,7 @@ document.getElementById('profileSettingsForm').addEventListener('submit', async 
     }
 
     try {
-        const resp = await fetch('../api/users.php', {
+        const resp = await fetch(BASE_URL + 'api/users.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -1494,6 +1495,6 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
         console.log('No user data found, redirecting to login...');
         // If no user data, redirect to login
-        window.location.href = 'user-login.php';
+        window.location.href = BASE_URL + 'login';
     }
 });

@@ -1,7 +1,7 @@
 <?php
 // includes/auth.php - Authentication functions
-require_once __DIR__ . '/database.php';
-require_once __DIR__ . '/session.php';
+require_once 'database.php';
+require_once 'session.php';
 
 class Auth {
     private $conn;

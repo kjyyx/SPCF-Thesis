@@ -13,9 +13,12 @@
  * Tracks download counts for analytics.
  */
 
-require_once '../includes/session.php';
-require_once '../includes/auth.php';
-require_once '../includes/database.php';
+require_once __DIR__ . '/../includes/config.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'includes/auth.php';
+require_once ROOT_PATH . 'includes/database.php';
+
+header('Content-Type: application/json');
 
 requireAuth(); // Ensure user is logged in
 
@@ -196,7 +199,7 @@ switch ($method) {
         }
 
         // Create uploads directory if it doesn't exist
-        $uploadDir = '../uploads/';
+        $uploadDir = ROOT_PATH . 'uploads/';
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0755, true);
         }

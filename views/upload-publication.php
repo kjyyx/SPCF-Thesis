@@ -1,6 +1,6 @@
 <?php
-require_once '../includes/session.php';
-require_once '../includes/auth.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'includes/auth.php';
 requireAuth(); // Requires login
 
 // Get current user
@@ -9,13 +9,13 @@ $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 
 if (!$currentUser) {
   logoutUser();
-  header('Location: user-login.php');
+  header('Location: ' . BASE_URL . 'login');
   exit();
 }
 
 // Restrict Accounting employees to only SAF access
 if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
-    header('Location: saf.php');
+    header('Location: ' . BASE_URL . 'saf');
     exit();
 }
 
@@ -62,7 +62,7 @@ $pageTitle = 'Upload Publications';
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" type="image/jpeg" href="../assets/images/sign-um-favicon.jpg">
+  <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
   <title>Sign-um - Upload Publication Materials</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
@@ -72,10 +72,10 @@ $pageTitle = 'Upload Publications';
     2. upload-publication.css - Page-specific overrides and upload components
     3. toast.css - Toast notification styles
   -->
-  <link href="../assets/css/global.css" rel="stylesheet">
-  <link href="../assets/css/upload-publication.css" rel="stylesheet">
-  <link href="../assets/css/toast.css" rel="stylesheet">
-  <link href="../assets/css/global-notifications.css" rel="stylesheet"><!-- Global notifications styles -->
+  <link href="<?php echo BASE_URL; ?>assets/css/global.css" rel="stylesheet">
+  <link href="<?php echo BASE_URL; ?>assets/css/upload-publication.css" rel="stylesheet">
+  <link href="<?php echo BASE_URL; ?>assets/css/toast.css" rel="stylesheet">
+  <link href="<?php echo BASE_URL; ?>assets/css/global-notifications.css" rel="stylesheet"><!-- Global notifications styles -->
 
   <script>
     // Pass user data to JavaScript (for consistency with event-calendar.php)
@@ -88,6 +88,7 @@ $pageTitle = 'Upload Publications';
     echo json_encode($jsUser);
     ?>;
     window.isAdmin = <?php echo ($currentUser['role'] === 'admin') ? 'true' : 'false'; ?>;
+    window.BASE_URL = "<?php echo BASE_URL; ?>";
 
     // REMOVE: Duplicate loadNotifications function and interval (handled by global-notifications.js)
   </script>
@@ -96,8 +97,8 @@ $pageTitle = 'Upload Publications';
       </head>
 
   <body class="with-fixed-navbar">
-    <?php include '../includes/navbar.php'; ?>
-    <?php include '../includes/notifications.php'; ?>
+    <?php include ROOT_PATH . 'includes/navbar.php'; ?>
+    <?php include ROOT_PATH . 'includes/notifications.php'; ?>
 
   <!-- Page Header -->
   <div class="page-header-section">
@@ -256,10 +257,10 @@ $pageTitle = 'Upload Publications';
       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
   <!-- Toast Utils -->
-  <script src="../assets/js/toast.js"></script>
+  <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
 
   <!-- Custom JavaScript -->
-  <script src="../assets/js/upload-publication.js"></script>
+  <script src="<?php echo BASE_URL; ?>assets/js/upload-publication.js"></script>
 
   <script>
     // Initialize tooltips

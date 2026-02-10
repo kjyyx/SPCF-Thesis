@@ -13,11 +13,11 @@
  * Supports PDF generation and signature collection.
  */
 
-require_once '../includes/session.php';
-require_once '../includes/auth.php';
-require_once '../includes/config.php';
-require_once '../includes/database.php';
-require_once '../vendor/autoload.php';
+require_once __DIR__ . '/../includes/config.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'includes/auth.php';
+require_once ROOT_PATH . 'includes/database.php';
+require_once ROOT_PATH . 'vendor/autoload.php';
 
 header('Content-Type: application/json');
 
@@ -59,7 +59,7 @@ function fillDocxTemplate($templatePath, $data)
     }
 
     // Generate unique filename for filled document
-    $outputDir = '../uploads/';
+    $outputDir = ROOT_PATH . 'uploads/';
     if (!is_dir($outputDir)) {
         mkdir($outputDir, 0755, true);
     }
@@ -531,20 +531,20 @@ function handleGet()
             // Use generated file path if no attachment
             if (!$filePath && $doc['file_path']) {
                 $filePath = $doc['file_path'];
-                // Handle backward compatibility: if file_path doesn't start with '../', assume it's in uploads
-                if ($filePath && strpos($filePath, '../') !== 0 && strpos($filePath, 'http') !== 0) {
-                    $filePath = '../uploads/' . $filePath;
-                }
-            }
-            // Convert server path to web URL
-            if ($filePath) {
-                $absPath = realpath(__DIR__ . '/' . $filePath);
-                if ($absPath) {
-                    $basePath = realpath(__DIR__ . '/../');
-                    $filePath = str_replace($basePath, '', $absPath);
-                    $filePath = str_replace('\\', '/', $filePath);
-                    $filePath = '/SPCF-Thesis' . $filePath;
-                    // URL encode the filename to handle spaces and special characters
+                // Handle backward compatibility and absolute paths
+                if ($filePath && strpos($filePath, 'http') !== 0) {
+                    // Check if it's an absolute path (starts with drive letter or /)
+                    if (preg_match('/^[A-Za-z]:/', $filePath) || strpos($filePath, '/') === 0) {
+                        // For absolute paths, extract filename and assume it's in uploads
+                        $filePath = 'uploads/' . basename($filePath);
+                    }
+                    // For relative paths, ensure they start with uploads/
+                    if (strpos($filePath, 'uploads/') !== 0) {
+                        $filePath = 'uploads/' . $filePath;
+                    }
+                    // Convert to full URL
+                    $filePath = BASE_URL . $filePath;
+                    // URL encode the filename
                     $pathParts = explode('/', $filePath);
                     $filename = end($pathParts);
                     $encodedFilename = rawurlencode($filename);
@@ -982,16 +982,16 @@ function createDocument($input)
             $data = array_merge($data, $signatories);
 
             $templateMap = [
-                'College of Arts, Social Sciences and Education' => '../assets/templates/Project Proposals/College of Arts, Social Sciences, and Education (Project Proposal).docx',
-                'College of Business' => '../assets/templates/Project Proposals/College of Business (Project Proposal).docx',
-                'College of Computing and Information Sciences' => '../assets/templates/Project Proposals/College of Computing and Information Sciences (Project Proposal).docx',
-                'College of Criminology' => '../assets/templates/Project Proposals/College of Criminology (Project Proposal).docx',
-                'College of Engineering' => '../assets/templates/Project Proposals/College of Engineering (Project Proposal).docx',
-                'College of Hospitality and Tourism Management' => '../assets/templates/Project Proposals/College of Hospitality and Tourism Management (Project Proposal).docx',
-                'College of Nursing' => '../assets/templates/Project Proposals/College of Nursing (Project Proposal).docx',
-                'SPCF Miranda' => '../assets/templates/Project Proposals/SPCF Miranda (Project Proposal).docx',
-                'Supreme Student Council (SSC)' => '../assets/templates/Project Proposals/Supreme Student Council (Project Proposal).docx',
-                'default' => '../assets/templates/Project Proposals/Supreme Student Council (Project Proposal).docx'
+                'College of Arts, Social Sciences and Education' => ROOT_PATH . 'assets/templates/Project Proposals/College of Arts, Social Sciences, and Education (Project Proposal).docx',
+                'College of Business' => ROOT_PATH . 'assets/templates/Project Proposals/College of Business (Project Proposal).docx',
+                'College of Computing and Information Sciences' => ROOT_PATH . 'assets/templates/Project Proposals/College of Computing and Information Sciences (Project Proposal).docx',
+                'College of Criminology' => ROOT_PATH . 'assets/templates/Project Proposals/College of Criminology (Project Proposal).docx',
+                'College of Engineering' => ROOT_PATH . 'assets/templates/Project Proposals/College of Engineering (Project Proposal).docx',
+                'College of Hospitality and Tourism Management' => ROOT_PATH . 'assets/templates/Project Proposals/College of Hospitality and Tourism Management (Project Proposal).docx',
+                'College of Nursing' => ROOT_PATH . 'assets/templates/Project Proposals/College of Nursing (Project Proposal).docx',
+                'SPCF Miranda' => ROOT_PATH . 'assets/templates/Project Proposals/SPCF Miranda (Project Proposal).docx',
+                'Supreme Student Council (SSC)' => ROOT_PATH . 'assets/templates/Project Proposals/Supreme Student Council (Project Proposal).docx',
+                'default' => ROOT_PATH . 'assets/templates/Project Proposals/Supreme Student Council (Project Proposal).docx'
             ];
             $templatePath = $templateMap[$department] ?? $templateMap['default'];
 
@@ -1005,7 +1005,7 @@ function createDocument($input)
                 $pdfPath = convertDocxToPdf($filledPath);
                 error_log("DEBUG: PDF conversion result: " . $pdfPath);
                 $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
-                $stmt->execute([$pdfPath, $docId]);
+                $stmt->execute(['uploads/' . basename($pdfPath), $docId]);
             } catch (Exception $e) {
                 error_log("Proposal template filling failed: " . $e->getMessage());
                 // Fallback: Do not set file_path, document can still be viewed as HTML
@@ -1050,16 +1050,16 @@ function createDocument($input)
             $data = array_merge($data, $signatories);
 
             $commTemplateMap = [
-                'College of Arts, Social Sciences and Education' => '../assets/templates/Communication Letter/College of Arts, Social Sciences, and Education (Comm Letter).docx',
-                'College of Business' => '../assets/templates/Communication Letter/College of Business (Comm Letter).docx',
-                'College of Computing and Information Sciences' => '../assets/templates/Communication Letter/College of Computing and Information Sciences (Comm Letter).docx',
-                'College of Criminology' => '../assets/templates/Communication Letter/College of Criminology (Comm Letter).docx',
-                'College of Engineering' => '../assets/templates/Communication Letter/College of Engineering (Comm Letter).docx',
-                'College of Hospitality and Tourism Management' => '../assets/templates/Communication Letter/College of Hospitality and Tourism Management (Comm Letter).docx',
-                'College of Nursing' => '../assets/templates/Communication Letter/College of Nursing (Comm Letter).docx',
-                'SPCF Miranda' => '../assets/templates/Communication Letter/SPCF Miranda (Comm Letter).docx',
-                'Supreme Student Council (SSC)' => '../assets/templates/Communication Letter/Supreme Student Council (Comm Letter).docx',
-                'default' => '../assets/templates/Communication Letter/Supreme Student Council (Comm Letter).docx'
+                'College of Arts, Social Sciences and Education' => ROOT_PATH . 'assets/templates/Communication Letter/College of Arts, Social Sciences, and Education (Comm Letter).docx',
+                'College of Business' => ROOT_PATH . 'assets/templates/Communication Letter/College of Business (Comm Letter).docx',
+                'College of Computing and Information Sciences' => ROOT_PATH . 'assets/templates/Communication Letter/College of Computing and Information Sciences (Comm Letter).docx',
+                'College of Criminology' => ROOT_PATH . 'assets/templates/Communication Letter/College of Criminology (Comm Letter).docx',
+                'College of Engineering' => ROOT_PATH . 'assets/templates/Communication Letter/College of Engineering (Comm Letter).docx',
+                'College of Hospitality and Tourism Management' => ROOT_PATH . 'assets/templates/Communication Letter/College of Hospitality and Tourism Management (Comm Letter).docx',
+                'College of Nursing' => ROOT_PATH . 'assets/templates/Communication Letter/College of Nursing (Comm Letter).docx',
+                'SPCF Miranda' => ROOT_PATH . 'assets/templates/Communication Letter/SPCF Miranda (Comm Letter).docx',
+                'Supreme Student Council (SSC)' => ROOT_PATH . 'assets/templates/Communication Letter/Supreme Student Council (Comm Letter).docx',
+                'default' => ROOT_PATH . 'assets/templates/Communication Letter/Supreme Student Council (Comm Letter).docx'
             ];
             $templatePath = $commTemplateMap[$department] ?? $commTemplateMap['default'];
             $data['content'] = $data['body'];
@@ -1090,7 +1090,7 @@ function createDocument($input)
                 // Convert DOCX to PDF
                 $pdfPath = convertDocxToPdf($filledPath);
                 $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
-                $stmt->execute([$pdfPath, $docId]);
+                $stmt->execute(['uploads/' . basename($pdfPath), $docId]);
             } catch (Exception $e) {
                 error_log("Communication template filling failed: " . $e->getMessage());
                 // Fallback: Do not set file_path
@@ -1175,14 +1175,14 @@ function createDocument($input)
             $data = array_merge($data, $signatories);
             $data['reqByName'] = $currentUser['first_name'] . ' ' . $currentUser['last_name'];
 
-            $templatePath = '../assets/templates/SAF/SAF REQUEST.docx';
+            $templatePath = ROOT_PATH . 'assets/templates/SAF/SAF REQUEST.docx';
             if (file_exists($templatePath)) {
                 try {
                     $filledPath = fillDocxTemplate($templatePath, $data);
                     // Convert DOCX to PDF
                     $pdfPath = convertDocxToPdf($filledPath);
                     $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
-                    $stmt->execute([$pdfPath, $docId]);
+                    $stmt->execute(['uploads/' . basename($pdfPath), $docId]);
                 } catch (Exception $e) {
                     error_log("SAF template filling failed: " . $e->getMessage());
                 }
@@ -1217,14 +1217,14 @@ function createDocument($input)
             // Add signatories to data
             $data = array_merge($data, $signatories);
 
-            $templatePath = '../assets/templates/Facility Request/FACILITY REQUEST.docx';
+            $templatePath = ROOT_PATH . 'assets/templates/Facility Request/FACILITY REQUEST.docx';
             if (file_exists($templatePath)) {
                 try {
                     $filledPath = fillDocxTemplate($templatePath, $data);
                     // Convert DOCX to PDF
                     $pdfPath = convertDocxToPdf($filledPath);
                     $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
-                    $stmt->execute([$pdfPath, $docId]);
+                    $stmt->execute(['uploads/' . basename($pdfPath), $docId]);
                 } catch (Exception $e) {
                     error_log("Facility template filling failed: " . $e->getMessage());
                 }
@@ -1237,9 +1237,8 @@ function createDocument($input)
         $existingFilePath = $checkStmt->fetchColumn();
         if (!$existingFilePath) {
             // Set a fallback file_path for tracking purposes
-            $fallbackPath = '../uploads/fallback.pdf';
             $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
-            $stmt->execute([$fallbackPath, $docId]);
+            $stmt->execute(['uploads/fallback.pdf', $docId]);
         }
 
         // Create workflow steps based on document type
@@ -1423,7 +1422,7 @@ function signDocument($input, $files = null)
 
     // Handle signed PDF upload - only archive old file if NOT fully approved yet
     if (isset($files['signed_pdf']) && $files['signed_pdf']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = '../uploads/';
+        $uploadDir = ROOT_PATH . 'uploads/';
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0755, true);
         }
@@ -1463,8 +1462,8 @@ function signDocument($input, $files = null)
                 }
             }
 
-            // Update database with new file path (store full relative path)
-            $relativePath = '../uploads/' . $newFileName;
+            // Update database with new file path (store relative path)
+            $relativePath = 'uploads/' . $newFileName;
             $updateStmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
             $updateStmt->execute([$relativePath, $documentId]);
         } else {
@@ -1907,7 +1906,7 @@ function rejectDocument($input)
         $docStmt->execute([$documentId]);
         $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
         if ($doc && $doc['file_path']) {
-            $uploadDir = '../uploads/';
+            $uploadDir = ROOT_PATH . 'uploads/';
             $oldFilePath = $uploadDir . basename($doc['file_path']);
             if (file_exists($oldFilePath)) {
                 $archiveDir = $uploadDir . 'archive/';

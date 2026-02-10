@@ -2,6 +2,8 @@
 
 console.log('user-login.js loaded');
 
+var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
+
 function detectLoginType(userId) {
     const prefix = userId.substring(0, 3).toUpperCase(); // Convert to uppercase for case-insensitive check
     if (prefix === 'ADM') {
@@ -346,7 +348,7 @@ function attachLoginSubmitHandler() {
             const requestData = { userId, password, loginType: detectLoginType(userId) };
             loginButton.innerHTML = '<i class="bi bi-hourglass-split"></i>Signing In...';
 
-            const response = await fetch('../api/auth.php', {
+            const response = await fetch(BASE_URL + 'api/auth.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestData)
@@ -611,7 +613,7 @@ function resendMfaCode() {
     btn.disabled = true;
 
     // Actually resend the code
-    fetch('../api/auth.php', {
+    fetch(BASE_URL + 'api/auth.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'forgot_password', userId })
@@ -817,7 +819,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             try {
                 console.log('Sending fetch request');
-                const response = await fetch('../api/auth.php', {
+                const response = await fetch(BASE_URL + 'api/auth.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'forgot_password', userId })
@@ -871,7 +873,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             }
 
             try {
-                const response = await fetch('../api/auth.php', {
+                const response = await fetch(BASE_URL + 'api/auth.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -921,7 +923,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             verify2faBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verifying...';
 
             try {
-                const response = await fetch('../api/auth.php', {
+                const response = await fetch(BASE_URL + 'api/auth.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -971,7 +973,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             complete2faBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Completing Setup...';
 
             try {
-                const response = await fetch('../api/auth.php', {
+                const response = await fetch(BASE_URL + 'api/auth.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1048,7 +1050,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             const userId = document.getElementById('forgotUserId').value.trim();
 
             try {
-                const response = await fetch('../api/auth.php', {
+                const response = await fetch(BASE_URL + 'api/auth.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'reset_password', userId, newPassword })

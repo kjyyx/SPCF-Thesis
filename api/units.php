@@ -12,10 +12,10 @@
  */
 
 header('Content-Type: application/json');
-require_once '../includes/config.php';
-require_once '../includes/auth.php';
-require_once '../includes/session.php';
-require_once '../includes/database.php';
+require_once __DIR__ . '/../includes/config.php';
+require_once ROOT_PATH . 'includes/auth.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'includes/database.php';
 
 if (!isLoggedIn()) {
     echo json_encode(['success' => false, 'message' => 'Not authenticated']);

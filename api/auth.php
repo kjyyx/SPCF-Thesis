@@ -15,11 +15,11 @@
 header('Content-Type: application/json');
 // Fix the include paths - use absolute paths from root
 require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/session.php';
-require_once __DIR__ . '/../includes/database.php';
-require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/../includes/utilities.php';
+require_once ROOT_PATH . 'includes/auth.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'includes/database.php';
+require_once ROOT_PATH . 'vendor/autoload.php';
+require_once ROOT_PATH . 'includes/utilities.php';
 use PragmaRX\Google2FA\Google2FA;
 
 // Utility: map session role to table
@@ -182,7 +182,7 @@ if ($method === 'POST') {
             $_SESSION['forgot_password_expires'] = time() + 300; // 5 minutes
 
             // Send email using Gmail SMTP
-            require_once __DIR__ . '/../vendor/autoload.php'; // Ensure PHPMailer is loaded
+            require_once ROOT_PATH . 'vendor/autoload.php'; // Ensure PHPMailer is loaded
             $mail = new PHPMailer\PHPMailer\PHPMailer(true);
 
             try {
@@ -207,7 +207,7 @@ if ($method === 'POST') {
                 $currentYear = date('Y');
                 
                 // Embed the header image
-                $mail->addEmbeddedImage(__DIR__ . '/../assets/images/Email_background.jpg', 'header_image', 'Email_background.jpg', 'base64', 'image/jpeg');
+                $mail->addEmbeddedImage(ROOT_PATH . 'assets/images/Email_background.jpg', 'header_image', 'Email_background.jpg', 'base64', 'image/jpeg');
                 
                 $mail->Body = "
                 <!DOCTYPE html>
@@ -415,8 +415,8 @@ if ($method === 'POST') {
             
             loginUser($user);
             addAuditLog('LOGIN_2FA', 'Authentication', "User {$user['first_name']} {$user['last_name']} completed 2FA login", $user['id'], 'User', 'INFO');
-            error_log("DEBUG api/auth.php: 2FA verification successful for user $userId, redirecting to " . ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php'));
-            echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php')]);
+            error_log("DEBUG api/auth.php: 2FA verification successful for user $userId, redirecting to " . ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar'));
+            echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar')]);
         } else {
             error_log("DEBUG api/auth.php: 2FA verification failed for user $userId - invalid code");
             echo json_encode(['success' => false, 'message' => 'Invalid 2FA code']);
@@ -467,8 +467,8 @@ if ($method === 'POST') {
             $stmt->execute([$userId]);
             loginUser($user);
             addAuditLog('2FA_SETUP', 'Authentication', "User {$user['first_name']} {$user['last_name']} set up 2FA", $user['id'], 'User', 'INFO');
-            error_log("DEBUG api/auth.php: 2FA setup successful for user $userId, redirecting to " . ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php'));
-            echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php')]);
+            error_log("DEBUG api/auth.php: 2FA setup successful for user $userId, redirecting to " . ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar'));
+            echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar')]);
         } else {
             error_log("DEBUG api/auth.php: 2FA setup failed for user $userId - invalid code");
             echo json_encode(['success' => false, 'message' => 'Invalid 2FA code']);
@@ -560,7 +560,7 @@ if ($method === 'POST') {
                     error_log("DEBUG api/auth.php: User has 2FA enabled but global 2FA disabled, skipping verification");
                     loginUser($user);
                     addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in (2FA bypassed for development)", $user['id'], 'User', 'INFO');
-                    echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php')]);
+                    echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar')]);
                 } else {
                     // 2FA secret exists but not set up - prompt for setup if globally enabled
                     if ($global2FAEnabled) {
@@ -570,7 +570,7 @@ if ($method === 'POST') {
                         // Proceed without 2FA
                         loginUser($user);
                         addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in (2FA disabled)", $user['id'], 'User', 'INFO');
-                        echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php')]);
+                        echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar')]);
                     }
                 }
             } else {
@@ -587,7 +587,7 @@ if ($method === 'POST') {
                     // Proceed without 2FA
                     loginUser($user);
                     addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in (2FA disabled)", $user['id'], 'User', 'INFO');
-                    echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? 'admin-dashboard.php' : 'event-calendar.php')]);
+                    echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar')]);
                 }
             }
             exit();

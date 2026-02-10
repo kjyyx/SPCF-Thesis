@@ -1,4 +1,5 @@
 // Modern Document Tracker JavaScript
+var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
 
 // Pagination and data management
 let currentPage = 1;
@@ -197,7 +198,7 @@ async function loadStudentDocuments() {
     showLoadingState();
     
     try {
-        const response = await fetch('../api/documents.php?action=my_documents&t=' + Date.now(), {
+        const response = await fetch(BASE_URL + 'api/documents.php?action=my_documents&t=' + Date.now(), {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
@@ -507,7 +508,7 @@ function downloadDocument(docId) {
     showToast('Preparing download...', 'info');
     
     // Use API to get the latest file_path (handles signed PDFs)
-    fetch(`../api/documents.php?action=document_details&id=${docId}`, {
+    fetch(BASE_URL + `api/documents.php?action=document_details&id=${docId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
     })
@@ -520,8 +521,20 @@ function downloadDocument(docId) {
             const currentUser = window.currentUser || null;
             const issuerId = data.document.student_id || data.document.issuer_id || data.document.user_id || null;
             if (!issuerId || !currentUser || currentUser.id == issuerId || currentUser.role === 'admin') {
+                let filePath = data.document.file_path;
+                if (filePath.startsWith('/')) {
+                    filePath = BASE_URL + filePath.substring(1);
+                } else if (filePath.startsWith('../')) {
+                    filePath = BASE_URL + filePath.substring(3);
+                } else if (filePath.startsWith('SPCF-Thesis/')) {
+                    filePath = BASE_URL + filePath.substring(12);
+                } else if (filePath.startsWith('http')) {
+                    // Full URL
+                } else {
+                    filePath = BASE_URL + 'uploads/' + filePath;
+                }
                 const link = document.createElement('a');
-                link.href = data.document.file_path;
+                link.href = filePath;
                 link.download = (data.document.document_name || data.document.title || 'Document') + '.pdf';
                 link.target = '_blank';
                 document.body.appendChild(link);
@@ -733,7 +746,7 @@ async function viewDetails(docId) {
     const modalBody = document.getElementById('documentModalBody');
 
     try {
-        const response = await fetch(`../api/documents.php?action=document_details&id=${docId}`, {
+        const response = await fetch(BASE_URL + `api/documents.php?action=document_details&id=${docId}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -879,7 +892,19 @@ async function viewDetails(docId) {
 
             // Load PDF if available
             if (doc.file_path && /\.pdf(\?|$)/i.test(doc.file_path)) {
-                loadPdfInModal(doc.file_path);
+                let pdfUrl = doc.file_path;
+                if (pdfUrl.startsWith('/')) {
+                    pdfUrl = BASE_URL + pdfUrl.substring(1);
+                } else if (pdfUrl.startsWith('../')) {
+                    pdfUrl = BASE_URL + pdfUrl.substring(3);
+                } else if (pdfUrl.startsWith('SPCF-Thesis/')) {
+                    pdfUrl = BASE_URL + pdfUrl.substring(12);
+                } else if (pdfUrl.startsWith('http')) {
+                    // Full URL
+                } else {
+                    pdfUrl = BASE_URL + 'uploads/' + pdfUrl;
+                }
+                loadPdfInModal(pdfUrl);
             }
         } else {
             modalTitle.innerHTML = '<i class="bi bi-exclamation-triangle"></i><span>Error</span>';

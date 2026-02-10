@@ -14,6 +14,7 @@ define('DB_NAME', getenv('DB_NAME') ?: 'spcf_thesis_db');
 
 // Application settings
 define('BASE_URL', getenv('BASE_URL') ?: 'http://localhost/SPCF-Thesis/');
+define('ROOT_PATH', __DIR__ . '/../');
 define('SITE_NAME', getenv('SITE_NAME') ?: 'Sign-um');
 
 // Environment (change to 'production' when deploying)

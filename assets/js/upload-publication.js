@@ -1,5 +1,6 @@
 // Upload Publication Materials JavaScript
 // This file contains the client-side logic for the upload publication materials page
+var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
 
 // Global toast function for navbar functions
 function showToast(message, type = 'info', title = null) {
@@ -461,7 +462,7 @@ function initializeUploadSystem() {
             console.log('Uploading', file.name, 'with description:', file.description || 'Uploaded publication material');
 
             try {
-                const response = await fetch('../api/materials.php', {
+                const response = await fetch(BASE_URL + 'api/materials.php', {
                     method: 'POST',
                     body: formData
                 });

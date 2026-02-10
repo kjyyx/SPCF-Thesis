@@ -5,7 +5,8 @@
  * - Exposes: window.refreshNotifications(), window.showNotifications(), window.markAllAsRead()
  */
 (function () {
-    const API = '../api/notifications.php';
+    var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
+    const API = BASE_URL + 'api/notifications.php';
     const POLL_INTERVAL = 300000; // 5 min
     let pollHandle = null;
     let cache = [];

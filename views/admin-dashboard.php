@@ -1,6 +1,6 @@
 <?php
-require_once '../includes/session.php';
-require_once '../includes/auth.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'includes/auth.php';
 requireAuth(); // Requires login
 
 // Get current user
@@ -13,20 +13,20 @@ error_log("DEBUG admin-dashboard.php: Session user_role: " . ($_SESSION['user_ro
 if (!$currentUser) {
     error_log("DEBUG admin-dashboard.php: Redirecting - no user");
     logoutUser();
-    header('Location: user-login.php');
+    header('Location: ' . BASE_URL . 'login');
     exit();
 }
 
 // Restrict Accounting employees to only SAF access
 if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
-    header('Location: saf.php');
+    header('Location: ' . BASE_URL . 'saf');
     exit();
 }
 
 if ($currentUser['role'] !== 'admin') {
     error_log("DEBUG admin-dashboard.php: Redirecting - no user or not admin");
     logoutUser();
-    header('Location: user-login.php');
+    header('Location: ' . BASE_URL . 'login');
     exit();
 }
 
@@ -70,14 +70,14 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/jpeg" href="../assets/images/sign-um-favicon.jpg">
+    <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
     <title>Sign-um - Admin Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="../assets/css/global.css">
-    <link rel="stylesheet" href="../assets/css/admin-dashboard.css">
-    <link rel="stylesheet" href="../assets/css/toast.css">
-    <link rel="stylesheet" href="../assets/css/global-notifications.css"><!-- Global notifications styles -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/admin-dashboard.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/toast.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global-notifications.css"><!-- Global notifications styles -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
@@ -130,6 +130,9 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         echo json_encode($jsUser);
         ?>;
 
+        // Set BASE_URL for JavaScript
+        window.BASE_URL = "<?php echo BASE_URL; ?>";
+
         // Removed per-view loadNotifications (centralized)
     </script>
 
@@ -181,7 +184,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         </div>
     </nav>
 
-    <?php include '../includes/notifications.php'; ?>
+    <?php include ROOT_PATH . 'includes/notifications.php'; ?>
 
     <div class="main-content">
         <!-- Admin Header -->
@@ -1552,10 +1555,10 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
 
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-        <script src="../assets/js/toast.js"></script>
-        <script src="../assets/js/global-notifications.js"></script>
-        <script src="../assets/js/user-login.js"></script>
-        <script src="../assets/js/admin-dashboard.js"></script>
+        <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
+        <script src="<?php echo BASE_URL; ?>assets/js/global-notifications.js"></script>
+        <script src="<?php echo BASE_URL; ?>assets/js/user-login.js"></script>
+        <script src="<?php echo BASE_URL; ?>assets/js/admin-dashboard.js"></script>
         <script>
             function markAllAsRead() { if (window.markAllAsRead) window.markAllAsRead(); }
         </script>

@@ -1,6 +1,6 @@
 <?php
-require_once '../includes/session.php';
-require_once '../includes/auth.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'includes/auth.php';
 requireAuth(); // Requires login
 
 // Get current user
@@ -8,13 +8,13 @@ $currentUser = getCurrentUser();
 
 if (!$currentUser) {
     logoutUser();
-    header('Location: user-login.php');
+    header('Location: ' . BASE_URL . 'login');
     exit();
 }
 
 // Restrict Accounting employees to only SAF access
 if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
-    header('Location: saf.php');
+    header('Location: ' . BASE_URL . 'saf');
     exit();
 }
 
@@ -27,16 +27,16 @@ $pageTitle = 'Track Documents';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/jpeg" href="../assets/images/sign-um-favicon.jpg">
+    <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
     <title>Sign-um - Document Tracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="../assets/css/global.css">
-    <link rel="stylesheet" href="../assets/css/track-document.css">
-    <link rel="stylesheet" href="../assets/css/toast.css">
-    <link rel="stylesheet" href="../assets/css/global-notifications.css"><!-- Global notifications styles -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/track-document.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/toast.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global-notifications.css"><!-- Global notifications styles -->
 
     <script>
         // Pass user data to JavaScript
@@ -49,6 +49,7 @@ $pageTitle = 'Track Documents';
         echo json_encode($jsUser);
         ?>;
         window.isAdmin = <?php echo ($currentUser['role'] === 'admin') ? 'true' : 'false'; ?>;
+        window.BASE_URL = "<?php echo BASE_URL; ?>";
 
         // REMOVE: Duplicate loadNotifications function and interval (handled by global-notifications.js)
     </script>
@@ -58,8 +59,8 @@ $pageTitle = 'Track Documents';
 </head>
 
 <body class="with-fixed-navbar">
-    <?php include '../includes/navbar.php'; ?>
-    <?php include '../includes/notifications.php'; ?>
+    <?php include ROOT_PATH . 'includes/navbar.php'; ?>
+    <?php include ROOT_PATH . 'includes/notifications.php'; ?>
 
     <!-- Admin-Style Compact Header -->
     <div class="calendar-header-compact">
@@ -307,27 +308,27 @@ $pageTitle = 'Track Documents';
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../assets/js/toast.js"></script>
-    <script src="../assets/js/track-document.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/track-document.js"></script>
     <script>
         // Function to navigate to pending approvals (notifications.php)
         function openPendingApprovals() {
-            window.location.href = 'notifications.php';
+            window.location.href = window.BASE_URL + 'notifications';
         }
 
         // Function to navigate to create document page
         function openCreateDocumentModal() {
-            window.location.href = 'create-document.php';
+            window.location.href = window.BASE_URL + 'create-document';
         }
 
         // Function to navigate to upload pubmat page
         function openUploadPubmatModal() {
-            window.location.href = 'upload-publication.php';
+            window.location.href = window.BASE_URL + 'upload-publication';
         }
 
         // Function to navigate to track documents page
         function openTrackDocumentsModal() {
-            window.location.href = 'track-document.php';
+            window.location.href = window.BASE_URL + 'track-document';
         }
     </script>
 

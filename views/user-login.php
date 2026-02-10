@@ -1,9 +1,9 @@
 <?php
 // Use absolute paths
-require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/session.php';
-require_once __DIR__ . '/../includes/database.php';
+require_once ROOT_PATH . 'includes/config.php';
+require_once ROOT_PATH . 'includes/auth.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'includes/database.php';
 
 // Audit log helper function
 function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
@@ -33,9 +33,9 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 if (isLoggedIn()) {
     $role = $_SESSION['user_role'];
     if ($role === 'admin') {
-        header('Location: admin-dashboard.php');
+        header('Location: ' . BASE_URL . 'dashboard');
     } else {
-        header('Location: event-calendar.php');
+        header('Location: ' . BASE_URL . 'calendar');
     }
     exit();
 }
@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
                         // No 2FA - proceed (or enforce for students)
                         if ($user['role'] === 'student') {
                             // Generate secret for students
-                            require_once __DIR__ . '/../vendor/autoload.php';
+                            require_once ROOT_PATH . 'vendor/autoload.php';
                             $google2fa = new PragmaRX\Google2FA\Google2FA();
                             $secret = $google2fa->generateSecretKey();
                             $stmt = $conn->prepare("UPDATE students SET 2fa_secret = ? WHERE id = ?");
@@ -123,9 +123,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
 
                             // Redirect based on role
                             if ($user['role'] === 'admin') {
-                                header('Location: admin-dashboard.php');
+                                header('Location: ' . BASE_URL . 'dashboard');
                             } else {
-                                header('Location: event-calendar.php');
+                                header('Location: ' . BASE_URL . 'calendar');
                             }
                             exit();
                         }
@@ -169,13 +169,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/jpeg" href="../assets/images/sign-um-favicon.jpg">
+    <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
     <title>Sign-um - Login</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="../assets/css/global.css">
-    <link rel="stylesheet" href="../assets/css/user-login.css">
-    <script src="../assets/js/user-login.js"></script>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/user-login.css">
+    <script src="<?php echo BASE_URL; ?>assets/js/user-login.js"></script>
 </head>
 
 <body>

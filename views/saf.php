@@ -1,6 +1,6 @@
 <?php
-require_once '../includes/session.php';
-require_once '../includes/auth.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'includes/auth.php';
 requireAuth(); // Requires login
 
 // Get current user
@@ -9,7 +9,7 @@ $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 
 if (!$currentUser) {
     logoutUser();
-    header('Location: user-login.php');
+    header('Location: ' . BASE_URL . 'login');
     exit();
 }
 
@@ -20,7 +20,7 @@ $hasAccess = $currentUser['role'] === 'student' ||
               stripos($currentUser['position'], 'OSA') !== false));
 
 if (!$hasAccess) {
-    header('Location: user-login.php?error=access_denied');
+    header('Location: ' . BASE_URL . 'login?error=access_denied');
     exit();
 }
 
@@ -65,10 +65,10 @@ $pageTitle = 'Student Allocated Funds';
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
-  <link href="../assets/css/global.css" rel="stylesheet"> <!-- Your global styles -->
-  <link rel="stylesheet" href="../assets/css/global-notifications.css"><!-- Global notifications styles -->
-  <script src="../assets/js/global-notifications.js"></script>
-  <script src="../assets/js/toast.js"></script>
+  <link href="<?php echo BASE_URL; ?>assets/css/global.css" rel="stylesheet"> <!-- Your global styles -->
+  <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global-notifications.css"><!-- Global notifications styles -->
+  <script src="<?php echo BASE_URL; ?>assets/js/global-notifications.js"></script>
+  <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
 
   <!-- Pass user data -->
   <script>
@@ -80,6 +80,7 @@ $pageTitle = 'Student Allocated Funds';
           'position' => $currentUser['position'] ?? '',
           'department' => $currentUser['department'] ?? ''
       ]); ?>;
+      window.BASE_URL = "<?php echo BASE_URL; ?>";
   </script>
 
   <style>
@@ -203,8 +204,8 @@ $pageTitle = 'Student Allocated Funds';
  </head>
  <body style="height: 100%;"><!-- Dashboard Screen -->
   <div id="dashboard-screen" class="dashboard-wrapper">
-   <?php include '../includes/navbar.php'; ?>
-   <?php include '../includes/notifications.php'; ?>
+   <?php include ROOT_PATH . 'includes/navbar.php'; ?>
+   <?php include ROOT_PATH . 'includes/notifications.php'; ?>
    <!-- All Departments View -->
    <div id="all-depts-view" class="container-fluid p-4" style="display: none;">
     <div class="row mb-4">
@@ -353,6 +354,6 @@ $pageTitle = 'Student Allocated Funds';
    </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="../assets/js/saf.js"></script>
+  <script src="<?php echo BASE_URL; ?>assets/js/saf.js"></script>
  </body>
 </html>

@@ -15,9 +15,12 @@
  * All actions are logged to prevent tampering.
  */
 
-require_once '../includes/session.php';
-require_once '../includes/auth.php';
-require_once '../includes/database.php';
+require_once __DIR__ . '/../includes/config.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'includes/auth.php';
+require_once ROOT_PATH . 'includes/database.php';
+
+header('Content-Type: application/json');
 
 requireAuth(); // Ensure user is logged in
 

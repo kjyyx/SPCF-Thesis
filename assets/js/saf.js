@@ -1,4 +1,5 @@
 // saf.js - Student Allocated Funds JavaScript
+var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
 // Departments data with mapping
 const DEPARTMENTS = [
   { id: 'casse', name: 'College of Arts and Social Sciences and Education', short: 'CASSE', db_id: 'casse' },
@@ -122,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Initialize Data SDK
 async function initDataSdk() {
   try {
-    const response = await fetch('../api/saf.php', {
+    const response = await fetch(BASE_URL + 'api/saf.php', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
@@ -171,7 +172,7 @@ function hideLoading() {
 
 // Logout function - redirect to system logout
 function logout() {
-  window.location.href = 'user-logout.php';
+  window.location.href = BASE_URL + 'logout';
 }
 
 function goBack() {
@@ -415,7 +416,7 @@ async function handleEditSubmit(e) {
 
     if (type === 'set') {
       if (existingSAF) {
-        const response = await fetch('../api/saf.php', {
+        const response = await fetch(BASE_URL + 'api/saf.php', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -429,7 +430,7 @@ async function handleEditSubmit(e) {
         const result = await response.json();
         if (!result.success) throw new Error('Failed to update SAF');
       } else {
-        const response = await fetch('../api/saf.php', {
+        const response = await fetch(BASE_URL + 'api/saf.php', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -444,7 +445,7 @@ async function handleEditSubmit(e) {
         if (!result.success) throw new Error('Failed to create SAF');
       }
 
-      const transResponse = await fetch('../api/saf.php', {
+      const transResponse = await fetch(BASE_URL + 'api/saf.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -465,7 +466,7 @@ async function handleEditSubmit(e) {
       const currentInitial = existingSAF?.initial_amount || 0;
 
       if (existingSAF) {
-        const response = await fetch('../api/saf.php', {
+        const response = await fetch(BASE_URL + 'api/saf.php', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -479,7 +480,7 @@ async function handleEditSubmit(e) {
         const result = await response.json();
         if (!result.success) throw new Error('Failed to update SAF');
       } else {
-        const response = await fetch('../api/saf.php', {
+        const response = await fetch(BASE_URL + 'api/saf.php', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -494,7 +495,7 @@ async function handleEditSubmit(e) {
         if (!result.success) throw new Error('Failed to create SAF');
       }
 
-      const transResponse = await fetch('../api/saf.php', {
+      const transResponse = await fetch(BASE_URL + 'api/saf.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -523,7 +524,7 @@ async function handleEditSubmit(e) {
       }
 
       if (existingSAF) {
-        const response = await fetch('../api/saf.php', {
+        const response = await fetch(BASE_URL + 'api/saf.php', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -542,7 +543,7 @@ async function handleEditSubmit(e) {
         return;
       }
 
-      const transResponse = await fetch('../api/saf.php', {
+      const transResponse = await fetch(BASE_URL + 'api/saf.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -595,7 +596,7 @@ async function confirmReset() {
   try {
     const safRecord = allData.find(d => d.type === 'saf' && d.department_id === currentDeptId);
     if (safRecord) {
-      const response = await fetch('../api/saf.php', {
+      const response = await fetch(BASE_URL + 'api/saf.php', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

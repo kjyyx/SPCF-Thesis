@@ -2,6 +2,8 @@
  * Bootstrap 5 Toast Utility for SPCF-Thesis Project
  * Provides consistent toast notifications across all views
  */
+var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
+
 class ToastManager {
     constructor() {
         this.container = null;
@@ -202,7 +204,7 @@ window.showToast = (options) => window.ToastManager.show(options);
 // Global audit logging function
 window.addAuditLog = async function(action, category, details, targetId = null, targetType = null, severity = 'INFO') {
     try {
-        const response = await fetch('../api/audit.php', {
+        const response = await fetch(BASE_URL + 'api/audit.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

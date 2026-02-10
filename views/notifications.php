@@ -1,6 +1,6 @@
 <?php
-require_once '../includes/session.php';
-require_once '../includes/auth.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'includes/auth.php';
 requireAuth(); // Requires login
 
 // Get current user first to check role
@@ -8,13 +8,13 @@ $auth = new Auth();
 $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 if (!$currentUser) {
     logoutUser();
-    header('Location: user-login.php');
+    header('Location: ' . BASE_URL . 'login');
     exit();
 }
 
 // Restrict Accounting employees to only SAF access
 if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
-    header('Location: saf.php');
+    header('Location: ' . BASE_URL . 'saf');
     exit();
 }
 
@@ -27,7 +27,7 @@ $userHasAccess = in_array($currentUser['role'], ALLOWED_ROLES) ||
     ($currentUser['role'] === 'student' && in_array($currentUser['position'], ALLOWED_STUDENT_POSITIONS));
 
 if (!$userHasAccess) {
-    header('Location: user-login.php?error=access_denied');
+    header('Location: ' . BASE_URL . 'login?error=access_denied');
     exit();
 }
 
@@ -91,7 +91,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/jpeg" href="../assets/images/sign-um-favicon.jpg">
+    <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
     <title>Sign-um - Document Notifications</title>
     <meta name="description" content="Modern document notification and digital signature system">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -105,11 +105,11 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         3. notifications.css - Page-specific overrides and custom components
         4. toast.css - Toast notification styles
     -->
-    <link rel="stylesheet" href="../assets/css/global.css">
-    <link rel="stylesheet" href="../assets/css/event-calendar.css">
-    <link rel="stylesheet" href="../assets/css/notifications.css">
-    <link rel="stylesheet" href="../assets/css/toast.css">
-    <link rel="stylesheet" href="../assets/css/global-notifications.css"><!-- Global notifications styles -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/event-calendar.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/notifications.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/toast.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global-notifications.css"><!-- Global notifications styles -->
 
     <script>
         // Provide user data to JS (employee-only)
@@ -123,6 +123,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         ];
         echo json_encode($jsUser);
         ?>;
+        window.BASE_URL = "<?php echo BASE_URL; ?>";
     </script>
 </head>
 
@@ -130,8 +131,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     <?php
     // Set page title for navbar
     $pageTitle = 'Document Notifications';
-    include '../includes/navbar.php';
-    include '../includes/notifications.php';
+    include ROOT_PATH . 'includes/navbar.php';
+    include ROOT_PATH . 'includes/notifications.php';
     ?>
 
     <!-- Main Content -->
@@ -869,9 +870,9 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../assets/js/toast.js"></script>
-    <script src="../assets/js/global-notifications.js"></script>
-    <script src="../assets/js/notifications.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/global-notifications.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/notifications.js"></script>
 
     <script>
         // Pass user data to JavaScript
@@ -980,8 +981,20 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         function downloadPDF() {
             if (window.documentSystem && window.documentSystem.currentDocument) {
                 // Create a temporary link to download the PDF
+                let filePath = window.documentSystem.currentDocument.file_path;
+                if (filePath.startsWith('/')) {
+                    filePath = window.BASE_URL + filePath.substring(1);
+                } else if (filePath.startsWith('../')) {
+                    filePath = window.BASE_URL + filePath.substring(3);
+                } else if (filePath.startsWith('SPCF-Thesis/')) {
+                    filePath = window.BASE_URL + filePath.substring(12);
+                } else if (filePath.startsWith('http')) {
+                    // Full URL
+                } else {
+                    filePath = window.BASE_URL + 'uploads/' + filePath;
+                }
                 const link = document.createElement('a');
-                link.href = window.documentSystem.currentDocument.file_path;
+                link.href = filePath;
                 link.download = window.documentSystem.currentDocument.title + '.pdf';
                 link.target = '_blank';
                 document.body.appendChild(link);

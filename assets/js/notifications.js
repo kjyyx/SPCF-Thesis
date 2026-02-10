@@ -6,6 +6,7 @@
  * @param {string} confirmText - Text for confirm button (default: 'Confirm')
  * @param {string} confirmClass - Bootstrap class for confirm button (default: 'btn-primary')
  */
+var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
 function showConfirmModal(title, message, onConfirm, confirmText = 'Confirm', confirmClass = 'btn-primary') {
     const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
     const modalLabel = document.getElementById('confirmModalLabel');
@@ -46,7 +47,7 @@ class DocumentNotificationSystem {
         this.filteredDocuments = [];
         this.currentDocument = null;
         this.currentUser = window.currentUser || null;
-        this.apiBase = '../api/documents.php';
+        this.apiBase = BASE_URL + 'api/documents.php';
         this.signatureImage = null;
         this.currentSignatureMap = null;
         this.pdfDoc = null;
@@ -78,7 +79,7 @@ class DocumentNotificationSystem {
 
             if (!userHasAccess) {
                 console.error('Access denied: Invalid user role or position');
-                window.location.href = 'user-login.php?error=access_denied';
+                window.location.href = BASE_URL + 'login?error=access_denied';
                 return;
             }
 
@@ -729,7 +730,7 @@ class DocumentNotificationSystem {
         this.currentDocument = skeleton;
 
         try {
-            const response = await fetch(`../api/documents.php?id=${docId}`, {
+            const response = await fetch(BASE_URL + `api/documents.php?id=${docId}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -782,13 +783,18 @@ class DocumentNotificationSystem {
                 let pdfUrl = doc.file_path;
                 if (pdfUrl.startsWith('/')) {
                     // Absolute path from server root, use as is
+                    pdfUrl = BASE_URL + pdfUrl.substring(1);
                 } else if (pdfUrl.startsWith('../')) {
-                    // Already relative to views directory
+                    // Already relative to views directory, convert to absolute
+                    pdfUrl = BASE_URL + pdfUrl.substring(3);
+                } else if (pdfUrl.startsWith('SPCF-Thesis/')) {
+                    // Path includes project name, remove it
+                    pdfUrl = BASE_URL + pdfUrl.substring(12);
                 } else if (pdfUrl.startsWith('http')) {
                     // Full URL
                 } else {
                     // Just filename, assume in uploads directory
-                    pdfUrl = '../uploads/' + pdfUrl;
+                    pdfUrl = BASE_URL + 'uploads/' + pdfUrl;
                 }
                 this.loadPdf(pdfUrl);
             } else {
@@ -2136,8 +2142,16 @@ class DocumentNotificationSystem {
             // Get the original PDF URL
             const doc = this.currentDocument;
             let pdfUrl = doc.file_path;
-            if (!pdfUrl.startsWith('/') && !pdfUrl.startsWith('http') && !pdfUrl.startsWith('../')) {
-                pdfUrl = '../uploads/' + pdfUrl;
+            if (pdfUrl.startsWith('http')) {
+                // Full URL, use as is
+            } else if (pdfUrl.startsWith('/')) {
+                pdfUrl = BASE_URL + pdfUrl.substring(1);
+            } else if (pdfUrl.startsWith('../')) {
+                pdfUrl = BASE_URL + pdfUrl.substring(3);
+            } else if (pdfUrl.startsWith('SPCF-Thesis/')) {
+                pdfUrl = BASE_URL + pdfUrl.substring(12);
+            } else {
+                pdfUrl = BASE_URL + 'uploads/' + pdfUrl;
             }
 
             // Fetch the original PDF
@@ -2407,7 +2421,7 @@ class DocumentNotificationSystem {
                         formData.append('signed_pdf', signedPdfBlob, 'signed_document.pdf');
                     }
 
-                    const response = await fetch('../api/documents.php', {
+                    const response = await fetch(BASE_URL + 'api/documents.php', {
                         method: 'POST',
                         body: formData
                     });
@@ -2464,7 +2478,7 @@ class DocumentNotificationSystem {
             const pendingStep = doc?.workflow?.find(s => s.status === 'pending');
             const stepId = pendingStep?.id || undefined;
 
-            const response = await fetch('../api/documents.php', {
+            const response = await fetch(BASE_URL + 'api/documents.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'reject', document_id: docId, reason: reason.trim(), step_id: stepId })

@@ -81,6 +81,7 @@
  * Document Type State
  * Tracks which type of document is currently being created
  */
+var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
 let currentDocumentType = 'proposal'; // Currently selected document type ('proposal', 'saf', 'facility', 'communication')
 
 /**
@@ -171,7 +172,7 @@ function selectDocumentType(type) {
  */
 function loadSAFBalances() {
     console.log('DEBUG: Loading SAF balances...');
-    return fetch('../api/saf.php')
+    return fetch(BASE_URL + 'api/saf.php')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -1087,7 +1088,7 @@ async function submitDocument() {
         `Are you sure you want to create this ${docType.replace('_', ' ')} document? It will be submitted for approval.`,
         async function () {
             try {
-                const response = await fetch('../api/documents.php', {
+                const response = await fetch(BASE_URL + 'api/documents.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

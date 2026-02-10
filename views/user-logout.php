@@ -1,6 +1,6 @@
 <?php
-require_once '../includes/session.php';
-require_once '../includes/database.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'includes/database.php';
 
 // Audit log helper function
 function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
@@ -30,6 +30,6 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 addAuditLog('LOGOUT', 'Authentication', 'User logged out', $_SESSION['user_id'] ?? null, 'User', 'INFO');
 
 logoutUser();
-header('Location: user-login.php');
+header('Location: ' . BASE_URL . 'login');
 exit();
 ?>

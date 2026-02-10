@@ -64,6 +64,7 @@
  * Core application state that persists across function calls
  * These variables track the current state of the admin interface
  */
+var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
 let currentUser = null; // Current logged-in admin user (set by PHP on page load)
 let publicMaterials = []; // Materials list (loaded from API)
 
@@ -129,9 +130,9 @@ let users = {}; // User database cache - populated from backend API calls
  * Centralized API endpoint constants for backend communication
  * Update these paths if the folder structure changes
  */
-const USERS_API = '../api/users.php'; // User management API endpoint
-const MATERIALS_API = '../api/materials.php'; // Materials management API endpoint
-const AUDIT_API = '../api/audit.php'; // Audit logging API endpoint
+const USERS_API = BASE_URL + 'api/users.php'; // User management API endpoint
+const MATERIALS_API = BASE_URL + 'api/materials.php'; // Materials management API endpoint
+const AUDIT_API = BASE_URL + 'api/audit.php'; // Audit logging API endpoint
 /**
  * @section Utility Functions
  * Common helper functions used throughout the admin dashboard
@@ -236,7 +237,7 @@ function hideUserFormMessages() {
 window.addAuditLog = async function (action, category, details, targetId = null, targetType = null, severity = 'INFO') {
     console.log('Adding audit log:', { action, category, details, targetId, targetType, severity });
     try {
-        const response = await fetch('../api/audit.php', {
+        const response = await fetch(BASE_URL + 'api/audit.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -440,7 +441,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         // Security check: Ensure user has admin role
         if (currentUser.role !== 'admin') {
             console.log('User is not an admin, redirecting...');
-            window.location.href = 'event-calendar.php';
+            window.location.href = BASE_URL + 'calendar';
             return;
         }
 
@@ -459,7 +460,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         // Load 2FA setting
         try {
-            const resp = await fetch('../api/settings.php?key=enable_2fa');
+            const resp = await fetch(BASE_URL + 'api/settings.php?key=enable_2fa');
             const data = await resp.json();
             const enable2FA = document.getElementById('enable2FA');
             if (enable2FA) {
@@ -471,7 +472,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     } else {
         console.log('No user data, redirecting to login...');
-        window.location.href = 'user-login.php';
+        window.location.href = BASE_URL + 'login';
     }
 });
 
@@ -1310,7 +1311,7 @@ async function bulkResetPasswords() {
         `Reset passwords for ${selectedIds.length} users? They will need to set new passwords on next login.`,
         async function() {
             try {
-                const resp = await fetch('../api/users.php', {
+                const resp = await fetch(BASE_URL + 'api/users.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1391,7 +1392,7 @@ async function confirmBulkChangeRole() {
     const newRole = document.getElementById('bulkRoleSelect').value;
 
     try {
-        const resp = await fetch('../api/users.php', {
+        const resp = await fetch(BASE_URL + 'api/users.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1451,7 +1452,7 @@ async function confirmBulkDeleteUsers() {
     if (selectedIds.length === 0) return;
 
     try {
-        const resp = await fetch('../api/users.php', {
+        const resp = await fetch(BASE_URL + 'api/users.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1619,7 +1620,7 @@ function viewMaterialDetails(materialId) {
 /** Download the material file. */
 function downloadMaterial() {
     if (!currentMaterialId) return;
-    window.open(`../api/materials.php?download=1&id=${currentMaterialId}`, '_blank');
+    window.open(BASE_URL + `api/materials.php?download=1&id=${currentMaterialId}`, '_blank');
 }
 
 function getStatusClass(status) {
@@ -1992,7 +1993,7 @@ document.getElementById('changePasswordForm').addEventListener('submit', async f
     if (!policy.test(newPassword)) { show(err('Password must be 8+ chars with upper, lower, number, special.')); return; }
 
     try {
-        const resp = await fetch('../api/auth.php', {
+        const resp = await fetch(BASE_URL + 'api/auth.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'change_password', current_password: currentPassword, new_password: newPassword })
@@ -2041,7 +2042,7 @@ document.getElementById('profileSettingsForm').addEventListener('submit', async 
     }
 
     try {
-        const resp = await fetch('../api/users.php', {
+        const resp = await fetch(BASE_URL + 'api/users.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -2158,7 +2159,7 @@ async function saveSystemSettings(category) {
                 break;
         }
 
-        const resp = await fetch('../api/settings.php', {
+        const resp = await fetch(BASE_URL + 'api/settings.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(settingsData)
@@ -2187,7 +2188,7 @@ function runManualBackup() {
 function downloadLatestBackup() {
     addAuditLog('BACKUP_DOWNLOADED', 'System', 'Latest backup downloaded', currentUser?.id, 'System', 'INFO');
     // This would download the latest backup file
-    window.open('../api/backup.php?action=download_latest', '_blank');
+    window.open(BASE_URL + 'api/backup.php?action=download_latest', '_blank');
 }
 function showNotifications() {
     const modal = new bootstrap.Modal(document.getElementById('notificationsModal'));
@@ -2768,7 +2769,7 @@ function getSeverityColor(severity) {
 
 // Navigation functions (required by UI)
 function goToCalendar() {
-    window.location.href = 'event-calendar.php';
+    window.location.href = BASE_URL + 'calendar';
 }
 
 function logout() {
@@ -2779,7 +2780,7 @@ function logout() {
     } catch (e) {
         console.error('Logout audit error:', e);
     }
-    window.location.href = 'user-logout.php';
+    window.location.href = BASE_URL + 'logout';
 }
 
 // End of file

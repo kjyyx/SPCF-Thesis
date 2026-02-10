@@ -17,9 +17,9 @@
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/database.php';
-require_once __DIR__ . '/../includes/session.php';
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once ROOT_PATH . 'includes/database.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'vendor/autoload.php';
 use PragmaRX\Google2FA\Google2FA;
 
 // Audit log helper function

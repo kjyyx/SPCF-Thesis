@@ -960,3 +960,45 @@
 2026-02-10 14:53:34 - PDF saved to: ../uploads/filled_doc_698ad5e7188cd6.33179302.pdf
 2026-02-10 14:53:34 - DOCX cleaned up successfully
 2026-02-10 14:53:34 - Conversion successful
+2026-02-10 22:55:33 - Starting conversion for: C:\xampp\htdocs\SPCF-Thesis\includes/../uploads/filled_doc_698b46e54fbb10.17784972.docx
+2026-02-10 22:55:33 - API key found
+2026-02-10 22:55:33 - DOCX file exists, size: 89388
+2026-02-10 22:55:33 - CloudConvert client created
+2026-02-10 22:55:33 - Creating job
+2026-02-10 22:55:34 - Job created: d96113c3-8a24-4ebb-af6f-d51eb129f957
+2026-02-10 22:55:34 - Uploading file
+2026-02-10 22:55:35 - File uploaded
+2026-02-10 22:55:35 - Waiting for completion
+2026-02-10 22:55:37 - Job completed, status: finished
+2026-02-10 22:55:37 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/05f974e8-fe0b-43ab-b48e-21b977651d0a/filled_doc_698b46e54fbb10.17784972.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260210%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260210T145536Z&X-Amz-Expires=86400&X-Amz-Signature=ed76cc9384b70c56dc10e4afb633cdd8aa9dfc372d8566049341dd54b38b9c71&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_698b46e54fbb10.17784972.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-10 22:55:39 - PDF saved to: C:\xampp\htdocs\SPCF-Thesis\includes/../uploads/filled_doc_698b46e54fbb10.17784972.pdf
+2026-02-10 22:55:39 - DOCX cleaned up successfully
+2026-02-10 22:55:39 - Conversion successful
+2026-02-10 23:00:43 - Starting conversion for: C:\xampp\htdocs\SPCF-Thesis\includes/../uploads/filled_doc_698b481b5fa4c8.98585306.docx
+2026-02-10 23:00:43 - API key found
+2026-02-10 23:00:43 - DOCX file exists, size: 89398
+2026-02-10 23:00:43 - CloudConvert client created
+2026-02-10 23:00:43 - Creating job
+2026-02-10 23:00:44 - Job created: 5c53bcc4-a5ef-4106-a2e7-bfa6ba178bdd
+2026-02-10 23:00:44 - Uploading file
+2026-02-10 23:00:45 - File uploaded
+2026-02-10 23:00:45 - Waiting for completion
+2026-02-10 23:00:47 - Job completed, status: finished
+2026-02-10 23:00:47 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/d31a13a6-c4f2-4488-a45e-118cfa933882/filled_doc_698b481b5fa4c8.98585306.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260210%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260210T150046Z&X-Amz-Expires=86400&X-Amz-Signature=cc415bde9adb1d80e96db40e7ae321e3cd31c0ab6779df5c6ac57b61831cda5c&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_698b481b5fa4c8.98585306.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-10 23:00:49 - PDF saved to: C:\xampp\htdocs\SPCF-Thesis\includes/../uploads/filled_doc_698b481b5fa4c8.98585306.pdf
+2026-02-10 23:00:49 - DOCX cleaned up successfully
+2026-02-10 23:00:49 - Conversion successful
+2026-02-10 23:08:03 - Starting conversion for: C:\xampp\htdocs\SPCF-Thesis\includes/../uploads/filled_doc_698b49d3a278b9.46675350.docx
+2026-02-10 23:08:03 - API key found
+2026-02-10 23:08:03 - DOCX file exists, size: 89311
+2026-02-10 23:08:03 - CloudConvert client created
+2026-02-10 23:08:03 - Creating job
+2026-02-10 23:08:04 - Job created: 70af8b8a-56e4-45fe-8417-eabf1a2208b7
+2026-02-10 23:08:04 - Uploading file
+2026-02-10 23:08:05 - File uploaded
+2026-02-10 23:08:05 - Waiting for completion
+2026-02-10 23:08:08 - Job completed, status: finished
+2026-02-10 23:08:08 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/dc8743b4-b558-450d-84db-00e62ac3ab30/filled_doc_698b49d3a278b9.46675350.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260210%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260210T150807Z&X-Amz-Expires=86400&X-Amz-Signature=8243c869fe93cc1e32ae99dac3c96d3f42a08a9baca12e7e657355f1a1a68515&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22filled_doc_698b49d3a278b9.46675350.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-10 23:08:09 - PDF saved to: C:\xampp\htdocs\SPCF-Thesis\includes/../uploads/filled_doc_698b49d3a278b9.46675350.pdf
+2026-02-10 23:08:09 - DOCX cleaned up successfully
+2026-02-10 23:08:09 - Conversion successful

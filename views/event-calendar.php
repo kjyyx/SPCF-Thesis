@@ -1,6 +1,6 @@
 <?php
-require_once '../includes/session.php';
-require_once '../includes/auth.php';
+require_once ROOT_PATH . 'includes/session.php';
+require_once ROOT_PATH . 'includes/auth.php';
 requireAuth(); // Requires login
 
 // Get current user
@@ -9,7 +9,7 @@ $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 
 if (!$currentUser) {
     logoutUser();
-    header('Location: user-login.php');
+    header('Location: ' . BASE_URL . 'login');
     exit();
 }
 
@@ -17,7 +17,7 @@ error_log("Current position: " . $currentUser['position']);
 
 // Restrict Accounting employees to only SAF access
 if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
-    header('Location: saf.php');
+    header('Location: ' . BASE_URL . 'saf');
     exit();
 }
 
@@ -63,14 +63,14 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/jpeg" href="../assets/images/sign-um-favicon.jpg">
+    <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
     <title>Sign-um - Event Calendar</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="../assets/css/global.css"><!-- Global shared UI styles -->
-    <link rel="stylesheet" href="../assets/css/event-calendar.css"><!-- Calendar-specific styles -->
-    <link rel="stylesheet" href="../assets/css/toast.css">
-    <link rel="stylesheet" href="../assets/css/global-notifications.css"><!-- Global notifications styles -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global.css"><!-- Global shared UI styles -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/event-calendar.css"><!-- Calendar-specific styles -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/toast.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global-notifications.css"><!-- Global notifications styles -->
 
     <script>
         // Pass user data to JavaScript
@@ -84,17 +84,18 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         echo json_encode($jsUser);
         ?>;
         window.isAdmin = <?php echo ($currentUser['role'] === 'admin') ? 'true' : 'false'; ?>;
+        window.BASE_URL = "<?php echo BASE_URL; ?>";
 
         // REMOVE: Duplicate loadNotifications function and interval (handled by global-notifications.js)
     </script>
 
     <!-- ADD: Include global notifications module -->
-    <script src="../assets/js/global-notifications.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/global-notifications.js"></script>
 </head>
 
 <body class="with-fixed-navbar">
-    <?php include '../includes/navbar.php'; ?>
-    <?php include '../includes/notifications.php'; ?>
+    <?php include ROOT_PATH . 'includes/navbar.php'; ?>
+    <?php include ROOT_PATH . 'includes/notifications.php'; ?>
 
     <!-- Main Content -->
     <div class="main-content">
@@ -139,7 +140,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                         <i class="bi bi-search"></i>
                                         <span>Track</span>
                                     </button>
-                                    <button class="action-compact-btn" onclick="window.location.href='saf.php'"
+                                    <button class="action-compact-btn" onclick="window.location.href='<?php echo BASE_URL; ?>saf'"
                                         title="Student Allocated Funds">
                                         <i class="bi bi-cash-coin"></i>
                                         <span>SAF</span>
@@ -170,7 +171,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                                         <span>Approvals</span>
                                     </button>
                                     <?php if (stripos($currentUser['position'] ?? '', 'OSA') !== false): ?>
-                                    <button class="action-compact-btn" onclick="window.location.href='saf.php'"
+                                    <button class="action-compact-btn" onclick="window.location.href='<?php echo BASE_URL; ?>saf'"
                                         title="Student Allocated Funds">
                                         <i class="bi bi-cash-coin"></i>
                                         <span>SAF</span>
@@ -721,27 +722,27 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../assets/js/toast.js"></script>
-    <script src="../assets/js/event-calendar.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/event-calendar.js"></script>
     <script>
         // Function to navigate to pending approvals (notifications.php)
         function openPendingApprovals() {
-            window.location.href = 'notifications.php';
+            window.location.href = window.BASE_URL + 'notifications';
         }
 
         // Function to navigate to create document page
         function openCreateDocumentModal() {
-            window.location.href = 'create-document.php';
+            window.location.href = window.BASE_URL + 'create-document';
         }
 
         // Function to navigate to upload pubmat page
         function openUploadPubmatModal() {
-            window.location.href = 'upload-publication.php';
+            window.location.href = window.BASE_URL + 'upload-publication';
         }
 
         // Function to navigate to track documents page
         function openTrackDocumentsModal() {
-            window.location.href = 'track-document.php';
+            window.location.href = window.BASE_URL + 'track-document';
         }
     </script>
 </body>

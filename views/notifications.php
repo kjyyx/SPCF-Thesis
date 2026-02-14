@@ -20,15 +20,33 @@ if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '
 
 // Define constants for better maintainability
 const ALLOWED_ROLES = ['employee'];
-const ALLOWED_STUDENT_POSITIONS = ['Supreme Student Council President', 'College Student Council President'];
+const ALLOWED_STUDENT_POSITIONS = ['Supreme Student Council President'];
 
-// Allow employees and student council president students only
+// Allow employees, SSC President, and students with pending signatures
 $userHasAccess = in_array($currentUser['role'], ALLOWED_ROLES) ||
-    ($currentUser['role'] === 'student' && in_array($currentUser['position'], ALLOWED_STUDENT_POSITIONS));
+    ($currentUser['role'] === 'student' && in_array($currentUser['position'], ALLOWED_STUDENT_POSITIONS)) ||
+    ($currentUser['role'] === 'student' && hasPendingSignatures($currentUser['id']));
 
-if (!$userHasAccess) {
-    header('Location: ' . BASE_URL . 'login?error=access_denied');
-    exit();
+// Function to check if student has pending signatures
+function hasPendingSignatures($userId) {
+    try {
+        $db = new Database();
+        $conn = $db->getConnection();
+        $stmt = $conn->prepare("
+            SELECT COUNT(*) as count FROM document_steps ds
+            JOIN documents d ON ds.document_id = d.id
+            WHERE ds.assignee_type = 'student' 
+            AND ds.assignee_id = ? 
+            AND ds.status = 'pending'
+            AND d.status != 'rejected'
+        ");
+        $stmt->execute([$userId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result['count'] > 0;
+    } catch (Exception $e) {
+        error_log("Error checking pending signatures: " . $e->getMessage());
+        return false;
+    }
 }
 
 // CSRF Protection

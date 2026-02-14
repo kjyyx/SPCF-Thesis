@@ -77,8 +77,8 @@ class CalendarApp {
         if (currentUser.role === 'student') {
             // Show student info section for all students
             if (studentInfoCompact) studentInfoCompact.style.display = 'flex';
-            // Show Approvals button for all student council presidents
-            if (approvalsBtn && (currentUser.position === 'Supreme Student Council President' || currentUser.position === 'College Student Council President')) {
+            // Show Approvals button only for SSC President
+            if (approvalsBtn && currentUser.position === 'Supreme Student Council President') {
                 approvalsBtn.style.display = 'inline-flex';
             } else if (approvalsBtn) {
                 approvalsBtn.style.display = 'none';

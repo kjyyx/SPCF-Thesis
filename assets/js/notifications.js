@@ -85,14 +85,15 @@ class DocumentNotificationSystem {
     // Initialize the application with enhanced error handling
     async init() {
         try {
-            // Validate user access
+            // Validate user access: SSC for approval, students for signing if assigned
             const userHasAccess = this.currentUser &&
                 (this.currentUser.role === 'employee' ||
-                    (this.currentUser.position === 'Supreme Student Council President' ||
-                        this.currentUser.position === 'College Student Council President'));
+                    (this.currentUser.role === 'student' && 
+                     this.currentUser.position === 'Supreme Student Council President') ||
+                    (this.currentUser.role === 'student' && await this.hasPendingSignaturesForUser()));
 
             if (!userHasAccess) {
-                console.error('Access denied: Invalid user role or position');
+                console.error('Access denied: Invalid user role or no pending signatures');
                 window.location.href = BASE_URL + 'login?error=access_denied';
                 return;
             }
@@ -119,6 +120,27 @@ class DocumentNotificationSystem {
                 title: 'Initialization Error',
                 message: 'Failed to load the document system. Please refresh the page.'
             });
+        }
+    }
+
+    // Check if student has pending signatures
+    async hasPendingSignaturesForUser() {
+        try {
+            const response = await fetch(this.apiBase, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+            const data = await response.json();
+            if (data.success && data.documents) {
+                return data.documents.some(doc => 
+                    doc.workflow?.some(step => 
+                        step.status === 'pending' && 
+                        step.assignee_type === 'student' && 
+                        step.assignee_id === this.currentUser.id
+                    )
+                );
+            }
+            return false;
+        } catch (error) {
+            console.error('Error checking pending signatures:', error);
+            return false;
         }
     }
 
@@ -931,18 +953,20 @@ class DocumentNotificationSystem {
             return;
         }
 
-        // Check if current user is assigned to the pending step
+        // Check user role and assignment
         const currentUser = this.currentUser;
         const isAssigned = this.isUserAssignedToStep(currentUser, pendingStep);
+        const isSscApprover = currentUser.role === 'student' && 
+            currentUser.position === 'Supreme Student Council President';
 
         if (isAssigned) {
-            // User can approve, show approval buttons
+            // Show signing for assigned users (creators or approvers)
             signBtn.style.display = 'flex';
-            rejectBtn.style.display = 'flex';
+            rejectBtn.style.display = isSscApprover ? 'flex' : 'none'; // Only SSC can reject
             signaturePadToggle.style.display = 'block';
             signatureStatusContainer.style.display = 'block';
         } else {
-            // User cannot approve, hide approval buttons
+            // Hide for unauthorized users
             signBtn.style.display = 'none';
             rejectBtn.style.display = 'none';
             signaturePadToggle.style.display = 'none';
@@ -1231,25 +1255,27 @@ class DocumentNotificationSystem {
                 signatureContainer.style.height = '60px';
                 signatureContainer.style.zIndex = '15';
 
-                // Redaction box with signing user's name and position
-                const redactionBox = document.createElement('div');
-                redactionBox.className = 'signature-redaction';
-                redactionBox.style.width = '100%';
-                redactionBox.style.height = '100%';
-                redactionBox.style.backgroundColor = '#000000'; // Black for redaction
-                redactionBox.style.display = 'block';
-                redactionBox.style.borderRadius = '4px';
-                redactionBox.style.color = '#fff';
-                redactionBox.style.fontWeight = '600';
-                redactionBox.style.fontSize = '12px';
-                redactionBox.style.padding = '4px';
-                // Show signing user's name and position
-                const name = step.assignee_name || 'Unknown';
-                const position = step.assignee_position || '';
-                redactionBox.innerHTML = `<div>${name}</div><div style="font-size:11px;font-weight:400;">${position}</div>`;
-                signatureContainer.appendChild(redactionBox);
+                // Redaction box with signing user's name and position (only for non-approved documents)
+                if (doc.status !== 'approved') {
+                    const redactionBox = document.createElement('div');
+                    redactionBox.className = 'signature-redaction';
+                    redactionBox.style.width = '100%';
+                    redactionBox.style.height = '100%';
+                    redactionBox.style.backgroundColor = '#000000'; // Black for redaction
+                    redactionBox.style.display = 'block';
+                    redactionBox.style.borderRadius = '4px';
+                    redactionBox.style.color = '#fff';
+                    redactionBox.style.fontWeight = '600';
+                    redactionBox.style.fontSize = '12px';
+                    redactionBox.style.padding = '4px';
+                    // Show signing user's name and position
+                    const name = step.assignee_name || 'Unknown';
+                    const position = step.assignee_position || '';
+                    redactionBox.innerHTML = `<div>${name}</div><div style="font-size:11px;font-weight:400;">${position}</div>`;
+                    signatureContainer.appendChild(redactionBox);
+                }
 
-                // Add timestamp below the redaction box
+                // Add timestamp below the redaction box (or in place for approved docs)
                 const timestamp = document.createElement('div');
                 timestamp.className = 'signature-timestamp';
                 timestamp.textContent = new Date(step.signed_at).toLocaleString();

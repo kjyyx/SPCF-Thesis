@@ -1307,8 +1307,23 @@ async function submitDocument() {
                     window.ToastManager?.success('Document created successfully!', 'Success');
                     // Clear the form after successful creation
                     clearCurrentForm();
-                    // Redirect to track-document for students to track their documents
-                    // window.location.href = 'track-document.php';
+
+                    // Check if creator needs to sign immediately
+                    const needsCreatorSign = ['proposal', 'communication'].includes(docType); // Add types that require creator signing
+
+                    if (needsCreatorSign && window.currentUser?.role === 'student') {
+                        // Show modal prompting to sign
+                        showConfirmModal(
+                            'Document Created',
+                            'Your document has been created. You need to sign it now before it proceeds to approval. Would you like to sign it?',
+                            () => {
+                                // Redirect to notifications page for signing
+                                window.location.href = BASE_URL + 'views/notifications.php';
+                            },
+                            'Sign Now',
+                            'btn-primary'
+                        );
+                    }
                 } else {
                     throw new Error(result.message);
                 }

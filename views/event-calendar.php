@@ -141,7 +141,7 @@ $pageTitle = 'University Calendar';
                                         <span>SAF</span>
                                     </button>
                                     
-                                                                        <?php if ($currentUser['position'] === 'Supreme Student Council President' || $currentUser['position'] === 'College Student Council President'): ?>
+                                                                        <?php if ($currentUser['position'] === 'Supreme Student Council President'): ?>
                                         <button class="action-compact-btn" onclick="openPendingApprovals()" id="approvalsBtn"
                                             title="View Pending Approvals">
                                             <i class="bi bi-clipboard-check"></i>

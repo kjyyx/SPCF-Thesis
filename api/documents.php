@@ -611,12 +611,104 @@ function handleGet()
         } elseif ($currentUser['role'] === 'student' && ($currentUser['position'] === 'Supreme Student Council President' || $currentUser['position'] === 'College Student Council President')) {
             $params = [$currentUser['id'], 'employee', $currentUser['id'], 'student'];
         } else {
-            // No documents for other student roles
-            echo json_encode(['success' => true, 'documents' => []]);
+            // For regular students, show their own documents
+            $studentDocumentsQuery = "
+                SELECT DISTINCT
+                    d.id,
+                    d.title,
+                    d.doc_type,
+                    d.description,
+                    d.status,
+                    d.current_step,
+                    d.uploaded_at,
+                    d.date,
+                    d.earliest_start_time,
+                    s.id as student_id,
+                    CONCAT(s.first_name, ' ', s.last_name) as student_name,
+                    s.department as student_department,
+                    d.file_path,
+                    CASE WHEN d.status = 'approved' THEN 1 ELSE 0 END as user_action_completed,
+                    ds.id as step_id,
+                    ds.step_order,
+                    ds.name as step_name,
+                    ds.status as step_status,
+                    ds.note,
+                    ds.acted_at,
+                    ds.assigned_to_employee_id,
+                    ds.assigned_to_student_id,
+                    e.first_name as assignee_first,
+                    e.last_name as assignee_last,
+                    st.first_name as student_assignee_first,
+                    st.last_name as student_assignee_last,
+                    dsg.status as signature_status,
+                    dsg.signed_at
+                FROM documents d
+                LEFT JOIN students s ON d.student_id = s.id
+                LEFT JOIN document_steps ds ON d.id = ds.document_id
+                LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
+                LEFT JOIN students st ON ds.assigned_to_student_id = st.id
+                LEFT JOIN document_signatures dsg ON dsg.step_id = ds.id
+                    AND ((dsg.employee_id = ds.assigned_to_employee_id AND ds.assigned_to_employee_id IS NOT NULL)
+                         OR (dsg.student_id = ds.assigned_to_student_id AND ds.assigned_to_student_id IS NOT NULL))
+                WHERE d.student_id = ?
+                ORDER BY d.uploaded_at DESC, ds.step_order ASC
+            ";
+            $stmt = $db->prepare($studentDocumentsQuery);
+            $stmt->execute([$currentUser['id']]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Group by document and organize workflow
+            $processedDocuments = [];
+            foreach ($rows as $row) {
+                $docId = $row['id'];
+                if (!isset($processedDocuments[$docId])) {
+                    $processedDocuments[$docId] = [
+                        'id' => (int) $row['id'],
+                        'title' => $row['title'],
+                        'doc_type' => $row['doc_type'],
+                        'description' => $row['description'],
+                        'status' => $row['status'],
+                        'current_step' => (int) $row['current_step'],
+                        'uploaded_at' => $row['uploaded_at'],
+                        'date' => $row['date'],
+                        'earliest_start_time' => $row['earliest_start_time'],
+                        'student' => [
+                            'id' => $row['student_id'],
+                            'name' => $row['student_name'],
+                            'department' => $row['student_department']
+                        ],
+                        'file_path' => $row['file_path'],
+                        'workflow' => [],
+                        'user_action_completed' => (int) ($row['user_action_completed'] ?? 0)
+                    ];
+                }
+                // Add step if exists
+                if ($row['step_order']) {
+                    $processedDocuments[$docId]['workflow'][] = [
+                        'id' => (int) $row['step_id'],
+                        'name' => $row['step_name'],
+                        'status' => $row['step_status'],
+                        'order' => (int) $row['step_order'],
+                        'assigned_to' => $row['assigned_to_employee_id'] ?: $row['assigned_to_student_id'],
+                        'assignee_name' => $row['assigned_to_employee_id'] ?
+                            trim(($row['assignee_first'] ?? '') . ' ' . ($row['assignee_last'] ?? '')) :
+                            trim(($row['student_assignee_first'] ?? '') . ' ' . ($row['student_assignee_last'] ?? '')),
+                        'note' => $row['note'],
+                        'acted_at' => $row['acted_at'],
+                        'signature_status' => $row['signature_status'],
+                        'signed_at' => $row['signed_at']
+                    ];
+                }
+            }
+
+            echo json_encode([
+                'success' => true,
+                'documents' => array_values($processedDocuments)
+            ]);
             return;
         }
 
-        // Query for pending documents
+        // For employees: Show pending documents assigned to them + all approved documents
         $pendingQuery = "
             SELECT DISTINCT
                 d.id,
@@ -652,21 +744,27 @@ function handleGet()
             JOIN document_steps ds ON d.id = ds.document_id
             LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
             LEFT JOIN students st ON ds.assigned_to_student_id = st.id
-            LEFT JOIN document_signatures dsg ON dsg.step_id = ds.id 
-                AND ((dsg.employee_id = ds.assigned_to_employee_id AND ds.assigned_to_employee_id IS NOT NULL) 
+            LEFT JOIN document_signatures dsg ON dsg.step_id = ds.id
+                AND ((dsg.employee_id = ds.assigned_to_employee_id AND ds.assigned_to_employee_id IS NOT NULL)
                      OR (dsg.student_id = ds.assigned_to_student_id AND ds.assigned_to_student_id IS NOT NULL))
             WHERE ds.status = 'pending'
             AND (
                 (ds.assigned_to_employee_id = ? AND ? = 'employee')
                 OR (ds.assigned_to_student_id = ? AND ? = 'student')
             )
+            AND NOT EXISTS (
+                SELECT 1 FROM document_steps ds_prev
+                WHERE ds_prev.document_id = ds.document_id
+                AND ds_prev.step_order < ds.step_order
+                AND ds_prev.status = 'pending'
+            )
         ";
         $stmt = $db->prepare($pendingQuery);
         $stmt->execute($params);
         $pendingRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Query for completed documents (recent only)
-        $completedQuery = "
+        // Query for approved documents (all approved documents for employees)
+        $approvedQuery = "
             SELECT DISTINCT
                 d.id,
                 d.title,
@@ -702,22 +800,17 @@ function handleGet()
             JOIN document_steps ds ON d.id = ds.document_id
             LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
             LEFT JOIN students st ON ds.assigned_to_student_id = st.id
-            LEFT JOIN document_signatures dsg ON dsg.step_id = ds.id 
-                AND ((dsg.employee_id = ds.assigned_to_employee_id AND ds.assigned_to_employee_id IS NOT NULL) 
+            LEFT JOIN document_signatures dsg ON dsg.step_id = ds.id
+                AND ((dsg.employee_id = ds.assigned_to_employee_id AND ds.assigned_to_employee_id IS NOT NULL)
                      OR (dsg.student_id = ds.assigned_to_student_id AND ds.assigned_to_student_id IS NOT NULL))
-            WHERE ds.status IN ('completed', 'rejected')
-            AND ds.acted_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-            AND (
-                (ds.assigned_to_employee_id = ? AND ? = 'employee')
-                OR (ds.assigned_to_student_id = ? AND ? = 'student')
-            )
+            WHERE d.status = 'approved'
         ";
-        $stmt2 = $db->prepare($completedQuery);
-        $stmt2->execute($params);
-        $completedRows = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+        $stmt2 = $db->prepare($approvedQuery);
+        $stmt2->execute();
+        $approvedRows = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 
         // Merge rows
-        $rows = array_merge($pendingRows, $completedRows);
+        $rows = array_merge($pendingRows, $approvedRows);
 
         // Group by document and organize workflow
         $processedDocuments = [];
@@ -1411,6 +1504,7 @@ function createDocument($input)
 
         // Add workflow steps, marking those after EVP as documentation only
         $approvalReached = false;
+        $isFirstWorkflowStep = true;
         foreach ($workflowPositions as $wp) {
             $position = $wp['position'];
             $table = $wp['table'];
@@ -1432,12 +1526,15 @@ function createDocument($input)
                 if ($approvalReached || $documentationOnly) {
                     $stepName = $position . ' (Documentation Only)';
                 }
-                $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, 'pending')");
+                // Only the first workflow step should be pending initially
+                $initialStatus = $isFirstWorkflowStep ? 'pending' : 'skipped';
+                $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, ?)");
                 if ($table === 'employees') {
-                    $stmt->execute([$docId, $stepOrder, $stepName, $assignee['id'], null]);
+                    $stmt->execute([$docId, $stepOrder, $stepName, $assignee['id'], null, $initialStatus]);
                 } else {
-                    $stmt->execute([$docId, $stepOrder, $stepName, null, $assignee['id']]);
+                    $stmt->execute([$docId, $stepOrder, $stepName, null, $assignee['id'], $initialStatus]);
                 }
+                $isFirstWorkflowStep = false;
             }
             if ($position === $approvalEndPosition) {
                 $approvalReached = true;
@@ -1508,13 +1605,13 @@ function signDocument($input, $files = null)
         $stepId = (int) $row['id'];
     }
 
-    // HIERARCHY ENFORCEMENT: Ensure no previous steps are pending
+    // HIERARCHY ENFORCEMENT: Ensure no previous steps are pending or skipped (not yet activated)
     $hierarchyCheckStmt = $db->prepare("
         SELECT COUNT(*) as pending_previous
         FROM document_steps
         WHERE document_id = ? AND step_order < (
             SELECT step_order FROM document_steps WHERE id = ?
-        ) AND status != 'completed'
+        ) AND status NOT IN ('completed', 'skipped')
     ");
     $hierarchyCheckStmt->execute([$documentId, $stepId]);
     $hierarchyResult = $hierarchyCheckStmt->fetch(PDO::FETCH_ASSOC);
@@ -1651,6 +1748,21 @@ function signDocument($input, $files = null)
             } catch (Exception $e) {
                 // Log but do not fail the signing operation
                 error_log('Fallback step update failed: ' . $e->getMessage());
+            }
+
+            // Activate the next step in the workflow
+            $stepOrderStmt = $db->prepare("SELECT step_order FROM document_steps WHERE id = ?");
+            $stepOrderStmt->execute([$stepId]);
+            $currentStep = $stepOrderStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($currentStep) {
+                $nextStepOrder = $currentStep['step_order'] + 1;
+                $activateNextStmt = $db->prepare("
+                    UPDATE document_steps 
+                    SET status = 'pending' 
+                    WHERE document_id = ? AND step_order = ? AND status = 'skipped'
+                ");
+                $activateNextStmt->execute([$documentId, $nextStepOrder]);
             }
 
             // Update dates for SAF documents

@@ -25,4 +25,3 @@
         </div>
     </div>
 </div>
-<script src="<?php echo BASE_URL; ?>assets/js/global-notifications.js"></script>

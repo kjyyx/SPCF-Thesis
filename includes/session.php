@@ -5,9 +5,6 @@ session_start();
 function isLoggedIn()
 {
     $loggedIn = isset($_SESSION['user_id']) && isset($_SESSION['user_role']);
-    error_log("DEBUG session.php: isLoggedIn check - result=" . ($loggedIn ? 'true' : 'false') .
-        ", user_id=" . ($_SESSION['user_id'] ?? 'not set') .
-        ", user_role=" . ($_SESSION['user_role'] ?? 'not set'));
     return $loggedIn;
 }
 
@@ -68,9 +65,6 @@ function loginUser($userData)
     if (isset($userData['must_change_password'])) {
         $_SESSION['must_change_password'] = (int) $userData['must_change_password'];
     }
-
-    // DEBUG: Log session creation
-    error_log("DEBUG session.php: Session created for user=" . $userData['id'] . ", role=" . $userData['role']);
 }
 
 function logoutUser()

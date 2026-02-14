@@ -52,10 +52,6 @@ addAuditLog('EVENT_CALENDAR_VIEWED', 'Event Management', 'Viewed event calendar'
 
 // Set page title for navbar
 $pageTitle = 'University Calendar';
-
-// Debug: Log user data
-error_log("DEBUG event-calendar.php: Current user data: " . json_encode($currentUser));
-error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -90,7 +86,6 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
     </script>
 
     <!-- ADD: Include global notifications module -->
-    <script src="<?php echo BASE_URL; ?>assets/js/global-notifications.js"></script>
 </head>
 
 <body class="with-fixed-navbar">

@@ -63,3 +63,22 @@
         </div>
     </div>
 </nav>
+
+<script>
+    // Global user data for JavaScript
+    window.currentUser = <?php
+    $jsUser = [
+        'id' => $currentUser['id'],
+        'firstName' => $currentUser['first_name'],
+        'lastName' => $currentUser['last_name'],
+        'role' => $currentUser['role'],
+        'email' => $currentUser['email'],
+        'department' => $currentUser['department'] ?? '',
+        'position' => $currentUser['position'] ?? ''
+    ];
+    echo json_encode($jsUser);
+    ?>;
+    window.BASE_URL = "<?php echo BASE_URL; ?>";
+</script>
+
+<script src="<?php echo BASE_URL; ?>assets/js/global-notifications.js"></script>

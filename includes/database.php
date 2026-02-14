@@ -13,16 +13,12 @@ class Database {
         $this->conn = null;
 
         try {
-            error_log("DEBUG Database->getConnection: Attempting to connect to " . $this->host . "/" . $this->db_name . " as " . $this->username);
-
             $this->conn = new PDO(
                 "mysql:host=" . $this->host . ";dbname=" . $this->db_name . ";charset=utf8",
                 $this->username,
                 $this->password
             );
             $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-            error_log("DEBUG Database->getConnection: Connection successful");
 
         } catch(PDOException $exception) {
             error_log("Connection error: " . $exception->getMessage());

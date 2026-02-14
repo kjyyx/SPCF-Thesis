@@ -6,12 +6,8 @@ requireAuth(); // Requires login
 // Get current user
 $auth = new Auth();
 $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
-error_log("DEBUG admin-dashboard.php: Current user: " . json_encode($currentUser));
-error_log("DEBUG admin-dashboard.php: Session user_id: " . ($_SESSION['user_id'] ?? 'null'));
-error_log("DEBUG admin-dashboard.php: Session user_role: " . ($_SESSION['user_role'] ?? 'null'));
 
 if (!$currentUser) {
-    error_log("DEBUG admin-dashboard.php: Redirecting - no user");
     logoutUser();
     header('Location: ' . BASE_URL . 'login');
     exit();
@@ -24,7 +20,6 @@ if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '
 }
 
 if ($currentUser['role'] !== 'admin') {
-    error_log("DEBUG admin-dashboard.php: Redirecting - no user or not admin");
     logoutUser();
     header('Location: ' . BASE_URL . 'login');
     exit();
@@ -59,10 +54,6 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 
 // Log page view
 addAuditLog('ADMIN_DASHBOARD_VIEWED', 'User Management', 'Viewed admin dashboard', $currentUser['id'], 'User', 'INFO');
-
-// Debug: Log user data
-error_log("DEBUG event-calendar.php: Current user data: " . json_encode($currentUser));
-error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -155,7 +146,7 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
                 </div>
 
                 <!-- Notifications -->
-                <div class="notification-bell me-3" onclick="showNotifications()">
+                <div class="notification-bell me-3" id="notificationBell" onclick="showNotifications()">
                     <i class="bi bi-bell"></i>
                     <span class="notification-badge" id="notificationCount">3</span>
                 </div>
@@ -1556,8 +1547,8 @@ error_log("DEBUG event-calendar.php: Session data: " . json_encode($_SESSION));
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
         <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
-        <script src="<?php echo BASE_URL; ?>assets/js/global-notifications.js"></script>
         <script src="<?php echo BASE_URL; ?>assets/js/user-login.js"></script>
+        <script src="<?php echo BASE_URL; ?>assets/js/global-notifications.js"></script>
         <script src="<?php echo BASE_URL; ?>assets/js/admin-dashboard.js"></script>
         <script>
             function markAllAsRead() { if (window.markAllAsRead) window.markAllAsRead(); }

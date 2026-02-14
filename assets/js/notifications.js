@@ -66,6 +66,20 @@ class DocumentNotificationSystem {
         this.linkedTargets = null; // Store linked signature targets for SAF
         this.linkedSignatureMaps = null; // Store positions for both signatures
         this.isSafDualSigning = false; // Flag for SAF dual signature mode
+        // Full Document Viewer properties
+        this.fullPdfDoc = null;
+        this.fullCurrentPage = 1;
+        this.fullTotalPages = 1;
+        this.fullScale = 1.0;
+        this.fullCanvas = null;
+        this.fullCtx = null;
+        // Drag functionality
+        this.isDragMode = false;
+        this.isDragging = false;
+        this.dragStartX = 0;
+        this.dragStartY = 0;
+        this.canvasOffsetX = 0;
+        this.canvasOffsetY = 0;
     }
 
     // Initialize the application with enhanced error handling
@@ -1008,8 +1022,6 @@ class DocumentNotificationSystem {
     async renderPage() {
         if (!this.pdfDoc || !this.canvas) return;
 
-        console.debug('Rendering page', this.currentPage);
-
         const page = await this.pdfDoc.getPage(this.currentPage);
         const viewport = page.getViewport({ scale: this.scale });
         this.canvas.height = viewport.height;
@@ -1024,7 +1036,6 @@ class DocumentNotificationSystem {
         // Re-render signature overlays after the page is rendered
         setTimeout(() => {
             if (this.currentDocument) {
-                console.debug('Re-rendering signature overlays for page', this.currentPage);
                 this.renderSignatureOverlay(this.currentDocument);
             }
         }, 100);
@@ -1062,7 +1073,6 @@ class DocumentNotificationSystem {
     goToPage(pageNum) {
         pageNum = parseInt(pageNum);
         if (pageNum >= 1 && pageNum <= this.totalPages) {
-            console.debug('Navigating to page', pageNum, 'from', this.currentPage);
             this.currentPage = pageNum;
             this.renderPage().then(() => {
                 // Re-render signature overlays when page changes
@@ -1956,7 +1966,6 @@ class DocumentNotificationSystem {
             page: this.currentPage  // <-- IMPORTANT: Store the page number
         };
 
-        console.debug('updateSignatureMap ->', this.currentSignatureMap);
     }
 
     // Compute pixel rectangle from a signature map (supports percent values or absolute px)
@@ -1993,7 +2002,6 @@ class DocumentNotificationSystem {
         const height = Math.max(1, norm(hRaw, canvasRect.height, canvasAttrHeight));
 
         const rect = { left, top, width, height, canvasRect, contentRect };
-        console.debug('computeSignaturePixelRect', { map, rect });
         return rect;
     }
 
@@ -2450,6 +2458,9 @@ class DocumentNotificationSystem {
                         setTimeout(() => {
                             this.goBack();
                             this.loadDocuments();
+                            if (window.refreshNotifications) {
+                                window.refreshNotifications(true);
+                            }
                         }, 1200);
                     } else {
                         throw new Error(result.message || 'Failed to sign document');
@@ -2508,6 +2519,9 @@ class DocumentNotificationSystem {
 
                 // Refresh data in background for dashboard (but stay on current view)
                 await this.loadDocuments();
+                if (window.refreshNotifications) {
+                    window.refreshNotifications(true);
+                }
                 // Do not call renderDocuments() or goBack() here
             } else {
                 throw new Error(result.message || 'Failed to reject document');
@@ -2671,9 +2685,245 @@ class DocumentNotificationSystem {
                 }
             });
     }
-}
 
-// PDF Zoom Functions
+    // Full Document Viewer Methods
+    openFullViewer() {
+        // Reset drag state
+        this.isDragMode = false;
+        this.isDragging = false;
+        this.canvasOffsetX = 0;
+        this.canvasOffsetY = 0;
+        
+        const modal = new bootstrap.Modal(document.getElementById('fullDocumentModal'));
+        const pdfContent = document.getElementById('fullPdfContent');
+        if (pdfContent && this.currentDocument) {
+            pdfContent.innerHTML = '<div id="fullPdfContainer" style="position: relative; min-width: 100%; min-height: 100%; display: flex; align-items: flex-start; justify-content: center;"><canvas id="fullPdfCanvas" style="max-width: none; image-rendering: -webkit-optimize-contrast;"></canvas></div>';
+            this.fullCanvas = document.getElementById('fullPdfCanvas');
+            this.fullCtx = this.fullCanvas.getContext('2d');
+            this.loadFullPdf(this.currentDocument.file_path);
+        }
+        
+        // Clean up drag listeners when modal is closed
+        const modalElement = document.getElementById('fullDocumentModal');
+        modalElement.addEventListener('hidden.bs.modal', () => {
+            this.removeDragListeners();
+            this.isDragMode = false;
+            this.isDragging = false;
+        });
+        
+        modal.show();
+    }
+
+    async loadFullPdf(url) {
+        try {
+            // Handle URL as in loadPdf
+            let pdfUrl = url;
+            if (pdfUrl.startsWith('/')) {
+                pdfUrl = BASE_URL + pdfUrl.substring(1);
+            } else if (pdfUrl.startsWith('../')) {
+                pdfUrl = BASE_URL + pdfUrl.substring(3);
+            } else if (pdfUrl.startsWith('SPCF-Thesis/')) {
+                pdfUrl = BASE_URL + pdfUrl.substring(12);
+            } else if (pdfUrl.startsWith('http')) {
+                // Full URL
+            } else {
+                pdfUrl = BASE_URL + 'uploads/' + pdfUrl;
+            }
+
+            this.fullPdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
+            this.fullTotalPages = this.fullPdfDoc.numPages;
+            this.fullCurrentPage = 1;
+            this.fullScale = 1.0;
+            this.canvasOffsetX = 0;
+            this.canvasOffsetY = 0;
+            this.renderFullPage();
+            this.updateFullControls();
+        } catch (error) {
+            console.error('Error loading full PDF:', error);
+            this.showToast({ type: 'error', title: 'Error', message: 'Failed to load document for full view.' });
+        }
+    }
+
+    async renderFullPage() {
+        if (!this.fullPdfDoc || !this.fullCanvas) return;
+
+        try {
+            const page = await this.fullPdfDoc.getPage(this.fullCurrentPage);
+            const viewport = page.getViewport({ scale: this.fullScale });
+
+            this.fullCanvas.height = viewport.height;
+            this.fullCanvas.width = viewport.width;
+
+            const renderContext = {
+                canvasContext: this.fullCtx,
+                viewport: viewport
+            };
+
+            await page.render(renderContext).promise;
+            
+            // Update canvas position after rendering
+            this.updateCanvasPosition();
+        } catch (error) {
+            console.error('Error rendering full page:', error);
+        }
+    }
+
+    updateFullControls() {
+        const pageInput = document.getElementById('fullPageInput');
+        const pageTotal = document.getElementById('fullPageTotal');
+        const zoomIndicator = document.getElementById('fullZoomIndicator');
+        const prevBtn = document.getElementById('fullPrevPageBtn');
+        const nextBtn = document.getElementById('fullNextPageBtn');
+
+        if (pageInput) pageInput.value = this.fullCurrentPage;
+        if (pageTotal) pageTotal.textContent = this.fullTotalPages;
+        if (zoomIndicator) zoomIndicator.textContent = Math.round(this.fullScale * 100) + '%';
+        if (prevBtn) prevBtn.disabled = this.fullCurrentPage <= 1;
+        if (nextBtn) nextBtn.disabled = this.fullCurrentPage >= this.fullTotalPages;
+    }
+
+    fullPrevPage() {
+        if (this.fullCurrentPage > 1) {
+            this.fullCurrentPage--;
+            this.renderFullPage();
+            this.updateFullControls();
+        }
+    }
+
+    fullNextPage() {
+        if (this.fullCurrentPage < this.fullTotalPages) {
+            this.fullCurrentPage++;
+            this.renderFullPage();
+            this.updateFullControls();
+        }
+    }
+
+    fullGoToPage(pageNum) {
+        const page = parseInt(pageNum);
+        if (page >= 1 && page <= this.fullTotalPages) {
+            this.fullCurrentPage = page;
+            this.renderFullPage();
+            this.updateFullControls();
+        }
+    }
+
+    fullZoomIn() {
+        this.fullScale = Math.min(this.fullScale + 0.25, 3.0);
+        this.canvasOffsetX = 0;
+        this.canvasOffsetY = 0;
+        this.renderFullPage();
+        this.updateFullControls();
+    }
+
+    fullZoomOut() {
+        this.fullScale = Math.max(this.fullScale - 0.25, 0.5);
+        this.canvasOffsetX = 0;
+        this.canvasOffsetY = 0;
+        this.renderFullPage();
+        this.updateFullControls();
+    }
+
+    fullFitToWidth() {
+        if (!this.fullPdfDoc) return;
+        // Simple fit to width - can be enhanced
+        this.fullScale = 1.0;
+        this.canvasOffsetX = 0;
+        this.canvasOffsetY = 0;
+        this.renderFullPage();
+        this.updateFullControls();
+    }
+
+    fullResetZoom() {
+        this.fullScale = 1.0;
+        this.canvasOffsetX = 0;
+        this.canvasOffsetY = 0;
+        this.renderFullPage();
+        this.updateFullControls();
+    }
+
+    toggleDragMode() {
+        this.isDragMode = !this.isDragMode;
+        const content = document.getElementById('fullPdfContent');
+        const btn = document.getElementById('dragToggleBtn');
+        
+        if (this.isDragMode) {
+            content.style.cursor = 'grab';
+            content.classList.add('dragging');
+            btn.innerHTML = '<i class="bi bi-hand-index-fill"></i>';
+            btn.title = 'Exit Drag Mode';
+            this.setupDragListeners();
+        } else {
+            content.style.cursor = 'grab';
+            content.classList.remove('dragging');
+            btn.innerHTML = '<i class="bi bi-hand-index"></i>';
+            btn.title = 'Toggle Drag Mode';
+            this.removeDragListeners();
+        }
+    }
+
+    setupDragListeners() {
+        const content = document.getElementById('fullPdfContent');
+        const container = document.getElementById('fullPdfContainer');
+        
+        content.addEventListener('mousedown', this.handleMouseDown.bind(this));
+        content.addEventListener('mousemove', this.handleMouseMove.bind(this));
+        content.addEventListener('mouseup', this.handleMouseUp.bind(this));
+        content.addEventListener('mouseleave', this.handleMouseUp.bind(this));
+        
+        // Prevent text selection during drag
+        content.addEventListener('selectstart', (e) => {
+            if (this.isDragMode) e.preventDefault();
+        });
+    }
+
+    removeDragListeners() {
+        const content = document.getElementById('fullPdfContent');
+        
+        content.removeEventListener('mousedown', this.handleMouseDown.bind(this));
+        content.removeEventListener('mousemove', this.handleMouseMove.bind(this));
+        content.removeEventListener('mouseup', this.handleMouseUp.bind(this));
+        content.removeEventListener('mouseleave', this.handleMouseUp.bind(this));
+        content.removeEventListener('selectstart', this.handleMouseDown.bind(this));
+    }
+
+    handleMouseDown(e) {
+        if (!this.isDragMode || e.button !== 0) return;
+        
+        this.isDragging = true;
+        this.dragStartX = e.clientX - this.canvasOffsetX;
+        this.dragStartY = e.clientY - this.canvasOffsetY;
+        
+        const content = document.getElementById('fullPdfContent');
+        content.style.cursor = 'grabbing';
+        e.preventDefault();
+    }
+
+    handleMouseMove(e) {
+        if (!this.isDragging || !this.isDragMode) return;
+        
+        this.canvasOffsetX = e.clientX - this.dragStartX;
+        this.canvasOffsetY = e.clientY - this.dragStartY;
+        
+        this.updateCanvasPosition();
+        e.preventDefault();
+    }
+
+    handleMouseUp(e) {
+        if (!this.isDragMode) return;
+        
+        this.isDragging = false;
+        const content = document.getElementById('fullPdfContent');
+        content.style.cursor = this.isDragMode ? 'grab' : 'default';
+    }
+
+    updateCanvasPosition() {
+        if (!this.fullCanvas) return;
+        
+        const container = document.getElementById('fullPdfContainer');
+        container.style.transform = `translate(${this.canvasOffsetX}px, ${this.canvasOffsetY}px)`;
+    }
+};
+
 function zoomInPDF(pdfObject) {
     if (pdfObject && pdfObject.style) {
         const currentHeight = parseInt(pdfObject.style.height) || 600;

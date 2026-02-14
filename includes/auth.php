@@ -13,34 +13,22 @@ class Auth {
 
     public function login($userId, $password, $loginType) {
         try {
-            // DEBUG: Log input parameters
-            error_log("DEBUG Auth->login: userId=$userId, loginType=$loginType, password_length=" . strlen($password));
-
             // Determine table based on login type
             $table = $this->getTableName($loginType);
             if (!$table) {
-                error_log("DEBUG Auth->login: Invalid loginType=$loginType, no table found");
                 return false;
             }
-
-            error_log("DEBUG Auth->login: Using table=$table");
 
             $query = "SELECT * FROM " . $table . " WHERE id = :id LIMIT 1";
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(':id', $userId);
             $stmt->execute();
 
-            error_log("DEBUG Auth->login: Query executed, rowCount=" . $stmt->rowCount());
-
             if ($stmt->rowCount() == 1) {
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                // DEBUG: Log user data (without password)
-                error_log("DEBUG Auth->login: User found - id=" . $user['id'] . ", email=" . $user['email']);
-
                 // Verify password - FIXED: Use password_verify
                 $passwordVerified = password_verify($password, $user['password']);
-                error_log("DEBUG Auth->login: Password verification result=" . ($passwordVerified ? 'true' : 'false'));
 
                 if ($passwordVerified) {
                     // Return user data without password
@@ -48,13 +36,8 @@ class Auth {
                     unset($user['password']);
                     $user['role'] = $loginType;
                     $user['must_change_password'] = $mustChange;
-                    error_log("DEBUG Auth->login: Login successful for user=" . $user['id'] . ", must_change_password=" . $mustChange);
                     return $user;
-                } else {
-                    error_log("DEBUG Auth->login: Password verification failed");
                 }
-            } else {
-                error_log("DEBUG Auth->login: No user found with id=$userId in table=$table");
             }
 
             return false;

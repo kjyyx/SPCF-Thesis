@@ -203,7 +203,7 @@ $pageTitle = 'Track Documents';
                                     </th>
                                     <th class="sortable" data-sort="current_location">
                                         <div class="d-flex align-items-center justify-content-between">
-                                            <span><i class="bi bi-geo-alt me-2"></i>Location</span>
+                                            <span><i class="bi bi-geo-alt me-2"></i>Office</span>
                                             <i class="bi bi-chevron-expand"></i>
                                         </div>
                                     </th>

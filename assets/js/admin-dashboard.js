@@ -235,7 +235,6 @@ function hideUserFormMessages() {
  * @param {string} severity - Severity level ('INFO', 'WARNING', 'ERROR')
  */
 window.addAuditLog = async function (action, category, details, targetId = null, targetType = null, severity = 'INFO') {
-    console.log('Adding audit log:', { action, category, details, targetId, targetType, severity });
     try {
         const response = await fetch(BASE_URL + 'api/audit.php', {
             method: 'POST',
@@ -252,7 +251,6 @@ window.addAuditLog = async function (action, category, details, targetId = null,
             })
         });
         const result = await response.json();
-        console.log('Audit log response:', result);
         if (!result.success) {
             console.error('Failed to log audit entry:', result.message);
         }
@@ -273,7 +271,6 @@ async function loadAuditLogs(page = 1, category = null, severity = null, search 
     currentAuditStartDate = startDate;
     currentAuditEndDate = endDate;
     currentAuditPage = page;
-    console.log('loadAuditLogs called for page:', page);
     try {
         // Build query parameters
         const params = new URLSearchParams({
@@ -2190,34 +2187,6 @@ function downloadLatestBackup() {
     // This would download the latest backup file
     window.open(BASE_URL + 'api/backup.php?action=download_latest', '_blank');
 }
-function showNotifications() {
-    const modal = new bootstrap.Modal(document.getElementById('notificationsModal'));
-    const list = document.getElementById('notificationsList');
-    if (list && window.notifications) {
-        list.innerHTML = window.notifications.map(n => {
-            let icon = 'bi-bell'; // Default icon
-            if (n.type === 'pending_document' || n.type === 'new_document' || n.type === 'document_status') icon = 'bi-file-earmark-text';
-            else if (n.type === 'upcoming_event' || n.type === 'event_reminder') icon = 'bi-calendar-event';
-            else if (n.type === 'pending_material' || n.type === 'material_status') icon = 'bi-image';
-            else if (n.type === 'new_user') icon = 'bi-person-plus';
-            else if (n.type === 'security_alert') icon = 'bi-shield-exclamation';
-            else if (n.type === 'account') icon = 'bi-key';
-            else if (n.type === 'system') icon = 'bi-gear';
-
-            return `
-                <div class="list-group-item">
-                    <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1"><i class="bi ${icon} me-2"></i>${n.title}</h6>
-                        <small>${new Date(n.timestamp).toLocaleDateString()}</small>
-                    </div>
-                    <p class="mb-1">${n.message}</p>
-                </div>
-            `;
-        }).join('');
-    }
-    modal.show();
-}
-
 // ==========================================================
 // Utility helpers (DOM, CSV, Fetch)
 // ==========================================================

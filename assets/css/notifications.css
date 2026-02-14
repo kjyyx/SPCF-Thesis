@@ -932,6 +932,21 @@ body {
     position: relative !important;
 }
 
+.pdf-content-full {
+    background: #f8f9fa;
+    position: relative;
+    user-select: none;
+}
+
+.pdf-content-full.dragging {
+    cursor: grabbing !important;
+}
+
+.pdf-content-full canvas {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+}
+
 .pdf-content h4 {
     color: var(--text-primary);
     margin-bottom: 1rem;

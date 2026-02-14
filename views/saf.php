@@ -67,7 +67,6 @@ $pageTitle = 'Student Allocated Funds';
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <link href="<?php echo BASE_URL; ?>assets/css/global.css" rel="stylesheet"> <!-- Your global styles -->
   <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global-notifications.css"><!-- Global notifications styles -->
-  <script src="<?php echo BASE_URL; ?>assets/js/global-notifications.js"></script>
   <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
 
   <!-- Pass user data -->

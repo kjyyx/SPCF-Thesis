@@ -93,7 +93,6 @@ document.addEventListener('DOMContentLoaded', function() {
     currentLevel = 'level1';
     const originalDept = window.currentUser.department;
     currentDeptId = deptNameToIdMap[originalDept.trim().toLowerCase()] || originalDept;
-    console.log('DEBUG: Student department mapping:', { originalDept, currentDeptId, level: currentLevel });
   } else if (window.currentUser.role === 'employee') {
     if (window.currentUser.position && window.currentUser.position.includes('Accounting')) {
       currentLevel = 'level3';
@@ -274,10 +273,8 @@ function renderDeptCards() {
 }
 
 function renderDeptDetails(deptId) {
-  console.log('DEBUG: renderDeptDetails called with deptId:', deptId);
   // Find department by db_id first
   let dept = DEPARTMENTS.find(d => d.db_id === deptId);
-  console.log('DEBUG: Found department:', dept);
 
   // If department not found in predefined list, create a fallback
   if (!dept) {
@@ -290,8 +287,6 @@ function renderDeptDetails(deptId) {
 
   const saf = getDeptSAF(dept.id);
   const transactions = getDeptTransactions(dept.id);
-  console.log('DEBUG: SAF data:', saf);
-  console.log('DEBUG: Transactions:', transactions);
 
   const initial = saf.initial_amount || 0;
   const used = saf.used_amount || 0;

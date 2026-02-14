@@ -415,10 +415,8 @@ if ($method === 'POST') {
             
             loginUser($user);
             addAuditLog('LOGIN_2FA', 'Authentication', "User {$user['first_name']} {$user['last_name']} completed 2FA login", $user['id'], 'User', 'INFO');
-            error_log("DEBUG api/auth.php: 2FA verification successful for user $userId, redirecting to " . ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar'));
             echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar')]);
         } else {
-            error_log("DEBUG api/auth.php: 2FA verification failed for user $userId - invalid code");
             echo json_encode(['success' => false, 'message' => 'Invalid 2FA code']);
         }
         exit();
@@ -467,10 +465,8 @@ if ($method === 'POST') {
             $stmt->execute([$userId]);
             loginUser($user);
             addAuditLog('2FA_SETUP', 'Authentication', "User {$user['first_name']} {$user['last_name']} set up 2FA", $user['id'], 'User', 'INFO');
-            error_log("DEBUG api/auth.php: 2FA setup successful for user $userId, redirecting to " . ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar'));
             echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar')]);
         } else {
-            error_log("DEBUG api/auth.php: 2FA setup failed for user $userId - invalid code");
             echo json_encode(['success' => false, 'message' => 'Invalid 2FA code']);
         }
         exit();
@@ -521,9 +517,6 @@ if ($method === 'POST') {
     $password = $data['password'] ?? '';
     $loginType = $data['loginType'] ?? '';
 
-    // DEBUG: Log API request
-    error_log("DEBUG api/auth.php: API login request - userId=$userId, loginType=$loginType, password_length=" . strlen($password));
-
     // Check for brute force cooldown
     $db = (new Database())->getConnection();
     $stmt = $db->prepare("SELECT attempts, locked_until FROM login_attempts WHERE user_id = ?");
@@ -542,29 +535,22 @@ if ($method === 'POST') {
     $auth = new Auth();
     $user = $auth->login($userId, $password, $loginType);
 
-        // DEBUG: Log API result
-        error_log("DEBUG api/auth.php: Auth->login returned: " . ($user ? 'SUCCESS' : 'FAILED'));
-
-        if ($user) {
-            $global2FAEnabled = is2FAEnabledGlobally();
-            error_log("DEBUG api/auth.php: Global 2FA enabled: " . ($global2FAEnabled ? 'yes' : 'no'));
+    if ($user) {
+        $global2FAEnabled = is2FAEnabledGlobally();
             
             // Check if user has 2FA secret
             if (!empty($user['2fa_secret'])) {
                 if ($user['2fa_enabled'] == 1 && $global2FAEnabled) {
                     // 2FA is set up and globally enabled, require code
-                    error_log("DEBUG api/auth.php: User has 2FA enabled and global 2FA enabled, requiring verification");
                     echo json_encode(['success' => true, 'requires_2fa' => true, 'user_id' => $user['id']]);
                 } elseif ($user['2fa_enabled'] == 1 && !$global2FAEnabled) {
                     // 2FA is set up but globally disabled, skip verification
-                    error_log("DEBUG api/auth.php: User has 2FA enabled but global 2FA disabled, skipping verification");
                     loginUser($user);
                     addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in (2FA bypassed for development)", $user['id'], 'User', 'INFO');
                     echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar')]);
                 } else {
                     // 2FA secret exists but not set up - prompt for setup if globally enabled
                     if ($global2FAEnabled) {
-                        error_log("DEBUG api/auth.php: User has 2FA secret but not enabled, prompting setup");
                         echo json_encode(['success' => true, 'requires_2fa_setup' => true, 'user_id' => $user['id'], 'secret' => $user['2fa_secret']]);
                     } else {
                         // Proceed without 2FA
@@ -576,7 +562,6 @@ if ($method === 'POST') {
             } else {
                 // No 2FA secret - generate and prompt setup if globally enabled
                 if ($global2FAEnabled) {
-                    error_log("DEBUG api/auth.php: No 2FA secret, generating for user {$user['id']}");
                     $google2fa = new Google2FA();
                     $secret = $google2fa->generateSecretKey();
                     $table = _auth_table_by_role($user['role']);
@@ -602,15 +587,13 @@ if ($method === 'POST') {
             $stmt = $db->prepare("INSERT INTO login_attempts (user_id, attempts, locked_until) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE attempts = ?, locked_until = ?");
             $stmt->execute([$userId, $attempts, $lockedUntil, $attempts, $lockedUntil]);
 
-            error_log("DEBUG api/auth.php: API login failed");
             echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
         }
     } catch (Exception $e) {
         error_log("ERROR api/auth.php: " . $e->getMessage());
-        echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);  // For debugging; remove in production
+        echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
     }
 } else {
-    error_log("DEBUG api/auth.php: Invalid method: $method");
     echo json_encode(['success' => false, 'message' => 'Invalid request method']);
 }
 ?>

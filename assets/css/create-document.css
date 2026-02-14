@@ -294,6 +294,28 @@ body {
     border-color: #10b981;
 }
 
+/* Required Field Indicators */
+.required {
+    color: #ef4444;
+    font-weight: 600;
+    margin-left: 0.25rem;
+}
+
+/* Validation Error Styles */
+.is-invalid {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 0.2rem rgba(239, 68, 68, 0.25) !important;
+}
+
+.invalid-feedback {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: #ef4444;
+    font-weight: 500;
+}
+
 /* Enhanced Textarea Styling */
 textarea.form-control {
     resize: vertical;

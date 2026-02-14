@@ -171,19 +171,17 @@ function selectDocumentType(type) {
  * Fetches current SAF balances for all departments
  */
 function loadSAFBalances() {
-    console.log('DEBUG: Loading SAF balances...');
     return fetch(BASE_URL + 'api/saf.php')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 safBalances = data.data.filter(item => item.type === 'saf');
-                console.log('DEBUG: SAF balances loaded:', safBalances);
             } else {
-                console.error('DEBUG: Failed to load SAF balances:', data.message);
+                console.error('Failed to load SAF balances:', data.message);
             }
         })
         .catch(error => {
-            console.error('DEBUG: Failed to load SAF balances:', error);
+            console.error('Failed to load SAF balances:', error);
         });
 }
 
@@ -193,10 +191,8 @@ function loadSAFBalances() {
  * @param {string} dept - The selected department name
  */
 function updateSAFAvail(dept) {
-    console.log('DEBUG: updateSAFAvail called with dept:', dept);
     if (!dept) {
         // If no department selected, set CSC to 0, SSC to SSC balance
-        console.log('DEBUG: No dept selected, setting CSC to 0, SSC to SSC balance');
         const availSSC = document.getElementById('avail-ssc');
         const availCSC = document.getElementById('avail-csc');
         const sscBalance = safBalances.find(b => b.department_id === 'ssc');
@@ -215,7 +211,6 @@ function updateSAFAvail(dept) {
     const deptBalance = safBalances.find(b => b.department_id === dept);
     const deptCurrent = deptBalance ? deptBalance.initial_amount - deptBalance.used_amount : 0;
 
-    console.log('DEBUG: SSC balance:', sscCurrent, 'Dept balance:', deptCurrent);
     const availSSC = document.getElementById('avail-ssc');
     const availCSC = document.getElementById('avail-csc');
     if (availSSC) availSSC.value = sscCurrent;
@@ -444,16 +439,13 @@ function collectSAFData() {
         departmentFull: deptFull, // Also set departmentFull for consistency
         c1: cValues[0], c2: cValues[1],
         sscChecked: cValues[0], cscChecked: cValues[1],
-        ...(categories.ssc && {
-            availSSC: funds.ssc.available,
-            reqSSC: funds.ssc.requested,
-            balSSC
-        }),
-        ...(categories.csc && {
-            availCSC: funds.csc.available,
-            reqCSC: funds.csc.requested,
-            balCSC
-        }),
+        // Always include placeholders but set to empty for unselected categories
+        availSSC: categories.ssc ? (funds.ssc.available || '') : '',
+        reqSSC: categories.ssc ? (funds.ssc.requested || '') : '',
+        balSSC: categories.ssc ? balSSC : '',
+        availCSC: categories.csc ? (funds.csc.available || '') : '',
+        reqCSC: categories.csc ? (funds.csc.requested || '') : '',
+        balCSC: categories.csc ? balCSC : '',
         reqByName: window.currentUser?.firstName + ' ' + window.currentUser?.lastName,
         notedBy: '', recBy: '', appBy: '', relBy: '',  // Set in API if needed
         dNoteDate: '', hNoteDate: '', recDate: '', appDate: '', releaseDate: ''  // Set in API if needed
@@ -862,7 +854,6 @@ function updateSAFBalances() {
 }
 
 function updateSAFLocks() {
-    console.log('DEBUG: updateSAFLocks called');
     const codes = ['ssc', 'csc'];
     codes.forEach(code => {
         const cb = document.getElementById(`saf-${code}`);
@@ -871,12 +862,10 @@ function updateSAFLocks() {
         const row = document.getElementById(`row-${code}`);
 
         if (!cb || !avail || !req || !row) {
-            console.log('DEBUG: Missing element for', code);
             return;
         }
 
         if (cb.checked) {
-            console.log('DEBUG: Checkbox checked for', code);
             row.style.display = '';
             avail.disabled = false;
             req.disabled = false;
@@ -884,7 +873,6 @@ function updateSAFLocks() {
             req.style.background = '';
             // Trigger fund update immediately when checkbox is checked
             const dept = document.getElementById('saf-dept').value;
-            console.log('DEBUG: Triggering updateSAFAvail with dept:', dept);
             updateSAFAvail(dept);
             // For SSC, set department to 'ssc'
             if (code === 'ssc') {
@@ -892,7 +880,6 @@ function updateSAFLocks() {
                 if (deptSelect) deptSelect.value = 'ssc';
             }
         } else {
-            console.log('DEBUG: Checkbox not checked for', code);
             row.style.display = 'none';
             avail.disabled = true;
             req.disabled = true;
@@ -978,15 +965,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load SAF balances for dynamic form updates
     loadSAFBalances().then(() => {
-        console.log('DEBUG: SAF balances loaded, pre-selecting department');
         // Pre-select department and update funds on load
         const deptSelect = document.getElementById('saf-dept');
         if (deptSelect && window.currentUser?.department) {
-            console.log('DEBUG: Pre-selecting department:', window.currentUser.department);
             deptSelect.value = window.currentUser.department;
             updateSAFAvail(window.currentUser.department);
-        } else {
-            console.log('DEBUG: No department to pre-select or deptSelect not found');
         }
     });
 
@@ -994,7 +977,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const safDept = document.getElementById('saf-dept');
     if (safDept) {
         safDept.addEventListener('change', function () {
-            console.log('DEBUG: Department changed to:', this.value);
             updateSAFAvail(this.value);
         });
     }
@@ -1033,6 +1015,52 @@ setTimeout(() => {
 }, 300);
 
 // Add a new function to submit the document (call this from a "Create Document" button in create-document.php)
+
+/**
+ * Clear all validation error states from the form
+ */
+function clearValidationErrors() {
+    // Remove error classes and messages from all form elements
+    document.querySelectorAll('.form-control, .form-select').forEach(element => {
+        element.classList.remove('is-invalid');
+    });
+    
+    // Remove error messages
+    document.querySelectorAll('.invalid-feedback').forEach(element => {
+        element.remove();
+    });
+    
+    // Remove error highlighting from other elements
+    document.querySelectorAll('.validation-error').forEach(element => {
+        element.classList.remove('validation-error');
+    });
+}
+
+/**
+ * Highlight a field as invalid and show error message
+ * @param {string} fieldId - The ID of the field to highlight
+ * @param {string} message - The error message to display
+ */
+function highlightField(fieldId, message) {
+    const element = document.getElementById(fieldId);
+    if (!element) return;
+    
+    // Add error class
+    element.classList.add('is-invalid');
+    
+    // Create and insert error message
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'invalid-feedback d-block';
+    errorDiv.textContent = message;
+    
+    // Insert after the element
+    if (element.nextSibling) {
+        element.parentNode.insertBefore(errorDiv, element.nextSibling);
+    } else {
+        element.parentNode.appendChild(errorDiv);
+    }
+}
+
 async function submitDocument() {
     const currentType = currentDocumentType;  // Use the global variable
     let data;
@@ -1058,6 +1086,182 @@ async function submitDocument() {
 
     if (!window.currentUser || !window.currentUser.id) {
         window.ToastManager?.error('User not logged in', 'Error');
+        return;
+    }
+
+    // VALIDATION: Check required fields based on document type
+    clearValidationErrors();
+    let validationErrors = [];
+    let firstErrorField = null;
+
+    // Field mapping for highlighting
+    const fieldMappings = {
+        proposal: {
+            title: 'prop-title',
+            date: 'prop-date',
+            organizer: 'prop-organizer',
+            venue: 'prop-venue',
+            objectives: 'prop-objectives',
+            department: 'prop-department',
+            leadFacilitator: 'prop-lead'
+        },
+        saf: {
+            title: 'saf-title',
+            reqDate: 'saf-date',
+            implDate: 'saf-impl-date',
+            department: 'saf-dept'
+        },
+        facility: {
+            eventName: 'fac-event-name',
+            eventDate: 'fac-event-date',
+            department: 'fac-dept'
+        },
+        communication: {
+            subject: 'comm-subject',
+            body: 'comm-body',
+            date: 'comm-date',
+            department: 'comm-department-select'
+        }
+    };
+
+    const currentMappings = fieldMappings[currentType] || {};
+
+    if (currentType === 'proposal') {
+        if (!data.title || data.title.trim() === '') {
+            validationErrors.push('Title is required');
+            highlightField(currentMappings.title, 'Title is required');
+            if (!firstErrorField) firstErrorField = currentMappings.title;
+        }
+        if (!data.date) {
+            validationErrors.push('Date is required');
+            highlightField(currentMappings.date, 'Date is required');
+            if (!firstErrorField) firstErrorField = currentMappings.date;
+        }
+        if (!data.organizer || data.organizer.trim() === '') {
+            validationErrors.push('Event Organizer is required');
+            highlightField(currentMappings.organizer, 'Event Organizer is required');
+            if (!firstErrorField) firstErrorField = currentMappings.organizer;
+        }
+        if (!data.venue || data.venue.trim() === '') {
+            validationErrors.push('Venue is required');
+            highlightField(currentMappings.venue, 'Venue is required');
+            if (!firstErrorField) firstErrorField = currentMappings.venue;
+        }
+        if (!data.objectives || !Array.isArray(data.objectives) || data.objectives.length === 0) {
+            validationErrors.push('At least one objective is required');
+            highlightField(currentMappings.objectives, 'At least one objective is required');
+            if (!firstErrorField) firstErrorField = currentMappings.objectives;
+        }
+        if (!data.department || data.department.trim() === '') {
+            validationErrors.push('Department is required');
+            highlightField(currentMappings.department, 'Department is required');
+            if (!firstErrorField) firstErrorField = currentMappings.department;
+        }
+        if (!data.leadFacilitator || data.leadFacilitator.trim() === '') {
+            validationErrors.push('Lead Facilitator is required');
+            highlightField(currentMappings.leadFacilitator, 'Lead Facilitator is required');
+            if (!firstErrorField) firstErrorField = currentMappings.leadFacilitator;
+        }
+    } else if (currentType === 'saf') {
+        if (!data.title || data.title.trim() === '') {
+            validationErrors.push('Project Title is required');
+            highlightField(currentMappings.title, 'Project Title is required');
+            if (!firstErrorField) firstErrorField = currentMappings.title;
+        }
+        if (!data.reqDate) {
+            validationErrors.push('Date Requested is required');
+            highlightField(currentMappings.reqDate, 'Date Requested is required');
+            if (!firstErrorField) firstErrorField = currentMappings.reqDate;
+        }
+        if (!data.implDate) {
+            validationErrors.push('Implementation Date is required');
+            highlightField(currentMappings.implDate, 'Implementation Date is required');
+            if (!firstErrorField) firstErrorField = currentMappings.implDate;
+        }
+        if (!data.department || data.department.trim() === '') {
+            validationErrors.push('Department is required');
+            highlightField(currentMappings.department, 'Department is required');
+            if (!firstErrorField) firstErrorField = currentMappings.department;
+        }
+        // Validate that checked categories have amounts > 0
+        if (data.c1 && data.reqSSC <= 0) {
+            validationErrors.push('SSC fund amount must be greater than 0 when selected');
+            highlightField('req-ssc', 'SSC fund amount must be greater than 0 when selected');
+            if (!firstErrorField) firstErrorField = 'req-ssc';
+        }
+        if (data.c2 && data.reqCSC <= 0) {
+            validationErrors.push('CSC fund amount must be greater than 0 when selected');
+            highlightField('req-csc', 'CSC fund amount must be greater than 0 when selected');
+            if (!firstErrorField) firstErrorField = 'req-csc';
+        }
+        // Ensure at least one category is selected
+        if (!data.c1 && !data.c2) {
+            validationErrors.push('At least one fund category must be selected');
+            highlightField('saf-category-area', 'At least one fund category must be selected');
+            if (!firstErrorField) firstErrorField = 'saf-category-area';
+        }
+    } else if (currentType === 'facility') {
+        if (!data.eventName || data.eventName.trim() === '') {
+            validationErrors.push('Event Name is required');
+            highlightField(currentMappings.eventName, 'Event Name is required');
+            if (!firstErrorField) firstErrorField = currentMappings.eventName;
+        }
+        if (!data.eventDate) {
+            validationErrors.push('Event Date is required');
+            highlightField(currentMappings.eventDate, 'Event Date is required');
+            if (!firstErrorField) firstErrorField = currentMappings.eventDate;
+        }
+        if (!data.department || data.department.trim() === '') {
+            validationErrors.push('Department is required');
+            highlightField(currentMappings.department, 'Department is required');
+            if (!firstErrorField) firstErrorField = currentMappings.department;
+        }
+    } else if (currentType === 'communication') {
+        if (!data.subject || data.subject.trim() === '') {
+            validationErrors.push('Subject is required');
+            highlightField(currentMappings.subject, 'Subject is required');
+            if (!firstErrorField) firstErrorField = currentMappings.subject;
+        }
+        if (!data.body || data.body.trim() === '') {
+            validationErrors.push('Letter Body is required');
+            highlightField(currentMappings.body, 'Letter Body is required');
+            if (!firstErrorField) firstErrorField = currentMappings.body;
+        }
+        if (!data.date) {
+            validationErrors.push('Date is required');
+            highlightField(currentMappings.date, 'Date is required');
+            if (!firstErrorField) firstErrorField = currentMappings.date;
+        }
+        if (!data.department || data.department.trim() === '') {
+            validationErrors.push('Department is required');
+            highlightField(currentMappings.department, 'Department is required');
+            if (!firstErrorField) firstErrorField = currentMappings.department;
+        }
+        if (!data.notedList || !Array.isArray(data.notedList) || data.notedList.length === 0) {
+            validationErrors.push('At least one recipient is required');
+            highlightField('noted-list', 'At least one recipient is required');
+            if (!firstErrorField) firstErrorField = 'noted-list';
+        }
+        if (!data.approvedList || !Array.isArray(data.approvedList) || data.approvedList.length === 0) {
+            validationErrors.push('At least one sender is required');
+            highlightField('approved-list', 'At least one sender is required');
+            if (!firstErrorField) firstErrorField = 'approved-list';
+        }
+    }
+
+    // If validation errors exist, show them and stop
+    if (validationErrors.length > 0) {
+        window.ToastManager?.error(`Please correct the highlighted fields. ${validationErrors.length} field(s) need attention.`, 'Validation Error');
+        
+        // Scroll to first error field
+        if (firstErrorField) {
+            const firstErrorElement = document.getElementById(firstErrorField);
+            if (firstErrorElement) {
+                firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                firstErrorElement.focus();
+            }
+        }
+        
         return;
     }
 

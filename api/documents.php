@@ -284,11 +284,23 @@ function handleGet()
                 if (!isset($documents[$docId])) {
                     // Determine current location
                     $current_location = 'Student Council'; // Default
+                    $rejected_location = null;
+                    $pending_location = null;
                     foreach ($rows as $stepRow) {
-                        if ($stepRow['id'] === $docId && ($stepRow['step_status'] === 'in_progress' || $stepRow['step_status'] === 'pending')) {
-                            $current_location = $stepRow['step_name'];
-                            break;
+                        if ($stepRow['id'] === $docId) {
+                            if ($stepRow['step_status'] === 'rejected') {
+                                $rejected_location = $stepRow['step_name'];
+                            } elseif ($stepRow['step_status'] === 'pending' || $stepRow['step_status'] === 'in_progress') {
+                                if (!$pending_location) {
+                                    $pending_location = $stepRow['step_name'];
+                                }
+                            }
                         }
+                    }
+                    if ($rejected_location) {
+                        $current_location = $rejected_location;
+                    } elseif ($pending_location) {
+                        $current_location = $pending_location;
                     }
 
                     $documents[$docId] = [
@@ -325,6 +337,12 @@ function handleGet()
                                WHEN n.author_role = 'admin' THEN CONCAT(a.first_name, ' ', a.last_name)
                                ELSE 'Unknown'
                            END as created_by_name,
+                           CASE 
+                               WHEN n.author_role = 'employee' THEN e.position
+                               WHEN n.author_role = 'student' THEN s.position
+                               WHEN n.author_role = 'admin' THEN a.position
+                               ELSE ''
+                           END as position,
                            NULL as step_status
                     FROM document_notes n
                     JOIN documents d ON n.document_id = d.id
@@ -336,9 +354,19 @@ function handleGet()
                     UNION ALL
                     
                     SELECT CONCAT('step_', ds.id) as id, ds.note, ds.acted_at as created_at, ds.document_id,
-                           CONCAT(e.first_name, ' ', e.last_name) as created_by_name, ds.status as step_status
+                           CASE 
+                               WHEN ds.assigned_to_employee_id IS NOT NULL THEN CONCAT(e.first_name, ' ', e.last_name)
+                               WHEN ds.assigned_to_student_id IS NOT NULL THEN CONCAT(s.first_name, ' ', s.last_name)
+                               ELSE 'Unknown'
+                           END as created_by_name,
+                           CASE 
+                               WHEN ds.assigned_to_employee_id IS NOT NULL THEN e.position
+                               WHEN ds.assigned_to_student_id IS NOT NULL THEN s.position
+                               ELSE ''
+                           END as position, ds.status as step_status
                     FROM document_steps ds
-                    JOIN employees e ON ds.assigned_to_employee_id = e.id
+                    LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
+                    LEFT JOIN students s ON ds.assigned_to_student_id = s.id
                     WHERE ds.document_id IN ($placeholders) 
                     AND ds.note IS NOT NULL 
                     AND ds.note != ''
@@ -358,6 +386,7 @@ function handleGet()
                             'note' => $note['note'],
                             'created_by_name' => $note['created_by_name'],
                             'created_at' => $note['created_at'],
+                            'position' => $note['position'] ?: '',
                             'is_rejection' => $isRejection
                         ];
                     }
@@ -891,6 +920,77 @@ function createDocument($input)
         return;
     }
 
+    // SERVER-SIDE VALIDATION: Check required fields before any processing
+    if ($docType === 'proposal') {
+        $required = ['title', 'date', 'organizer', 'venue', 'department', 'leadFacilitator'];
+        foreach ($required as $field) {
+            if (empty($data[$field])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => "Required field '$field' is missing"]);
+                return;
+            }
+        }
+        if (empty($data['objectives']) || !is_array($data['objectives']) || count($data['objectives']) === 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'At least one objective is required']);
+            return;
+        }
+    } elseif ($docType === 'saf') {
+        $required = ['title', 'reqDate', 'implDate', 'department'];
+        foreach ($required as $field) {
+            if (empty($data[$field])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => "Required field '$field' is missing"]);
+                return;
+            }
+        }
+        // Validate that checked categories have amounts > 0
+        if (isset($data['c1']) && $data['reqSSC'] <= 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'SSC fund amount must be greater than 0 when selected']);
+            return;
+        }
+        if (isset($data['c2']) && $data['reqCSC'] <= 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'CSC fund amount must be greater than 0 when selected']);
+            return;
+        }
+        // Ensure at least one category is selected
+        if (!isset($data['c1']) && !isset($data['c2'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'At least one fund category must be selected']);
+            return;
+        }
+    } elseif ($docType === 'facility') {
+        $required = ['eventName', 'eventDate', 'department'];
+        foreach ($required as $field) {
+            if (empty($data[$field])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => "Required field '$field' is missing"]);
+                return;
+            }
+        }
+    } elseif ($docType === 'communication') {
+        $required = ['subject', 'body', 'date', 'department'];
+        foreach ($required as $field) {
+            if (empty($data[$field])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => "Required field '$field' is missing"]);
+                return;
+            }
+        }
+        if (empty($data['notedList']) || !is_array($data['notedList']) || count($data['notedList']) === 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'At least one recipient is required']);
+            return;
+        }
+        if (empty($data['approvedList']) || !is_array($data['approvedList']) || count($data['approvedList']) === 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'At least one sender is required']);
+            return;
+        }
+    }
+
     // Fetch fresh user data to ensure latest names
     $freshUser = $auth->getUser($currentUser['id'], $currentUser['role']);
     $currentUser = $freshUser;
@@ -1000,10 +1100,8 @@ function createDocument($input)
                 if (!file_exists($filledPath)) {
                     throw new Exception("Filled file not found: $filledPath");
                 }
-                error_log("DEBUG: DOCX template filled successfully: " . $filledPath);
                 // Convert DOCX to PDF
                 $pdfPath = convertDocxToPdf($filledPath);
-                error_log("DEBUG: PDF conversion result: " . $pdfPath);
                 $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
                 $stmt->execute(['uploads/' . basename($pdfPath), $docId]);
             } catch (Exception $e) {
@@ -1408,6 +1506,23 @@ function signDocument($input, $files = null)
             return;
         }
         $stepId = (int) $row['id'];
+    }
+
+    // HIERARCHY ENFORCEMENT: Ensure no previous steps are pending
+    $hierarchyCheckStmt = $db->prepare("
+        SELECT COUNT(*) as pending_previous
+        FROM document_steps
+        WHERE document_id = ? AND step_order < (
+            SELECT step_order FROM document_steps WHERE id = ?
+        ) AND status != 'completed'
+    ");
+    $hierarchyCheckStmt->execute([$documentId, $stepId]);
+    $hierarchyResult = $hierarchyCheckStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($hierarchyResult['pending_previous'] > 0) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Cannot sign this step. Previous steps must be completed first.']);
+        return;
     }
 
     // Get current document info for file path
@@ -1900,6 +2015,10 @@ function rejectDocument($input)
             ");
             $stmt->execute([$reason, $stepId, $currentUser['id']]);
         }
+
+        // Update document status to rejected
+        $stmt = $db->prepare("UPDATE documents SET status = 'rejected', updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$documentId]);
 
         // Archive the file for rejected documents to optimize storage
         $docStmt = $db->prepare("SELECT file_path FROM documents WHERE id = ?");

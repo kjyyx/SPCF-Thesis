@@ -53,10 +53,6 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 
 // Log page view
 addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create document page', $currentUser['id'], 'User', 'INFO');
-
-// Debug: Log user data (optional, for development)
-error_log("DEBUG create-document.php: Current user data: " . json_encode($currentUser));
-error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
 ?>
 
 <!DOCTYPE html>
@@ -169,19 +165,19 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                 <div class="row g-3">
                   <div class="col-md-3">
                     <label class="form-label">
-                      <i class="bi bi-calendar3"></i>Date
+                      <i class="bi bi-calendar3"></i>Date <span class="required">*</span>
                     </label>
                     <input id="prop-date" type="date" class="form-control">
                   </div>
                   <div class="col-md-5">
                     <label class="form-label">
-                      <i class="bi bi-person-badge"></i>Project Organizer
+                      <i class="bi bi-person-badge"></i>Project Organizer <span class="required">*</span>
                     </label>
                     <input id="prop-organizer" class="form-control" placeholder="Enter project organizer name">
                   </div>
                   <div class="col-md-4">
                     <label class="form-label">
-                      <i class="bi bi-building"></i>Department
+                      <i class="bi bi-building"></i>Department <span class="required">*</span>
                     </label>
                     <select id="prop-department" class="form-select">
                       <option value="">Select Department</option>
@@ -201,13 +197,13 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                 <div class="row g-3 mt-2">
                   <div class="col-md-6">
                     <label class="form-label">
-                      <i class="bi bi-flag"></i>Project Title
+                      <i class="bi bi-flag"></i>Project Title <span class="required">*</span>
                     </label>
                     <input id="prop-title" class="form-control" placeholder="Enter project title">
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">
-                      <i class="bi bi-person-check"></i>Lead Facilitator
+                      <i class="bi bi-person-check"></i>Lead Facilitator <span class="required">*</span>
                     </label>
                     <input id="prop-lead" class="form-control" placeholder="Enter lead facilitator name">
                   </div>
@@ -227,7 +223,7 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                 <div class="row g-3 mt-2">
                   <div class="col-md-6">
                     <label class="form-label">
-                      <i class="bi bi-list-check"></i>Objectives (one per line)
+                      <i class="bi bi-list-check"></i>Objectives (one per line) <span class="required">*</span>
                     </label>
                     <textarea id="prop-objectives" class="form-control" rows="5"
                       placeholder="1. Objective one&#10;2. Objective two&#10;3. Objective three"></textarea>
@@ -249,7 +245,7 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                     <input id="prop-budget-source" class="form-control" placeholder="e.g., SAF, Dept funds, Sponsor">
                   </div>
                   <div class="col-md-6">
-                    <label class="form-label">Venue</label>
+                    <label class="form-label">Venue <span class="required">*</span></label>
                     <input id="prop-venue" class="form-control" placeholder="Venue">
                   </div>
                 </div>
@@ -332,7 +328,7 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label">
-                      <i class="bi bi-flag"></i>Project Title
+                      <i class="bi bi-flag"></i>Project Title <span class="required">*</span>
                     </label>
                     <input id="saf-title" class="form-control" placeholder="Project Title">
                   </div>
@@ -362,13 +358,13 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                 <div class="row g-3 mt-2">
                   <div class="col-md-4">
                     <label class="form-label">
-                      <i class="bi bi-calendar3"></i>Date Requested
+                      <i class="bi bi-calendar3"></i>Date Requested <span class="required">*</span>
                     </label>
                     <input id="saf-date" type="date" class="form-control">
                   </div>
                   <div class="col-md-4">
                     <label class="form-label">
-                      <i class="bi bi-calendar3"></i>Implementation Date
+                      <i class="bi bi-calendar3"></i>Implementation Date <span class="required">*</span>
                     </label>
                     <input id="saf-impl-date" type="date" class="form-control">
                   </div>
@@ -380,7 +376,7 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                 <div id="row-dept" class="row g-3 mt-2" style="display:none">
                   <div class="col-md-6">
                     <label class="form-label">
-                      <i class="bi bi-building"></i>College / Department
+                      <i class="bi bi-building"></i>College / Department <span class="required">*</span>
                     </label>
                     <select id="saf-dept" class="form-select">
                       <option value="">Select Department</option>
@@ -471,18 +467,18 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
                 <!-- Basic Event Information -->
                 <div class="row g-3">
                   <div class="col-md-8">
-                    <label class="form-label">Event Name</label>
+                    <label class="form-label">Event Name <span class="required">*</span></label>
                     <input type="text" class="form-control" id="fac-event-name" placeholder="Event Name">
                   </div>
                   <div class="col-md-4">
-                    <label class="form-label">Event Date</label>
+                    <label class="form-label">Event Date <span class="required">*</span></label>
                     <input type="date" class="form-control" id="fac-event-date">
                   </div>
                 </div>
 
                 <div class="row g-3 mt-2">
                   <div class="col-md-6">
-                    <label class="form-label">Department</label>
+                    <label class="form-label">Department <span class="required">*</span></label>
                     <select class="form-select" id="fac-dept">
                       <option value="">Select Department</option>
                       <option value="College of Arts, Social Sciences, and Education">College of Arts, Social Sciences, and Education (CASSED)</option>
@@ -854,11 +850,11 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
 
                 <div class="row g-3">
                   <div class="col-md-4">
-                    <label class="form-label">Date</label>
+                    <label class="form-label">Date <span class="required">*</span></label>
                     <input id="comm-date" type="date" class="form-control">
                   </div>
                   <div class="col-md-6">
-                    <label class="form-label">Department</label>
+                    <label class="form-label">Department <span class="required">*</span></label>
                     <select id="comm-department-select" class="form-select">
                       <option value="">Select Department</option>
                       <option value="College of Arts, Social Sciences, and Education">College of Arts, Social Sciences, and Education (CASSED)</option>
@@ -876,14 +872,14 @@ error_log("DEBUG create-document.php: Session data: " . json_encode($_SESSION));
 
                 <div class="row g-3 mt-2">
                   <div class="col-12">
-                    <label class="form-label">Project Title</label>
+                    <label class="form-label">Project Title <span class="required">*</span></label>
                     <input id="comm-subject" class="form-control" placeholder="Project Title">
                   </div>
                 </div>
 
                 <div class="row g-3 mt-2">
                   <div class="col-12">
-                    <label class="form-label">Letter Body</label>
+                    <label class="form-label">Letter Body <span class="required">*</span></label>
                     <textarea id="comm-body" class="form-control" rows="8"
                       placeholder="Write your letter here (closing & signature should be typed manually)"></textarea>
                     <div class="small text-muted mt-1">Note: The sender name/title block was removed from the letter

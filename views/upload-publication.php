@@ -48,10 +48,6 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 // Log page view
 addAuditLog('UPLOAD_PUBLICATION_VIEWED', 'Materials', 'Viewed upload publication page', $currentUser['id'], 'User', 'INFO');
 
-// Debug: Log user data (optional, for development)
-error_log("DEBUG upload-publication.php: Current user data: " . json_encode($currentUser));
-error_log("DEBUG upload-publication.php: Session data: " . json_encode($_SESSION));
-
 // Set page title for navbar
 $pageTitle = 'Upload Publications';
 ?>

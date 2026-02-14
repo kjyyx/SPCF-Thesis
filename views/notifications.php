@@ -310,26 +310,14 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                 </div>
 
                                 <div class="toolbar-group">
-                                    <div class="zoom-controls">
-                                        <button class="tool-btn" onclick="documentSystem.zoomOut()" title="Zoom Out">
-                                            <i class="bi bi-dash"></i>
-                                        </button>
-                                        <div class="zoom-info">
-                                            <span id="zoomIndicator" class="zoom-level">100%</span>
-                                        </div>
-                                        <button class="tool-btn" onclick="documentSystem.zoomIn()" title="Zoom In">
-                                            <i class="bi bi-plus"></i>
-                                        </button>
-                                        <div class="toolbar-separator"></div>
-                                        <button class="tool-btn" onclick="documentSystem.fitToWidth()"
-                                            title="Fit to Width">
-                                            <i class="bi bi-arrows-angle-expand"></i>
-                                        </button>
-                                        <button class="tool-btn" onclick="documentSystem.resetZoom()"
-                                            title="Reset Zoom">
-                                            <i class="bi bi-arrow-clockwise"></i>
-                                        </button>
-                                    </div>
+                                    <button class="tool-btn" onclick="documentSystem.fitToWidth()"
+                                        title="Fit to Width">
+                                        <i class="bi bi-arrows-angle-expand"></i>
+                                    </button>
+                                    <button class="tool-btn" onclick="documentSystem.openFullViewer()"
+                                        title="View Full Document">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
                                 </div>
                             </div>
 
@@ -866,12 +854,67 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
     </div>
 
+    <!-- Full Document Viewer Modal -->
+    <div class="modal fade" id="fullDocumentModal" tabindex="-1">
+        <div class="modal-dialog modal-lg" style="max-width: 90vw; max-height: 90vh;">
+            <div class="modal-content" style="height: 85vh;">
+                <div class="modal-header">
+                    <h5 class="modal-title">Full Document View</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="padding: 0; height: calc(100% - 60px); overflow: hidden;">
+                    <div id="fullPdfToolbar" class="pdf-toolbar">
+                        <div class="toolbar-group">
+                            <button class="tool-btn" onclick="documentSystem.fullPrevPage()" id="fullPrevPageBtn" title="Previous Page">
+                                <i class="bi bi-chevron-left"></i>
+                            </button>
+                            <div class="page-info">
+                                <input type="number" id="fullPageInput" min="1" onchange="documentSystem.fullGoToPage(this.value)" class="page-input" title="Current Page" />
+                                <span class="page-separator">/</span>
+                                <span id="fullPageTotal" class="page-total">1</span>
+                            </div>
+                            <button class="tool-btn" onclick="documentSystem.fullNextPage()" id="fullNextPageBtn" title="Next Page">
+                                <i class="bi bi-chevron-right"></i>
+                            </button>
+                        </div>
+                        <div class="toolbar-group">
+                            <button class="tool-btn" onclick="documentSystem.fullZoomOut()" title="Zoom Out">
+                                <i class="bi bi-dash"></i>
+                            </button>
+                            <div class="zoom-info">
+                                <span id="fullZoomIndicator" class="zoom-level">100%</span>
+                            </div>
+                            <button class="tool-btn" onclick="documentSystem.fullZoomIn()" title="Zoom In">
+                                <i class="bi bi-plus"></i>
+                            </button>
+                            <div class="toolbar-separator"></div>
+                            <button class="tool-btn" onclick="documentSystem.fullFitToWidth()" title="Fit to Width">
+                                <i class="bi bi-arrows-angle-expand"></i>
+                            </button>
+                            <button class="tool-btn" onclick="documentSystem.fullResetZoom()" title="Reset Zoom">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                            <div class="toolbar-separator"></div>
+                            <button class="tool-btn" onclick="documentSystem.toggleDragMode()" id="dragToggleBtn" title="Toggle Drag Mode">
+                                <i class="bi bi-hand-index"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="fullPdfContent" class="pdf-content-full" style="overflow: auto; height: calc(100% - 50px); cursor: grab;">
+                        <div id="fullPdfContainer" style="position: relative; min-width: 100%; min-height: 100%; display: flex; align-items: flex-start; justify-content: center;">
+                            <canvas id="fullPdfCanvas" style="max-width: none; image-rendering: -webkit-optimize-contrast;"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
-    <script src="<?php echo BASE_URL; ?>assets/js/global-notifications.js"></script>
     <script src="<?php echo BASE_URL; ?>assets/js/notifications.js"></script>
 
     <script>

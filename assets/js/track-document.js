@@ -19,9 +19,9 @@ let totalPdfPages = 0;
 // Document type display mapping
 function getDocumentTypeDisplay(docType) {
     const typeMap = {
-        'proposal': 'Proposal',
-        'communication': 'Comm Letter',
-        'saf': 'SAF',
+        'proposal': 'Project Proposal',
+        'communication': 'Communication Letter',
+        'saf': 'Student Activity Fund',
         'facility': 'Facility Request'
     };
     
@@ -31,6 +31,46 @@ function getDocumentTypeDisplay(docType) {
 // Standardized placeholder for all documents
 function getDocumentPlaceholder(docType) {
     return '[Name / Position]';
+}
+
+// Function to shorten office/step names for display
+function shortenOfficeName(officeName) {
+    const shortNames = {
+        'Officer-in-Charge, Office of Student Affairs (OIC-OSA) Approval': 'OIC-OSA',
+        'Vice President for Academic Affairs (VPAA) Approval': 'VPAA',
+        'Executive Vice-President / Student Services (EVP) Approval': 'EVP',
+        'Accounting Personnel (AP) (Documentation Only)': 'Accounting',
+        'College Dean Approval': 'College Dean',
+        'Document Creator Signature': 'Creator',
+        'Supreme Student Council President Approval': 'SSC President',
+        'College Student Council President Approval': 'CSC President',
+        'College Student Council Adviser Approval': 'CSC Adviser',
+        'Physical Plant and Facilities Office (PPFO) Approval': 'PPFO',
+        'Center for Performing Arts Organization (CPAO) Approval': 'CPAO'
+    };
+
+    return shortNames[officeName] || officeName;
+}
+
+// Function to format status for display
+function formatStatusDisplay(status) {
+    if (!status) return 'Unknown';
+    
+    const statusMap = {
+        'submitted': 'Submitted',
+        'pending': 'Pending',
+        'in_progress': 'In Progress',
+        'in_review': 'In Review',
+        'under_review': 'Under Review',
+        'completed': 'Completed',
+        'approved': 'Approved',
+        'rejected': 'Rejected',
+        'timeout': 'Timeout',
+        'cancelled': 'Cancelled',
+        'deleted': 'Deleted'
+    };
+    
+    return statusMap[status.toLowerCase()] || status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 // Toast notification function
@@ -49,7 +89,7 @@ function showToast(message, type = 'info', title = null) {
 }
 
 // Initialize when page loads
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Set user display name
     if (window.currentUser && document.getElementById('userDisplayName')) {
         document.getElementById('userDisplayName').textContent = `${window.currentUser.firstName} ${window.currentUser.lastName}`;
@@ -57,7 +97,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize event listeners
     initializeEventListeners();
-    
+
     // Load student documents
     loadStudentDocuments();
 
@@ -90,7 +130,7 @@ function initializeEventListeners() {
     // Filter functionality with admin-dashboard button groups
     const filterButtons = document.querySelectorAll('input[name="statusFilter"]');
     filterButtons.forEach(button => {
-        button.addEventListener('change', function() {
+        button.addEventListener('change', function () {
             if (this.checked) {
                 handleFilter();
             }
@@ -164,7 +204,7 @@ function showLoadingState() {
     const emptyEl = document.getElementById('emptyState');
     const tableEl = document.getElementById('documentsTable');
     const paginationEl = document.getElementById('paginationContainer');
-    
+
     if (loadingEl) loadingEl.style.display = 'block';
     if (emptyEl) emptyEl.style.display = 'none';
     if (tableEl) tableEl.style.display = 'none';
@@ -175,7 +215,7 @@ function showLoadingState() {
 function hideLoadingState() {
     const loadingEl = document.getElementById('loadingState');
     const tableEl = document.getElementById('documentsTable');
-    
+
     if (loadingEl) loadingEl.style.display = 'none';
     if (tableEl) tableEl.style.display = 'table';
 }
@@ -186,7 +226,7 @@ function showEmptyState() {
     const emptyEl = document.getElementById('emptyState');
     const tableEl = document.getElementById('documentsTable');
     const paginationEl = document.getElementById('paginationContainer');
-    
+
     if (loadingEl) loadingEl.style.display = 'none';
     if (emptyEl) emptyEl.style.display = 'block';
     if (tableEl) tableEl.style.display = 'none';
@@ -196,7 +236,7 @@ function showEmptyState() {
 // Load student documents from API with enhanced features
 async function loadStudentDocuments() {
     showLoadingState();
-    
+
     try {
         const response = await fetch(BASE_URL + 'api/documents.php?action=my_documents&t=' + Date.now(), {
             method: 'GET',
@@ -210,14 +250,14 @@ async function loadStudentDocuments() {
         }
 
         const data = await response.json();
-        
+
         if (data.success) {
             allDocuments = data.documents || [];
             calculateStatistics();
             updateStatisticsDisplay();
             applyCurrentFilters();
             hideLoadingState();
-            
+
             if (allDocuments.length === 0) {
                 showEmptyState();
             }
@@ -229,11 +269,11 @@ async function loadStudentDocuments() {
     } catch (error) {
         console.error('Error loading documents:', error);
         hideLoadingState();
-        
+
         // Show error state
         const tbody = document.getElementById('documentsList');
         const emptyState = document.getElementById('emptyState');
-        
+
         if (tbody && emptyState) {
             tbody.innerHTML = '';
             emptyState.style.display = 'block';
@@ -253,7 +293,7 @@ async function loadStudentDocuments() {
                 </div>
             `;
         }
-        
+
         showToast('Failed to load documents. Please try again.', 'error');
     }
 }
@@ -289,7 +329,7 @@ function updateStatisticsDisplay() {
     const pendingEl = document.getElementById('pendingDocuments');
     const approvedEl = document.getElementById('approvedDocuments');
     const inProgressEl = document.getElementById('inProgressDocuments');
-    
+
     if (totalEl) {
         totalEl.textContent = documentStats.total;
     }
@@ -312,12 +352,12 @@ function animateNumber(element, targetNumber) {
     const increment = (targetNumber - startNumber) / steps;
     let current = startNumber;
     let step = 0;
-    
+
     const timer = setInterval(() => {
         step++;
         current += increment;
         element.textContent = Math.round(current);
-        
+
         if (step >= steps) {
             element.textContent = targetNumber;
             clearInterval(timer);
@@ -329,32 +369,32 @@ function animateNumber(element, targetNumber) {
 function renderCurrentPage() {
     const tbody = document.getElementById('documentsList');
     const paginationContainer = document.getElementById('paginationContainer');
-    
+
     tbody.innerHTML = '';
-    
+
     if (filteredDocuments.length === 0) {
         paginationContainer.style.display = 'none';
         return;
     }
-    
+
     // Calculate pagination
     const totalPages = Math.ceil(totalDocuments / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = Math.min(startIndex + itemsPerPage, totalDocuments);
     const currentPageDocuments = filteredDocuments.slice(startIndex, endIndex);
-    
+
     // Render documents with admin-dashboard styling
     currentPageDocuments.forEach((doc, index) => {
         const row = document.createElement('tr');
-        
+
         // Add hover effects and animations
         row.className = 'table-row-hover';
         row.style.animationDelay = `${index * 0.05}s`;
-        
+
         const statusBadge = getStatusBadgeClass(doc.status || doc.current_status);
         const locationBadge = getLocationBadgeClass(doc.current_location);
         const docType = getDocumentTypeDisplay(doc.document_type || doc.doc_type);
-        
+
         row.innerHTML = `
             <td>
                 <div class="d-flex align-items-center">
@@ -374,15 +414,15 @@ function renderCurrentPage() {
                 <span class="badge bg-info bg-opacity-10 text-info border border-info">${docType}</span>
             </td>
             <td>
-                <span class="badge ${statusBadge}">${doc.status || doc.current_status}</span>
+                <span class="badge ${statusBadge}">${formatStatusDisplay(doc.status || doc.current_status)}</span>
             </td>
             <td>
-                <span class="badge ${locationBadge}">${doc.current_location}</span>
+                <span class="badge ${locationBadge}">${shortenOfficeName(doc.current_location)}</span>
             </td>
             <td>
                 <div class="date-info">
                     <div class="fw-semibold">${new Date(doc.updated_at).toLocaleDateString()}</div>
-                    <div class="text-muted small">${new Date(doc.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                    <div class="text-muted small">${new Date(doc.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                 </div>
             </td>
             <td>
@@ -399,14 +439,14 @@ function renderCurrentPage() {
                 </div>
             </td>
         `;
-        
+
         tbody.appendChild(row);
     });
-    
+
     // Update pagination
     renderPagination(totalPages);
     updatePaginationInfo(startIndex + 1, endIndex, totalDocuments);
-    
+
     // Show pagination if needed
     paginationContainer.style.display = totalPages > 1 ? 'flex' : 'none';
 }
@@ -415,9 +455,9 @@ function renderCurrentPage() {
 function renderPagination(totalPages) {
     const pagination = document.getElementById('pagination');
     pagination.innerHTML = '';
-    
+
     if (totalPages <= 1) return;
-    
+
     // Previous button
     const prevItem = document.createElement('li');
     prevItem.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
@@ -427,16 +467,16 @@ function renderPagination(totalPages) {
         </a>
     `;
     pagination.appendChild(prevItem);
-    
+
     // Page numbers with smart truncation
     const maxVisiblePages = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
     let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
+
     if (endPage - startPage + 1 < maxVisiblePages) {
         startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
-    
+
     // First page and ellipsis
     if (startPage > 1) {
         addPageItem(1);
@@ -447,12 +487,12 @@ function renderPagination(totalPages) {
             pagination.appendChild(ellipsis);
         }
     }
-    
+
     // Visible pages
     for (let i = startPage; i <= endPage; i++) {
         addPageItem(i);
     }
-    
+
     // Last page and ellipsis
     if (endPage < totalPages) {
         if (endPage < totalPages - 1) {
@@ -463,7 +503,7 @@ function renderPagination(totalPages) {
         }
         addPageItem(totalPages);
     }
-    
+
     // Next button
     const nextItem = document.createElement('li');
     nextItem.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
@@ -473,7 +513,7 @@ function renderPagination(totalPages) {
         </a>
     `;
     pagination.appendChild(nextItem);
-    
+
     function addPageItem(pageNum) {
         const pageItem = document.createElement('li');
         pageItem.className = `page-item ${pageNum === currentPage ? 'active' : ''}`;
@@ -488,16 +528,16 @@ function renderPagination(totalPages) {
 function changePage(page) {
     const totalPages = Math.ceil(totalDocuments / itemsPerPage);
     if (page < 1 || page > totalPages) return;
-    
+
     currentPage = page;
     renderCurrentPage();
-    
+
     // Smooth scroll to top of table
     const tableContainer = document.querySelector('.table-container') || document.querySelector('.content-body');
     if (tableContainer) {
-        tableContainer.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start' 
+        tableContainer.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
         });
     }
 }
@@ -506,52 +546,52 @@ function changePage(page) {
 // Download document function (ensure it downloads signed/rejected PDF)
 function downloadDocument(docId) {
     showToast('Preparing download...', 'info');
-    
+
     // Use API to get the latest file_path (handles signed PDFs)
     fetch(BASE_URL + `api/documents.php?action=document_details&id=${docId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success && data.document && data.document.file_path) {
-            // Allow download for all statuses
-            const status = (data.document.status || '').toLowerCase();
-            // Optionally restrict to issuer: if issuer id field exists, check it
-            const currentUser = window.currentUser || null;
-            const issuerId = data.document.student_id || data.document.issuer_id || data.document.user_id || null;
-            if (!issuerId || !currentUser || currentUser.id == issuerId || currentUser.role === 'admin') {
-                let filePath = data.document.file_path;
-                if (filePath.startsWith('/')) {
-                    filePath = BASE_URL + filePath.substring(1);
-                } else if (filePath.startsWith('../')) {
-                    filePath = BASE_URL + filePath.substring(3);
-                } else if (filePath.startsWith('SPCF-Thesis/')) {
-                    filePath = BASE_URL + filePath.substring(12);
-                } else if (filePath.startsWith('http')) {
-                    // Full URL
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.document && data.document.file_path) {
+                // Allow download for all statuses
+                const status = (data.document.status || '').toLowerCase();
+                // Optionally restrict to issuer: if issuer id field exists, check it
+                const currentUser = window.currentUser || null;
+                const issuerId = data.document.student_id || data.document.issuer_id || data.document.user_id || null;
+                if (!issuerId || !currentUser || currentUser.id == issuerId || currentUser.role === 'admin') {
+                    let filePath = data.document.file_path;
+                    if (filePath.startsWith('/')) {
+                        filePath = BASE_URL + filePath.substring(1);
+                    } else if (filePath.startsWith('../')) {
+                        filePath = BASE_URL + filePath.substring(3);
+                    } else if (filePath.startsWith('SPCF-Thesis/')) {
+                        filePath = BASE_URL + filePath.substring(12);
+                    } else if (filePath.startsWith('http')) {
+                        // Full URL
+                    } else {
+                        filePath = BASE_URL + 'uploads/' + filePath;
+                    }
+                    const link = document.createElement('a');
+                    link.href = filePath;
+                    link.download = (data.document.document_name || data.document.title || 'Document') + '.pdf';
+                    link.target = '_blank';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast('Download started', 'success');
                 } else {
-                    filePath = BASE_URL + 'uploads/' + filePath;
+                    showToast('Only the issuer or admin can download the document.', 'warning');
                 }
-                const link = document.createElement('a');
-                link.href = filePath;
-                link.download = (data.document.document_name || data.document.title || 'Document') + '.pdf';
-                link.target = '_blank';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                showToast('Download started', 'success');
             } else {
-                showToast('Only the issuer or admin can download the document.', 'warning');
+                throw new Error('File not found');
             }
-        } else {
-            throw new Error('File not found');
-        }
-    })
-    .catch(error => {
-        console.error('Download error:', error);
-        showToast('Failed to download document', 'error');
-    });
+        })
+        .catch(error => {
+            console.error('Download error:', error);
+            showToast('Failed to download document', 'error');
+        });
 }
 
 // Update pagination info
@@ -566,14 +606,14 @@ function updatePaginationInfo(start, end, total) {
 function handleSort(field) {
     const header = document.querySelector(`[data-sort="${field}"]`);
     const allHeaders = document.querySelectorAll('.sortable');
-    
+
     // Remove sort classes from other headers
     allHeaders.forEach(h => {
         if (h !== header) {
             h.classList.remove('asc', 'desc');
         }
     });
-    
+
     // Toggle sort direction
     if (currentSortField === field) {
         currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
@@ -581,11 +621,11 @@ function handleSort(field) {
         currentSortField = field;
         currentSortDirection = 'asc';
     }
-    
+
     // Update header classes
     header.classList.remove('asc', 'desc');
     header.classList.add(currentSortDirection);
-    
+
     // Sort and render
     sortDocuments();
     renderCurrentPage();
@@ -596,19 +636,19 @@ function sortDocuments() {
     filteredDocuments.sort((a, b) => {
         let aValue = a[currentSortField];
         let bValue = b[currentSortField];
-        
+
         // Handle date fields
         if (currentSortField.includes('_at') || currentSortField.includes('date')) {
             aValue = new Date(aValue);
             bValue = new Date(bValue);
         }
-        
+
         // Handle string comparisons
         if (typeof aValue === 'string') {
             aValue = aValue.toLowerCase();
             bValue = bValue.toLowerCase();
         }
-        
+
         if (aValue < bValue) return currentSortDirection === 'asc' ? -1 : 1;
         if (aValue > bValue) return currentSortDirection === 'asc' ? 1 : -1;
         return 0;
@@ -618,7 +658,7 @@ function sortDocuments() {
 // Apply current filters and search
 function applyCurrentFilters() {
     let documents = [...allDocuments];
-    
+
     // Apply enhanced search filter
     const searchTerm = document.getElementById('searchInput')?.value.toLowerCase().trim();
     if (searchTerm) {
@@ -631,44 +671,42 @@ function applyCurrentFilters() {
                 doc.description || '',
                 doc.created_by_name || ''
             ];
-            
-            return searchFields.some(field => 
+
+            return searchFields.some(field =>
                 field.toString().toLowerCase().includes(searchTerm)
             );
         });
     }
-    
+
     // Apply status filter with improved mapping
     const activeFilter = document.querySelector('input[name="statusFilter"]:checked')?.id;
     if (activeFilter && activeFilter !== 'filterAll') {
         const statusMap = {
-            'filterPending': ['pending', 'submitted'],
-            'filterInProgress': ['in progress', 'processing', 'reviewing'],
-            'filterCompleted': ['completed', 'done'],
-            'filterApproved': ['approved', 'accepted'],
-            'filterRejected': ['rejected', 'denied']
+            'filterPending': ['submitted', 'pending'],
+            'filterApproved': ['approved'],
+            'filterRejected': ['rejected']
         };
         const filterStatuses = statusMap[activeFilter];
         if (filterStatuses) {
             documents = documents.filter(doc => {
                 const docStatus = (doc.status || doc.current_status || '').toLowerCase();
-                return filterStatuses.some(status => docStatus.includes(status));
+                return filterStatuses.some(status => docStatus === status);
             });
         }
     }
-    
+
     filteredDocuments = documents;
     totalDocuments = filteredDocuments.length;
-    
+
     // Reset to first page when filters change
     currentPage = 1;
-    
+
     // Sort documents
     sortDocuments();
-    
+
     // Update results count
     updateResultsCount();
-    
+
     // Render current page
     renderCurrentPage();
 }
@@ -677,7 +715,7 @@ function applyCurrentFilters() {
 function updateResultsCount() {
     const resultsEl = document.getElementById('resultsCount');
     const lastUpdatedEl = document.getElementById('lastUpdatedTime');
-    
+
     if (resultsEl) {
         if (totalDocuments === 0) {
             resultsEl.innerHTML = '<i class="bi bi-exclamation-triangle me-1 text-warning"></i>No documents found';
@@ -687,11 +725,11 @@ function updateResultsCount() {
             resultsEl.innerHTML = `<i class="bi bi-filter me-1 text-info"></i>Showing ${totalDocuments} of ${allDocuments.length} documents`;
         }
     }
-    
+
     // Update last updated time
     if (lastUpdatedEl) {
         const now = new Date();
-        lastUpdatedEl.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        lastUpdatedEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 }
 
@@ -702,7 +740,7 @@ function clearFilters() {
     if (searchInput) {
         searchInput.value = '';
     }
-    
+
     // Reset filter to "All"
     const allFilter = document.getElementById('filterAll');
     if (allFilter) {
@@ -711,10 +749,10 @@ function clearFilters() {
         document.querySelectorAll('.filter-chip').forEach(chip => chip.classList.remove('active'));
         allFilter.nextElementSibling.classList.add('active');
     }
-    
+
     // Reapply filters
     applyCurrentFilters();
-    
+
     showToast('Filters cleared', 'success');
 }
 
@@ -723,18 +761,18 @@ function getNotesPreview(notes) {
     if (!notes || notes.length === 0) {
         return '<span class="text-muted">No notes</span>';
     }
-    
+
     // Check if there's a rejection note
     const rejectionNote = notes.find(note => note.is_rejection);
     const recentNote = rejectionNote || notes[notes.length - 1];
-    
+
     const preview = recentNote.note.length > 50 ? recentNote.note.substring(0, 50) + '...' : recentNote.note;
     const title = recentNote.note.replace(/"/g, '&quot;');
-    
+
     if (rejectionNote) {
         return `<span class="text-danger" title="${title}">⚠️ ${preview}</span>`;
     }
-    
+
     return `<span title="${title}">${preview}</span>`;
 }
 
@@ -795,11 +833,11 @@ async function viewDetails(docId) {
                     <h6><i class="bi bi-info-circle"></i> Document Information</h6>
                     <div class="info-item">
                         <span class="info-label">Status:</span>
-                        <span class="info-value"><span class="badge ${getStatusBadgeClass(doc.status)}">${doc.status}</span></span>
+                        <span class="info-value"><span class="badge ${getStatusBadgeClass(doc.status)}">${formatStatusDisplay(doc.status)}</span></span>
                     </div>
                     <div class="info-item">
-                        <span class="info-label">Current Location:</span>
-                        <span class="info-value"><span class="badge ${getLocationBadgeClass(doc.current_location)}">${doc.current_location}</span></span>
+                        <span class="info-label">Current Office:</span>
+                        <span class="info-value"><span class="badge ${getLocationBadgeClass(doc.current_location)}">${shortenOfficeName(doc.current_location)}</span></span>
                     </div>
                     <div class="info-item">
                         <span class="info-label">Submitted:</span>
@@ -818,6 +856,7 @@ async function viewDetails(docId) {
                             <h6><i class="bi bi-exclamation-triangle"></i> Rejection Reason</h6>
                             <div class="alert-content">
                                 <strong>${rejectionNote.created_by_name}</strong>
+                                <small class="d-block text-muted mb-1">${rejectionNote.position || 'Unknown Role'}</small>
                                 <small class="d-block text-muted mb-2">${new Date(rejectionNote.created_at).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>
                                 <p class="mb-0">${rejectionNote.note}</p>
                             </div>
@@ -857,7 +896,7 @@ async function viewDetails(docId) {
                             <div class="timeline-marker ${getStatusColorClass(item.status)}"></div>
                             <div class="timeline-content">
                                 <div class="timeline-date">${new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                                <div class="timeline-action">${item.action} · ${item.office_name || item.from_office}</div>
+                                <div class="timeline-action">${item.action} · ${shortenOfficeName(item.office_name || item.from_office)}</div>
                             </div>
                         </div>
                     `;
@@ -938,10 +977,10 @@ async function loadPdfInModal(url) {
         pdfDoc = await pdfjsLib.getDocument(url).promise;
         totalPdfPages = pdfDoc.numPages;
         currentPdfPage = 1;
-        
+
         // Update page controls
         updatePdfPageControls();
-        
+
         // Render first page
         await renderPdfPage(currentPdfPage);
     } catch (error) {
@@ -953,7 +992,7 @@ async function loadPdfInModal(url) {
 // Render specific PDF page
 async function renderPdfPage(pageNum) {
     if (!pdfDoc) return;
-    
+
     const canvas = document.getElementById('pdfCanvas');
     const page = await pdfDoc.getPage(pageNum);
     const viewport = page.getViewport({ scale: 1.0 });
@@ -971,11 +1010,11 @@ function updatePdfPageControls() {
     const prevBtn = document.getElementById('prevPage');
     const nextBtn = document.getElementById('nextPage');
     const pageInfo = document.getElementById('pageInfo');
-    
+
     if (prevBtn) prevBtn.disabled = currentPdfPage <= 1;
     if (nextBtn) nextBtn.disabled = currentPdfPage >= totalPdfPages;
     if (pageInfo) pageInfo.textContent = `Page ${currentPdfPage} of ${totalPdfPages}`;
-    
+
     // Add event listeners if not already added
     if (prevBtn && !prevBtn.hasEventListener) {
         prevBtn.addEventListener('click', () => {
@@ -987,7 +1026,7 @@ function updatePdfPageControls() {
         });
         prevBtn.hasEventListener = true;
     }
-    
+
     if (nextBtn && !nextBtn.hasEventListener) {
         nextBtn.addEventListener('click', () => {
             if (currentPdfPage < totalPdfPages) {
@@ -1168,7 +1207,7 @@ addLoadingDotsAnimation();
 // Navbar Functions
 function openProfileSettings() {
     const modal = new bootstrap.Modal(document.getElementById('profileSettingsModal'));
-    
+
     // Populate form with current user data
     if (window.currentUser) {
         document.getElementById('profileFirstName').value = window.currentUser.firstName || '';
@@ -1176,7 +1215,7 @@ function openProfileSettings() {
         document.getElementById('profileEmail').value = window.currentUser.email || '';
         document.getElementById('profilePhone').value = window.currentUser.phone || '';
     }
-    
+
     modal.show();
 }
 
@@ -1189,7 +1228,7 @@ function openChangePassword() {
 
 function openPreferences() {
     const modal = new bootstrap.Modal(document.getElementById('preferencesModal'));
-    
+
     // Load current preferences from localStorage
     const prefs = {
         autoRefresh: localStorage.getItem('trackDoc_autoRefresh') !== 'false',
@@ -1199,14 +1238,14 @@ function openPreferences() {
         compactView: localStorage.getItem('trackDoc_compactView') !== 'false',
         showStats: localStorage.getItem('trackDoc_showStats') !== 'false'
     };
-    
+
     document.getElementById('autoRefresh').checked = prefs.autoRefresh;
     document.getElementById('emailNotifications').checked = prefs.emailNotifications;
     document.getElementById('showRejectedNotes').checked = prefs.showRejectedNotes;
     document.getElementById('itemsPerPagePref').value = prefs.itemsPerPage;
     document.getElementById('compactView').checked = prefs.compactView;
     document.getElementById('showStats').checked = prefs.showStats;
-    
+
     modal.show();
 }
 
@@ -1222,17 +1261,17 @@ function saveProfileSettings() {
         email: document.getElementById('profileEmail').value.trim(),
         phone: document.getElementById('profilePhone').value.trim()
     };
-    
+
     // Basic validation
     if (!formData.firstName || !formData.lastName || !formData.email) {
         showToast('Please fill in all required fields', 'error');
         return;
     }
-    
+
     // Here you would typically send to server
     showToast('Profile settings saved successfully', 'success');
     bootstrap.Modal.getInstance(document.getElementById('profileSettingsModal')).hide();
-    
+
     // Update display name if changed
     if (document.getElementById('userDisplayName')) {
         document.getElementById('userDisplayName').textContent = `${formData.firstName} ${formData.lastName}`;
@@ -1248,7 +1287,7 @@ function savePreferences() {
         compactView: document.getElementById('compactView').checked,
         showStats: document.getElementById('showStats').checked
     };
-    
+
     // Save to localStorage
     localStorage.setItem('trackDoc_autoRefresh', prefs.autoRefresh);
     localStorage.setItem('trackDoc_emailNotifications', prefs.emailNotifications);
@@ -1256,14 +1295,14 @@ function savePreferences() {
     localStorage.setItem('trackDoc_itemsPerPage', prefs.itemsPerPage);
     localStorage.setItem('trackDoc_compactView', prefs.compactView);
     localStorage.setItem('trackDoc_showStats', prefs.showStats);
-    
+
     // Apply items per page immediately
     itemsPerPage = parseInt(prefs.itemsPerPage);
     document.getElementById('itemsPerPage').value = itemsPerPage;
-    
+
     // Re-render current page
     renderCurrentPage();
-    
+
     showToast('Preferences saved successfully', 'success');
     bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
 }

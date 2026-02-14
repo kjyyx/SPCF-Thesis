@@ -1,7 +1,7 @@
 <?php
 // Front controller for pretty URLs
 require_once __DIR__ . '/includes/config.php';
-var_dump(BASE_URL);
+// var_dump(BASE_URL);
 require_once __DIR__ . '/includes/session.php';
 
 // Get the page from URL parameter or default to login

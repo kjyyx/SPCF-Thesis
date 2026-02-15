@@ -484,7 +484,7 @@ function initializeUploadSystem() {
 
         if (successCount > 0) {
             // In handleSubmit, after successful upload:
-            showAlert(`Successfully uploaded ${successCount} file(s)! Files are pending approval.`, 'success');
+            showAlert(`Successfully uploaded ${successCount} file(s)! Materials are now pending CSC Adviser approval.`, 'success');
             // Clear files after successful submission
             uploadedFiles = [];
             if (previewGrid) previewGrid.innerHTML = '';

@@ -30,6 +30,6 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 addAuditLog('LOGOUT', 'Authentication', 'User logged out', $_SESSION['user_id'] ?? null, 'User', 'INFO');
 
 logoutUser();
-header('Location: ' . BASE_URL . 'login');
+header('Location: ' . BASE_URL . '?page=login');
 exit();
 ?>

@@ -8,7 +8,7 @@ $currentUser = getCurrentUser();
 
 if (!$currentUser) {
     logoutUser();
-    header('Location: ' . BASE_URL . 'login');
+    header('Location: ' . BASE_URL . '?page=login');
     exit();
 }
 
@@ -107,6 +107,9 @@ $pageTitle = 'Track Documents';
             <div class="container-fluid">
                 <div class="content-header">
                     <div class="header-actions">
+                        <button class="back-button me-3" onclick="history.back()" title="Go Back">
+                            <i class="bi bi-arrow-left"></i>Back
+                        </button>
                         <h3>
                             <i class="bi bi-folder2-open"></i>
                             Document Management
@@ -313,22 +316,22 @@ $pageTitle = 'Track Documents';
     <script>
         // Function to navigate to pending approvals (notifications.php)
         function openPendingApprovals() {
-            window.location.href = window.BASE_URL + 'notifications';
+            window.location.href = window.BASE_URL + '?page=notifications';
         }
 
         // Function to navigate to create document page
         function openCreateDocumentModal() {
-            window.location.href = window.BASE_URL + 'create-document';
+            window.location.href = window.BASE_URL + '?page=create-document';
         }
 
         // Function to navigate to upload pubmat page
         function openUploadPubmatModal() {
-            window.location.href = window.BASE_URL + 'upload-publication';
+            window.location.href = window.BASE_URL + '?page=upload-publication';
         }
 
         // Function to navigate to track documents page
         function openTrackDocumentsModal() {
-            window.location.href = window.BASE_URL + 'track-document';
+            window.location.href = window.BASE_URL + '?page=track-document';
         }
     </script>
 

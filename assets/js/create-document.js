@@ -1318,7 +1318,7 @@ async function submitDocument() {
                             'Your document has been created. You need to sign it now before it proceeds to approval. Would you like to sign it?',
                             () => {
                                 // Redirect to notifications page for signing
-                                window.location.href = BASE_URL + 'views/notifications.php';
+                                window.location.href = BASE_URL + '?page=notifications';
                             },
                             'Sign Now',
                             'btn-primary'

@@ -9,19 +9,19 @@ $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 
 if (!$currentUser) {
     logoutUser();
-    header('Location: ' . BASE_URL . 'login');
+    header('Location: ' . BASE_URL . '?page=login');
     exit();
 }
 
 // Restrict Accounting employees to only SAF access
 if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
-    header('Location: ' . BASE_URL . 'saf');
+    header('Location: ' . BASE_URL . '?page=saf');
     exit();
 }
 
 if ($currentUser['role'] !== 'admin') {
     logoutUser();
-    header('Location: ' . BASE_URL . 'login');
+    header('Location: ' . BASE_URL . '?page=login');
     exit();
 }
 

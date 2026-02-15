@@ -9,7 +9,7 @@ $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 
 if (!$currentUser) {
   logoutUser();
-  header('Location: ' . BASE_URL . 'login');
+  header('Location: ' . BASE_URL . '?page=login');
   exit();
 }
 
@@ -100,11 +100,18 @@ $pageTitle = 'Upload Publications';
   <div class="page-header-section">
     <div class="container-fluid">
       <div class="page-header-content">
-        <h1 class="page-title">
-          <i class="bi bi-cloud-upload me-3"></i>
-          Upload Document Materials
-        </h1>
-        <p class="page-subtitle">Submit supporting documents and materials for your signing requests</p>
+        <div class="d-flex align-items-center">
+          <button class="back-button me-3" onclick="history.back()" title="Go Back">
+            <i class="bi bi-arrow-left"></i>Back
+          </button>
+          <div>
+            <h1 class="page-title">
+              <i class="bi bi-cloud-upload me-3"></i>
+              Upload Document Materials
+            </h1>
+            <p class="page-subtitle">Submit supporting documents and materials for your signing requests</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>

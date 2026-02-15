@@ -438,7 +438,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         // Security check: Ensure user has admin role
         if (currentUser.role !== 'admin') {
             console.log('User is not an admin, redirecting...');
-            window.location.href = BASE_URL + 'calendar';
+            window.location.href = BASE_URL + '?page=calendar';
             return;
         }
 
@@ -469,7 +469,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     } else {
         console.log('No user data, redirecting to login...');
-        window.location.href = BASE_URL + 'login';
+        window.location.href = BASE_URL + '?page=login';
     }
 });
 
@@ -2738,7 +2738,7 @@ function getSeverityColor(severity) {
 
 // Navigation functions (required by UI)
 function goToCalendar() {
-    window.location.href = BASE_URL + 'calendar';
+    window.location.href = BASE_URL + '?page=calendar';
 }
 
 function logout() {
@@ -2749,7 +2749,7 @@ function logout() {
     } catch (e) {
         console.error('Logout audit error:', e);
     }
-    window.location.href = BASE_URL + 'logout';
+    window.location.href = BASE_URL + '?page=logout';
 }
 
 // End of file

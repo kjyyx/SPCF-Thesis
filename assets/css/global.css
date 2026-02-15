@@ -1248,3 +1248,33 @@ body.dark-theme .icon-btn:hover {
 .opacity-50 { opacity: 0.5 !important; }
 .opacity-75 { opacity: 0.75 !important; }
 .opacity-100 { opacity: 1 !important; }
+
+/* Back Button - OneUI Inspired */
+.back-button {
+  border-radius: 20px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+  color: #374151;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.back-button:hover {
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+  color: #1f2937;
+}
+
+.back-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}

@@ -415,7 +415,7 @@ if ($method === 'POST') {
             
             loginUser($user);
             addAuditLog('LOGIN_2FA', 'Authentication', "User {$user['first_name']} {$user['last_name']} completed 2FA login", $user['id'], 'User', 'INFO');
-            echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar')]);
+            echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . '?page=dashboard' : BASE_URL . '?page=calendar')]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Invalid 2FA code']);
         }
@@ -465,7 +465,7 @@ if ($method === 'POST') {
             $stmt->execute([$userId]);
             loginUser($user);
             addAuditLog('2FA_SETUP', 'Authentication', "User {$user['first_name']} {$user['last_name']} set up 2FA", $user['id'], 'User', 'INFO');
-            echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar')]);
+            echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . '?page=dashboard' : BASE_URL . '?page=calendar')]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Invalid 2FA code']);
         }
@@ -547,7 +547,7 @@ if ($method === 'POST') {
                     // 2FA is set up but globally disabled, skip verification
                     loginUser($user);
                     addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in (2FA bypassed for development)", $user['id'], 'User', 'INFO');
-                    echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar')]);
+                    echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . '?page=dashboard' : BASE_URL . '?page=calendar')]);
                 } else {
                     // 2FA secret exists but not set up - prompt for setup if globally enabled
                     if ($global2FAEnabled) {
@@ -556,7 +556,7 @@ if ($method === 'POST') {
                         // Proceed without 2FA
                         loginUser($user);
                         addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in (2FA disabled)", $user['id'], 'User', 'INFO');
-                        echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar')]);
+                        echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . '?page=dashboard' : BASE_URL . '?page=calendar')]);
                     }
                 }
             } else {
@@ -572,7 +572,7 @@ if ($method === 'POST') {
                     // Proceed without 2FA
                     loginUser($user);
                     addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in (2FA disabled)", $user['id'], 'User', 'INFO');
-                    echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . 'dashboard' : BASE_URL . 'calendar')]);
+                    echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . '?page=dashboard' : BASE_URL . '?page=calendar')]);
                 }
             }
             exit();

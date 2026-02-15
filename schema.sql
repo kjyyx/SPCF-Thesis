@@ -139,6 +139,27 @@ CREATE TABLE IF NOT EXISTS documents (
     INDEX idx_documents_type_status (doc_type, status)
 );
 
+-- Public materials table
+CREATE TABLE IF NOT EXISTS materials (
+    id VARCHAR(10) PRIMARY KEY,
+    student_id VARCHAR(20) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    description TEXT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+    file_size_kb INT NOT NULL DEFAULT 0,
+    downloads INT NOT NULL DEFAULT 0,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    approved_by VARCHAR(20) NULL,
+    approved_at DATETIME NULL,
+    rejected_by VARCHAR(20) NULL,
+    rejected_at DATETIME NULL,
+    CONSTRAINT fk_materials_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    CONSTRAINT fk_materials_approved_by FOREIGN KEY (approved_by) REFERENCES employees(id) ON DELETE SET NULL,
+    CONSTRAINT fk_materials_rejected_by FOREIGN KEY (rejected_by) REFERENCES employees(id) ON DELETE SET NULL,
+    INDEX idx_materials_status (status)
+);
+
 -- Add new columns for project proposals
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS venue VARCHAR(200) NULL AFTER description;
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS schedule_summary TEXT NULL AFTER venue;
@@ -188,6 +209,20 @@ CREATE TABLE IF NOT EXISTS document_steps (
     CONSTRAINT fk_steps_employee FOREIGN KEY (assigned_to_employee_id) REFERENCES employees(id) ON DELETE SET NULL,
     CONSTRAINT fk_steps_student FOREIGN KEY (assigned_to_student_id) REFERENCES students(id) ON DELETE SET NULL,
     UNIQUE KEY uq_doc_step (document_id, step_order)
+);
+
+-- Materials steps for approval workflow
+CREATE TABLE IF NOT EXISTS materials_steps (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    material_id VARCHAR(10) NOT NULL,
+    step_order INT NOT NULL,
+    assigned_to_employee_id VARCHAR(20) NULL,
+    status ENUM('pending','completed','rejected') NOT NULL DEFAULT 'pending',
+    completed_at DATETIME NULL,
+    note TEXT NULL,
+    CONSTRAINT fk_materials_steps_material FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE,
+    CONSTRAINT fk_materials_steps_employee FOREIGN KEY (assigned_to_employee_id) REFERENCES employees(id) ON DELETE SET NULL,
+    UNIQUE KEY uq_material_step (material_id, step_order)
 );
 
 -- Signatures captured on steps

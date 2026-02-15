@@ -9,19 +9,19 @@ $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 
 if (!$currentUser) {
   logoutUser();
-  header('Location: ' . BASE_URL . 'login');
+  header('Location: ' . BASE_URL . '?page=login');
   exit();
 }
 
 // Restrict Accounting employees to only SAF access
 if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
-    header('Location: ' . BASE_URL . 'saf');
+    header('Location: ' . BASE_URL . '?page=saf');
     exit();
 }
 
 // Restrict to students only
 if ($currentUser['role'] !== 'student') {
-  header('Location: ' . BASE_URL . 'login?error=access_denied');
+  header('Location: ' . BASE_URL . '?page=login&error=access_denied');
   exit();
 }
 
@@ -104,11 +104,18 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
     <div class="page-header-section">
       <div class="container-fluid">
         <div class="page-header-content">
-          <h1 class="page-title">
-            <i class="bi bi-file-plus me-3"></i>
-            Create Document for Signing
-          </h1>
-          <p class="page-subtitle">Generate and prepare documents for digital signature workflow</p>
+          <div class="d-flex align-items-center">
+            <button class="back-button me-3" onclick="history.back()" title="Go Back">
+              <i class="bi bi-arrow-left"></i>Back
+            </button>
+            <div>
+              <h1 class="page-title">
+                <i class="bi bi-file-plus me-3"></i>
+                Create Document for Signing
+              </h1>
+              <p class="page-subtitle">Generate and prepare documents for digital signature workflow</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

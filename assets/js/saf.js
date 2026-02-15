@@ -171,7 +171,7 @@ function hideLoading() {
 
 // Logout function - redirect to system logout
 function logout() {
-  window.location.href = BASE_URL + 'logout';
+  window.location.href = BASE_URL + '?page=logout';
 }
 
 function goBack() {
@@ -179,7 +179,12 @@ function goBack() {
     currentDeptId = null;
     showAllDepts();
   } else {
-    logout();
+    // Use browser back for proper history
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      window.location.href = BASE_URL + '?page=saf'; // Fallback
+    }
   }
 }
 

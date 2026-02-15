@@ -9,7 +9,7 @@ $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 
 if (!$currentUser) {
     logoutUser();
-    header('Location: ' . BASE_URL . 'login');
+    header('Location: ' . BASE_URL . '?page=login');
     exit();
 }
 
@@ -127,7 +127,7 @@ $pageTitle = 'University Calendar';
                                     </button>
                                     <button class="action-compact-btn" onclick="openUploadPubmatModal()"
                                         title="Submit Pubmat">
-                                        <i class="bi bi-image"></i>
+                                        <i class="bi bi-file-earmark-text me-2"></i>
                                         <span>Pubmat</span>
                                     </button>
                                     <button class="action-compact-btn" onclick="openTrackDocumentsModal()"
@@ -135,7 +135,7 @@ $pageTitle = 'University Calendar';
                                         <i class="bi bi-search"></i>
                                         <span>Track</span>
                                     </button>
-                                    <button class="action-compact-btn" onclick="window.location.href='<?php echo BASE_URL; ?>saf'"
+                                    <button class="action-compact-btn" onclick="window.location.href='<?php echo BASE_URL; ?>?page=saf'"
                                         title="Student Allocated Funds">
                                         <i class="bi bi-cash-coin"></i>
                                         <span>SAF</span>
@@ -150,10 +150,8 @@ $pageTitle = 'University Calendar';
                                     <?php endif; ?>
                                 </div>
                             </div>
-                        <?php endif; ?>
-
-                        <!-- Employee Info with Pending Approvals -->
-                        <?php if ($currentUser['role'] === 'employee'): ?>
+                        <?php elseif ($currentUser['role'] === 'employee'): ?>
+                            <!-- Employee Info with Pending Approvals -->
                             <div class="employee-info-compact" id="employeeInfoCompact">
                                 <div class="employee-badge">
                                     <i class="bi bi-person-badge me-2"></i>
@@ -166,10 +164,17 @@ $pageTitle = 'University Calendar';
                                         <span>Approvals</span>
                                     </button>
                                     <?php if (stripos($currentUser['position'] ?? '', 'OSA') !== false): ?>
-                                    <button class="action-compact-btn" onclick="window.location.href='<?php echo BASE_URL; ?>saf'"
+                                    <button class="action-compact-btn" onclick="window.location.href='<?php echo BASE_URL; ?>?page=saf'"
                                         title="Student Allocated Funds">
                                         <i class="bi bi-cash-coin"></i>
                                         <span>SAF</span>
+                                    </button>
+                                    <?php endif; ?>
+                                    <?php if (in_array($currentUser['position'] ?? '', ['CSC Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'])): ?>
+                                    <button class="action-compact-btn" onclick="openPubmatApprovals()"
+                                        title="View pending pubmat approvals">
+                                        <i class="bi bi-file-earmark-text me-2"></i>
+                                        <span>Pubmat</span>
                                     </button>
                                     <?php endif; ?>
                                 </div>
@@ -722,22 +727,27 @@ $pageTitle = 'University Calendar';
     <script>
         // Function to navigate to pending approvals (notifications.php)
         function openPendingApprovals() {
-            window.location.href = window.BASE_URL + 'notifications';
+            window.location.href = window.BASE_URL + '?page=notifications';
+        }
+
+        // Function to open pubmat approvals
+        function openPubmatApprovals() {
+            window.location.href = window.BASE_URL + '?page=pubmat-approvals';
         }
 
         // Function to navigate to create document page
         function openCreateDocumentModal() {
-            window.location.href = window.BASE_URL + 'create-document';
+            window.location.href = window.BASE_URL + '?page=create-document';
         }
 
         // Function to navigate to upload pubmat page
         function openUploadPubmatModal() {
-            window.location.href = window.BASE_URL + 'upload-publication';
+            window.location.href = window.BASE_URL + '?page=upload-publication';
         }
 
         // Function to navigate to track documents page
         function openTrackDocumentsModal() {
-            window.location.href = window.BASE_URL + 'track-document';
+            window.location.href = window.BASE_URL + '?page=track-document';
         }
     </script>
 </body>

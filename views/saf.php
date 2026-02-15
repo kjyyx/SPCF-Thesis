@@ -9,7 +9,7 @@ $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 
 if (!$currentUser) {
     logoutUser();
-    header('Location: ' . BASE_URL . 'login');
+    header('Location: ' . BASE_URL . '?page=login');
     exit();
 }
 
@@ -20,7 +20,7 @@ $hasAccess = $currentUser['role'] === 'student' ||
               stripos($currentUser['position'], 'OSA') !== false));
 
 if (!$hasAccess) {
-    header('Location: ' . BASE_URL . 'login?error=access_denied');
+    header('Location: ' . BASE_URL . '?page=login&error=access_denied');
     exit();
 }
 

@@ -94,7 +94,7 @@ class DocumentNotificationSystem {
 
             if (!userHasAccess) {
                 console.error('Access denied: Invalid user role or no pending signatures');
-                window.location.href = BASE_URL + 'login?error=access_denied';
+                window.location.href = BASE_URL + '?page=login&error=access_denied';
                 return;
             }
 

@@ -8,7 +8,7 @@ $auth = new Auth();
 $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 if (!$currentUser) {
     logoutUser();
-    header('Location: ' . BASE_URL . 'login');
+    header('Location: ' . BASE_URL . '?page=login');
     exit();
 }
 
@@ -159,11 +159,18 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         <div class="page-header-section">
             <div class="container-fluid">
                 <div class="page-header-content">
-                    <h1 class="page-title">
-                        <i class="bi bi-bell me-3"></i>
-                        Document Notifications
-                    </h1>
-                    <p class="page-subtitle">Track document approvals, rejections, and signing status updates</p>
+                    <div class="d-flex align-items-center">
+                        <button class="back-button me-3" onclick="history.back()" title="Go Back">
+                            <i class="bi bi-arrow-left"></i>Back
+                        </button>
+                        <div>
+                            <h1 class="page-title">
+                                <i class="bi bi-bell me-3"></i>
+                                Document Notifications
+                            </h1>
+                            <p class="page-subtitle">Track document approvals, rejections, and signing status updates</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -48,15 +48,35 @@
                             <i class="bi bi-question-circle me-2" aria-hidden="true"></i>Help & Support</a></li>
                     <li role="none"><hr class="dropdown-divider"></li>
                     <?php if (!($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false)): ?>
-                        <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>calendar" title="View university calendar" role="menuitem">
+                        <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=calendar" title="View university calendar" role="menuitem">
                                 <i class="bi bi-calendar-event me-2" aria-hidden="true"></i>Calendar</a></li>
                     <?php endif; ?>
+                    <?php if ($currentUser['role'] === 'student' || $currentUser['role'] === 'admin'): ?>
+                        <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=create-document" title="Create a new document" role="menuitem">
+                                <i class="bi bi-file-plus me-2" aria-hidden="true"></i>Create Document</a></li>
+                    <?php endif; ?>
+                    <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=track-document" title="Track your documents" role="menuitem">
+                            <i class="bi bi-search me-2" aria-hidden="true"></i>Track Document</a></li>
+                    <?php if ($currentUser['role'] === 'student' || $currentUser['role'] === 'admin'): ?>
+                        <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=upload-publication" title="Upload publication materials" role="menuitem">
+                                <i class="bi bi-cloud-upload me-2" aria-hidden="true"></i>Upload Publication</a></li>
+                    <?php endif; ?>
+                    <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=notifications" title="View notifications" role="menuitem">
+                            <i class="bi bi-bell me-2" aria-hidden="true"></i>Notifications</a></li>
+                    <?php if (!($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false)): ?>
+                        <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=saf" title="Student Allocated Funds" role="menuitem">
+                                <i class="bi bi-cash-coin me-2" aria-hidden="true"></i>SAF</a></li>
+                    <?php endif; ?>
+                    <?php if ($currentUser['role'] === 'employee' && in_array($currentUser['position'] ?? '', ['CSC Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'])): ?>
+                        <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=pubmat-approvals" title="Review public material approvals" role="menuitem">
+                                <i class="bi bi-file-earmark-text me-2" aria-hidden="true"></i>Pubmat Approvals</a></li>
+                    <?php endif; ?>
                     <?php if ($currentUser['role'] === 'admin'): ?>
-                        <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>dashboard" title="Access admin dashboard" role="menuitem">
+                        <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=dashboard" title="Access admin dashboard" role="menuitem">
                                 <i class="bi bi-shield-check me-2" aria-hidden="true"></i>Admin Dashboard</a></li>
                     <?php endif; ?>
                     <li role="none"><hr class="dropdown-divider"></li>
-                    <li role="none"><a class="dropdown-item text-danger" href="<?php echo BASE_URL; ?>logout" title="Sign out of your account" role="menuitem">
+                    <li role="none"><a class="dropdown-item text-danger" href="<?php echo BASE_URL; ?>?page=logout" title="Sign out of your account" role="menuitem">
                             <i class="bi bi-box-arrow-right me-2" aria-hidden="true"></i>Logout</a></li>
                 </ul>
             </div>

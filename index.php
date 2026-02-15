@@ -18,6 +18,7 @@ $pageMap = [
     'track-document' => 'track-document.php',
     'upload-publication' => 'upload-publication.php',
     'notifications' => 'notifications.php',
+    'pubmat-approvals' => 'pubmat-approvals.php',
     '404' => '404.php',
 ];
 

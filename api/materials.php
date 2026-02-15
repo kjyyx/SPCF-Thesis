@@ -1,16 +1,19 @@
 <?php
 /**
- * Materials API - Public Materials Management
+ * Materials API - Public Materials Management with Approval Workflow
  * ===========================================
  *
- * Manages downloadable public materials (documents, files):
+ * Manages downloadable public materials (documents, files) with hierarchical approval:
+ * CSC Adviser -> College Dean -> OIC-OSA
+ *
  * - GET: List materials or download specific files
- * - POST: Upload new materials (admins only)
- * - PUT: Update material metadata (admins only)
+ * - POST: Upload new materials (students/admins) and initiate workflow
+ * - PUT: Approve/reject materials (approvers only) and advance workflow
  * - DELETE: Remove materials (admins only)
  *
  * Handles file uploads, downloads, and storage tracking.
  * Tracks download counts for analytics.
+ * Workflow steps stored in materials_steps table.
  */
 
 require_once __DIR__ . '/../includes/config.php';
@@ -74,6 +77,47 @@ switch ($method) {
             header('Content-Disposition: attachment; filename="' . $fileName . '"');
             header('Content-Length: ' . filesize($filePath));
             readfile($filePath);
+            exit();
+        }
+
+        // Check if requesting materials for approval (for approvers)
+        $forApproval = isset($_GET['for_approval']) && $_GET['for_approval'] == '1';
+        if ($forApproval) {
+            // Only allow specific approver roles
+            $userRole = $_SESSION['user_role'];
+            $userPosition = $_SESSION['position'] ?? '';
+            $allowedPositions = ['CSC Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'];
+            if ($userRole !== 'employee' || !in_array($userPosition, $allowedPositions)) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Access denied']);
+                exit();
+            }
+
+            // Get materials pending approval for this user's step
+            $stepOrder = getStepOrderForPosition($userPosition);
+            $department = $_SESSION['department'] ?? null; // For CSC Adviser filtering
+
+            $whereClause = "ms.assigned_to_employee_id = ? AND ms.status = 'pending' AND ms.step_order = ?";
+            $params = [$_SESSION['user_id'], $stepOrder];
+
+            // For CSC Adviser, filter by department
+            if ($userPosition === 'CSC Adviser' && $department) {
+                $whereClause .= " AND s.department = ?";
+                $params[] = $department;
+            }
+
+            $stmt = $conn->prepare("
+                SELECT m.*, ms.step_order, ms.status as step_status, ms.assigned_to_employee_id
+                FROM materials m
+                JOIN materials_steps ms ON m.id = ms.material_id
+                JOIN students s ON m.student_id = s.id
+                WHERE " . $whereClause . "
+                ORDER BY m.uploaded_at DESC
+            ");
+            $stmt->execute($params);
+            $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode(['success' => true, 'materials' => $materials]);
             exit();
         }
 
@@ -220,7 +264,70 @@ switch ($method) {
         $stmt = $conn->prepare("INSERT INTO materials (id, student_id, title, description, file_path, status, file_size_kb, downloads) VALUES (?, ?, ?, ?, ?, 'pending', ?, 0)");
         $stmt->execute([$newId, $studentId, $title, $description, $filePath, $fileSizeKb]);
 
+        // After inserting material, create workflow steps
+        createMaterialWorkflow($conn, $newId, $studentId);
+
         echo json_encode(['success' => true, 'id' => $newId]);
+        break;
+
+    case 'PUT':
+        // Handle approve/reject for workflow
+        $id = $_GET['id'] ?? null;
+        $action = $_POST['action'] ?? null; // approve or reject
+        $note = $_POST['note'] ?? null;
+
+        if (!$id || !in_array($action, ['approve', 'reject'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid request']);
+            exit();
+        }
+
+        // Check if user can approve this material
+        $userId = $_SESSION['user_id'];
+        $userPosition = $_SESSION['position'] ?? '';
+        $stepOrder = getStepOrderForPosition($userPosition);
+
+        $stmt = $conn->prepare("
+            SELECT ms.* FROM materials_steps ms
+            WHERE ms.material_id = ? AND ms.assigned_to_employee_id = ? AND ms.status = 'pending' AND ms.step_order = ?
+        ");
+        $stmt->execute([$id, $userId, $stepOrder]);
+        $step = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$step) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Not authorized to approve this material']);
+            exit();
+        }
+
+        // Update step status
+        $newStatus = $action === 'approve' ? 'completed' : 'rejected';
+        $stmt = $conn->prepare("UPDATE materials_steps SET status = ?, completed_at = NOW(), note = ? WHERE id = ?");
+        $stmt->execute([$newStatus, $note, $step['id']]);
+
+        if ($action === 'approve') {
+            // Check if this is the final step
+            $totalSteps = 3; // CSC -> Dean -> OIC-OSA
+            if ($stepOrder < $totalSteps) {
+                // Advance to next step
+                $nextStepOrder = $stepOrder + 1;
+                $nextAssignee = getAssigneeForStep($conn, $id, $nextStepOrder);
+                if ($nextAssignee) {
+                    $stmt = $conn->prepare("INSERT INTO materials_steps (material_id, step_order, assigned_to_employee_id, status) VALUES (?, ?, ?, 'pending')");
+                    $stmt->execute([$id, $nextStepOrder, $nextAssignee]);
+                }
+            } else {
+                // Final approval - update material status
+                $stmt = $conn->prepare("UPDATE materials SET status = 'approved', approved_by = ?, approved_at = NOW() WHERE id = ?");
+                $stmt->execute([$userId, $id]);
+            }
+        } else {
+            // Rejected - update material status
+            $stmt = $conn->prepare("UPDATE materials SET status = 'rejected', rejected_by = ?, rejected_at = NOW() WHERE id = ?");
+            $stmt->execute([$userId, $id]);
+        }
+
+        echo json_encode(['success' => true]);
         break;
 
     case 'DELETE':
@@ -247,5 +354,59 @@ switch ($method) {
     default:
         http_response_code(405);
         echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+}
+
+// Helper functions
+function getStepOrderForPosition($position) {
+    $steps = [
+        'CSC Adviser' => 1,
+        'College Dean' => 2,
+        'Officer-in-Charge, Office of Student Affairs (OIC-OSA)' => 3
+    ];
+    return $steps[$position] ?? null;
+}
+
+function createMaterialWorkflow($conn, $materialId, $studentId) {
+    // Get student's department
+    $stmt = $conn->prepare("SELECT department FROM students WHERE id = ?");
+    $stmt->execute([$studentId]);
+    $department = $stmt->fetch(PDO::FETCH_ASSOC)['department'];
+
+    // Step 1: CSC Adviser for the department
+    $cscAdviser = getEmployeeByPositionAndDepartment($conn, 'CSC Adviser', $department);
+    if ($cscAdviser) {
+        $stmt = $conn->prepare("INSERT INTO materials_steps (material_id, step_order, assigned_to_employee_id, status) VALUES (?, 1, ?, 'pending')");
+        $stmt->execute([$materialId, $cscAdviser]);
+    }
+
+    // Note: Steps 2 and 3 will be created when step 1 is approved
+}
+
+function getAssigneeForStep($conn, $materialId, $stepOrder) {
+    // Get material's department
+    $stmt = $conn->prepare("SELECT s.department FROM materials m JOIN students s ON m.student_id = s.id WHERE m.id = ?");
+    $stmt->execute([$materialId]);
+    $department = $stmt->fetch(PDO::FETCH_ASSOC)['department'];
+
+    if ($stepOrder == 2) {
+        // College Dean
+        return getEmployeeByPositionAndDepartment($conn, 'College Dean', $department);
+    } elseif ($stepOrder == 3) {
+        // OIC-OSA
+        return getEmployeeByPosition($conn, 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)');
+    }
+    return null;
+}
+
+function getEmployeeByPositionAndDepartment($conn, $position, $department) {
+    $stmt = $conn->prepare("SELECT id FROM employees WHERE position = ? AND department = ? LIMIT 1");
+    $stmt->execute([$position, $department]);
+    return $stmt->fetch(PDO::FETCH_ASSOC)['id'] ?? null;
+}
+
+function getEmployeeByPosition($conn, $position) {
+    $stmt = $conn->prepare("SELECT id FROM employees WHERE position = ? LIMIT 1");
+    $stmt->execute([$position]);
+    return $stmt->fetch(PDO::FETCH_ASSOC)['id'] ?? null;
 }
 ?>

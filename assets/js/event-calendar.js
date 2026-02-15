@@ -1222,6 +1222,11 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
             alert(message);
         }
     }
+
+    openPubmatApprovals() {
+        // Redirect to pubmat approvals interface (assuming a new page or modal)
+        window.location.href = BASE_URL + '?page=pubmat-approvals';
+    }
 }
 
 function openChangePassword() {
@@ -1303,7 +1308,7 @@ function logout() {
     localStorage.removeItem('currentUser');
     currentUser = null;
     
-    window.location.href = BASE_URL + 'logout';
+    window.location.href = BASE_URL + '?page=logout';
 }
 
 // Profile Settings Functions
@@ -1467,6 +1472,6 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
         console.log('No user data found, redirecting to login...');
         // If no user data, redirect to login
-        window.location.href = BASE_URL + 'login';
+        window.location.href = BASE_URL + '?page=login';
     }
 });

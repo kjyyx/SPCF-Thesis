@@ -1,4 +1,9 @@
 <?php
+// IMMEDIATE DEBUG - FIRST LINE
+error_log("=== DOCUMENTS.PHP STARTED ===");
+error_log("Time: " . date('Y-m-d H:i:s'));
+error_log("Script: " . __FILE__);
+
 /**
  * Documents API - Document Workflow Management
  * ============================================
@@ -19,15 +24,168 @@ require_once ROOT_PATH . 'includes/auth.php';
 require_once ROOT_PATH . 'includes/database.php';
 require_once ROOT_PATH . 'vendor/autoload.php';
 
+// TEMPORARY DEBUGGING - Add at the very top
+error_log("=== DOCUMENTS.PHP REQUEST START ===");
+error_log("REQUEST_METHOD: " . $_SERVER['REQUEST_METHOD']);
+error_log("CONTENT_TYPE: " . ($_SERVER['CONTENT_TYPE'] ?? 'not set'));
+$rawInput = file_get_contents('php://input');
+error_log("Raw input length: " . strlen($rawInput));
+error_log("Raw input: " . substr($rawInput, 0, 500)); // First 500 chars only
+
+// Check PHP limits
+error_log("Memory limit: " . ini_get('memory_limit'));
+error_log("Max execution time: " . ini_get('max_execution_time'));
+error_log("Current memory usage: " . memory_get_usage(true) / 1024 / 1024 . " MB");
+
 header('Content-Type: application/json');
+
+// Global exception handler for JSON responses
+set_exception_handler(function($e) {
+    error_log("Uncaught exception in documents.php: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Internal server error',
+        'message' => $e->getMessage()
+    ]);
+    exit;
+});
+
+// Global error handler
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    error_log("PHP Error in documents.php [$errno]: $errstr in $errfile on line $errline");
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Internal server error',
+        'message' => $errstr
+    ]);
+    exit;
+});
+
+// Shutdown function to catch fatal errors
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error !== null) {
+        error_log("Fatal error in documents.php: " . print_r($error, true));
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Internal server error',
+            'message' => 'Fatal error: ' . $error['message']
+        ]);
+    }
+});
+
+// TEMPORARY TEST - Add after includes
+if (isset($_GET['test'])) {
+    header('Content-Type: text/plain');
+    echo "Testing document creation with minimal data...\n";
+    
+    $testData = [
+        'date' => '2024-01-01',
+        'department' => 'College of Engineering',
+        'for' => 'Test Recipient',
+        'subject' => 'Test Subject',
+        'body' => 'Test Body',
+        'notedList' => [
+            ['name' => 'Test Noted', 'title' => 'Test Title']
+        ],
+        'approvedList' => [
+            ['name' => 'Test Approved', 'title' => 'Test Title']
+        ]
+    ];
+    
+    echo "Test data: " . print_r($testData, true) . "\n";
+    echo "JSON encoded: " . json_encode($testData) . "\n";
+    
+    // Test template filling directly
+    try {
+        $templatePath = ROOT_PATH . 'assets/templates/Communication Letter/College of Engineering (Communication Letter).docx';
+        echo "Template path: $templatePath\n";
+        echo "Template exists: " . (file_exists($templatePath) ? 'YES' : 'NO') . "\n";
+        
+        // Test fillDocxTemplate
+        $result = fillDocxTemplate($templatePath, $testData);
+        echo "fillDocxTemplate result: $result\n";
+    } catch (Exception $e) {
+        echo "Error: " . $e->getMessage() . "\n";
+    }
+    exit;
+}
+
+// Add this at the top for debugging
+error_log("=== Starting documents.php ===");
+error_log("Request method: " . $_SERVER['REQUEST_METHOD']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    error_log("POST data: " . print_r($_POST, true));
+    error_log("Raw input: " . file_get_contents('php://input'));
+}
 
 // Add this function after existing includes/requires
 function fillDocxTemplate($templatePath, $data)
 {
+    // ADD THIS DEBUGGING CODE
+    error_log("=== fillDocxTemplate START ===");
+    error_log("Template path: " . $templatePath);
+    error_log("Data keys: " . implode(', ', array_keys($data)));
+    
+    // Log the structure of notedList and approvedList specifically
+    if (isset($data['notedList'])) {
+        error_log("notedList type: " . gettype($data['notedList']));
+        error_log("notedList content: " . print_r($data['notedList'], true));
+    }
+    if (isset($data['approvedList'])) {
+        error_log("approvedList type: " . gettype($data['approvedList']));
+        error_log("approvedList content: " . print_r($data['approvedList'], true));
+    }
+    
     if (!file_exists($templatePath)) {
         throw new Exception("Template file not found: $templatePath");
     }
     $templateProcessor = new \PhpOffice\PhpWord\TemplateProcessor($templatePath);
+
+    // Handle repeating blocks for noted and approved
+    if (isset($data['notedList']) && is_array($data['notedList']) && count($data['notedList']) > 0) {
+        // Clone the block for each person
+        $templateProcessor->cloneBlock('noted', count($data['notedList']), true, true);
+
+        // Set values for each cloned block
+        foreach ($data['notedList'] as $index => $person) {
+            $num = $index + 1;
+            $templateProcessor->setValue('noted_name#' . $num, htmlspecialchars($person['name']));
+            $templateProcessor->setValue('noted_title#' . $num, htmlspecialchars($person['title']) . "\n\n"); // Add extra spacing for signature
+        }
+    } else {
+        // If no noted people, remove the entire block
+        $templateProcessor->cloneBlock('noted', 0, true, true);
+    }
+
+    if (isset($data['approvedList']) && is_array($data['approvedList']) && count($data['approvedList']) > 0) {
+        // Clone the block for each person
+        $templateProcessor->cloneBlock('approved', count($data['approvedList']), true, true);
+
+        // Set values for each cloned block
+        foreach ($data['approvedList'] as $index => $person) {
+            $num = $index + 1;
+            $templateProcessor->setValue('approved_name#' . $num, htmlspecialchars($person['name']));
+            $templateProcessor->setValue('approved_title#' . $num, htmlspecialchars($person['title']) . "\n\n"); // Add extra spacing for signature
+        }
+    } else {
+        // If no approved people, remove the entire block
+        $templateProcessor->cloneBlock('approved', 0, true, true);
+    }
+
+    // Remove the list arrays from data to prevent double processing
+    unset($data['notedList'], $data['approvedList']);
+
+    // Special handling for "from" field - format with name on one line, title on another
+    if (isset($data['from']) && isset($data['from_title'])) {
+        $formattedFrom = htmlspecialchars($data['from']) . "\n" . htmlspecialchars($data['from_title']);
+        $templateProcessor->setValue('from', $formattedFrom);
+        unset($data['from'], $data['from_title']);
+    }
 
     // Replace simple placeholders
     foreach ($data as $key => $value) {
@@ -969,7 +1127,14 @@ function handlePost()
                 rejectDocument($input);
                 break;
             case 'create':
-                createDocument($input);
+                try {
+                    createDocument($input);
+                } catch (Exception $e) {
+                    error_log("Error in createDocument: " . $e->getMessage());
+                    error_log("Stack trace: " . $e->getTraceAsString());
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'message' => 'Failed to create document: ' . $e->getMessage()]);
+                }
                 break;
             case 'update_note':
                 updateNote($input);
@@ -1038,12 +1203,12 @@ function createDocument($input)
             }
         }
         // Validate that checked categories have amounts > 0
-        if (isset($data['c1']) && $data['reqSSC'] <= 0) {
+        if (!empty($data['c1']) && $data['reqSSC'] <= 0) {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'SSC fund amount must be greater than 0 when selected']);
             return;
         }
-        if (isset($data['c2']) && $data['reqCSC'] <= 0) {
+        if (!empty($data['c2']) && $data['reqCSC'] <= 0) {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'CSC fund amount must be greater than 0 when selected']);
             return;
@@ -1064,7 +1229,7 @@ function createDocument($input)
             }
         }
     } elseif ($docType === 'communication') {
-        $required = ['subject', 'body', 'date', 'department'];
+        $required = ['subject', 'body', 'date', 'department', 'for'];
         foreach ($required as $field) {
             if (empty($data[$field])) {
                 http_response_code(400);
@@ -1072,15 +1237,25 @@ function createDocument($input)
                 return;
             }
         }
-        if (empty($data['notedList']) || !is_array($data['notedList']) || count($data['notedList']) === 0) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'At least one recipient is required']);
-            return;
+        if (isset($data['notedList']) && is_array($data['notedList'])) {
+            $data['notedList'] = array_map(function ($item) {
+                if (is_string($item)) {
+                    // If it's a string, parse it (backward compatibility)
+                    $decoded = json_decode($item, true);
+                    return $decoded ? $decoded : ['name' => $item, 'title' => ''];
+                }
+                return $item;
+            }, $data['notedList']);
         }
-        if (empty($data['approvedList']) || !is_array($data['approvedList']) || count($data['approvedList']) === 0) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'At least one sender is required']);
-            return;
+
+        if (isset($data['approvedList']) && is_array($data['approvedList'])) {
+            $data['approvedList'] = array_map(function ($item) {
+                if (is_string($item)) {
+                    $decoded = json_decode($item, true);
+                    return $decoded ? $decoded : ['name' => $item, 'title' => ''];
+                }
+                return $item;
+            }, $data['approvedList']);
         }
     }
 
@@ -1109,6 +1284,8 @@ function createDocument($input)
 
         $departmentFull = $departmentFullMap[$department] ?? $department;
         $data['departmentFull'] = $departmentFull;
+
+        // Sanitize all date and field values based on document type
         $date = null;
         $implDate = null;
         $eventName = null;
@@ -1116,26 +1293,96 @@ function createDocument($input)
         $venue = null;
         $scheduleSummary = null;
         $earliestStartTime = null;
+        $description = '';
 
         if ($docType === 'proposal') {
-            $date = $data['date'] ?? null;
-            $venue = $data['venue'] ?? null;
-            $scheduleSummary = $data['scheduleSummary'] ?? null;
-            $earliestStartTime = $data['earliestStartTime'] ?? null;
+            $date = !empty($data['date']) ? $data['date'] : null;
+            $venue = !empty($data['venue']) ? $data['venue'] : null;
+            $scheduleSummary = !empty($data['scheduleSummary']) ? $data['scheduleSummary'] : null;
+            $earliestStartTime = !empty($data['earliestStartTime']) ? $data['earliestStartTime'] : null;
+            $description = $data['rationale'] ?? '';
         } elseif ($docType === 'saf') {
-            $implDate = $data['implDate'] ?? null;
+            $implDate = !empty($data['implDate']) ? $data['implDate'] : null;
+            $date = !empty($data['reqDate']) ? $data['reqDate'] : null;
+            $description = $data['title'] ?? '';
         } elseif ($docType === 'facility') {
-            $eventName = $data['eventName'] ?? null;
-            $eventDate = $data['eventDate'] ?? null;
+            $eventName = !empty($data['eventName']) ? $data['eventName'] : null;
+            $eventDate = !empty($data['eventDate']) ? $data['eventDate'] : null;
+            $description = $data['eventName'] ?? '';
         } elseif ($docType === 'communication') {
-            $date = $data['date'] ?? null;
+            $date = !empty($data['date']) ? $data['date'] : null;
+            // Explicitly set other date fields to null for communication
+            $implDate = null;
+            $eventDate = null;
+            $eventName = null;
+            $venue = null;
+            $scheduleSummary = null;
+            $earliestStartTime = null;
+            $description = $data['subject'] ?? '';
+        }
+
+        // Ensure description is never empty for NOT NULL columns
+        if ($docType === 'communication') {
+            $description = !empty($data['subject']) ? $data['subject'] : 'Communication Letter';
         }
 
         // Insert document
-        $stmt = $db->prepare("INSERT INTO documents (student_id, doc_type, title, description, status, current_step, uploaded_at, department, departmentFull, date, implDate, eventName, eventDate, venue, schedule_summary, earliest_start_time, data) VALUES (?, ?, ?, ?, 'submitted', 1, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$studentId, $docType, $data['title'] ?? 'Untitled', $data['rationale'] ?? '', $department, $departmentFull, $date, $implDate, $eventName, $eventDate, $venue, $scheduleSummary, $earliestStartTime, json_encode($data)]);
+        $stmt = $db->prepare("INSERT INTO documents (
+    student_id, doc_type, title, description, status, current_step, uploaded_at,
+    department, departmentFull, date, implDate, eventName, eventDate, venue,
+    schedule_summary, earliest_start_time, data
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+        // Build parameters array
+        $params = [
+            $studentId,
+            $docType,
+            $data['title'] ?? 'Untitled',
+            $description,
+            'submitted',
+            1,
+            date('Y-m-d H:i:s'),
+            $department,
+            $departmentFull,
+            $date,
+            $implDate,
+            $eventName,
+            $eventDate,
+            $venue,
+            $scheduleSummary,
+            $earliestStartTime,
+            json_encode($data)
+        ];
+
+        // DEBUG: Log everything
+        error_log("=== INSERT DEBUG ===");
+        error_log("Document Type: " . $docType);
+        error_log("Number of parameters: " . count($params));
+        error_log("Parameters array: " . print_r($params, true));
+
+        // Check for null values in NOT NULL columns
+        $not_null_columns = ['student_id', 'doc_type', 'title', 'status', 'current_step', 'uploaded_at'];
+        foreach ($not_null_columns as $index => $col) {
+            if ($params[$index] === null || $params[$index] === '') {
+                error_log("ERROR: $col is null or empty!");
+            }
+        }
+
+        // Execute with error checking
+        try {
+            $result = $stmt->execute($params);
+            if (!$result) {
+                $errorInfo = $stmt->errorInfo();
+                error_log("SQL Error: " . print_r($errorInfo, true));
+                throw new Exception("SQL Error: " . $errorInfo[2]);
+            }
+        } catch (Exception $e) {
+            error_log("Exception during INSERT: " . $e->getMessage());
+            throw $e;
+        }
 
         $docId = (int) $db->lastInsertId();
+        error_log("Document inserted successfully with ID: " . $docId);
 
         if ($docType === 'proposal') {
 
@@ -1202,6 +1449,16 @@ function createDocument($input)
                 // Fallback: Do not set file_path, document can still be viewed as HTML
             }
         } elseif ($docType === 'communication') {
+            error_log("=== Creating COMMUNICATION letter ===");
+            error_log("Department: " . ($data['department'] ?? 'NOT SET'));
+            error_log("notedList count: " . count($data['notedList'] ?? []));
+            error_log("approvedList count: " . count($data['approvedList'] ?? []));
+            
+            // Log the first noted person if exists
+            if (!empty($data['notedList'])) {
+                error_log("First noted person: " . print_r($data['notedList'][0], true));
+            }
+            
             // Map department to template file for communication letters
             $department = $data['department'] ?? '';
 
@@ -1241,49 +1498,44 @@ function createDocument($input)
             $data = array_merge($data, $signatories);
 
             $commTemplateMap = [
-                'College of Arts, Social Sciences and Education' => ROOT_PATH . 'assets/templates/Communication Letter/College of Arts, Social Sciences, and Education (Comm Letter).docx',
-                'College of Business' => ROOT_PATH . 'assets/templates/Communication Letter/College of Business (Comm Letter).docx',
-                'College of Computing and Information Sciences' => ROOT_PATH . 'assets/templates/Communication Letter/College of Computing and Information Sciences (Comm Letter).docx',
-                'College of Criminology' => ROOT_PATH . 'assets/templates/Communication Letter/College of Criminology (Comm Letter).docx',
-                'College of Engineering' => ROOT_PATH . 'assets/templates/Communication Letter/College of Engineering (Comm Letter).docx',
-                'College of Hospitality and Tourism Management' => ROOT_PATH . 'assets/templates/Communication Letter/College of Hospitality and Tourism Management (Comm Letter).docx',
-                'College of Nursing' => ROOT_PATH . 'assets/templates/Communication Letter/College of Nursing (Comm Letter).docx',
-                'SPCF Miranda' => ROOT_PATH . 'assets/templates/Communication Letter/SPCF Miranda (Comm Letter).docx',
-                'Supreme Student Council (SSC)' => ROOT_PATH . 'assets/templates/Communication Letter/Supreme Student Council (Comm Letter).docx',
-                'default' => ROOT_PATH . 'assets/templates/Communication Letter/Supreme Student Council (Comm Letter).docx'
+                'College of Arts, Social Sciences and Education' => ROOT_PATH . 'assets/templates/Communication Letter/College of Arts, Social Sciences, and Education (Communication Letter).docx',
+                'College of Business' => ROOT_PATH . 'assets/templates/Communication Letter/College of Business (Communication Letter).docx',
+                'College of Computing and Information Sciences' => ROOT_PATH . 'assets/templates/Communication Letter/College of Computing and Information Sciences (Communication Letter).docx',
+                'College of Criminology' => ROOT_PATH . 'assets/templates/Communication Letter/College of Criminology (Communication Letter).docx',
+                'College of Engineering' => ROOT_PATH . 'assets/templates/Communication Letter/College of Engineering (Communication Letter).docx',
+                'College of Hospitality and Tourism Management' => ROOT_PATH . 'assets/templates/Communication Letter/College of Hospitality and Tourism Management (Communication Letter).docx',
+                'College of Nursing' => ROOT_PATH . 'assets/templates/Communication Letter/College of Nursing (Communication Letter).docx',
+                'SPCF Miranda' => ROOT_PATH . 'assets/templates/Communication Letter/SPCF Miranda (Communication Letter).docx',
+                'Supreme Student Council (SSC)' => ROOT_PATH . 'assets/templates/Communication Letter/Supreme Student Council (Communication Letter).docx',
+                'default' => ROOT_PATH . 'assets/templates/Communication Letter/Supreme Student Council (Communication Letter).docx'
             ];
             $templatePath = $commTemplateMap[$department] ?? $commTemplateMap['default'];
-            $data['content'] = $data['body'];
+            $data['for'] = $data['for'] ?? '';
+            $data['from'] = $currentUser['first_name'] . ' ' . $currentUser['last_name'] . ', ' . $currentUser['position'] . ', ' . $currentUser['department'];
 
-            // Process personnel lists
-            if (isset($data['notedList']) && is_array($data['notedList'])) {
-                $data['noted'] = implode("\n", array_map(function ($p) {
-                    return htmlspecialchars($p['name'] . ' - ' . $p['title']);
-                }, $data['notedList']));
-                unset($data['notedList']);
-            }
-
-            if (isset($data['approvedList']) && is_array($data['approvedList'])) {
-                $data['approved'] = implode("\n", array_map(function ($p) {
-                    return htmlspecialchars($p['name'] . ' - ' . $p['title']);
-                }, $data['approvedList']));
-                unset($data['approvedList']);
-            }
-
+            // Keep notedList and approvedList for block cloning
             // Clean up unused fields
-            unset($data['body']);
+            // Do not unset 'body' as it's used in template
 
             try {
                 $filledPath = fillDocxTemplate($templatePath, $data);
+                error_log("fillDocxTemplate successful, path: " . $filledPath);
+
                 if (!file_exists($filledPath)) {
                     throw new Exception("Filled file not found: $filledPath");
                 }
+
                 // Convert DOCX to PDF
                 $pdfPath = convertDocxToPdf($filledPath);
+                error_log("convertDocxToPdf successful, path: " . $pdfPath);
+
                 $stmt = $db->prepare("UPDATE documents SET file_path = ? WHERE id = ?");
-                $stmt->execute(['uploads/' . basename($pdfPath), $docId]);
+                $stmt->execute([basename($pdfPath), $docId]);
+                error_log("Database updated with file_path");
+
             } catch (Exception $e) {
                 error_log("Communication template filling failed: " . $e->getMessage());
+                error_log("Stack trace: " . $e->getTraceAsString());
                 // Fallback: Do not set file_path
             }
         } elseif ($docType === 'saf') {
@@ -1461,15 +1713,97 @@ function createDocument($input)
             ];
             $approvalEndPosition = 'Executive Vice-President / Student Services (EVP)';
         } elseif ($docType === 'communication') {
-            $workflowPositions = [
-                ['position' => 'College Student Council Adviser', 'table' => 'employees', 'department_specific' => true],
-                ['position' => 'Supreme Student Council President', 'table' => 'students', 'department_specific' => false],
-                ['position' => 'College Dean', 'table' => 'employees', 'department_specific' => true],
-                ['position' => 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)', 'table' => 'employees', 'department_specific' => false],
-                ['position' => 'Vice President for Academic Affairs (VPAA)', 'table' => 'employees', 'department_specific' => false],
-                ['position' => 'Executive Vice-President / Student Services (EVP)', 'table' => 'employees', 'department_specific' => false],
+            error_log("=== Creating COMMUNICATION workflow ===");
+            // Dynamic workflow based on selected notedList and approvedList
+            $selectedPositions = [];
+
+            // Parse notedList and approvedList for positions
+            $allLists = array_merge($data['notedList'] ?? [], $data['approvedList'] ?? []);
+            error_log("All lists combined: " . print_r($allLists, true));
+            foreach ($allLists as $person) {
+                if (isset($person['title'])) {
+                    // Extract position from title (e.g., "College Dean, College of Engineering" -> "College Dean")
+                    $parts = explode(',', $person['title'], 2);
+                    $position = trim($parts[0]);
+                    $department = isset($parts[1]) ? trim($parts[1]) : null;
+                    $selectedPositions[$position] = $department; // Use department if specified
+                    error_log("Extracted position: '$position', department: '$department'");
+                }
+            }
+
+            error_log("Selected positions: " . print_r($selectedPositions, true));
+
+            // Define complete hierarchy order (same as Proposal for consistency)
+            $hierarchyOrder = [
+                'College Student Council Adviser',
+                'Supreme Student Council President',
+                'College Dean',
+                'Officer-in-Charge, Office of Student Affairs (OIC-OSA)',
+                'Center for Performing Arts Organization (CPAO)',
+                'Vice President for Academic Affairs (VPAA)',
+                'Executive Vice-President / Student Services (EVP)'
             ];
-            $approvalEndPosition = 'Executive Vice-President / Student Services (EVP)';
+
+            // Sort selected positions by hierarchy
+            $sortedPositions = [];
+            foreach ($hierarchyOrder as $pos) {
+                if (isset($selectedPositions[$pos])) {
+                    $sortedPositions[$pos] = $selectedPositions[$pos];
+                }
+            }
+
+            error_log("Sorted positions: " . print_r($sortedPositions, true));
+
+            // Create workflow steps for each position
+            foreach ($sortedPositions as $position => $dept) {
+                $table = ($position === 'Supreme Student Council President') ? 'students' : 'employees';
+                $query = "SELECT id FROM {$table} WHERE position = ?";
+                $params = [$position];
+                if ($dept && $table === 'employees') {
+                    $query .= " AND department = ?";
+                    $params[] = $dept;
+                }
+                error_log("Querying for position '$position' in table '$table' with params: " . print_r($params, true));
+                $stmt = $db->prepare($query);
+                $stmt->execute($params);
+                $assignees = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                error_log("Found " . count($assignees) . " assignees for position '$position'");
+
+                foreach ($assignees as $assignee) {
+                    $stepName = $position . ' Approval';
+                    error_log("Creating step: $stepName for assignee ID: " . $assignee['id']);
+                    $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, ?)");
+                    if ($table === 'employees') {
+                        $stmt->execute([$docId, $stepOrder, $stepName, $assignee['id'], null, 'skipped']);
+                    } else {
+                        $stmt->execute([$docId, $stepOrder, $stepName, null, $assignee['id'], 'skipped']);
+                    }
+                    $stepOrder++;
+                }
+            }
+
+            error_log("Total steps created: " . ($stepOrder - 1));
+
+            // Activate the first step
+            $firstStepStmt = $db->prepare("UPDATE document_steps SET status = 'pending' WHERE document_id = ? AND step_order = 1");
+            $result = $firstStepStmt->execute([$docId]);
+            error_log("Activated first step, affected rows: " . $firstStepStmt->rowCount());
+
+            // Check if current user needs to sign immediately
+            $needsSigning = false;
+            $firstStepQuery = $db->prepare("SELECT assigned_to_employee_id, assigned_to_student_id FROM document_steps WHERE document_id = ? AND step_order = 1");
+            $firstStepQuery->execute([$docId]);
+            $firstStep = $firstStepQuery->fetch(PDO::FETCH_ASSOC);
+            error_log("First step assignee: " . print_r($firstStep, true));
+            if ($firstStep) {
+                if ($currentUser['role'] === 'employee' && $firstStep['assigned_to_employee_id'] == $currentUser['id']) {
+                    $needsSigning = true;
+                } elseif ($currentUser['role'] === 'student' && $firstStep['assigned_to_student_id'] == $currentUser['id']) {
+                    $needsSigning = true;
+                }
+            }
+            error_log("Needs signing: " . ($needsSigning ? 'YES' : 'NO'));
+
         } elseif ($docType === 'saf') {
             $workflowPositions = [
                 ['position' => 'College Dean', 'table' => 'employees', 'department_specific' => true],
@@ -1494,7 +1828,8 @@ function createDocument($input)
             $emp = $empStmt->fetch(PDO::FETCH_ASSOC);
             if ($emp) {
                 $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, 'Initial Review', ?, 'pending')");
-                $stmt->execute([$docId, $emp['id']]);
+                $stmt->execute([$docId, $stepOrder, $emp['id']]);
+                $stepOrder++;
             } else {
                 throw new Exception("No employees found to assign the document step");
             }
@@ -1502,47 +1837,68 @@ function createDocument($input)
             $approvalEndPosition = null;
         }
 
-        // Add workflow steps, marking those after EVP as documentation only
-        $approvalReached = false;
-        $isFirstWorkflowStep = true;
-        foreach ($workflowPositions as $wp) {
-            $position = $wp['position'];
-            $table = $wp['table'];
-            $documentationOnly = isset($wp['documentation_only']) && $wp['documentation_only'];
-            $query = "SELECT id FROM {$table} WHERE position = ?";
-            $params = [$position];
-            if (isset($wp['department_specific']) && $wp['department_specific']) {
-                $query .= " AND department = ?";
-                $params[] = $department;
-            }
-            $query .= " LIMIT 1";
-            $stmt = $db->prepare($query);
-            $stmt->execute($params);
-            $assignee = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($docType !== 'communication') {
+            // Add workflow steps, marking those after EVP as documentation only
+            $approvalReached = false;
+            $isFirstWorkflowStep = true;
+            foreach ($workflowPositions as $wp) {
+                $position = $wp['position'];
+                $table = $wp['table'];
+                $documentationOnly = isset($wp['documentation_only']) && $wp['documentation_only'];
+                $query = "SELECT id FROM {$table} WHERE position = ?";
+                $params = [$position];
+                if (isset($wp['department_specific']) && $wp['department_specific']) {
+                    $query .= " AND department = ?";
+                    $params[] = $department;
+                }
+                $query .= " LIMIT 1";
+                $stmt = $db->prepare($query);
+                $stmt->execute($params);
+                $assignee = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if ($assignee) {
-                $stepName = $position . ' Approval';
-                // If we've reached EVP, mark all subsequent steps as documentation only
-                if ($approvalReached || $documentationOnly) {
-                    $stepName = $position . ' (Documentation Only)';
+                if ($assignee) {
+                    $stepName = $position . ' Approval';
+                    // If we've reached EVP, mark all subsequent steps as documentation only
+                    if ($approvalReached || $documentationOnly) {
+                        $stepName = $position . ' (Documentation Only)';
+                    }
+                    // Only the first workflow step should be pending initially
+                    $initialStatus = $isFirstWorkflowStep ? 'pending' : 'skipped';
+                    $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, ?)");
+                    if ($table === 'employees') {
+                        $stmt->execute([$docId, $stepOrder, $stepName, $assignee['id'], null, $initialStatus]);
+                    } else {
+                        $stmt->execute([$docId, $stepOrder, $stepName, null, $assignee['id'], $initialStatus]);
+                    }
+                    $isFirstWorkflowStep = false;
                 }
-                // Only the first workflow step should be pending initially
-                $initialStatus = $isFirstWorkflowStep ? 'pending' : 'skipped';
-                $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, ?)");
-                if ($table === 'employees') {
-                    $stmt->execute([$docId, $stepOrder, $stepName, $assignee['id'], null, $initialStatus]);
-                } else {
-                    $stmt->execute([$docId, $stepOrder, $stepName, null, $assignee['id'], $initialStatus]);
+                if ($position === $approvalEndPosition) {
+                    $approvalReached = true;
                 }
-                $isFirstWorkflowStep = false;
+                $stepOrder++;
             }
-            if ($position === $approvalEndPosition) {
-                $approvalReached = true;
+
+            // Activate the first step
+            $firstStepStmt = $db->prepare("UPDATE document_steps SET status = 'pending' WHERE document_id = ? AND step_order = 1");
+            $firstStepStmt->execute([$docId]);
+
+            // Check if current user needs to sign immediately
+            $needsSigning = false;
+            $firstStepQuery = $db->prepare("SELECT assigned_to_employee_id, assigned_to_student_id FROM document_steps WHERE document_id = ? AND step_order = 1");
+            $firstStepQuery->execute([$docId]);
+            $firstStep = $firstStepQuery->fetch(PDO::FETCH_ASSOC);
+            if ($firstStep) {
+                if ($currentUser['role'] === 'employee' && $firstStep['assigned_to_employee_id'] == $currentUser['id']) {
+                    $needsSigning = true;
+                } elseif ($currentUser['role'] === 'student' && $firstStep['assigned_to_student_id'] == $currentUser['id']) {
+                    $needsSigning = true;
+                }
             }
-            $stepOrder++;
         }
 
+        error_log("=== COMMITTING TRANSACTION ===");
         $db->commit();
+        error_log("=== TRANSACTION COMMITTED SUCCESSFULLY ===");
 
         // Add audit log
         addAuditLog(
@@ -1553,11 +1909,17 @@ function createDocument($input)
             'Document',
             'INFO'
         );
+        error_log("=== AUDIT LOG ADDED ===");
 
-        echo json_encode(['success' => true, 'document_id' => $docId]);
+        echo json_encode(['success' => true, 'document_id' => $docId, 'needs_signing' => $needsSigning]);
+        error_log("=== RESPONSE SENT SUCCESSFULLY ===");
+        error_log("Response: " . json_encode(['success' => true, 'document_id' => $docId, 'needs_signing' => $needsSigning]));
 
     } catch (Exception $e) {
         $db->rollBack();
+        error_log("=== EXCEPTION IN CREATEDOCUMENT ===");
+        error_log("Exception: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
         throw $e;
     }
 }
@@ -1754,7 +2116,7 @@ function signDocument($input, $files = null)
             $stepOrderStmt = $db->prepare("SELECT step_order FROM document_steps WHERE id = ?");
             $stepOrderStmt->execute([$stepId]);
             $currentStep = $stepOrderStmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if ($currentStep) {
                 $nextStepOrder = $currentStep['step_order'] + 1;
                 $activateNextStmt = $db->prepare("

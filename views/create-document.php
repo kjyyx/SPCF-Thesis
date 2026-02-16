@@ -879,7 +879,31 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
 
                 <div class="row g-3 mt-2">
                   <div class="col-12">
-                    <label class="form-label">Project Title <span class="required">*</span></label>
+                    <label class="form-label">For</label>
+                    <input id="comm-for" class="form-control" placeholder="e.g., All Concerned Instructors, Faculty, and Office Personnel">
+                  </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                  <div class="col-md-6">
+                    <label class="form-label">Noted <span class="required">*</span></label>
+                    <div id="comm-noted-list" class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                      <!-- Checkboxes populated by JS -->
+                    </div>
+                    <div class="form-text">Select one or more employees.</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Approved <span class="required">*</span></label>
+                    <div id="comm-approved-list" class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                      <!-- Checkboxes populated by JS -->
+                    </div>
+                    <div class="form-text">Select one or more employees.</div>
+                  </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                  <div class="col-12">
+                    <label class="form-label">Subject <span class="required">*</span></label>
                     <input id="comm-subject" class="form-control" placeholder="Project Title">
                   </div>
                 </div>
@@ -889,8 +913,7 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                     <label class="form-label">Letter Body <span class="required">*</span></label>
                     <textarea id="comm-body" class="form-control" rows="8"
                       placeholder="Write your letter here (closing & signature should be typed manually)"></textarea>
-                    <div class="small text-muted mt-1">Note: The sender name/title block was removed from the letter
-                      body to allow manual input.</div>
+                    <div class="small text-muted mt-1">Note: The sender name/title block was removed from the letter body to allow manual input.</div>
                   </div>
                 </div>
               </div>
@@ -1175,5 +1198,61 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
     </div>
   </div>
 </body>
+
+<script>
+  // Fetch employees for dropdowns
+  fetch(BASE_URL + 'api/employees.php')
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+      console.log('Employees loaded:', data);
+      if (!data.success || !data.employees) {
+        console.error('Failed to load employees:', data);
+        return;
+      }
+      
+      const notedList = document.getElementById('comm-noted-list');
+      const approvedList = document.getElementById('comm-approved-list');
+      
+      // Clear existing content
+      notedList.innerHTML = '';
+      approvedList.innerHTML = '';
+      
+      data.employees.forEach(emp => {
+        const personData = {
+          name: emp.first_name + ' ' + emp.last_name,
+          title: emp.position + (emp.department ? ', ' + emp.department : '')
+        };
+        const value = JSON.stringify(personData);
+        
+        // Create noted checkbox
+        const notedDiv = document.createElement('div');
+        notedDiv.className = 'form-check';
+        notedDiv.innerHTML = `
+          <input class="form-check-input" type="checkbox" 
+                 value='${value.replace(/'/g, "&apos;")}' 
+                 id="noted-${emp.id}">
+          <label class="form-check-label" for="noted-${emp.id}">
+            ${emp.first_name} ${emp.last_name} (${emp.position}${emp.department ? ' - ' + emp.department : ''})
+          </label>
+        `;
+        notedList.appendChild(notedDiv);
+        
+        // Create approved checkbox (clone with different ID)
+        const approvedDiv = notedDiv.cloneNode(true);
+        approvedDiv.querySelector('input').id = `approved-${emp.id}`;
+        approvedDiv.querySelector('label').htmlFor = `approved-${emp.id}`;
+        approvedList.appendChild(approvedDiv);
+      });
+    })
+    .catch(error => {
+      console.error('Error fetching employees:', error);
+      window.ToastManager?.error('Failed to load employees list', 'Error');
+    });
+</script>
 
 </html>

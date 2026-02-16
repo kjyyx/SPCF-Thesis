@@ -532,28 +532,44 @@ function collectFacilityData() {
  * @returns {Object} Communication data object with letter details and personnel lists
  */
 function collectCommunicationData() {
-    /**
-     * Helper function to read personnel lists from form sections
-     * @param {string} listId - The ID of the personnel list container
-     * @returns {Array} Array of personnel objects with name and title
-     */
-    function readPeople(listId) {
-        const arr = [];
-        document.querySelectorAll(`#${listId} .person-entry`).forEach(e => {
-            const name = e.querySelector('.person-name')?.value || '';
-            const title = e.querySelector('.title-input')?.value || '';
-            if (name || title) arr.push({ name, title });
-        });
-        return arr;
-    }
+    // Collect selected noted and approved employees from checkboxes
+    const notedList = Array.from(document.querySelectorAll('#comm-noted-list input:checked')).map(cb => {
+        try {
+            const value = JSON.parse(cb.value);
+            return {
+                name: value.name || '',
+                title: value.title || ''
+            };
+        } catch (e) {
+            console.error('Error parsing noted value:', cb.value);
+            return { name: '', title: '' };
+        }
+    });
+    
+    const approvedList = Array.from(document.querySelectorAll('#comm-approved-list input:checked')).map(cb => {
+        try {
+            const value = JSON.parse(cb.value);
+            return {
+                name: value.name || '',
+                title: value.title || ''
+            };
+        } catch (e) {
+            console.error('Error parsing approved value:', cb.value);
+            return { name: '', title: '' };
+        }
+    });
 
     return {
         date: document.getElementById('comm-date').value,
         department: document.getElementById('comm-department-select').value,
-        notedList: readPeople('noted-list'),
-        approvedList: readPeople('approved-list'),
+        for: document.getElementById('comm-for').value,
+        notedList: notedList,
+        approvedList: approvedList,
         subject: document.getElementById('comm-subject').value,
-        body: document.getElementById('comm-body').value
+        body: document.getElementById('comm-body').value,
+        from: (window.currentUser?.firstName + ' ' + window.currentUser?.lastName + ', ' + 
+               window.currentUser?.position + ', ' + window.currentUser?.department) || ''
+        from_title: (window.currentUser?.position + ', ' + window.currentUser?.department) || ''
     };
 }
 
@@ -663,12 +679,16 @@ function generateFacilityHTML(d) {
 function generateCommunicationHTML(d) {
     function renderPeople(list) {
         if (!list || !list.length) return '<div class="comm-indent"><em>—</em></div>';
-        return `<div class="comm-indent">${list.map(p => `<div style="margin-bottom:.35rem"><strong>${escapeHtml(p.name || '__________')}</strong><div style="font-style:italic;text-transform:capitalize">${escapeHtml(p.title || '')}</div></div>`).join('')}</div>`;
+        return list.map(p => `<div><strong>${escapeHtml(p.name)}</strong><br><em>${escapeHtml(p.title)}</em></div>`).join('<br>');
     }
 
     const header = `<div style="text-align:center;margin-bottom:1rem;"><div style="font-weight:800;font-size:1.2rem">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700;font-size:1.1rem">Communication Letter</div></div>`;
     const bodyHtml = (d.body || '').replace(/\n/g, '<br>') || '&nbsp;';
-    return `<div class="paper-page">${header}<div style="margin-top:2rem"><div>Date: ${formatDate(d.date)}</div><div style="margin-top:1rem">Department: ${escapeHtml(d.departmentFull || d.department || '')}</div><div style="margin-top:1rem">Subject: ${escapeHtml(d.subject || '')}</div><div style="margin-top:1rem">To: ${renderPeople(d.notedList)}</div><div style="margin-top:1rem">From: ${renderPeople(d.approvedList)}</div><div style="margin-top:1rem">${bodyHtml}</div><div style="margin-top:2rem;text-align:left">Sincerely,<br>${renderPeople(d.approvedList)}</div></div></div>`;
+    const creatorName = window.currentUser?.firstName + ' ' + window.currentUser?.lastName;
+    const creatorPosition = window.currentUser?.position || 'CSC Position';
+    const creatorDepartment = window.currentUser?.department || 'Department';
+
+    return `<div class="paper-page">${header}<div style="margin-top:2rem"><div>Date: ${formatDate(d.date)}</div><div style="margin-top:1rem">For: ${escapeHtml(d.for || '')}</div><div style="margin-top:1rem">From: ${escapeHtml(creatorName)}<br>${escapeHtml(creatorPosition)}, ${escapeHtml(creatorDepartment)}</div><div style="margin-top:1rem">Noted: ${renderPeople(d.notedList)}</div><div style="margin-top:1rem">Approved: ${renderPeople(d.approvedList)}</div><div style="margin-top:1rem">Subject: ${escapeHtml(d.subject || '')}</div><div style="margin-top:1rem">${bodyHtml}</div><div style="margin-top:2rem;text-align:left">Sincerely,<br>College of Engineering – Student Council</div></div></div>`;
 }
 
 /**
@@ -1308,21 +1328,12 @@ async function submitDocument() {
                     // Clear the form after successful creation
                     clearCurrentForm();
 
-                    // Check if creator needs to sign immediately
-                    const needsCreatorSign = ['proposal', 'communication'].includes(docType); // Add types that require creator signing
-
-                    if (needsCreatorSign && window.currentUser?.role === 'student') {
-                        // Show modal prompting to sign
-                        showConfirmModal(
-                            'Document Created',
-                            'Your document has been created. You need to sign it now before it proceeds to approval. Would you like to sign it?',
-                            () => {
-                                // Redirect to notifications page for signing
-                                window.location.href = BASE_URL + '?page=notifications';
-                            },
-                            'Sign Now',
-                            'btn-primary'
-                        );
+                    // Redirect to sign if needed
+                    if (result.needs_signing) {
+                        window.location.href = BASE_URL + 'views/notifications.php?sign_doc=' + result.document_id;
+                    } else {
+                        // Redirect to dashboard or appropriate page
+                        window.location.href = BASE_URL + '?page=dashboard';
                     }
                 } else {
                     throw new Error(result.message);

@@ -52,6 +52,14 @@ addAuditLog('EVENT_CALENDAR_VIEWED', 'Event Management', 'Viewed event calendar'
 
 // Set page title for navbar
 $pageTitle = 'University Calendar';
+
+// Check for pending signatures
+require_once ROOT_PATH . 'includes/database.php';
+$db = new Database();
+$pdo = $db->getConnection();
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM document_steps WHERE (assigned_to_employee_id = ? OR assigned_to_student_id = ?) AND status = 'pending'");
+$stmt->execute([$currentUser['id'], $currentUser['id']]);
+$pendingCount = $stmt->fetchColumn();
 ?>
 <!DOCTYPE html>
 <html lang="en">

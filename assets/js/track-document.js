@@ -764,13 +764,17 @@ function getNotesPreview(notes) {
 
     // Check if there's a rejection note
     const rejectionNote = notes.find(note => note.is_rejection);
-    const recentNote = rejectionNote || notes[notes.length - 1];
+    // Check for system messages like auto-timeout
+    const systemNote = notes.find(note => note.note.includes('Auto-timeout'));
+    const recentNote = rejectionNote || systemNote || notes[notes.length - 1];
 
     const preview = recentNote.note.length > 50 ? recentNote.note.substring(0, 50) + '...' : recentNote.note;
     const title = recentNote.note.replace(/"/g, '&quot;');
 
     if (rejectionNote) {
         return `<span class="text-danger" title="${title}">⚠️ ${preview}</span>`;
+    } else if (systemNote) {
+        return `<span class="text-warning" title="${title}">⏰ ${preview}</span>`;
     }
 
     return `<span title="${title}">${preview}</span>`;
@@ -846,6 +850,23 @@ async function viewDetails(docId) {
                 </div>
             `;
 
+            // System Alert (e.g., Auto-timeout)
+            let systemHtml = '';
+            if (doc.notes && doc.notes.length > 0) {
+                const systemNote = doc.notes.find(note => note.note.includes('Auto-timeout'));
+                if (systemNote) {
+                    systemHtml = `
+                        <div class="system-alert">
+                            <h6><i class="bi bi-clock"></i> System Notification</h6>
+                            <div class="alert-content">
+                                <small class="d-block text-muted mb-2">${new Date(systemNote.created_at).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>
+                                <p class="mb-0">${systemNote.note}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
             // Rejection Alert
             let rejectionHtml = '';
             if (doc.notes && doc.notes.length > 0) {
@@ -868,7 +889,7 @@ async function viewDetails(docId) {
             // Notes Section
             let notesHtml = '';
             if (doc.notes && doc.notes.length > 0) {
-                const otherNotes = doc.notes.filter(note => !note.is_rejection);
+                const otherNotes = doc.notes.filter(note => !note.is_rejection && !note.note.includes('Auto-timeout'));
                 if (otherNotes.length > 0) {
                     notesHtml = '<div class="notes-section"><h6><i class="bi bi-chat-dots"></i> Notes & Comments</h6>';
                     otherNotes.forEach(note => {
@@ -915,6 +936,7 @@ async function viewDetails(docId) {
                     </div>
                     <div class="col-lg-6">
                         ${infoHtml}
+                        ${systemHtml}
                         ${rejectionHtml}
                         ${notesHtml}
                         ${timelineHtml}
@@ -940,6 +962,8 @@ async function viewDetails(docId) {
                     pdfUrl = BASE_URL + pdfUrl.substring(12);
                 } else if (pdfUrl.startsWith('http')) {
                     // Full URL
+                } else if (pdfUrl.startsWith('uploads/')) {
+                    pdfUrl = BASE_URL + pdfUrl;
                 } else {
                     pdfUrl = BASE_URL + 'uploads/' + pdfUrl;
                 }

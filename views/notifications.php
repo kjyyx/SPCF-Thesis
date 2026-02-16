@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/config.php';
 require_once ROOT_PATH . 'includes/session.php';
 require_once ROOT_PATH . 'includes/auth.php';
 requireAuth(); // Requires login
@@ -1146,6 +1147,24 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                 });
             }
         });
+    </script>
+
+    <script>
+        // Check for sign_doc parameter and open document
+        const urlParams = new URLSearchParams(window.location.search);
+        const signDocId = urlParams.get('sign_doc');
+        if (signDocId) {
+            // Initialize and open the document for signing
+            document.addEventListener('DOMContentLoaded', function() {
+                documentSystem.init();
+                documentSystem.openDocument(signDocId);
+            });
+        } else {
+            // Normal initialization
+            document.addEventListener('DOMContentLoaded', function() {
+                documentSystem.init();
+            });
+        }
     </script>
 </body>
 

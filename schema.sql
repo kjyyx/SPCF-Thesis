@@ -166,7 +166,7 @@ ALTER TABLE documents ADD COLUMN IF NOT EXISTS schedule_summary TEXT NULL AFTER 
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS earliest_start_time DATETIME NULL AFTER schedule_summary;
 
 -- Add data column for storing document data as JSON
-ALTER TABLE documents ADD COLUMN IF NOT EXISTS data JSON NULL AFTER earliest_start_time;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS data LONGTEXT NULL AFTER earliest_start_time;
 
 -- Add date column for due dates
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS date DATE NULL AFTER data;

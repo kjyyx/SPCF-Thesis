@@ -2606,9 +2606,48 @@ function handlePut()
 
 function handleDelete()
 {
-    // Handle document deletion if needed
-    http_response_code(501);
-    echo json_encode(['success' => false, 'message' => 'Not implemented']);
+    global $db, $currentUser;
+
+    $id = $_GET['id'] ?? 0;
+
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Document ID required']);
+        return;
+    }
+
+    // Check if user is the creator and is a student
+    if ($currentUser['role'] !== 'student') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Only student creators can delete documents']);
+        return;
+    }
+
+    $stmt = $db->prepare("SELECT student_id FROM documents WHERE id = ?");
+    $stmt->execute([$id]);
+    $doc = $stmt->fetch();
+
+    if (!$doc || $doc['student_id'] != $currentUser['id']) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'You can only delete documents you created']);
+        return;
+    }
+
+    // Delete document steps first
+    $stmt = $db->prepare("DELETE FROM document_steps WHERE document_id = ?");
+    $stmt->execute([$id]);
+
+    // Delete document
+    $stmt = $db->prepare("DELETE FROM documents WHERE id = ?");
+    $result = $stmt->execute([$id]);
+
+    if ($result) {
+        addAuditLog('DOCUMENT_DELETED', 'Document Management', "Deleted document $id", $id, 'Document', 'WARNING');
+        echo json_encode(['success' => true]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Failed to delete document']);
+    }
 }
 
 function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO')

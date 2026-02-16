@@ -20,13 +20,10 @@ if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '
 }
 
 // Define constants for better maintainability
-const ALLOWED_ROLES = ['employee'];
-const ALLOWED_STUDENT_POSITIONS = ['Supreme Student Council President'];
+const ALLOWED_ROLES = ['employee', 'student'];
 
-// Allow employees, SSC President, and students with pending signatures
-$userHasAccess = in_array($currentUser['role'], ALLOWED_ROLES) ||
-    ($currentUser['role'] === 'student' && in_array($currentUser['position'], ALLOWED_STUDENT_POSITIONS)) ||
-    ($currentUser['role'] === 'student' && hasPendingSignatures($currentUser['id']));
+// Allow employees and all students (case insensitive)
+$userHasAccess = in_array(strtolower($currentUser['role'] ?? ''), ALLOWED_ROLES);
 
 // Function to check if student has pending signatures
 function hasPendingSignatures($userId) {
@@ -160,115 +157,240 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         <div class="page-header-section">
             <div class="container-fluid">
                 <div class="page-header-content">
-                    <div class="d-flex align-items-center">
-                        <button class="back-button me-3" onclick="history.back()" title="Go Back">
-                            <i class="bi bi-arrow-left"></i>Back
+                    <div class="header-main">
+                        <button class="back-button" onclick="history.back()" title="Go Back">
+                            <i class="bi bi-arrow-left"></i>
                         </button>
-                        <div>
-                            <h1 class="page-title">
-                                <i class="bi bi-bell me-3"></i>
-                                Document Notifications
-                            </h1>
-                            <p class="page-subtitle">Track document approvals, rejections, and signing status updates</p>
+                        <div class="header-icon">
+                            <i class="bi bi-bell-fill"></i>
+                        </div>
+                        <div class="header-text">
+                            <h1 class="page-title">Document Notifications</h1>
+                            <p class="page-subtitle">Track and manage all your document approvals, rejections, and signing workflows</p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Compact Notification Header -->
-        <div class="calendar-header-compact">
+        <!-- Compact Notification Header - OneUI Enhanced -->
+        <div class="notification-header-modern">
             <div class="container-fluid">
-                <div class="header-compact-content">
-                    <div class="header-left">
-                        <!-- Notification Info Compact -->
-                        <div class="document-info-compact">
-                            <div class="document-badge">
-                                <i class="bi bi-bell-fill me-2" aria-hidden="true"></i>
-                                <span class="fw-bold">Document Notifications</span>
-                                <span class="badge bg-danger ms-2" id="pendingCount"
-                                    aria-label="Pending documents count">3</span>
-                            </div>
+                <div class="header-modern-wrapper">
+                    <!-- Top Row: Controls -->
+                    <div class="header-controls-row">
+                        <!-- Search Bar -->
+                        <div class="search-box-modern">
+                            <i class="bi bi-search search-icon"></i>
+                            <input type="text" class="search-input" id="documentSearch"
+                                placeholder="Search documents by title, type, or department..."
+                                aria-label="Search documents">
+                            <button class="clear-search-btn" type="button" id="clearSearch"
+                                aria-label="Clear search" style="display: none;">
+                                <i class="bi bi-x-circle-fill"></i>
+                            </button>
                         </div>
 
-                        <!-- Search Bar -->
-                        <div class="search-container">
-                            <div class="input-group">
-                                <span class="input-group-text" id="search-icon">
-                                    <i class="bi bi-search" aria-hidden="true"></i>
-                                </span>
-                                <input type="text" class="form-control" id="documentSearch"
-                                    placeholder="Search documents..." aria-label="Search documents"
-                                    aria-describedby="search-icon">
-                                <button class="btn btn-outline-secondary" type="button" id="clearSearch"
-                                    aria-label="Clear search">
-                                    <i class="bi bi-x" aria-hidden="true"></i>
+                        <!-- Sorting Dropdown -->
+                        <div class="sort-dropdown-modern">
+                            <button class="sort-trigger" id="sortTrigger">
+                                <i class="bi bi-funnel"></i>
+                                <span class="sort-label">Sort</span>
+                                <i class="bi bi-chevron-down"></i>
+                            </button>
+                            <div class="sort-menu" id="sortMenu" style="display: none;">
+                                <div class="sort-menu-header">Sort by</div>
+                                <button class="sort-option active" data-sort="date_desc">
+                                    <i class="bi bi-calendar-event"></i>
+                                    <span>Date (Newest First)</span>
+                                    <i class="bi bi-check-circle-fill sort-check"></i>
+                                </button>
+                                <button class="sort-option" data-sort="date_asc">
+                                    <i class="bi bi-calendar-event"></i>
+                                    <span>Date (Oldest First)</span>
+                                    <i class="bi bi-check-circle-fill sort-check"></i>
+                                </button>
+                                <button class="sort-option" data-sort="due_desc">
+                                    <i class="bi bi-clock-history"></i>
+                                    <span>Due Date (Soonest)</span>
+                                    <i class="bi bi-check-circle-fill sort-check"></i>
+                                </button>
+                                <button class="sort-option" data-sort="due_asc">
+                                    <i class="bi bi-clock-history"></i>
+                                    <span>Due Date (Latest)</span>
+                                    <i class="bi bi-check-circle-fill sort-check"></i>
+                                </button>
+                                <button class="sort-option" data-sort="name_asc">
+                                    <i class="bi bi-sort-alpha-down"></i>
+                                    <span>Name (A-Z)</span>
+                                    <i class="bi bi-check-circle-fill sort-check"></i>
+                                </button>
+                                <button class="sort-option" data-sort="name_desc">
+                                    <i class="bi bi-sort-alpha-up"></i>
+                                    <span>Name (Z-A)</span>
+                                    <i class="bi bi-check-circle-fill sort-check"></i>
                                 </button>
                             </div>
                         </div>
-
-                        <!-- Sorting Options -->
-                        <div class="sorting-container">
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="bi bi-sort-down" aria-hidden="true"></i>
-                                </span>
-                                <select class="form-select" id="sortSelect" aria-label="Sort documents">
-                                    <option value="date_desc">Date (Newest First)</option>
-                                    <option value="date_asc">Date (Oldest First)</option>
-                                    <option value="due_desc">Due Date (Soonest First)</option>
-                                    <option value="due_asc">Due Date (Latest First)</option>
-                                    <option value="name_asc">Name (A-Z)</option>
-                                    <option value="name_desc">Name (Z-A)</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Quick Stats -->
-                        <div class="header-stats-compact">
-                            <div class="stat-item-compact">
-                                <div class="stat-number-compact text-danger" id="urgentCount"
-                                    aria-label="Urgent documents">1</div>
-                                <div class="stat-label-compact">Urgent</div>
-                            </div>
-                            <div class="stat-item-compact">
-                                <div class="stat-number-compact text-warning" id="highCount"
-                                    aria-label="High priority documents">1</div>
-                                <div class="stat-label-compact">High Priority</div>
-                            </div>
-                            <div class="stat-item-compact">
-                                <div class="stat-number-compact text-info" id="normalCount"
-                                    aria-label="Normal priority documents">1</div>
-                                <div class="stat-label-compact">Normal</div>
-                            </div>
-                        </div>
                     </div>
 
-                    <!-- Quick Actions -->
-                    <div class="document-actions-buttons">
-                        <!-- 'urgent' maps to 'submitted' status in JS binding below -->
-                        <button class="btn btn-outline-primary btn-sm"
-                            onclick="documentSystem.filterDocuments('all')">All</button>
-                        <button class="btn btn-outline-warning btn-sm"
-                            onclick="documentSystem.filterDocuments('submitted')">Pending</button>
-                        <button class="btn btn-outline-info btn-sm"
-                            onclick="documentSystem.filterDocuments('in_review')">In Review</button>
-                        <button class="btn btn-outline-success btn-sm"
-                            onclick="documentSystem.filterDocuments('approved')">Done</button>
-                        <button class="btn btn-outline-danger btn-sm"
-                            onclick="documentSystem.filterDocuments('rejected')">Rejected</button>
+                    <!-- Bottom Row: Stats and Filters -->
+                    <div class="header-info-row">
+                        <!-- Quick Stats Cards -->
+                        <div class="stats-cards-modern">
+                            <div class="stat-card all">
+                                <div class="stat-icon">
+                                    <i class="bi bi-files"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="totalCount">0</div>
+                                    <div class="stat-label">Total</div>
+                                </div>
+                            </div>
+                            <div class="stat-card pending">
+                                <div class="stat-icon">
+                                    <i class="bi bi-hourglass-split"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="submittedCount">0</div>
+                                    <div class="stat-label">Pending</div>
+                                </div>
+                            </div>
+                            <div class="stat-card in-review">
+                                <div class="stat-icon">
+                                    <i class="bi bi-eye-fill"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="inReviewCount">0</div>
+                                    <div class="stat-label">In Review</div>
+                                </div>
+                            </div>
+                            <div class="stat-card approved">
+                                <div class="stat-icon">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="approvedCount">0</div>
+                                    <div class="stat-label">Completed</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Filter Chips -->
+                        <div class="filter-chips-modern">
+                            <button class="filter-chip active" data-filter="all" onclick="documentSystem.filterDocuments('all')">
+                                <i class="bi bi-files"></i>
+                                <span>All</span>
+                            </button>
+                            <button class="filter-chip" data-filter="submitted" onclick="documentSystem.filterDocuments('submitted')">
+                                <i class="bi bi-hourglass-split"></i>
+                                <span>Pending</span>
+                            </button>
+                            <button class="filter-chip" data-filter="in_review" onclick="documentSystem.filterDocuments('in_review')">
+                                <i class="bi bi-eye-fill"></i>
+                                <span>In Review</span>
+                            </button>
+                            <button class="filter-chip" data-filter="approved" onclick="documentSystem.filterDocuments('approved')">
+                                <i class="bi bi-check-circle-fill"></i>
+                                <span>Completed</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <script>
+        // Enhanced sort dropdown functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const sortTrigger = document.getElementById('sortTrigger');
+            const sortMenu = document.getElementById('sortMenu');
+            const sortOptions = document.querySelectorAll('.sort-option');
+            const searchInput = document.getElementById('documentSearch');
+            const clearSearchBtn = document.getElementById('clearSearch');
+            
+            // Toggle sort menu
+            if (sortTrigger) {
+                sortTrigger.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    sortMenu.style.display = sortMenu.style.display === 'none' ? 'block' : 'none';
+                });
+            }
+            
+            // Close sort menu when clicking outside
+            document.addEventListener('click', function() {
+                if (sortMenu) sortMenu.style.display = 'none';
+            });
+            
+            // Sort option selection
+            sortOptions.forEach(option => {
+                option.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    sortOptions.forEach(opt => opt.classList.remove('active'));
+                    this.classList.add('active');
+                    const sortValue = this.dataset.sort;
+                    if (window.documentSystem) {
+                        window.documentSystem.currentSort = sortValue;
+                        window.documentSystem.renderDocuments();
+                    }
+                    sortMenu.style.display = 'none';
+                });
+            });
+            
+            // Search input clear button
+            if (searchInput && clearSearchBtn) {
+                searchInput.addEventListener('input', function() {
+                    clearSearchBtn.style.display = this.value ? 'flex' : 'none';
+                });
+                
+                clearSearchBtn.addEventListener('click', function() {
+                    searchInput.value = '';
+                    this.style.display = 'none';
+                    if (window.documentSystem) {
+                        window.documentSystem.renderDocuments();
+                    }
+                });
+            }
+        });
+        </script>
 
         <!-- Dashboard View -->
         <div id="dashboardView" class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    <div class="container">
-                        <div class="row g-3" id="documentsContainer">
-                            <!-- Documents will be populated here -->
+                    <!-- Compact List View Container -->
+                    <div class="documents-list-wrapper">
+                        <div class="list-header">
+                            <div class="list-header-left">
+                                <h3 class="list-title">
+                                    <i class="bi bi-file-earmark-text me-2"></i>
+                                    Documents
+                                </h3>
+                                <span class="document-count" id="documentCount">0 documents</span>
+                            </div>
+                            <div class="list-header-right">
+                                <div class="view-toggle">
+                                    <button class="view-btn active" data-view="list" title="List View">
+                                        <i class="bi bi-list-ul"></i>
+                                    </button>
+                                    <button class="view-btn" data-view="grid" title="Grid View">
+                                        <i class="bi bi-grid-3x3-gap"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="documents-list-container" id="documentsContainer">
+                            <!-- Documents will be populated here as compact list items -->
+                        </div>
+                        
+                        <!-- Empty State -->
+                        <div class="empty-state" id="emptyState" style="display: none;">
+                            <div class="empty-icon">
+                                <i class="bi bi-inbox"></i>
+                            </div>
+                            <h4 class="empty-title">No Documents Found</h4>
+                            <p class="empty-message">There are no documents matching your current filters.</p>
                         </div>
                     </div>
                 </div>

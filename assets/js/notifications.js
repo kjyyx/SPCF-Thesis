@@ -88,13 +88,12 @@ class DocumentNotificationSystem {
             // Validate user access: SSC for approval, students for signing if assigned
             const userHasAccess = this.currentUser &&
                 (this.currentUser.role === 'employee' ||
-                    (this.currentUser.role === 'student' && 
-                     this.currentUser.position === 'Supreme Student Council President') ||
-                    (this.currentUser.role === 'student' && await this.hasPendingSignaturesForUser()));
+                    (this.currentUser.position === 'Supreme Student Council President' ||
+                        this.currentUser.position === 'College Student Council President'));
 
             if (!userHasAccess) {
-                console.error('Access denied: Invalid user role or no pending signatures');
-                window.location.href = BASE_URL + '?page=login&error=access_denied';
+                console.error('Access denied: Invalid user role or position');
+                window.location.href = 'user-login.php?error=access_denied';
                 return;
             }
 
@@ -569,39 +568,73 @@ class DocumentNotificationSystem {
     // Render documents in dashboard (old cards design)
     renderDocuments() {
         const container = document.getElementById('documentsContainer');
+        const emptyState = document.getElementById('emptyState');
+        const documentCount = document.getElementById('documentCount');
         if (!container) return;
 
-        // Add loading state
-        container.innerHTML = '<div class="col-12 text-center"><div class="loading" style="height: 200px;"></div></div>';
+        // Clear container
+        container.innerHTML = '';
+
+        // Show loading state
+        container.innerHTML = '<div class="col-12 text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
 
         setTimeout(() => {
             container.innerHTML = '';
 
             // Render pending documents
             this.pendingDocuments.forEach(doc => {
-                const card = this.createDocumentCard(doc);
-                container.appendChild(card);
+                const listItem = this.createDocumentCard(doc);
+                container.appendChild(listItem);
             });
+
             // Render completed documents as history
             if (this.completedDocuments.length > 0) {
-                const historyHeader = document.createElement('h5');
-                historyHeader.className = 'mt-4 mb-3 text-muted';
-                historyHeader.textContent = 'Recent History';
-                container.appendChild(historyHeader);
+                // Add section divider
+                const divider = document.createElement('div');
+                divider.className = 'list-section-divider';
+                divider.innerHTML = `
+                    <div class="divider-line"></div>
+                    <span class="divider-text">Recent History</span>
+                    <div class="divider-line"></div>
+                `;
+                container.appendChild(divider);
+
                 this.completedDocuments.forEach(doc => {
-                    const card = this.createDocumentCard(doc, true); // Pass readOnly flag
-                    container.appendChild(card);
+                    const listItem = this.createDocumentCard(doc, true);
+                    container.appendChild(listItem);
                 });
+            }
+
+            // Update document count
+            const totalCount = this.pendingDocuments.length + this.completedDocuments.length;
+            if (documentCount) {
+                documentCount.textContent = `${totalCount} document${totalCount !== 1 ? 's' : ''}`;
+            }
+
+            // Show empty state if no documents
+            if (totalCount === 0) {
+                if (emptyState) emptyState.style.display = 'flex';
+                container.style.display = 'none';
+            } else {
+                if (emptyState) emptyState.style.display = 'none';
+                container.style.display = 'block';
             }
 
             this.updateStatsDisplay();
         }, 300);
     }
 
-    // Create document card (old cards design)
+    // Create document card (compact list view)
     createDocumentCard(doc, readOnly = false) {
-        const col = document.createElement('div');
-        col.className = 'col-md-6 col-lg-4';
+        const listItem = document.createElement('div');
+        listItem.className = `document-list-item ${readOnly ? 'read-only' : ''}`;
+        
+        if (!readOnly) {
+            listItem.onclick = () => this.openDocument(doc.id);
+            listItem.setAttribute('tabindex', '0');
+            listItem.setAttribute('role', 'button');
+            listItem.setAttribute('aria-label', `Open ${this.escapeHtml(doc.title)}`);
+        }
 
         const statusInfo = this.getStatusInfo(doc.status);
         const dueDate = this.getDueDate(doc);
@@ -610,48 +643,75 @@ class DocumentNotificationSystem {
         const fromWho = doc.student?.department || doc.from || 'Unknown';
         const docType = this.formatDocType(doc.doc_type || doc.type);
 
-        col.innerHTML = `
-            <div class="card document-card h-100 ${readOnly ? 'opacity-50' : ''}" ${readOnly ? '' : `onclick="documentSystem.openDocument(${doc.id})"`} tabindex="0" role="button" aria-label="Open ${this.escapeHtml(doc.title)}">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <h6 class="card-title mb-0 fw-semibold">${this.escapeHtml(doc.title)}</h6>
-                        <span class="status-badge ${this.escapeHtml(doc.status)}">
-                            <i class="bi bi-${statusInfo.icon} me-1"></i>${String(doc.status || '').toUpperCase()}
+        // Priority badge based on days until due
+        let priorityClass = 'priority-normal';
+        let priorityLabel = 'Normal';
+        if (daysUntilDue !== null && daysUntilDue <= 1) {
+            priorityClass = 'priority-urgent';
+            priorityLabel = 'Urgent';
+        } else if (daysUntilDue !== null && daysUntilDue <= 3) {
+            priorityClass = 'priority-high';
+            priorityLabel = 'High';
+        }
+
+        listItem.innerHTML = `
+            <div class="list-item-left">
+                <div class="document-icon ${doc.status}">
+                    <i class="bi bi-file-earmark-text-fill"></i>
+                </div>
+                <div class="document-main-info">
+                    <div class="document-title-row">
+                        <h5 class="document-title">${this.escapeHtml(doc.title)}</h5>
+                        <span class="priority-badge ${priorityClass}">${priorityLabel}</span>
+                    </div>
+                    <div class="document-meta-row">
+                        <span class="meta-item">
+                            <i class="bi bi-folder2"></i>
+                            ${this.escapeHtml(docType)}
                         </span>
-                    </div>
-
-                    <div class="document-info mb-3">
-                        <div class="d-flex align-items-center text-muted mb-2">
-                            <i class="bi bi-folder me-2"></i>
-                            <span class="fs-sm">${this.escapeHtml(docType)}</span>
-                        </div>
-                        <div class="d-flex align-items-center text-muted mb-2">
-                            <i class="bi bi-person me-2"></i>
-                            <span class="fs-sm">From: ${this.escapeHtml(fromWho)}</span>
-                        </div>
-                        <div class="d-flex align-items-center text-muted">
-                            <i class="bi bi-calendar me-2"></i>
-                            <span class="fs-sm">Due: ${dueDate ? this.formatDate(dueDate) : '—'}</span>
-                            ${daysUntilDue !== null ?
-                `<span class="badge ${daysUntilDue <= 1 ? 'bg-danger' : daysUntilDue <= 3 ? 'bg-warning' : 'bg-info'} ms-2 fs-sm">${daysUntilDue === 0 ? 'Today' : daysUntilDue === 1 ? '1 day' : `${daysUntilDue} days`}</span>`
-                : '<span class="badge bg-secondary ms-2 fs-sm">Overdue</span>'}
-                        </div>
-                    </div>
-
-                    <div class="workflow-preview">
-                        <small class="text-muted">Workflow Progress:</small>
-                        <div class="progress mt-1" style="height: 6px;">
-                            <div class="progress-bar ${doc.status === 'submitted' ? 'bg-danger' : doc.status === 'in_review' ? 'bg-warning' : 'bg-info'}" style="width: ${progressPct}%"></div>
-                        </div>
+                        <span class="meta-separator">•</span>
+                        <span class="meta-item">
+                            <i class="bi bi-person"></i>
+                            ${this.escapeHtml(fromWho)}
+                        </span>
+                        <span class="meta-separator">•</span>
+                        <span class="meta-item">
+                            <i class="bi bi-calendar3"></i>
+                            ${dueDate ? this.formatDate(dueDate) : '—'}
+                        </span>
+                        ${daysUntilDue !== null ? `
+                            <span class="meta-separator">•</span>
+                            <span class="meta-item time-remaining ${daysUntilDue <= 1 ? 'text-danger' : daysUntilDue <= 3 ? 'text-warning' : ''}">
+                                <i class="bi bi-clock"></i>
+                                ${daysUntilDue === 0 ? 'Due Today' : daysUntilDue === 1 ? '1 day left' : `${daysUntilDue} days left`}
+                            </span>
+                        ` : ''}
                     </div>
                 </div>
             </div>
+            
+            <div class="list-item-right">
+                <div class="document-status">
+                    <span class="status-badge-compact ${this.escapeHtml(doc.status)}">
+                        <i class="bi bi-${statusInfo.icon}"></i>
+                        <span>${String(doc.status || '').toUpperCase()}</span>
+                    </span>
+                </div>
+                <div class="document-progress">
+                    <div class="progress-bar-wrapper">
+                        <div class="progress-bar-fill" style="width: ${progressPct}%"></div>
+                    </div>
+                    <span class="progress-text">${progressPct}%</span>
+                </div>
+                <button class="list-item-action" onclick="event.stopPropagation(); documentSystem.openDocument(${doc.id})" aria-label="View document">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
         `;
 
-        // Keyboard support for opening on Enter/Space
-        const cardEl = col.querySelector('.document-card');
+        // Keyboard support
         if (!readOnly) {
-            cardEl.addEventListener('keydown', (e) => {
+            listItem.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     this.openDocument(doc.id);
@@ -659,7 +719,7 @@ class DocumentNotificationSystem {
             });
         }
 
-        return col;
+        return listItem;
     }
 
     // Helpers for due date and progress (compatible with API)
@@ -756,6 +816,18 @@ class DocumentNotificationSystem {
     // Filter documents by status
     filterDocuments(status) {
         this.currentFilter = status;
+        
+        // Update filter chip active states
+        const filterChips = document.querySelectorAll('.filter-chip');
+        filterChips.forEach(chip => {
+            const chipFilter = chip.getAttribute('data-filter');
+            if (chipFilter === status) {
+                chip.classList.add('active');
+            } else {
+                chip.classList.remove('active');
+            }
+        });
+        
         this.applyFiltersAndSearch();
     }
 
@@ -919,6 +991,27 @@ class DocumentNotificationSystem {
             notesInput.addEventListener('input', this._notesHandler);
         }
 
+        // Conditionally hide hierarchy and notes for students
+        const isStudentView = this.currentUser?.role === 'student' && (this.currentUser?.position !== 'SSC President' || doc.student?.id === this.currentUser.id);
+        let workflowStepsElement = document.getElementById('workflowSteps');
+        const notesContainer = document.querySelector('.notes-container');
+
+        if (workflowStepsElement) {
+            if (isStudentView) {
+                workflowStepsElement.closest('.sidebar-card').style.display = 'none'; // Hide hierarchy
+            } else {
+                workflowStepsElement.closest('.sidebar-card').style.display = 'block';
+            }
+        }
+
+        if (notesContainer) {
+            if (isStudentView) {
+                notesContainer.closest('.sidebar-card').style.display = 'none'; // Hide notes
+            } else {
+                notesContainer.closest('.sidebar-card').style.display = 'block';
+            }
+        }
+
         // Show/hide approval buttons based on user permissions
         this.updateApprovalButtonsVisibility(doc);
     }
@@ -944,8 +1037,14 @@ class DocumentNotificationSystem {
         // Find the pending step
         const pendingStep = doc.workflow?.find(step => step.status === 'pending');
 
-        if (!pendingStep) {
-            // No pending steps, hide all approval UI
+        // Check user role and assignment
+        const currentUser = this.currentUser;
+
+        // Special case: allow student creator to submit their own document
+        const isStudentCreator = currentUser.role === 'student' && doc.student && doc.student.id === currentUser.id;
+
+        if (!pendingStep && !isStudentCreator) {
+            // No pending steps and not student creator, hide all approval UI
             signBtn.style.display = 'none';
             rejectBtn.style.display = 'none';
             signaturePadToggle.style.display = 'none';
@@ -953,18 +1052,27 @@ class DocumentNotificationSystem {
             return;
         }
 
-        // Check user role and assignment
-        const currentUser = this.currentUser;
-        const isAssigned = this.isUserAssignedToStep(currentUser, pendingStep);
-        const isSscApprover = currentUser.role === 'student' && 
-            currentUser.position === 'Supreme Student Council President';
+        const isAssigned = this.isUserAssignedToStep(currentUser, pendingStep) || isStudentCreator;
+        const isStudentView = currentUser.role === 'student' && (currentUser.position !== 'SSC President' || doc.student?.id === currentUser.id);
 
         if (isAssigned) {
-            // Show signing for assigned users (creators or approvers)
-            signBtn.style.display = 'flex';
-            rejectBtn.style.display = isSscApprover ? 'flex' : 'none'; // Only SSC can reject
-            signaturePadToggle.style.display = 'block';
-            signatureStatusContainer.style.display = 'block';
+            if (isStudentView) {
+                // Students get Submit Document and Delete Document buttons
+                signBtn.style.display = 'flex';
+                signBtn.querySelector('.btn-title').textContent = 'Submit Document';
+                rejectBtn.style.display = 'flex';
+                rejectBtn.querySelector('.btn-title').textContent = 'Delete Document';
+                rejectBtn.onclick = () => this.deleteDocument(doc.id);
+                signaturePadToggle.style.display = 'block';
+                signatureStatusContainer.style.display = 'block';
+            } else {
+                // Employees retain full functionality (sign and reject)
+                signBtn.style.display = 'flex';
+                signBtn.querySelector('.btn-title').textContent = 'Sign & Approve'; // Keep original for employees
+                rejectBtn.style.display = 'flex'; // Show reject for employees
+                signaturePadToggle.style.display = 'block';
+                signatureStatusContainer.style.display = 'block';
+            }
         } else {
             // Hide for unauthorized users
             signBtn.style.display = 'none';
@@ -1819,6 +1927,11 @@ class DocumentNotificationSystem {
     isUserAssignedToPendingStep(doc) {
         if (!doc.workflow || !this.currentUser) return false;
 
+        // Allow student creator to sign their own document
+        if (this.currentUser.role === 'student' && doc.student && doc.student.id === this.currentUser.id) {
+            return true;
+        }
+
         const pendingStep = doc.workflow.find(step => step.status === 'pending');
         if (!pendingStep) return false;
 
@@ -2386,20 +2499,35 @@ class DocumentNotificationSystem {
 
         // Check if current user is assigned to this step
         const isAssigned = currentStep.assignee_id === this.currentUser?.id;
+        const isStudent = this.currentUser?.role === 'student';
 
         if (!isAssigned) {
             return '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>';
         }
 
-        return `
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            <button type="button" class="btn btn-danger" onclick="documentSystem.rejectDocument(${doc.id})">
-                <i class="bi bi-x-circle me-1"></i>Reject
-            </button>
-            <button type="button" class="btn btn-success" onclick="documentSystem.signDocument(${doc.id})">
-                <i class="bi bi-check-circle me-1"></i>Sign & Approve
-            </button>
-        `;
+        if (isStudent) {
+            // Students get Submit Document and Delete Document buttons
+            return `
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-danger" onclick="documentSystem.deleteDocument(${doc.id})">
+                    <i class="bi bi-trash me-1"></i>Delete Document
+                </button>
+                <button type="button" class="btn btn-success" onclick="documentSystem.signDocument(${doc.id})">
+                    <i class="bi bi-check-circle me-1"></i>Submit Document
+                </button>
+            `;
+        } else {
+            // Employees get full buttons
+            return `
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-danger" onclick="documentSystem.rejectDocument(${doc.id})">
+                    <i class="bi bi-x-circle me-1"></i>Reject
+                </button>
+                <button type="button" class="btn btn-success" onclick="documentSystem.signDocument(${doc.id})">
+                    <i class="bi bi-check-circle me-1"></i>Sign & Approve
+                </button>
+            `;
+        }
     }
 
     // Format step status
@@ -2566,27 +2694,90 @@ class DocumentNotificationSystem {
         }
     }
 
+    // Delete document (for creators only)
+    async deleteDocument(docId) {
+        const doc = this.currentDocument && this.currentDocument.id === docId
+            ? this.currentDocument
+            : this.documents.find(d => d.id === docId);
+
+        if (!doc) {
+            this.showToast({
+                type: 'error',
+                title: 'Error',
+                message: 'Document not found.'
+            });
+            return;
+        }
+
+        // Confirm deletion
+        const confirmed = confirm('Are you sure you want to delete this document? This action cannot be undone.');
+        if (!confirmed) return;
+
+        try {
+            const response = await fetch(`${this.apiBase}?id=${docId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showToast({
+                    type: 'success',
+                    title: 'Document Deleted',
+                    message: 'The document has been deleted successfully.'
+                });
+
+                // Refresh documents
+                await this.refreshDocuments();
+
+                // Go back to dashboard
+                this.goBack();
+
+                if (window.addAuditLog) {
+                    window.addAuditLog('DOCUMENT_DELETED', 'Document Management', `Deleted document ${docId}`, docId, 'Document', 'WARNING');
+                }
+            } else {
+                this.showToast({
+                    type: 'error',
+                    title: 'Delete Failed',
+                    message: result.message || 'Failed to delete document.'
+                });
+            }
+        } catch (error) {
+            this.showToast({
+                type: 'error',
+                title: 'Error',
+                message: 'An error occurred while deleting the document.'
+            });
+        }
+    }
+
     // Update statistics display
     updateStatsDisplay() {
-        const urgentCount = this.documents.filter(doc => doc.status === 'submitted').length;
-        const highCount = this.documents.filter(doc => doc.status === 'in_review').length;
-        const normalCount = this.documents.filter(doc => doc.status === 'approved').length;
+        const totalCount = this.documents.length;
+        const submittedCount = this.documents.filter(doc => doc.status === 'submitted').length;
+        const inReviewCount = this.documents.filter(doc => doc.status === 'in_review').length;
+        const approvedCount = this.documents.filter(doc => doc.status === 'approved').length;
 
         const elements = {
-            urgentCount: document.getElementById('urgentCount'),
-            highCount: document.getElementById('highCount'),
-            normalCount: document.getElementById('normalCount'),
-            pendingCount: document.getElementById('pendingCount'),
+            totalCount: document.getElementById('totalCount'),
+            submittedCount: document.getElementById('submittedCount'),
+            inReviewCount: document.getElementById('inReviewCount'),
+            approvedCount: document.getElementById('approvedCount'),
             notificationCount: document.getElementById('notificationCount')
         };
 
-        if (elements.urgentCount) elements.urgentCount.textContent = urgentCount;
-        if (elements.highCount) elements.highCount.textContent = highCount;
-        if (elements.normalCount) elements.normalCount.textContent = normalCount;
-        if (elements.pendingCount) elements.pendingCount.textContent = this.documents.length;
+        if (elements.totalCount) elements.totalCount.textContent = totalCount;
+        if (elements.submittedCount) elements.submittedCount.textContent = submittedCount;
+        if (elements.inReviewCount) elements.inReviewCount.textContent = inReviewCount;
+        if (elements.approvedCount) elements.approvedCount.textContent = approvedCount;
         if (elements.notificationCount) {
-            elements.notificationCount.textContent = urgentCount + highCount;
-            elements.notificationCount.style.display = (urgentCount + highCount) > 0 ? 'flex' : 'none';
+            const pendingActions = submittedCount + inReviewCount;
+            elements.notificationCount.textContent = pendingActions;
+            elements.notificationCount.style.display = pendingActions > 0 ? 'flex' : 'none';
         }
     }
 

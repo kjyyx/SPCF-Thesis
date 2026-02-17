@@ -1303,13 +1303,6 @@ class DocumentNotificationSystem {
             step.status === 'completed' && step.signed_at
         );
 
-        // For SAF, only allow two redactions (dual signature) and only for the correct steps
-        if (doc.doc_type === 'saf') {
-            // Find the two steps that correspond to the dual signature
-            // Typically, these are the first two completed steps with a signature_map
-            completedSignatures = completedSignatures.filter(step => step.signature_map).slice(0, 2);
-        }
-
         // Check if current user is the document issuer (sender)
         const isIssuer = this.currentUser && doc.student && doc.student.id === this.currentUser.id;
 
@@ -1357,46 +1350,62 @@ class DocumentNotificationSystem {
                 signatureContainer.style.position = 'absolute';
                 signatureContainer.style.left = pixelRect.left + 'px';
                 signatureContainer.style.top = pixelRect.top + 'px';
-                // Fixed size for SAF, same as original signature box
-                // Match original signature-target box size
-                signatureContainer.style.width = '120px';
-                signatureContainer.style.height = '60px';
+
+                // Adjust size and layout based on document type
+                const isSaf = doc.doc_type === 'saf';
+                if (isSaf) {
+                    // SAF: Keep compact size, vertical layout (timestamp below)
+                    signatureContainer.style.width = '120px';
+                    signatureContainer.style.height = '80px'; // Slightly taller for vertical layout
+                } else {
+                    // Non-SAF: Wider for horizontal layout (timestamp on right)
+                    signatureContainer.style.width = '200px';
+                    signatureContainer.style.height = '60px';
+                }
                 signatureContainer.style.zIndex = '15';
 
-                // Redaction box with signing user's name and position (only for non-approved documents)
-                if (doc.status !== 'approved') {
-                    const redactionBox = document.createElement('div');
-                    redactionBox.className = 'signature-redaction';
-                    redactionBox.style.width = '100%';
-                    redactionBox.style.height = '100%';
-                    redactionBox.style.backgroundColor = '#000000'; // Black for redaction
-                    redactionBox.style.display = 'block';
-                    redactionBox.style.borderRadius = '4px';
-                    redactionBox.style.color = '#fff';
-                    redactionBox.style.fontWeight = '600';
-                    redactionBox.style.fontSize = '12px';
-                    redactionBox.style.padding = '4px';
-                    // Show signing user's name and position
-                    const name = step.assignee_name || 'Unknown';
-                    const position = step.assignee_position || '';
-                    redactionBox.innerHTML = `<div>${name}</div><div style="font-size:11px;font-weight:400;">${position}</div>`;
-                    signatureContainer.appendChild(redactionBox);
+                // Redaction box with signing user's name and position (for completed signatures)
+                const redactionBox = document.createElement('div');
+                redactionBox.className = 'signature-redaction';
+                redactionBox.style.width = '100%';
+                redactionBox.style.height = '100%';
+                redactionBox.style.display = 'flex';
+                redactionBox.style.flexDirection = isSaf ? 'column' : 'row'; // Vertical for SAF, horizontal for others
+                redactionBox.style.justifyContent = isSaf ? 'center' : 'space-between'; // Center for SAF, space-between for others
+                redactionBox.style.alignItems = 'center';
+                redactionBox.style.borderRadius = '4px';
+                redactionBox.style.color = '#fff';
+                redactionBox.style.fontWeight = '600';
+                redactionBox.style.fontSize = '12px';
+                redactionBox.style.padding = '4px';
+                redactionBox.style.position = 'relative';
+
+                // Show signing user's name and position with timestamp
+                const name = step.assignee_name || 'Unknown';
+                const position = step.assignee_position || '';
+                const timestamp = new Date(step.signed_at).toLocaleString();
+
+                if (isSaf) {
+                    // Vertical layout: Name/position on top, timestamp below
+                    redactionBox.innerHTML = `
+                        <div style="text-align: center;">
+                            <div>${name}</div>
+                            <div style="font-size:11px;font-weight:400;">${position}</div>
+                        </div>
+                        <div style="font-size:10px;font-weight:400;margin-top:4px;text-align:center;">${timestamp}</div>
+                    `;
+                } else {
+                    // Horizontal layout: Name/position on left, timestamp on right
+                    redactionBox.innerHTML = `
+                        <div>
+                            <div>${name}</div>
+                            <div style="font-size:11px;font-weight:400;">${position}</div>
+                        </div>
+                        <div style="font-size:10px;font-weight:400;text-align:right;">${timestamp}</div>
+                    `;
                 }
 
-                // Add timestamp below the redaction box (or in place for approved docs)
-                const timestamp = document.createElement('div');
-                timestamp.className = 'signature-timestamp';
-                timestamp.textContent = new Date(step.signed_at).toLocaleString();
-                timestamp.style.fontSize = '10px';
-                timestamp.style.color = '#666';
-                timestamp.style.textAlign = 'center';
-                timestamp.style.marginTop = '4px';
-                timestamp.style.fontWeight = '500';
-                timestamp.style.position = 'absolute';
-                timestamp.style.top = '100%';
-                timestamp.style.left = '0';
-                timestamp.style.width = '100%';
-                signatureContainer.appendChild(timestamp);
+                signatureContainer.appendChild(redactionBox);
                 content.appendChild(signatureContainer);
             });
         });
@@ -1408,7 +1417,7 @@ class DocumentNotificationSystem {
         this.linkedTargets = null;
         this.linkedSignatureMaps = null;
 
-        // Calculate vertical offset (0.48 = 48% of page height between Accounting and Issuer copies)
+        // Calculate vertical offset (0.45 = 45% of page height between signature positions)
         const verticalOffset = 0.45;
 
         // Get initial position from doc signature_map or use default
@@ -1426,14 +1435,14 @@ class DocumentNotificationSystem {
         if (!initialMap) {
             initialMap = {
                 x_pct: 0.62,
-                y_pct: 0.30,  // Accounting copy (top half)
+                y_pct: 0.30,  // Primary signature position (top half)
                 w_pct: 0.28,
                 h_pct: 0.08,
                 page: 1
             };
         }
 
-        // Create primary target (Accounting Copy)
+        // Create primary target
         const primaryTarget = this.createSignatureTarget(
             content,
             'accounting',
@@ -1442,7 +1451,7 @@ class DocumentNotificationSystem {
             '#3b82f6'
         );
 
-        // Create secondary target (Issuer Copy) - same X position, offset Y
+        // Create secondary target - same X position, offset Y
         const issuerMap = {
             ...initialMap,
             y_pct: initialMap.y_pct + verticalOffset
@@ -1475,8 +1484,8 @@ class DocumentNotificationSystem {
         // Show instruction toast
         this.showToast({
             type: 'info',
-            title: 'SAF Dual Signature',
-            message: 'Drag the blue box to position your signature. Both Accounting and Issuer copies will move together.'
+            title: 'SAF Signature',
+            message: 'Drag the signature box to position your signature on the document.'
         });
 
         // If signature already drawn, update both targets
@@ -1519,12 +1528,12 @@ class DocumentNotificationSystem {
         box.style.fontSize = '12px';
         box.style.color = borderColor;
         box.style.overflow = 'hidden';
-        box.textContent = `${role === 'accounting' ? 'Accounting' : 'Issuer'} Copy`;
+        box.textContent = 'Signature';
         
         // Add role badge
         const badge = document.createElement('div');
         badge.className = 'saf-role-badge';
-        badge.textContent = role === 'accounting' ? 'A' : 'I';
+        badge.textContent = role === 'accounting' ? '1' : '2';
         badge.style.position = 'absolute';
         badge.style.top = '-8px';
         badge.style.right = '-8px';
@@ -1789,16 +1798,14 @@ class DocumentNotificationSystem {
                 y_pct,
                 w_pct: w / width,
                 h_pct: h / height,
-                page: this.currentPage,
-                label: 'Accounting Copy'
+                page: this.currentPage
             },
             issuer: {
                 x_pct: x_pct2,
                 y_pct: y_pct2,
                 w_pct: w / width,
                 h_pct: h / height,
-                page: this.currentPage,
-                label: 'Issuer Copy'
+                page: this.currentPage
             }
         };
         this.currentSignatureMap = this.linkedSignatureMaps.accounting;
@@ -1863,18 +1870,15 @@ class DocumentNotificationSystem {
                 <div class="saf-dual-signature-status">
                     <div class="d-flex align-items-center mb-2">
                         <i class="bi bi-check-circle-fill text-success me-2"></i>
-                        <span class="fw-semibold">SAF Dual Signature Ready</span>
+                        <span class="fw-semibold">SAF Signature Ready</span>
                     </div>
                     <div class="saf-signature-positions">
-                        <span class="badge bg-primary me-2">
-                            <i class="bi bi-file-earmark-text me-1"></i>Accounting Copy
-                        </span>
-                        <span class="badge bg-success">
-                            <i class="bi bi-file-earmark-text me-1"></i>Issuer Copy
+                        <span class="badge bg-primary">
+                            <i class="bi bi-pencil-square me-1"></i>Signature Positioned
                         </span>
                     </div>
                     <small class="text-muted d-block mt-1">
-                        Your signature will appear in both positions
+                        Your signature is ready to be applied
                     </small>
                 </div>
             `;
@@ -2349,21 +2353,6 @@ class DocumentNotificationSystem {
                     height: issuer.h_pct * page.getHeight()
                 });
 
-                // Add labels if needed
-                page.drawText('Accounting Copy', {
-                    x: acctX,
-                    y: acctY - 10,
-                    size: 8,
-                    color: PDFLib.rgb(0.3, 0.3, 0.3)
-                });
-
-                page.drawText('Issuer Copy', {
-                    x: issuerX,
-                    y: issuerY - 10,
-                    size: 8,
-                    color: PDFLib.rgb(0.3, 0.3, 0.3)
-                });
-
             } else {
                 // Regular single signature
                 const pageIndex = (this.currentSignatureMap.page || this.currentPage) - 1;
@@ -2592,7 +2581,7 @@ class DocumentNotificationSystem {
 
                     if (result.success) {
                         const successMessage = isSaf
-                            ? 'Signature placed on both Accounting and Issuer copies successfully.'
+                            ? 'Signature applied successfully to the document.'
                             : 'Document has been successfully signed and approved.';
                         
                         this.showToast({

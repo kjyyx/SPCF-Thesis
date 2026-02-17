@@ -205,6 +205,20 @@ $pageTitle = 'Student Allocated Funds';
   <div id="dashboard-screen" class="dashboard-wrapper">
    <?php include ROOT_PATH . 'includes/navbar.php'; ?>
    <?php include ROOT_PATH . 'includes/notifications.php'; ?>
+
+   <!-- Approval Button for Accounting Personnel -->
+   <?php if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false): ?>
+    <div class="container-fluid p-4">
+     <div class="alert alert-info">
+      <h5><i class="bi bi-check-circle me-2"></i>SAF Document Approval</h5>
+      <p>As Accounting Personnel, you can approve pending SAF documents. Click below to access the approval system.</p>
+      <a href="<?php echo BASE_URL; ?>?page=notifications" class="btn btn-primary">
+       <i class="bi bi-pencil-square me-2"></i>Approve SAF Documents
+      </a>
+     </div>
+    </div>
+   <?php endif; ?>
+
    <!-- All Departments View -->
    <div id="all-depts-view" class="container-fluid p-4" style="display: none;">
     <div class="row mb-4">

@@ -148,6 +148,11 @@ $pendingCount = $stmt->fetchColumn();
                                         <i class="bi bi-cash-coin"></i>
                                         <span>SAF</span>
                                     </button>
+                                    <button class="action-compact-btn" onclick="openPendingApprovals()"
+                                        title="View Documents In Review">
+                                        <i class="bi bi-clipboard-check"></i>
+                                        <span>In review</span>
+                                    </button>
                                     
                                                                         <?php if ($currentUser['position'] === 'Supreme Student Council President'): ?>
                                         <button class="action-compact-btn" onclick="openPendingApprovals()" id="approvalsBtn"

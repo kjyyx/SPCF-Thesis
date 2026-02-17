@@ -11,6 +11,17 @@ document.addEventListener('DOMContentLoaded', function () {
 async function loadMaterials() {
     try {
         const response = await fetch(BASE_URL + 'api/materials.php?for_approval=1');
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            // Log the raw response for debugging
+            const rawText = await response.text();
+            console.error('Non-JSON response received:', rawText.substring(0, 500)); // First 500 chars
+            showError('Server returned invalid response. Check console for details.');
+            return;
+        }
+        
         const result = await response.json();
 
         if (result.success) {

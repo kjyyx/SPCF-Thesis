@@ -382,7 +382,7 @@ function collectProposalData() {
         department: document.getElementById('prop-department').value,
         departmentFull: '',  // Will be set server-side
         title: document.getElementById('prop-title').value,
-        leadFacilitator: document.getElementById('prop-lead').value,
+        lead: document.getElementById('prop-lead').value,
         rationale: document.getElementById('prop-rationale').value,
         objectives: (document.getElementById('prop-objectives').value || '').split('\n').map(s => s.trim()).filter(Boolean),
         ilos: (document.getElementById('prop-ilos').value || '').split('\n').map(s => s.trim()).filter(Boolean),
@@ -607,7 +607,7 @@ function generateProposalHTML(d) {
         `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #ddd;padding:6px">Start</th><th style="border:1px solid #ddd;padding:6px">End</th><th style="border:1px solid #ddd;padding:6px">Activity</th></tr></thead><tbody>${d.program.map(p => `<tr><td style="border:1px solid #ddd;padding:6px">${escapeHtml(p.start)}</td><td style="border:1px solid #ddd;padding:6px">${escapeHtml(p.end)}</td><td style="border:1px solid #ddd;padding:6px">${escapeHtml(p.act)}</td></tr>`).join('')}</tbody></table>` :
         '<div class="text-muted">No program schedule</div>';
 
-    return `<div class="paper-page">${header}<div><strong>Title:</strong> ${escapeHtml(d.title || '[Project Title]')}</div><div style="margin-top:6px"><strong>Date:</strong> ${formatDate(d.date)}</div><div style="margin-top:6px"><strong>Organizer:</strong> ${escapeHtml(d.organizer || '')}</div><div style="margin-top:6px"><strong>Lead Facilitator:</strong> ${escapeHtml(d.leadFacilitator || '')}</div><div style="margin-top:6px"><strong>Department:</strong> ${escapeHtml(d.department || '')}</div><div style="margin-top:12px"><strong>Rationale:</strong><div style="margin-top:6px">${(d.rationale || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Objectives:</strong>${objectivesHtml}</div><div style="margin-top:12px"><strong>Intended Learning Outcomes:</strong>${ilosHtml}</div><div style="margin-top:12px"><strong>Source of Budget:</strong> ${escapeHtml(d.budgetSource || '')}</div><div style="margin-top:12px"><strong>Venue:</strong> ${escapeHtml(d.venue || '')}</div><div style="margin-top:12px"><strong>Mechanics:</strong><div style="margin-top:6px">${(d.mechanics || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Schedule (summary):</strong><div style="margin-top:6px">${(d.scheduleSummary || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Program Schedule:</strong>${programHtml}</div><div style="margin-top:12px"><strong>Budget Requirements:</strong>${budgetHtml}</div></div>`;
+    return `<div class="paper-page">${header}<div><strong>Title:</strong> ${escapeHtml(d.title || '[Project Title]')}</div><div style="margin-top:6px"><strong>Date:</strong> ${formatDate(d.date)}</div><div style="margin-top:6px"><strong>Organizer:</strong> ${escapeHtml(d.organizer || '')}</div><div style="margin-top:6px"><strong>Lead Facilitator:</strong> ${escapeHtml(d.lead || '')}</div><div style="margin-top:6px"><strong>Department:</strong> ${escapeHtml(d.department || '')}</div><div style="margin-top:12px"><strong>Rationale:</strong><div style="margin-top:6px">${(d.rationale || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Objectives:</strong>${objectivesHtml}</div><div style="margin-top:12px"><strong>Intended Learning Outcomes:</strong>${ilosHtml}</div><div style="margin-top:12px"><strong>Source of Budget:</strong> ${escapeHtml(d.budgetSource || '')}</div><div style="margin-top:12px"><strong>Venue:</strong> ${escapeHtml(d.venue || '')}</div><div style="margin-top:12px"><strong>Mechanics:</strong><div style="margin-top:6px">${(d.mechanics || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Schedule (summary):</strong><div style="margin-top:6px">${(d.scheduleSummary || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Program Schedule:</strong>${programHtml}</div><div style="margin-top:12px"><strong>Budget Requirements:</strong>${budgetHtml}</div></div>`;
 }
 
 function generateSAFHTML(d) {
@@ -688,7 +688,7 @@ function generateCommunicationHTML(d) {
     const creatorPosition = window.currentUser?.position || 'CSC Position';
     const creatorDepartment = window.currentUser?.department || 'Department';
 
-    return `<div class="paper-page">${header}<div style="margin-top:2rem"><div>Date: ${formatDate(d.date)}</div><div style="margin-top:1rem">For: ${escapeHtml(d.for || '')}</div><div style="margin-top:1rem">From: ${escapeHtml(creatorName)}<br>${escapeHtml(creatorPosition)}, ${escapeHtml(creatorDepartment)}</div><div style="margin-top:1rem">Noted: ${renderPeople(d.notedList)}</div><div style="margin-top:1rem">Approved: ${renderPeople(d.approvedList)}</div><div style="margin-top:1rem">Subject: ${escapeHtml(d.subject || '')}</div><div style="margin-top:1rem">${bodyHtml}</div><div style="margin-top:2rem;text-align:left">Sincerely,<br>College of Engineering – Student Council</div></div></div>`;
+    return `<div class="paper-page">${header}<div style="margin-top:2rem"><div>Date: ${formatDate(d.date)}</div><div style="margin-top:1rem">For: ${escapeHtml(d.for || '')}</div><div style="margin-top:1rem">From: <strong>${escapeHtml(creatorName)}</strong><br><em>${escapeHtml(creatorPosition)}, ${escapeHtml(creatorDepartment)}</em></div><div style="margin-top:1rem">Noted: ${renderPeople(d.notedList)}</div><div style="margin-top:1rem">Approved: ${renderPeople(d.approvedList)}</div><div style="margin-top:1rem">Subject: ${escapeHtml(d.subject || '')}</div><div style="margin-top:1rem">${bodyHtml}</div><div style="margin-top:2rem;text-align:left">Sincerely,<br>College of Engineering – Student Council</div></div></div>`;
 }
 
 /**
@@ -1123,7 +1123,7 @@ async function submitDocument() {
             venue: 'prop-venue',
             objectives: 'prop-objectives',
             department: 'prop-department',
-            leadFacilitator: 'prop-lead'
+            lead: 'prop-lead'
         },
         saf: {
             title: 'saf-title',
@@ -1177,10 +1177,10 @@ async function submitDocument() {
             highlightField(currentMappings.department, 'Department is required');
             if (!firstErrorField) firstErrorField = currentMappings.department;
         }
-        if (!data.leadFacilitator || data.leadFacilitator.trim() === '') {
+        if (!data.lead || data.lead.trim() === '') {
             validationErrors.push('Lead Facilitator is required');
-            highlightField(currentMappings.leadFacilitator, 'Lead Facilitator is required');
-            if (!firstErrorField) firstErrorField = currentMappings.leadFacilitator;
+            highlightField(currentMappings.lead, 'Lead Facilitator is required');
+            if (!firstErrorField) firstErrorField = currentMappings.lead;
         }
     } else if (currentType === 'saf') {
         if (!data.title || data.title.trim() === '') {

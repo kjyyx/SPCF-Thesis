@@ -16,10 +16,7 @@ const DEPARTMENTS = [
 // Department mapping
 const deptMap = {};
 const deptNameToIdMap = {};
-DEPARTMENTS.forEach(dept => {
-  deptMap[dept.db_id] = dept.id;
-  deptNameToIdMap[dept.name.trim().toLowerCase()] = dept.id;
-});
+DEPARTMENTS.forEach(dept => {/* Lines 20-22 omitted */});
 
 // State
 let currentLevel = null;

@@ -13,12 +13,6 @@ if (!$currentUser) {
     exit();
 }
 
-// Restrict Accounting employees to only SAF access
-if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
-    header('Location: ' . BASE_URL . 'saf');
-    exit();
-}
-
 // Define constants for better maintainability
 const ALLOWED_ROLES = ['employee', 'student'];
 

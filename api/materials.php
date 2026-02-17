@@ -83,41 +83,62 @@ switch ($method) {
         // Check if requesting materials for approval (for approvers)
         $forApproval = isset($_GET['for_approval']) && $_GET['for_approval'] == '1';
         if ($forApproval) {
-            // Only allow specific approver roles
-            $userRole = $_SESSION['user_role'];
-            $userPosition = $_SESSION['position'] ?? '';
-            $allowedPositions = ['CSC Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'];
-            if ($userRole !== 'employee' || !in_array($userPosition, $allowedPositions)) {
-                http_response_code(403);
-                echo json_encode(['success' => false, 'message' => 'Access denied']);
-                exit();
+            try {
+                // Validate session variables
+                if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role']) || !isset($_SESSION['position'])) {
+                    http_response_code(401);
+                    echo json_encode(['success' => false, 'message' => 'Session expired or invalid']);
+                    exit();
+                }
+
+                // Only allow specific approver roles
+                $userRole = $_SESSION['user_role'];
+                $userPosition = $_SESSION['position'] ?? '';
+                $allowedPositions = ['CSC Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'];
+                
+                if ($userRole !== 'employee' || !in_array($userPosition, $allowedPositions)) {
+                    http_response_code(403);
+                    echo json_encode(['success' => false, 'message' => 'Access denied']);
+                    exit();
+                }
+
+                // Get materials pending approval for this user's step
+                $stepOrder = getStepOrderForPosition($userPosition);
+                if ($stepOrder === null) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'message' => 'Invalid position for approval']);
+                    exit();
+                }
+
+                $department = $_SESSION['department'] ?? null; // For CSC Adviser filtering
+
+                $whereClause = "ms.assigned_to_employee_id = ? AND ms.status = 'pending' AND ms.step_order = ?";
+                $params = [$_SESSION['user_id'], $stepOrder];
+
+                // For CSC Adviser, filter by department
+                if ($userPosition === 'CSC Adviser' && $department) {
+                    $whereClause .= " AND s.department = ?";
+                    $params[] = $department;
+                }
+
+                $stmt = $conn->prepare("
+                    SELECT m.*, ms.step_order, ms.status as step_status, ms.assigned_to_employee_id
+                    FROM materials m
+                    JOIN materials_steps ms ON m.id = ms.material_id
+                    LEFT JOIN students s ON m.student_id = s.id
+                    WHERE " . $whereClause . "
+                    ORDER BY m.uploaded_at DESC
+                ");
+                $stmt->execute($params);
+                $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                echo json_encode(['success' => true, 'materials' => $materials]);
+            } catch (Exception $e) {
+                error_log('Error in materials approval query: ' . $e->getMessage());
+                error_log('Stack trace: ' . $e->getTraceAsString());
+                http_response_code(500);
+                echo json_encode(['success' => false, 'message' => 'Internal server error: ' . $e->getMessage()]);
             }
-
-            // Get materials pending approval for this user's step
-            $stepOrder = getStepOrderForPosition($userPosition);
-            $department = $_SESSION['department'] ?? null; // For CSC Adviser filtering
-
-            $whereClause = "ms.assigned_to_employee_id = ? AND ms.status = 'pending' AND ms.step_order = ?";
-            $params = [$_SESSION['user_id'], $stepOrder];
-
-            // For CSC Adviser, filter by department
-            if ($userPosition === 'CSC Adviser' && $department) {
-                $whereClause .= " AND s.department = ?";
-                $params[] = $department;
-            }
-
-            $stmt = $conn->prepare("
-                SELECT m.*, ms.step_order, ms.status as step_status, ms.assigned_to_employee_id
-                FROM materials m
-                JOIN materials_steps ms ON m.id = ms.material_id
-                JOIN students s ON m.student_id = s.id
-                WHERE " . $whereClause . "
-                ORDER BY m.uploaded_at DESC
-            ");
-            $stmt->execute($params);
-            $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            echo json_encode(['success' => true, 'materials' => $materials]);
             exit();
         }
 

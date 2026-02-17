@@ -151,11 +151,11 @@ function fillDocxTemplate($templatePath, $data)
         // Clone the block for each person
         $templateProcessor->cloneBlock('noted', count($data['notedList']), true, true);
 
-        // Set values for each cloned block
+        // Set values for each cloned block with bold name and italic title
         foreach ($data['notedList'] as $index => $person) {
             $num = $index + 1;
-            $templateProcessor->setValue('noted_name#' . $num, htmlspecialchars($person['name']));
-            $templateProcessor->setValue('noted_title#' . $num, htmlspecialchars($person['title']) . "\n\n"); // Add extra spacing for signature
+            $templateProcessor->setValue('noted_name#' . $num, '<w:rPr><w:b/></w:rPr>' . htmlspecialchars($person['name'])); // Bold name
+            $templateProcessor->setValue('noted_title#' . $num, '<w:rPr><w:i/></w:rPr>' . htmlspecialchars($person['title']) . "\n\n"); // Italic title with spacing
         }
     } else {
         // If no noted people, remove the entire block
@@ -166,11 +166,11 @@ function fillDocxTemplate($templatePath, $data)
         // Clone the block for each person
         $templateProcessor->cloneBlock('approved', count($data['approvedList']), true, true);
 
-        // Set values for each cloned block
+        // Set values for each cloned block with bold name and italic title
         foreach ($data['approvedList'] as $index => $person) {
             $num = $index + 1;
-            $templateProcessor->setValue('approved_name#' . $num, htmlspecialchars($person['name']));
-            $templateProcessor->setValue('approved_title#' . $num, htmlspecialchars($person['title']) . "\n\n"); // Add extra spacing for signature
+            $templateProcessor->setValue('approved_name#' . $num, '<w:rPr><w:b/></w:rPr>' . htmlspecialchars($person['name'])); // Bold name
+            $templateProcessor->setValue('approved_title#' . $num, '<w:rPr><w:i/></w:rPr>' . htmlspecialchars($person['title']) . "\n\n"); // Italic title with spacing
         }
     } else {
         // If no approved people, remove the entire block
@@ -180,9 +180,9 @@ function fillDocxTemplate($templatePath, $data)
     // Remove the list arrays from data to prevent double processing
     unset($data['notedList'], $data['approvedList']);
 
-    // Special handling for "from" field - format with name on one line, title on another
+    // Special handling for "from" field - format with bold name and italic title
     if (isset($data['from']) && isset($data['from_title'])) {
-        $formattedFrom = htmlspecialchars($data['from']) . "\n" . htmlspecialchars($data['from_title']);
+        $formattedFrom = '<w:rPr><w:b/></w:rPr>' . htmlspecialchars($data['from']) . "\n" . '<w:rPr><w:i/></w:rPr>' . htmlspecialchars($data['from_title']); // Bold name, italic title
         $templateProcessor->setValue('from', $formattedFrom);
         unset($data['from'], $data['from_title']);
     }
@@ -866,6 +866,10 @@ function handleGet()
             return;
         }
 
+        // Check if user is Accounting personnel - they should only see SAF documents
+        $isAccounting = ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false);
+        $docTypeFilter = $isAccounting ? "AND d.doc_type = 'saf'" : "";
+
         // For employees: Show pending documents assigned to them + all approved documents
         $pendingQuery = "
             SELECT DISTINCT
@@ -910,6 +914,7 @@ function handleGet()
                 (ds.assigned_to_employee_id = ? AND ? = 'employee')
                 OR (ds.assigned_to_student_id = ? AND ? = 'student')
             )
+            {$docTypeFilter}
             AND NOT EXISTS (
                 SELECT 1 FROM document_steps ds_prev
                 WHERE ds_prev.document_id = ds.document_id
@@ -962,6 +967,7 @@ function handleGet()
                 AND ((dsg.employee_id = ds.assigned_to_employee_id AND ds.assigned_to_employee_id IS NOT NULL)
                      OR (dsg.student_id = ds.assigned_to_student_id AND ds.assigned_to_student_id IS NOT NULL))
             WHERE d.status = 'approved'
+            {$docTypeFilter}
         ";
         $stmt2 = $db->prepare($approvedQuery);
         $stmt2->execute();
@@ -1180,7 +1186,7 @@ function createDocument($input)
 
     // SERVER-SIDE VALIDATION: Check required fields before any processing
     if ($docType === 'proposal') {
-        $required = ['title', 'date', 'organizer', 'venue', 'department', 'leadFacilitator'];
+        $required = ['title', 'date', 'organizer', 'venue', 'department', 'lead'];
         foreach ($required as $field) {
             if (empty($data[$field])) {
                 http_response_code(400);
@@ -1511,7 +1517,8 @@ function createDocument($input)
             ];
             $templatePath = $commTemplateMap[$department] ?? $commTemplateMap['default'];
             $data['for'] = $data['for'] ?? '';
-            $data['from'] = $currentUser['first_name'] . ' ' . $currentUser['last_name'] . ', ' . $currentUser['position'] . ', ' . $currentUser['department'];
+            $data['from'] = $currentUser['first_name'] . ' ' . $currentUser['last_name'];
+            $data['from_title'] = $currentUser['position'] . ', ' . $currentUser['department'];
 
             // Keep notedList and approvedList for block cloning
             // Clean up unused fields
@@ -2245,7 +2252,21 @@ function signDocument($input, $files = null)
                     if ($data) {
                         $reqSSC = $data['reqSSC'] ?? 0;
                         $reqCSC = $data['reqCSC'] ?? 0;
-                        $department = $data['department']; // This is the CSC department
+                        $department = $data['department']; // This is the CSC department (full name)
+
+                        // Reverse mapping from full names to short IDs
+                        $reverseDeptMap = [
+                            'Supreme Student Council' => 'ssc',
+                            'College of Arts, Social Sciences, and Education' => 'casse',
+                            'College of Business' => 'cob',
+                            'College of Computing and Information Sciences' => 'ccis',
+                            'College of Criminology' => 'coc',
+                            'College of Engineering' => 'coe',
+                            'College of Hospitality and Tourism Management' => 'chtm',
+                            'College of Nursing' => 'con',
+                            'SPCF Miranda' => 'miranda'
+                        ];
+                        $deptId = $reverseDeptMap[$department] ?? $department; // Fallback to original if not found
 
                         // Prepare transaction statement
                         $transStmt = $db->prepare("INSERT INTO saf_transactions (department_id, transaction_type, transaction_amount, transaction_description, transaction_date) VALUES (?, 'deduct', ?, ?, NOW())");
@@ -2269,19 +2290,19 @@ function signDocument($input, $files = null)
                             );
                         }
 
-                        // Deduct CSC funds from selected department
-                        if ($reqCSC > 0 && $department) {
+                        // Deduct CSC funds from selected department (using mapped short ID)
+                        if ($reqCSC > 0 && $deptId) {
                             $updateStmt = $db->prepare("UPDATE saf_balances SET used_amount = used_amount + ? WHERE department_id = ?");
-                            $updateStmt->execute([$reqCSC, $department]);
+                            $updateStmt->execute([$reqCSC, $deptId]);
 
                             // Add transaction record for CSC
-                            $transStmt->execute([$department, $reqCSC, "SAF Request (CSC): " . ($data['title'] ?? 'Untitled')]);
+                            $transStmt->execute([$deptId, $reqCSC, "SAF Request (CSC): " . ($data['title'] ?? 'Untitled')]);
 
                             // Audit log for CSC fund deduction
                             addAuditLog(
                                 'SAF_DEDUCTED',
                                 'SAF Management',
-                                "Deducted ₱{$reqCSC} from {$department} SAF balance for approved document",
+                                "Deducted ₱{$reqCSC} from {$deptId} SAF balance for approved document",
                                 $documentId,
                                 'Document',
                                 'INFO'

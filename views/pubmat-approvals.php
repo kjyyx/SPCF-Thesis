@@ -13,7 +13,7 @@ if (!$currentUser) {
 }
 
 // Restrict to specific approver positions
-$allowedPositions = ['CSC Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'];
+$allowedPositions = ['College Student Council Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'];
 if ($currentUser['role'] !== 'employee' || !in_array($currentUser['position'] ?? '', $allowedPositions)) {
     header('Location: ' . BASE_URL . '?page=user-login');
     exit();

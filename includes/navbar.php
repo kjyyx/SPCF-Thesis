@@ -67,7 +67,7 @@
                                     <i class="bi bi-cash-coin me-2" aria-hidden="true"></i>SAF</a></li>
                         <?php endif; ?>
                     <?php endif; ?>
-                    <?php if ($currentUser['role'] === 'employee' && in_array($currentUser['position'] ?? '', ['CSC Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'])): ?>
+                    <?php if ($currentUser['role'] === 'employee' && in_array($currentUser['position'] ?? '', ['College Student Council Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'])): ?>
                         <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=pubmat-approvals" title="Review public material approvals" role="menuitem">
                                 <i class="bi bi-file-earmark-text me-2" aria-hidden="true"></i>Pubmat Approvals</a></li>
                     <?php endif; ?>

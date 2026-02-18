@@ -4,7 +4,7 @@
  * ===========================================
  *
  * Manages downloadable public materials (documents, files) with hierarchical approval:
- * CSC Adviser -> College Dean -> OIC-OSA
+ * College Student Council Adviser -> College Dean -> OIC-OSA
  *
  * - GET: List materials or download specific files
  * - POST: Upload new materials (students/admins) and initiate workflow
@@ -94,7 +94,7 @@ switch ($method) {
                 // Only allow specific approver roles
                 $userRole = $_SESSION['user_role'];
                 $userPosition = $_SESSION['position'] ?? '';
-                $allowedPositions = ['CSC Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'];
+                $allowedPositions = ['College Student Council Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'];
                 
                 if ($userRole !== 'employee' || !in_array($userPosition, $allowedPositions)) {
                     http_response_code(403);
@@ -110,13 +110,13 @@ switch ($method) {
                     exit();
                 }
 
-                $department = $_SESSION['department'] ?? null; // For CSC Adviser filtering
+                $department = $_SESSION['department'] ?? null; // For College Student Council Adviser filtering
 
                 $whereClause = "ms.assigned_to_employee_id = ? AND ms.status = 'pending' AND ms.step_order = ?";
                 $params = [$_SESSION['user_id'], $stepOrder];
 
-                // For CSC Adviser, filter by department
-                if ($userPosition === 'CSC Adviser' && $department) {
+                // For College Student Council Adviser, filter by department
+                if ($userPosition === 'College Student Council Adviser' && $department) {
                     $whereClause .= " AND s.department = ?";
                     $params[] = $department;
                 }
@@ -380,7 +380,7 @@ switch ($method) {
 // Helper functions
 function getStepOrderForPosition($position) {
     $steps = [
-        'CSC Adviser' => 1,
+        'College Student Council Adviser' => 1,
         'College Dean' => 2,
         'Officer-in-Charge, Office of Student Affairs (OIC-OSA)' => 3
     ];
@@ -393,8 +393,8 @@ function createMaterialWorkflow($conn, $materialId, $studentId) {
     $stmt->execute([$studentId]);
     $department = $stmt->fetch(PDO::FETCH_ASSOC)['department'];
 
-    // Step 1: CSC Adviser for the department
-    $cscAdviser = getEmployeeByPositionAndDepartment($conn, 'CSC Adviser', $department);
+    // Step 1: College Student Council Adviser for the department
+    $cscAdviser = getEmployeeByPositionAndDepartment($conn, 'College Student Council Adviser', $department);
     if ($cscAdviser) {
         $stmt = $conn->prepare("INSERT INTO materials_steps (material_id, step_order, assigned_to_employee_id, status) VALUES (?, 1, ?, 'pending')");
         $stmt->execute([$materialId, $cscAdviser]);

@@ -139,7 +139,7 @@ function handlePost() {
     // Role-based access control for students
     if ($currentUser['role'] === 'student') {
         $userDeptName = strtolower(trim($currentUser['department'] ?? ''));
-        $userDeptId = $deptNameToIdMap[$userDeptName] ?? $userDeptName;
+        $userDeptId = $GLOBALS['deptNameToIdMap'][$userDeptName] ?? $userDeptName;
         if (!isset($input['department_id']) || $input['department_id'] !== $userDeptId) {
             http_response_code(403);
             echo json_encode(['success' => false, 'message' => 'Access denied: You can only modify your own department\'s data']);
@@ -151,42 +151,57 @@ function handlePost() {
         $db->beginTransaction();
 
         if ($input['type'] === 'saf') {
-            // Create or update SAF balance
-            $departmentId = $deptNameToIdMap[strtolower(trim($input['department_id']))] ?? $input['department_id'];
+            // "SET" Logic: Overwrite everything
+            $departmentId = $GLOBALS['deptNameToIdMap'][strtolower(trim($input['department_id']))] ?? $input['department_id'];
             $initialAmount = (float)($input['initial_amount'] ?? 0);
             $usedAmount = (float)($input['used_amount'] ?? 0);
+            
+            // Standard accounting: Balance = Initial - Used
+            $currentBalance = $initialAmount - $usedAmount;
 
             $stmt = $db->prepare("INSERT INTO saf_balances (department_id, initial_amount, used_amount, current_balance) 
                                   VALUES (?, ?, ?, ?) 
-                                  ON DUPLICATE KEY UPDATE initial_amount = VALUES(initial_amount), used_amount = VALUES(used_amount), current_balance = VALUES(initial_amount) - VALUES(used_amount)");
-            $stmt->execute([$departmentId, $initialAmount, $usedAmount, $initialAmount - $usedAmount]);
+                                  ON DUPLICATE KEY UPDATE 
+                                  initial_amount = VALUES(initial_amount), 
+                                  used_amount = VALUES(used_amount), 
+                                  current_balance = VALUES(current_balance)");
+            $stmt->execute([$departmentId, $initialAmount, $usedAmount, $currentBalance]);
 
-            // Audit log
-            addAuditLog('SAF_BALANCE_CREATED', 'SAF Management', "SAF balance created/updated for $departmentId", null, 'SAF', 'INFO');
+            addAuditLog('SAF_BALANCE_SET', 'SAF Management', "SAF set for $departmentId", null, 'SAF', 'INFO');
 
         } elseif ($input['type'] === 'transaction') {
-            // Create transaction
-            $departmentId = $deptNameToIdMap[strtolower(trim($input['department_id']))] ?? $input['department_id'];
+            // "ADD/DEDUCT" Logic
+            $departmentId = $GLOBALS['deptNameToIdMap'][strtolower(trim($input['department_id']))] ?? $input['department_id'];
             $type = $input['transaction_type'];
             $amount = (float)$input['transaction_amount'];
             $description = $input['transaction_description'] ?? '';
             $date = $input['transaction_date'] ?? date('Y-m-d H:i:s');
 
+            // 1. Insert Transaction Record
             $stmt = $db->prepare("INSERT INTO saf_transactions (department_id, transaction_type, transaction_amount, transaction_description, transaction_date, created_by) 
                                   VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([$departmentId, $type, $amount, $description, $date, $currentUser['id']]);
 
-            // Update balance based on transaction type
+            // 2. Update Balance safely based on Transaction Type
             if ($type === 'add') {
-                $updateStmt = $db->prepare("UPDATE saf_balances SET initial_amount = initial_amount + ?, current_balance = initial_amount + ? - used_amount WHERE department_id = ?");
+                // Adding funds increases the Initial Allocation AND Current Balance
+                $updateStmt = $db->prepare("UPDATE saf_balances 
+                                            SET initial_amount = initial_amount + ?, 
+                                                current_balance = current_balance + ? 
+                                            WHERE department_id = ?");
                 $updateStmt->execute([$amount, $amount, $departmentId]);
             } elseif ($type === 'deduct') {
-                $updateStmt = $db->prepare("UPDATE saf_balances SET used_amount = used_amount + ?, current_balance = initial_amount - (used_amount + ?) WHERE department_id = ?");
+                // Deducting increases Used Amount and decreases Current Balance
+                // We also check to ensure they don't go below zero (optional but recommended)
+                $updateStmt = $db->prepare("UPDATE saf_balances 
+                                            SET used_amount = used_amount + ?, 
+                                                current_balance = current_balance - ? 
+                                            WHERE department_id = ?");
                 $updateStmt->execute([$amount, $amount, $departmentId]);
             }
+            // Note: If type is 'set', we do nothing here as the 'saf' block handled the math.
 
-            // Audit log
-            addAuditLog('SAF_TRANSACTION_CREATED', 'SAF Management', "SAF transaction created for $departmentId: $type $amount", null, 'SAF', 'INFO');
+            addAuditLog('SAF_TRANSACTION_CREATED', 'SAF Management', "SAF transaction: $type $amount", null, 'SAF', 'INFO');
         }
 
         $db->commit();
@@ -195,7 +210,7 @@ function handlePost() {
         $db->rollBack();
         error_log("SAF POST error: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Failed to create SAF record']);
+        echo json_encode(['success' => false, 'message' => 'Failed to process request']);
     }
 }
 

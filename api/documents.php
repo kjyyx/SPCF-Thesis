@@ -221,7 +221,11 @@ function fillDocxTemplate($templatePath, $data)
     if (!is_dir($outputDir)) {
         mkdir($outputDir, 0755, true);
     }
-    $outputPath = $outputDir . 'filled_' . uniqid('doc_', true) . '.docx';
+    // Use title in filename for better identification
+    $title = $data['title'] ?? $data['eventName'] ?? $data['subject'] ?? 'Untitled';
+    $safeTitle = preg_replace('/[^A-Za-z0-9\-_]/', '_', $title);
+    $safeTitle = substr($safeTitle, 0, 30); // Shorter limit for initial files
+    $outputPath = $outputDir . 'doc_' . $safeTitle . '_' . uniqid() . '.docx';
     $templateProcessor->saveAs($outputPath);
     return $outputPath;
 }
@@ -1305,10 +1309,19 @@ function createDocument($input)
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
         // Build parameters array
+        // Set title based on document type
+        if ($docType === 'facility') {
+            $title = $data['eventName'] ?? 'Untitled';
+        } elseif ($docType === 'communication') {
+            $title = $data['subject'] ?? 'Untitled';
+        } else {
+            $title = $data['title'] ?? 'Untitled';
+        }
+        
         $params = [
             $studentId,
             $docType,
-            $data['title'] ?? 'Untitled',
+            $title,
             $description,
             'submitted',
             1,
@@ -1629,6 +1642,13 @@ function createDocument($input)
             $signatories['sig_evp'] = $evp ? $evp['first_name'] . ' ' . $evp['last_name'] : 'EVP';
             $signatoryIds['sig_evp'] = $evp ? $evp['id'] : null;
 
+            // College Dean (Employee)
+            $stmt = $db->prepare("SELECT id, first_name, last_name FROM employees WHERE position = 'College Dean' AND department = ? LIMIT 1");
+            $stmt->execute([$department]);
+            $dean = $stmt->fetch(PDO::FETCH_ASSOC);
+            $signatories['sig_dean'] = $dean ? $dean['first_name'] . ' ' . $dean['last_name'] : 'College Dean';
+            $signatoryIds['sig_dean'] = $dean ? $dean['id'] : null;
+
             // Add signatories to data
             $data = array_merge($data, $signatories);
 
@@ -1675,8 +1695,8 @@ function createDocument($input)
         if ($docType === 'proposal') {
             $workflowPositions = [
                 ['position' => 'College Student Council Adviser', 'table' => 'employees', 'department_specific' => true],
-                ['position' => 'Supreme Student Council President', 'table' => 'students', 'department_specific' => false],
                 ['position' => 'College Dean', 'table' => 'employees', 'department_specific' => true],
+                ['position' => 'Supreme Student Council President', 'table' => 'students', 'department_specific' => false],
                 ['position' => 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)', 'table' => 'employees', 'department_specific' => false],
                 ['position' => 'Center for Performing Arts Organization (CPAO)', 'table' => 'employees', 'department_specific' => false],
                 ['position' => 'Vice President for Academic Affairs (VPAA)', 'table' => 'employees', 'department_specific' => false],
@@ -1708,8 +1728,8 @@ function createDocument($input)
             // Define complete hierarchy order (same as Proposal for consistency)
             $hierarchyOrder = [
                 'College Student Council Adviser',
-                'Supreme Student Council President',
                 'College Dean',
+                'Supreme Student Council President',
                 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)',
                 'Center for Performing Arts Organization (CPAO)',
                 'Vice President for Academic Affairs (VPAA)',
@@ -1990,7 +2010,17 @@ function signDocument($input, $files = null)
         }
 
         // Save new signed PDF
-        $newFileName = 'signed_doc_' . $documentId . '_' . time() . '.pdf';
+        // Fetch document title for filename
+        $docStmt = $db->prepare("SELECT title FROM documents WHERE id = ?");
+        $docStmt->execute([$documentId]);
+        $docData = $docStmt->fetch(PDO::FETCH_ASSOC);
+        $title = $docData['title'] ?? 'Untitled';
+        
+        // Sanitize the title for safe filename usage
+        $safeTitle = preg_replace('/[^A-Za-z0-9\-_]/', '_', $title);
+        $safeTitle = substr($safeTitle, 0, 50); // Limit to 50 characters
+        
+        $newFileName = $safeTitle . '_' . $documentId . '_' . time() . '.pdf';
         $newPath = $uploadDir . $newFileName;
         if (move_uploaded_file($files['signed_pdf']['tmp_name'], $newPath)) {
             // Archive old file after successful save
@@ -2001,7 +2031,8 @@ function signDocument($input, $files = null)
                     if (!is_dir($archiveDir)) {
                         mkdir($archiveDir, 0755, true);
                     }
-                    $archivedPath = $archiveDir . basename($oldFilePath) . '.old';
+                    $archiveName = 'archived_' . basename($oldFilePath) . '_' . time();
+                    $archivedPath = $archiveDir . $archiveName;
                     if (!rename($oldFilePath, $archivedPath)) {
                         error_log("Failed to archive old file: $oldFilePath to $archivedPath");
                     }

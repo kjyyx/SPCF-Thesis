@@ -414,160 +414,64 @@ async function handleEditSubmit(e) {
   editModal.hide();
 
   try {
-    const existingSAF = allData.find(d => d.type === 'saf' && d.department_id === currentDeptId);
-
+    // 1. SET INITIAL AMOUNT (Keep this as a PUT/POST to Balance, because it's an overwrite)
     if (type === 'set') {
-      if (existingSAF) {
+        // Update the Balance Table directly
         const response = await fetch(BASE_URL + 'api/saf.php', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            id: existingSAF.id,
-            type: 'saf',
-            initial_amount: amount,
-            used_amount: 0
-          })
+            method: 'POST', // Using POST with type 'saf' to handle upsert (insert/update)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'saf',
+                department_id: currentDeptId,
+                initial_amount: amount,
+                used_amount: 0 // Reset used amount on SET
+            })
         });
         const result = await response.json();
-        if (!result.success) throw new Error('Failed to update SAF');
-      } else {
-        const response = await fetch(BASE_URL + 'api/saf.php', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            type: 'saf',
-            department_id: currentDeptId,
-            initial_amount: amount,
-            used_amount: 0
-          })
+        if (!result.success) throw new Error(result.message);
+
+        // Optional: Log a transaction for the record (but don't let it trigger math)
+        await fetch(BASE_URL + 'api/saf.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'transaction',
+                department_id: currentDeptId,
+                transaction_type: 'set', // API will simply log this, not do math
+                transaction_amount: amount,
+                transaction_description: description || 'Initial amount set',
+                transaction_date: new Date().toISOString()
+            })
         });
-        const result = await response.json();
-        if (!result.success) throw new Error('Failed to create SAF');
-      }
 
-      const transResponse = await fetch(BASE_URL + 'api/saf.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          type: 'transaction',
-          department_id: currentDeptId,
-          transaction_type: 'set',
-          transaction_amount: amount,
-          transaction_description: description || 'Initial amount set',
-          transaction_date: new Date().toISOString()
-        })
-      });
-      const transResult = await transResponse.json();
-      if (!transResult.success) throw new Error('Failed to create transaction');
-
-      showToast('Initial amount set successfully');
-    } else if (type === 'add') {
-      const currentInitial = existingSAF?.initial_amount || 0;
-
-      if (existingSAF) {
-        const response = await fetch(BASE_URL + 'api/saf.php', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            id: existingSAF.id,
-            type: 'saf',
-            initial_amount: currentInitial + amount,
-            used_amount: existingSAF.used_amount
-          })
+        showToast('Initial amount set successfully');
+    } 
+    // 2. ADD or DEDUCT (Only send Transaction, let API handle the math)
+    else {
+        const transResponse = await fetch(BASE_URL + 'api/saf.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'transaction',
+                department_id: currentDeptId,
+                transaction_type: type, // 'add' or 'deduct'
+                transaction_amount: amount,
+                transaction_description: description || (type === 'add' ? 'Funds added' : 'Funds deducted'),
+                transaction_date: new Date().toISOString()
+            })
         });
-        const result = await response.json();
-        if (!result.success) throw new Error('Failed to update SAF');
-      } else {
-        const response = await fetch(BASE_URL + 'api/saf.php', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            type: 'saf',
-            department_id: currentDeptId,
-            initial_amount: amount,
-            used_amount: 0
-          })
-        });
-        const result = await response.json();
-        if (!result.success) throw new Error('Failed to create SAF');
-      }
+        
+        const transResult = await transResponse.json();
+        if (!transResult.success) throw new Error(transResult.message || 'Transaction failed');
 
-      const transResponse = await fetch(BASE_URL + 'api/saf.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          type: 'transaction',
-          department_id: currentDeptId,
-          transaction_type: 'add',
-          transaction_amount: amount,
-          transaction_description: description || 'Funds added',
-          transaction_date: new Date().toISOString()
-        })
-      });
-      const transResult = await transResponse.json();
-      if (!transResult.success) throw new Error('Failed to create transaction');
-
-      showToast('Funds added successfully');
-    } else if (type === 'deduct') {
-      const currentInitial = existingSAF?.initial_amount || 0;
-      const currentUsed = existingSAF?.used_amount || 0;
-      const currentBalance = currentInitial - currentUsed;
-
-      if (amount > currentBalance) {
-        showToast('Insufficient funds', 'danger');
-        hideLoading();
-        return;
-      }
-
-      if (existingSAF) {
-        const response = await fetch(BASE_URL + 'api/saf.php', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            id: existingSAF.id,
-            type: 'saf',
-            initial_amount: currentInitial,
-            used_amount: currentUsed + amount
-          })
-        });
-        const result = await response.json();
-        if (!result.success) throw new Error('Failed to update SAF');
-      } else {
-        showToast('No SAF record found', 'danger');
-        hideLoading();
-        return;
-      }
-
-      const transResponse = await fetch(BASE_URL + 'api/saf.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          type: 'transaction',
-          department_id: currentDeptId,
-          transaction_type: 'deduct',
-          transaction_amount: amount,
-          transaction_description: description || 'Funds deducted',
-          transaction_date: new Date().toISOString()
-        })
-      });
-      const transResult = await transResponse.json();
-      if (!transResult.success) throw new Error('Failed to create transaction');
-
-      showToast('Funds deducted successfully');
+        showToast(type === 'add' ? 'Funds added successfully' : 'Funds deducted successfully');
     }
 
     // Reload data
     await initDataSdk();
   } catch (error) {
-    showToast('Operation failed. Please try again.', 'danger');
+    console.error(error);
+    showToast('Operation failed: ' + error.message, 'danger');
   }
 
   hideLoading();

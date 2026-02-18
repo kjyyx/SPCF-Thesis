@@ -1610,3 +1610,17 @@
 2026-02-18 09:31:06 - PDF saved to: C:\xampp\htdocs\SPCF-Thesis\includes/../uploads/filled_doc_699516536b93b9.83737116.pdf
 2026-02-18 09:31:06 - DOCX cleaned up successfully
 2026-02-18 09:31:06 - Conversion successful
+2026-02-19 04:32:12 - Starting conversion for: C:\xampp\htdocs\SPCF-Thesis\includes/../uploads/doc_Digital_Skills_Bootcamp_2026_699621cca52d1.docx
+2026-02-19 04:32:12 - API key found
+2026-02-19 04:32:12 - DOCX file exists, size: 157461
+2026-02-19 04:32:12 - CloudConvert client created
+2026-02-19 04:32:12 - Creating job
+2026-02-19 04:32:13 - Job created: 1a3121a7-bdb9-49ba-a9b1-76acb8f0255d
+2026-02-19 04:32:13 - Uploading file
+2026-02-19 04:32:15 - File uploaded
+2026-02-19 04:32:15 - Waiting for completion
+2026-02-19 04:32:16 - Job completed, status: finished
+2026-02-19 04:32:16 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/243f5827-a11e-452c-8499-f231a697096d/doc_Digital_Skills_Bootcamp_2026_699621cca52d1.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260218%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260218T203215Z&X-Amz-Expires=86400&X-Amz-Signature=81be064773969b04b73ad38c351de8b9aab0306ab416109c220e25c902366147&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22doc_Digital_Skills_Bootcamp_2026_699621cca52d1.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-19 04:32:17 - PDF saved to: C:\xampp\htdocs\SPCF-Thesis\includes/../uploads/doc_Digital_Skills_Bootcamp_2026_699621cca52d1.pdf
+2026-02-19 04:32:17 - DOCX cleaned up successfully
+2026-02-19 04:32:17 - Conversion successful

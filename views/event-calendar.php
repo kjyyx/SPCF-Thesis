@@ -186,7 +186,7 @@ $pendingCount = $stmt->fetchColumn();
                                             <span>SAF</span>
                                         </button>
                                     <?php endif; ?>
-                                    <?php if (in_array($currentUser['position'] ?? '', ['CSC Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'])): ?>
+                                    <?php if (in_array($currentUser['position'] ?? '', ['College Student Council Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'])): ?>
                                         <button class="action-compact-btn" onclick="openPubmatApprovals()"
                                             title="View pending pubmat approvals">
                                             <i class="bi bi-file-earmark-text me-2"></i>

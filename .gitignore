@@ -1,10 +1,88 @@
-vendor/
+# Environment and configuration files (contains sensitive data like DB credentials, API keys)
 .env
 .env.*
-.vscode/
-uploads/
-assets/signatures/
-conversion.log
+.env.local
+.env.production
+.env.development
+env.txt
+config.local.php
+config.production.php
+
+# Logs and error files
+*.log
+error_log
+logs/
+error_logs/
+php_error.log
 deploy.log
+
+# Vendor and dependency directories (reinstall with composer/npm)
+vendor/
+node_modules/
+composer.lock
+package-lock.json
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS-generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary and cache files
+*.tmp
+*.temp
+cache/
+tmp/
+temp/
+
+# Uploads directory (user-generated content; should not be versioned)
+uploads/
+assets/uploads/
+files/
+
+# Database dumps (except schema files if you want to keep them)
+*.sql
+!schema.sql
+!*_schema.sql
+spcf_thesis_clean.sql
+add_status.sql
+create_materials_steps.sql
+
+# Build and distribution files
+dist/
+build/
+*.min.js
+*.min.css
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Session and runtime files
+sessions/
+runtime/
+
+# Test and debug files
+tests/
+debug/
+phpunit.xml
+
+# CloudConvert and API keys (if any)
+cloudconvert_*
+api_keys/
+
+# Miscellaneous
+.htaccess.bak
 *.old
-*.rejected
+*.orig

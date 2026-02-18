@@ -137,7 +137,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     </script>
 </head>
 
-<body class="with-fixed-navbar">
+<body class="with-fixed-navbar" data-user-role="<?php echo htmlspecialchars($currentUser['role']); ?>">
     <?php
     // Set page title for navbar
     $pageTitle = 'Document Notifications';

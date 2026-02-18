@@ -54,18 +54,18 @@
                     <?php if ($currentUser['role'] === 'student' || $currentUser['role'] === 'admin'): ?>
                         <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=create-document" title="Create a new document" role="menuitem">
                                 <i class="bi bi-file-plus me-2" aria-hidden="true"></i>Create Document</a></li>
-                    <?php endif; ?>
-                    <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=track-document" title="Track your documents" role="menuitem">
-                            <i class="bi bi-search me-2" aria-hidden="true"></i>Track Document</a></li>
-                    <?php if ($currentUser['role'] === 'student' || $currentUser['role'] === 'admin'): ?>
+                        <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=track-document" title="Track your documents" role="menuitem">
+                                <i class="bi bi-search me-2" aria-hidden="true"></i>Track Document</a></li>
                         <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=upload-publication" title="Upload publication materials" role="menuitem">
                                 <i class="bi bi-cloud-upload me-2" aria-hidden="true"></i>Upload Publication</a></li>
                     <?php endif; ?>
                     <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=notifications" title="View notifications" role="menuitem">
                             <i class="bi bi-bell me-2" aria-hidden="true"></i>Notifications</a></li>
-                    <?php if (!($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false)): ?>
-                        <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=saf" title="Student Allocated Funds" role="menuitem">
-                                <i class="bi bi-cash-coin me-2" aria-hidden="true"></i>SAF</a></li>
+                    <?php if ($currentUser['role'] === 'student' || $currentUser['role'] === 'admin'): ?>
+                        <?php if (!($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false)): ?>
+                            <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=saf" title="Student Allocated Funds" role="menuitem">
+                                    <i class="bi bi-cash-coin me-2" aria-hidden="true"></i>SAF</a></li>
+                        <?php endif; ?>
                     <?php endif; ?>
                     <?php if ($currentUser['role'] === 'employee' && in_array($currentUser['position'] ?? '', ['CSC Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'])): ?>
                         <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=pubmat-approvals" title="Review public material approvals" role="menuitem">

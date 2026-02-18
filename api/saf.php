@@ -11,6 +11,19 @@ require_once ROOT_PATH . 'includes/database.php';
 
 header('Content-Type: application/json');
 
+// Department name to ID mapping
+$deptNameToIdMap = [
+    'college of arts, social sciences and education' => 'casse',
+    'college of computing and information sciences' => 'ccis',
+    'college of hospitality and tourism management' => 'chtm',
+    'college of business' => 'cob',
+    'college of criminology' => 'coc',
+    'college of engineering' => 'coe',
+    'college of nursing' => 'con',
+    'spcf miranda' => 'miranda',
+    'supreme student council (ssc)' => 'ssc'
+];
+
 // Initialize database connection
 $db = (new Database())->getConnection();
 
@@ -45,6 +58,12 @@ switch ($method) {
 function handleGet() {
     global $db, $currentUser;
 
+    if (!$currentUser) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        return;
+    }
+
     try {
         // Get all SAF balances
         $balancesStmt = $db->prepare("SELECT * FROM saf_balances");
@@ -64,7 +83,8 @@ function handleGet() {
                 'type' => 'saf',
                 'department_id' => $balance['department_id'],
                 'initial_amount' => (float)$balance['initial_amount'],
-                'used_amount' => (float)$balance['used_amount']
+                'used_amount' => (float)$balance['used_amount'],
+                'current_balance' => (float)$balance['current_balance']
             ];
         }
         foreach ($transactions as $transaction) {
@@ -78,6 +98,25 @@ function handleGet() {
                 'transaction_date' => $transaction['transaction_date']
             ];
         }
+
+        // Role-based filtering
+        // if ($currentUser['role'] === 'student') {
+        //     $userDeptName = strtolower(trim($currentUser['department'] ?? ''));
+        //     $userDeptId = $deptNameToIdMap[$userDeptName] ?? $userDeptName;
+        //     error_log("SAF FILTER: User role: " . $currentUser['role']);
+        //     error_log("SAF FILTER: User dept from session: '" . $currentUser['department'] . "'");
+        //     error_log("SAF FILTER: Lowercased: '$userDeptName'");
+        //     error_log("SAF FILTER: Mapped to: '$userDeptId'");
+        //     $data = array_filter($data, function($item) use ($userDeptId) {
+        //         $itemDept = $item['department_id'] ?? '';
+        //         $match = $itemDept === $userDeptId;
+        //         error_log("SAF FILTER: Checking item dept '$itemDept' against user '$userDeptId' - match: " . ($match ? 'YES' : 'NO'));
+        //         return $match;
+        //     });
+        //     // Re-index array after filtering
+        //     $data = array_values($data);
+        //     error_log("SAF FILTER: Final data count: " . count($data));
+        // }
 
         echo json_encode(['success' => true, 'data' => $data]);
     } catch (Exception $e) {
@@ -97,26 +136,37 @@ function handlePost() {
         return;
     }
 
+    // Role-based access control for students
+    if ($currentUser['role'] === 'student') {
+        $userDeptName = strtolower(trim($currentUser['department'] ?? ''));
+        $userDeptId = $deptNameToIdMap[$userDeptName] ?? $userDeptName;
+        if (!isset($input['department_id']) || $input['department_id'] !== $userDeptId) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Access denied: You can only modify your own department\'s data']);
+            return;
+        }
+    }
+
     try {
         $db->beginTransaction();
 
         if ($input['type'] === 'saf') {
             // Create or update SAF balance
-            $departmentId = $input['department_id'];
+            $departmentId = $deptNameToIdMap[strtolower(trim($input['department_id']))] ?? $input['department_id'];
             $initialAmount = (float)($input['initial_amount'] ?? 0);
             $usedAmount = (float)($input['used_amount'] ?? 0);
 
-            $stmt = $db->prepare("INSERT INTO saf_balances (department_id, initial_amount, used_amount) 
-                                  VALUES (?, ?, ?) 
-                                  ON DUPLICATE KEY UPDATE initial_amount = VALUES(initial_amount), used_amount = VALUES(used_amount)");
-            $stmt->execute([$departmentId, $initialAmount, $usedAmount]);
+            $stmt = $db->prepare("INSERT INTO saf_balances (department_id, initial_amount, used_amount, current_balance) 
+                                  VALUES (?, ?, ?, ?) 
+                                  ON DUPLICATE KEY UPDATE initial_amount = VALUES(initial_amount), used_amount = VALUES(used_amount), current_balance = VALUES(initial_amount) - VALUES(used_amount)");
+            $stmt->execute([$departmentId, $initialAmount, $usedAmount, $initialAmount - $usedAmount]);
 
             // Audit log
             addAuditLog('SAF_BALANCE_CREATED', 'SAF Management', "SAF balance created/updated for $departmentId", null, 'SAF', 'INFO');
 
         } elseif ($input['type'] === 'transaction') {
             // Create transaction
-            $departmentId = $input['department_id'];
+            $departmentId = $deptNameToIdMap[strtolower(trim($input['department_id']))] ?? $input['department_id'];
             $type = $input['transaction_type'];
             $amount = (float)$input['transaction_amount'];
             $description = $input['transaction_description'] ?? '';
@@ -125,6 +175,15 @@ function handlePost() {
             $stmt = $db->prepare("INSERT INTO saf_transactions (department_id, transaction_type, transaction_amount, transaction_description, transaction_date, created_by) 
                                   VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([$departmentId, $type, $amount, $description, $date, $currentUser['id']]);
+
+            // Update balance based on transaction type
+            if ($type === 'add') {
+                $updateStmt = $db->prepare("UPDATE saf_balances SET initial_amount = initial_amount + ?, current_balance = initial_amount + ? - used_amount WHERE department_id = ?");
+                $updateStmt->execute([$amount, $amount, $departmentId]);
+            } elseif ($type === 'deduct') {
+                $updateStmt = $db->prepare("UPDATE saf_balances SET used_amount = used_amount + ?, current_balance = initial_amount - (used_amount + ?) WHERE department_id = ?");
+                $updateStmt->execute([$amount, $amount, $departmentId]);
+            }
 
             // Audit log
             addAuditLog('SAF_TRANSACTION_CREATED', 'SAF Management', "SAF transaction created for $departmentId: $type $amount", null, 'SAF', 'INFO');
@@ -150,6 +209,25 @@ function handlePut() {
         return;
     }
 
+    // Role-based access control for students
+    if ($currentUser['role'] === 'student') {
+        $userDeptName = strtolower(trim($currentUser['department'] ?? ''));
+        $userDeptId = $deptNameToIdMap[$userDeptName] ?? $userDeptName;
+        // Check if the record belongs to the user's department
+        if ($input['type'] === 'saf') {
+            $stmt = $db->prepare("SELECT department_id FROM saf_balances WHERE id = ?");
+        } else {
+            $stmt = $db->prepare("SELECT department_id FROM saf_transactions WHERE id = ?");
+        }
+        $stmt->execute([$input['id']]);
+        $record = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$record || $record['department_id'] !== $userDeptId) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Access denied: You can only modify your own department\'s data']);
+            return;
+        }
+    }
+
     try {
         $db->beginTransaction();
 
@@ -158,8 +236,8 @@ function handlePut() {
             $initialAmount = (float)($input['initial_amount'] ?? 0);
             $usedAmount = (float)($input['used_amount'] ?? 0);
 
-            $stmt = $db->prepare("UPDATE saf_balances SET initial_amount = ?, used_amount = ? WHERE id = ?");
-            $stmt->execute([$initialAmount, $usedAmount, $id]);
+            $stmt = $db->prepare("UPDATE saf_balances SET initial_amount = ?, used_amount = ?, current_balance = ? WHERE id = ?");
+            $stmt->execute([$initialAmount, $usedAmount, $initialAmount - $usedAmount, $id]);
 
             // Audit log
             addAuditLog('SAF_BALANCE_UPDATED', 'SAF Management', "SAF balance updated", $id, 'SAF', 'INFO');
@@ -183,6 +261,25 @@ function handleDelete() {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Invalid input']);
         return;
+    }
+
+    // Role-based access control for students
+    if ($currentUser['role'] === 'student') {
+        $userDeptName = strtolower(trim($currentUser['department'] ?? ''));
+        $userDeptId = $deptNameToIdMap[$userDeptName] ?? $userDeptName;
+        // Check if the record belongs to the user's department
+        if ($input['type'] === 'saf') {
+            $stmt = $db->prepare("SELECT department_id FROM saf_balances WHERE id = ?");
+        } else {
+            $stmt = $db->prepare("SELECT department_id FROM saf_transactions WHERE id = ?");
+        }
+        $stmt->execute([$input['id']]);
+        $record = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$record || $record['department_id'] !== $userDeptId) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Access denied: You can only modify your own department\'s data']);
+            return;
+        }
     }
 
     try {

@@ -471,8 +471,9 @@ class DocumentNotificationSystem {
         }
 
         this.filteredDocuments.forEach(doc => {
-            const isCompleted = this.completedDocuments.some(c => c.id === doc.id);
-            const card = this.createDocumentCard(doc, isCompleted);
+            // Allow all documents to be clickable for tracking purposes
+            // The read-only styling will still indicate user's signing status
+            const card = this.createDocumentCard(doc, false);
             container.appendChild(card);
         });
 
@@ -587,8 +588,8 @@ class DocumentNotificationSystem {
                 container.appendChild(listItem);
             });
 
-            // Render completed documents as history
-            if (this.completedDocuments.length > 0) {
+            // Render completed documents as history (only for non-students)
+            if (this.completedDocuments.length > 0 && this.currentUser.role !== 'student') {
                 // Add section divider
                 const divider = document.createElement('div');
                 divider.className = 'list-section-divider';
@@ -600,7 +601,7 @@ class DocumentNotificationSystem {
                 container.appendChild(divider);
 
                 this.completedDocuments.forEach(doc => {
-                    const listItem = this.createDocumentCard(doc, true);
+                    const listItem = this.createDocumentCard(doc);
                     container.appendChild(listItem);
                 });
             }
@@ -627,13 +628,34 @@ class DocumentNotificationSystem {
     // Create document card (compact list view)
     createDocumentCard(doc, readOnly = false) {
         const listItem = document.createElement('div');
-        listItem.className = `document-list-item ${readOnly ? 'read-only' : ''}`;
         
-        if (!readOnly) {
-            listItem.onclick = () => this.openDocument(doc.id);
-            listItem.setAttribute('tabindex', '0');
-            listItem.setAttribute('role', 'button');
-            listItem.setAttribute('aria-label', `Open ${this.escapeHtml(doc.title)}`);
+        // Check if current user has completed signing this document
+        const userCompletedStep = doc.workflow?.find(step => 
+            step.status === 'completed' && 
+            ((step.assignee_type === 'employee' && step.assignee_id === this.currentUser?.id) ||
+             (step.assignee_type === 'student' && step.assignee_id === this.currentUser?.id))
+        );
+        const userHasSigned = !!userCompletedStep;
+        
+        // Apply read-only class for visual indication if user has signed
+        listItem.className = `document-list-item ${userHasSigned ? 'read-only' : ''}`;
+        
+        // Always allow clicking to view document status and progress
+        listItem.onclick = () => this.openDocument(doc.id);
+        listItem.setAttribute('tabindex', '0');
+        listItem.setAttribute('role', 'button');
+        listItem.setAttribute('aria-label', `Open ${this.escapeHtml(doc.title)}`);
+        
+        // Add visual indicator for documents user has already signed
+        if (userHasSigned) {
+            listItem.setAttribute('title', 'You have already signed this document. Click to view status and progress.');
+            
+            // Add a small checkmark icon to indicate signed status
+            const signedIndicator = document.createElement('div');
+            signedIndicator.className = 'signed-indicator';
+            signedIndicator.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+            signedIndicator.setAttribute('title', 'You have signed this document');
+            listItem.appendChild(signedIndicator);
         }
 
         const statusInfo = this.getStatusInfo(doc.status);
@@ -761,14 +783,18 @@ class DocumentNotificationSystem {
         const wf = Array.isArray(doc.workflow) ? doc.workflow : [];
         if (wf.length === 0) return 0;
 
-        // Progress based on current_step (hierarchy level)
-        const currentStep = doc.current_step || 1;
+        // If document is approved, show 100% regardless of individual steps
+        if (doc.status === 'approved') return 100;
+
+        // Count completed steps
+        const completedSteps = wf.filter(step => step.status === 'completed').length;
         const totalSteps = wf.length;
 
-        // If current_step > totalSteps, it's completed
-        if (currentStep > totalSteps) return 100;
+        // If all steps are completed, show 100%
+        if (completedSteps === totalSteps) return 100;
 
-        return Math.round(((currentStep - 1) / totalSteps) * 100);
+        // Calculate progress based on completed steps
+        return Math.round((completedSteps / totalSteps) * 100);
     }
 
     // Escape for safe HTML injection
@@ -796,10 +822,12 @@ class DocumentNotificationSystem {
     // Format document type
     formatDocType(type) {
         const typeMap = {
-            proposal: 'Research Proposal',
-            saf: 'Student Activity Form',
-            facility: 'Facility Request',
-            communication: 'Communication'
+            'saf': 'Student Activity Form',
+            'publication': 'Publication',
+            'material_request': 'Material Request',
+            'proposal': 'Project Proposal',
+            'facility': 'Facility Request',
+            'communication': 'Communication'
         };
         return typeMap[type] || type;
     }
@@ -862,6 +890,21 @@ class DocumentNotificationSystem {
 
         dashboard.style.display = 'none';
         detail.style.display = 'block';
+
+        // Check if current user has completed signing this document (read-only mode)
+        const userCompletedStep = doc.workflow?.find(step => 
+            step.status === 'completed' && 
+            ((step.assignee_type === 'employee' && step.assignee_id === this.currentUser?.id) ||
+             (step.assignee_type === 'student' && step.assignee_id === this.currentUser?.id))
+        );
+        const isReadOnly = !!userCompletedStep;
+
+        // Add read-only class to document view if user has completed their signing
+        if (isReadOnly) {
+            detail.classList.add('read-only');
+        } else {
+            detail.classList.remove('read-only');
+        }
 
         // Status badge
         const statusInfo = this.getStatusInfo(doc.status);
@@ -1014,15 +1057,29 @@ class DocumentNotificationSystem {
 
         // Show/hide approval buttons based on user permissions
         this.updateApprovalButtonsVisibility(doc);
+
+        // Hide download button if user has approval responsibilities or document is not fully approved
+        const downloadBtn = document.querySelector('.header-actions .action-btn.primary');
+        if (downloadBtn) {
+            const pendingStep = doc.workflow?.find(step => step.status === 'pending');
+            const isAssigned = this.isUserAssignedToStep(this.currentUser, pendingStep);
+            if (isAssigned || doc.status !== 'approved') {
+                downloadBtn.style.display = 'none';
+            } else {
+                downloadBtn.style.display = 'inline-block';
+            }
+        }
     }
 
     // Update visibility of approval buttons based on current user and document workflow
     updateApprovalButtonsVisibility(doc) {
+        console.log('updateApprovalButtonsVisibility called, signatureImage:', this.signatureImage);
         const signBtn = document.querySelector('.action-btn-full.success');
         const rejectBtn = document.querySelector('.action-btn-full.danger');
         const signaturePadToggle = document.getElementById('signaturePadToggle');
         const signatureStatusContainer = document.getElementById('signatureStatusContainer');
 
+        console.log('signBtn found:', !!signBtn);
         if (!signBtn || !rejectBtn || !signaturePadToggle || !signatureStatusContainer) return;
 
         // Check if this is a completed document (read-only history)
@@ -1036,15 +1093,19 @@ class DocumentNotificationSystem {
 
         // Find the pending step
         const pendingStep = doc.workflow?.find(step => step.status === 'pending');
+        console.log('pendingStep:', pendingStep);
 
         // Check user role and assignment
         const currentUser = this.currentUser;
+        console.log('currentUser:', currentUser);
 
         // Special case: allow student creator to submit their own document
         const isStudentCreator = currentUser.role === 'student' && doc.student && doc.student.id === currentUser.id;
+        console.log('isStudentCreator:', isStudentCreator);
 
         if (!pendingStep && !isStudentCreator) {
             // No pending steps and not student creator, hide all approval UI
+            console.log('No pending step and not student creator, hiding buttons');
             signBtn.style.display = 'none';
             rejectBtn.style.display = 'none';
             signaturePadToggle.style.display = 'none';
@@ -1053,7 +1114,9 @@ class DocumentNotificationSystem {
         }
 
         const isAssigned = this.isUserAssignedToStep(currentUser, pendingStep) || isStudentCreator;
+        console.log('isAssigned:', isAssigned);
         const isStudentView = currentUser.role === 'student' && (currentUser.position !== 'SSC President' || doc.student?.id === currentUser.id);
+        console.log('isStudentView:', isStudentView);
 
         if (isAssigned) {
             if (isStudentView) {
@@ -1072,6 +1135,22 @@ class DocumentNotificationSystem {
                 rejectBtn.style.display = 'flex'; // Show reject for employees
                 signaturePadToggle.style.display = 'block';
                 signatureStatusContainer.style.display = 'block';
+            }
+
+            // Disable the sign/submit button if no signature is set
+            if (!this.signatureImage) {
+                console.log('Disabling sign button, no signature');
+                signBtn.disabled = true;
+                signBtn.title = 'Please add your signature first using the signature pad.';
+                signBtn.style.opacity = '0.5';
+                signBtn.style.cursor = 'not-allowed';
+            } else {
+                console.log('Enabling sign button, signature present');
+                signBtn.disabled = false;
+                signBtn.title = '';
+                signBtn.style.opacity = '1';
+                signBtn.style.cursor = 'pointer';
+                console.log('Button state after enabling:', signBtn.disabled, signBtn.textContent);
             }
         } else {
             // Hide for unauthorized users
@@ -1290,135 +1369,134 @@ class DocumentNotificationSystem {
     }
 
     // Render completed signatures as blurred overlays with timestamps
-    renderCompletedSignatures(doc, content) {
-        if (!doc.workflow) return;
+// Replace the renderCompletedSignatures method with this updated version
+renderCompletedSignatures(doc, container, canvas = null) {
+    if (!doc.workflow) return;
 
-        // Position completed signatures relative to the rendered canvas to keep them in sync
-        const canvas = this.canvas;
-        if (!canvas) return;
-        const canvasRect = canvas.getBoundingClientRect();
+    // Clear existing overlays
+    const existing = container.querySelectorAll('.completed-signature-container');
+    existing.forEach(el => el.remove());
 
-        // Find completed steps with signatures
-        let completedSignatures = doc.workflow.filter(step =>
-            step.status === 'completed' && step.signed_at
-        );
+    // Position completed signatures relative to the rendered canvas
+    if (!canvas) canvas = container.querySelector('canvas');
+    if (!canvas) return;
+    
+    const canvasRect = canvas.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
 
-        // Check if current user is the document issuer (sender)
-        const isIssuer = this.currentUser && doc.student && doc.student.id === this.currentUser.id;
+    // Find completed steps with signatures
+    let completedSignatures = doc.workflow.filter(step =>
+        step.status === 'completed' && step.signed_at
+    );
 
-        completedSignatures.forEach((step, index) => {
-            let signatureMap = null;
-            try {
-                if (step.signature_map) {
-                    signatureMap = typeof step.signature_map === 'string'
-                        ? JSON.parse(step.signature_map)
-                        : step.signature_map;
-                } else if (doc.signature_map) {
-                    signatureMap = typeof doc.signature_map === 'string'
-                        ? JSON.parse(doc.signature_map)
-                        : doc.signature_map;
-                }
-            } catch (e) {
-                console.warn('Failed to parse signature map', e);
-                return;
+    completedSignatures.forEach((step, index) => {
+        let signatureMap = null;
+        try {
+            if (step.signature_map) {
+                signatureMap = typeof step.signature_map === 'string'
+                    ? JSON.parse(step.signature_map)
+                    : step.signature_map;
+            } else if (doc.signature_map) {
+                signatureMap = typeof doc.signature_map === 'string'
+                    ? JSON.parse(doc.signature_map)
+                    : doc.signature_map;
+            }
+        } catch (e) {
+            console.warn('Failed to parse signature map', e);
+            return;
+        }
+
+        if (!signatureMap) return;
+
+        // For SAF, use the accounting and issuer maps directly
+        let mapsToRender = [signatureMap];
+        if (doc.doc_type === 'saf' && typeof signatureMap === 'object' && signatureMap.accounting && signatureMap.issuer) {
+            mapsToRender = [signatureMap.accounting, signatureMap.issuer];
+        }
+
+        mapsToRender.forEach((map) => {
+            const signaturePage = map.page || 1;
+            
+            // Check if we're in the modal or main view
+            const isModal = container.id === 'fullPdfContainer';
+            const currentPage = isModal ? this.fullCurrentPage : this.currentPage;
+            
+            if (signaturePage !== currentPage) {
+                return; // Skip rendering on wrong page
+            }
+            
+            let pixelRect = this.computeSignaturePixelRectForContainer(map, canvas, container);
+            if (!pixelRect) return;
+            
+            // Create container for timestamp and redaction
+            const signatureContainer = document.createElement('div');
+            signatureContainer.className = 'completed-signature-container';
+            signatureContainer.style.position = 'absolute';
+            signatureContainer.style.left = pixelRect.left + 'px';
+            signatureContainer.style.top = pixelRect.top + 'px';
+
+            // Adjust size and layout based on document type
+            const isSaf = doc.doc_type === 'saf';
+            if (isSaf) {
+                signatureContainer.style.width = '120px';
+                signatureContainer.style.height = '80px';
+            } else {
+                signatureContainer.style.width = '200px';
+                signatureContainer.style.height = '60px';
+            }
+            signatureContainer.style.zIndex = '15';
+
+            // Redaction box with signing user's name and position
+            const redactionBox = document.createElement('div');
+            redactionBox.className = 'signature-redaction';
+            redactionBox.style.width = '100%';
+            redactionBox.style.height = '100%';
+            redactionBox.style.display = 'flex';
+            redactionBox.style.flexDirection = isSaf ? 'column' : 'row';
+            redactionBox.style.justifyContent = 'center';
+            redactionBox.style.alignItems = 'center';
+            redactionBox.style.borderRadius = '4px';
+            redactionBox.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            redactionBox.style.color = '#fff';
+            redactionBox.style.fontWeight = '600';
+            redactionBox.style.fontSize = '12px';
+            redactionBox.style.padding = '4px';
+            redactionBox.style.position = 'relative';
+
+            // Show signing user's name and position with timestamp
+            const name = step.assignee_name || 'Unknown';
+            const position = step.assignee_position || '';
+            const timestamp = new Date(step.signed_at).toLocaleString();
+
+            if (isSaf) {
+                redactionBox.innerHTML = `
+                    <div style="text-align: center;">
+                        <div>${name}</div>
+                        <div style="font-size:11px;font-weight:400;">${position}</div>
+                    </div>
+                    <div style="font-size:10px;font-weight:400;margin-top:4px;text-align:center;">${timestamp}</div>
+                `;
+            } else {
+                redactionBox.innerHTML = `
+                    <div>
+                        <div>${name}</div>
+                        <div style="font-size:11px;font-weight:400;">${position}</div>
+                    </div>
+                    <div style="font-size:10px;font-weight:400;text-align:right;">${timestamp}</div>
+                `;
             }
 
-            if (!signatureMap) return;
-
-            // For SAF, use the accounting and issuer maps directly
-            let mapsToRender = [signatureMap];
-            if (doc.doc_type === 'saf' && typeof signatureMap === 'object' && signatureMap.accounting && signatureMap.issuer) {
-                mapsToRender = [signatureMap.accounting, signatureMap.issuer];
-            }
-
-            mapsToRender.forEach((map) => {
-                const signaturePage = map.page || 1;
-                if (signaturePage !== this.currentPage) {
-                    return; // Skip rendering on wrong page
-                }
-                const { x_pct, y_pct, w_pct, h_pct } = map;
-                let pixelRect = this.computeSignaturePixelRect({
-                    x_pct: x_pct || 0.62,
-                    y_pct: y_pct || 0.78,
-                    w_pct: w_pct || 0.28,
-                    h_pct: h_pct || 0.1
-                });
-                if (!pixelRect) return;
-                // Create container for timestamp and redaction
-                const signatureContainer = document.createElement('div');
-                signatureContainer.className = 'completed-signature-container';
-                signatureContainer.style.position = 'absolute';
-                signatureContainer.style.left = pixelRect.left + 'px';
-                signatureContainer.style.top = pixelRect.top + 'px';
-
-                // Adjust size and layout based on document type
-                const isSaf = doc.doc_type === 'saf';
-                if (isSaf) {
-                    // SAF: Keep compact size, vertical layout (timestamp below)
-                    signatureContainer.style.width = '120px';
-                    signatureContainer.style.height = '80px'; // Slightly taller for vertical layout
-                } else {
-                    // Non-SAF: Wider for horizontal layout (timestamp on right)
-                    signatureContainer.style.width = '200px';
-                    signatureContainer.style.height = '60px';
-                }
-                signatureContainer.style.zIndex = '15';
-
-                // Redaction box with signing user's name and position (for completed signatures)
-                const redactionBox = document.createElement('div');
-                redactionBox.className = 'signature-redaction';
-                redactionBox.style.width = '100%';
-                redactionBox.style.height = '100%';
-                redactionBox.style.display = 'flex';
-                redactionBox.style.flexDirection = isSaf ? 'column' : 'row'; // Vertical for SAF, horizontal for others
-                redactionBox.style.justifyContent = isSaf ? 'center' : 'space-between'; // Center for SAF, space-between for others
-                redactionBox.style.alignItems = 'center';
-                redactionBox.style.borderRadius = '4px';
-                redactionBox.style.color = '#fff';
-                redactionBox.style.fontWeight = '600';
-                redactionBox.style.fontSize = '12px';
-                redactionBox.style.padding = '4px';
-                redactionBox.style.position = 'relative';
-
-                // Show signing user's name and position with timestamp
-                const name = step.assignee_name || 'Unknown';
-                const position = step.assignee_position || '';
-                const timestamp = new Date(step.signed_at).toLocaleString();
-
-                if (isSaf) {
-                    // Vertical layout: Name/position on top, timestamp below
-                    redactionBox.innerHTML = `
-                        <div style="text-align: center;">
-                            <div>${name}</div>
-                            <div style="font-size:11px;font-weight:400;">${position}</div>
-                        </div>
-                        <div style="font-size:10px;font-weight:400;margin-top:4px;text-align:center;">${timestamp}</div>
-                    `;
-                } else {
-                    // Horizontal layout: Name/position on left, timestamp on right
-                    redactionBox.innerHTML = `
-                        <div>
-                            <div>${name}</div>
-                            <div style="font-size:11px;font-weight:400;">${position}</div>
-                        </div>
-                        <div style="font-size:10px;font-weight:400;text-align:right;">${timestamp}</div>
-                    `;
-                }
-
-                signatureContainer.appendChild(redactionBox);
-                content.appendChild(signatureContainer);
-            });
+            signatureContainer.appendChild(redactionBox);
+            container.appendChild(signatureContainer);
         });
-    }
+    });
+}
 
-    // Create linked signature targets for SAF documents
+    // Create linked signature targets for SAF documents - FIXED: Better offset calculation
     createLinkedSafSignatureTargets(content, doc) {
         // Clear any existing targets
         this.linkedTargets = null;
         this.linkedSignatureMaps = null;
-
-        // Calculate vertical offset (0.45 = 45% of page height between signature positions)
-        const verticalOffset = 0.45;
 
         // Get initial position from doc signature_map or use default
         let initialMap = null;
@@ -1431,18 +1509,22 @@ class DocumentNotificationSystem {
             }
         }
 
-        // Default positions if not specified
+        // Default positions if not specified - adjusted for better placement
         if (!initialMap) {
             initialMap = {
-                x_pct: 0.62,
-                y_pct: 0.30,  // Primary signature position (top half)
-                w_pct: 0.28,
-                h_pct: 0.08,
+                x_pct: 0.65,  // Slightly adjusted for better centering
+                y_pct: 0.25,  // Primary signature position (upper position)
+                w_pct: 0.25,  // Slightly smaller width
+                h_pct: 0.3,  // Slightly smaller height
                 page: 1
             };
         }
 
-        // Create primary target
+        // Calculate vertical offset based on signature height plus some spacing
+        // This ensures the second signature appears directly below the first with proper spacing
+        const verticalOffset = initialMap.h_pct * 1.5; // 1.5x the height of the signature box
+
+        // Create primary target (Accounting)
         const primaryTarget = this.createSignatureTarget(
             content,
             'accounting',
@@ -1451,7 +1533,7 @@ class DocumentNotificationSystem {
             '#3b82f6'
         );
 
-        // Create secondary target - same X position, offset Y
+        // Create secondary target (Issuer) - same X position, offset Y by calculated amount
         const issuerMap = {
             ...initialMap,
             y_pct: initialMap.y_pct + verticalOffset
@@ -1485,7 +1567,7 @@ class DocumentNotificationSystem {
         this.showToast({
             type: 'info',
             title: 'SAF Signature',
-            message: 'Drag the signature box to position your signature on the document.'
+            message: 'Drag the signature box to position your signature. Both copies will be signed simultaneously.'
         });
 
         // If signature already drawn, update both targets
@@ -1772,42 +1854,56 @@ class DocumentNotificationSystem {
         line.style.opacity = '0.6';
     }
 
-    // Update linked signature maps for both positions
+    // Update linked signature maps for both positions - FIXED: Better coordinate calculation
     updateLinkedSignatureMaps(content) {
         if (!this.linkedTargets || !this.canvas) return;
+        
         const canvas = this.canvas;
         const width = canvas.width;
         const height = canvas.height;
         const primary = this.linkedTargets.primary;
         const secondary = this.linkedTargets.secondary;
+        
         if (!primary || !secondary) return;
-        // SAF: Use offsetLeft/offsetTop relative to canvas for accurate mapping
-        const w = 120;
-        const h = 60;
+        
+        // Get the actual dimensions of the signature boxes
+        const primaryWidth = primary.offsetWidth;
+        const primaryHeight = primary.offsetHeight;
+        const secondaryWidth = secondary.offsetWidth;
+        const secondaryHeight = secondary.offsetHeight;
+        
+        // Get positions relative to the canvas
         const primaryLeft = primary.offsetLeft;
         const primaryTop = primary.offsetTop;
         const secondaryLeft = secondary.offsetLeft;
         const secondaryTop = secondary.offsetTop;
-        const x_pct = primaryLeft / width;
-        const y_pct = primaryTop / height;
-        const x_pct2 = secondaryLeft / width;
-        const y_pct2 = secondaryTop / height;
+        
+        // Calculate percentages - ensure values are between 0 and 1
+        const x_pct = Math.max(0, Math.min(1, primaryLeft / width));
+        const y_pct = Math.max(0, Math.min(1, primaryTop / height));
+        const x_pct2 = Math.max(0, Math.min(1, secondaryLeft / width));
+        const y_pct2 = Math.max(0, Math.min(1, secondaryTop / height));
+        
+        const w_pct = Math.max(0.05, Math.min(0.5, primaryWidth / width));
+        const h_pct = Math.max(0.02, Math.min(0.2, primaryHeight / height));
+        
         this.linkedSignatureMaps = {
             accounting: {
                 x_pct,
                 y_pct,
-                w_pct: w / width,
-                h_pct: h / height,
+                w_pct,
+                h_pct,
                 page: this.currentPage
             },
             issuer: {
                 x_pct: x_pct2,
                 y_pct: y_pct2,
-                w_pct: w / width,
-                h_pct: h / height,
+                w_pct,
+                h_pct,
                 page: this.currentPage
             }
         };
+        
         this.currentSignatureMap = this.linkedSignatureMaps.accounting;
         console.log('Linked SAF signature maps updated:', this.linkedSignatureMaps);
     }
@@ -2111,6 +2207,148 @@ class DocumentNotificationSystem {
 
     }
 
+// Add this new helper method for computing pixel rects in any container
+computeSignaturePixelRectForContainer(map, canvas, container) {
+    if (!canvas) {
+        console.log('DEBUG: No canvas provided');
+        return null;
+    }
+    
+    console.log('DEBUG ===== computeSignaturePixelRectForContainer START =====');
+    console.log('DEBUG map:', JSON.stringify(map, null, 2));
+    console.log('DEBUG canvas element:', canvas);
+    console.log('DEBUG container element:', container);
+    
+    const canvasRect = canvas.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    
+    console.log('DEBUG canvasRect:', {
+        left: canvasRect.left,
+        top: canvasRect.top,
+        right: canvasRect.right,
+        bottom: canvasRect.bottom,
+        width: canvasRect.width,
+        height: canvasRect.height
+    });
+    
+    console.log('DEBUG containerRect:', {
+        left: containerRect.left,
+        top: containerRect.top,
+        right: containerRect.right,
+        bottom: containerRect.bottom,
+        width: containerRect.width,
+        height: containerRect.height
+    });
+
+    // Helper to normalize a value that might be percent (0..1) or absolute px (>1)
+    const norm = (v, axisSize, canvasAttrSize, axisName) => {
+        if (v == null) {
+            console.log(`DEBUG norm: ${axisName} value is null, returning 0`);
+            return 0;
+        }
+        if (v <= 1) {
+            const result = v * axisSize;
+            console.log(`DEBUG norm: ${axisName} is percent ${v} -> ${result}px (axisSize: ${axisSize})`);
+            return result;
+        }
+        const ratio = canvasAttrSize && axisSize ? (axisSize / canvasAttrSize) : 1;
+        const result = v * ratio;
+        console.log(`DEBUG norm: ${axisName} is absolute ${v}px with ratio ${ratio} -> ${result}px (canvasAttrSize: ${canvasAttrSize}, axisSize: ${axisSize})`);
+        return result;
+    };
+
+    const canvasAttrWidth = canvas.width || canvasRect.width;
+    const canvasAttrHeight = canvas.height || canvasRect.height;
+    
+    console.log('DEBUG canvas attributes:', {
+        width: canvasAttrWidth,
+        height: canvasAttrHeight
+    });
+
+    const xRaw = map.x_pct ?? map.x_px ?? 0;
+    const yRaw = map.y_pct ?? map.y_px ?? 0;
+    const wRaw = map.w_pct ?? map.w_px ?? 0;
+    const hRaw = map.h_pct ?? map.h_px ?? 0;
+    
+    console.log('DEBUG raw values:', {
+        xRaw,
+        yRaw,
+        wRaw,
+        hRaw
+    });
+
+    // Calculate position relative to canvas
+    const canvasLeftOffset = canvasRect.left - containerRect.left;
+    const canvasTopOffset = canvasRect.top - containerRect.top;
+    
+    console.log('DEBUG offsets:', {
+        canvasLeftOffset,
+        canvasTopOffset
+    });
+    
+    const normX = norm(xRaw, canvasRect.width, canvasAttrWidth, 'x');
+    const normY = norm(yRaw, canvasRect.height, canvasAttrHeight, 'y');
+    const normW = norm(wRaw, canvasRect.width, canvasAttrWidth, 'width');
+    const normH = norm(hRaw, canvasRect.height, canvasAttrHeight, 'height');
+    
+    const left = canvasLeftOffset + normX;
+    const top = canvasTopOffset + normY;
+    const width = Math.max(1, normW);
+    const height = Math.max(1, normH);
+    
+    console.log('DEBUG final calculated values:', {
+        left,
+        top,
+        width,
+        height
+    });
+    
+    // For modal, account for any transform/offset
+    const isModal = container.id === 'fullPdfContainer';
+    console.log('DEBUG isModal:', isModal);
+    
+    if (isModal) {
+        // Get the container's transform if any (for drag functionality)
+        const transform = container.style.transform;
+        console.log('DEBUG container transform:', transform);
+        
+        if (transform && transform.includes('translate')) {
+            const matches = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
+            console.log('DEBUG transform matches:', matches);
+            
+            if (matches) {
+                const offsetX = parseFloat(matches[1]);
+                const offsetY = parseFloat(matches[2]);
+                console.log('DEBUG transform offsets:', { offsetX, offsetY });
+                
+                // Adjust for the drag offset
+                const adjustedLeft = left - offsetX;
+                const adjustedTop = top - offsetY;
+                
+                console.log('DEBUG adjusted values:', {
+                    adjustedLeft,
+                    adjustedTop
+                });
+                
+                console.log('DEBUG ===== computeSignaturePixelRectForContainer END (with transform) =====');
+                
+                return {
+                    left: adjustedLeft,
+                    top: adjustedTop,
+                    width,
+                    height,
+                    canvasRect,
+                    containerRect
+                };
+            }
+        }
+    }
+    
+    console.log('DEBUG ===== computeSignaturePixelRectForContainer END (no transform) =====');
+    
+    return { left, top, width, height, canvasRect, containerRect };
+}
+
     // Compute pixel rectangle from a signature map (supports percent values or absolute px)
     computeSignaturePixelRect(map) {
         const canvas = this.canvas;
@@ -2174,6 +2412,21 @@ class DocumentNotificationSystem {
         });
     }
 
+    // Helper function to check if canvas has any drawn content
+    hasCanvasContent(canvas) {
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const pixelData = imageData.data;
+        
+        // Check if any pixel has non-zero alpha (drawn content)
+        for (let i = 3; i < pixelData.length; i += 4) {
+            if (pixelData[i] > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
     // Initialize inline signature pad
     initSignaturePad() {
         const container = document.getElementById('signaturePadContainer');
@@ -2211,6 +2464,16 @@ class DocumentNotificationSystem {
                             const x = (canvas.width - scaledWidth) / 2;
                             const y = (canvas.height - scaledHeight) / 2;
                             ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+                            // Set signature image for upload
+                            this.signatureImage = canvas.toDataURL('image/png');
+                            this.updateSignatureOverlayImage();
+                            // Update modern signature status
+                            const placeholder = document.getElementById('signaturePlaceholder');
+                            const signedStatus = document.getElementById('signedStatus');
+                            if (placeholder) placeholder.classList.add('d-none');
+                            if (signedStatus) signedStatus.classList.remove('d-none');
+                            this.updateApprovalButtonsVisibility(this.currentDocument);
+                            this.showToast({ type: 'success', title: 'Signature Uploaded', message: 'Signature ready to apply to document.' });
                         };
                         img.src = event.target.result;
                     };
@@ -2223,6 +2486,11 @@ class DocumentNotificationSystem {
         const saveBtn = document.getElementById('sigSaveBtn');
         if (clearBtn) clearBtn.onclick = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); };
         if (saveBtn) saveBtn.onclick = () => {
+            if (!this.hasCanvasContent(canvas)) {
+                this.showToast({ type: 'error', title: 'No Signature', message: 'Please draw or upload a signature first.' });
+                return;
+            }
+            
             this.signatureImage = canvas.toDataURL('image/png');
             this.updateSignatureOverlayImage();
             // Update modern signature status
@@ -2232,6 +2500,7 @@ class DocumentNotificationSystem {
             if (signedStatus) signedStatus.classList.remove('d-none');
             // Hide signature pad after saving
             toggleSignaturePad();
+            this.updateApprovalButtonsVisibility(this.currentDocument);
             this.showToast({ type: 'success', title: 'Signature Saved', message: 'Signature ready to apply to document.' });
         };
     }
@@ -2262,9 +2531,13 @@ class DocumentNotificationSystem {
         const saveBtn = document.getElementById('sigSaveBtn');
         if (clearBtn) clearBtn.onclick = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); };
         if (saveBtn) saveBtn.onclick = () => {
+            console.log('Use Signature clicked, setting signatureImage');
             this.signatureImage = canvas.toDataURL('image/png');
+            console.log('signatureImage set:', !!this.signatureImage);
             this.updateSignatureOverlayImage();
             this.showToast({ type: 'success', title: 'Signature Saved', message: 'Signature ready to apply.' });
+            // Update button state after signature is set
+            this.updateApprovalButtonsVisibility(this.currentDocument);
         };
     }
 
@@ -2282,7 +2555,7 @@ class DocumentNotificationSystem {
     }
 
     // Apply signature to PDF using PDF-LIB and return blob for upload
-    // MODIFIED: Apply signature to PDF for SAF dual signing
+    // FIXED: Proper coordinate calculation for SAF dual signing
     async applySignatureToPdf() {
         if (!this.signatureImage) {
             console.error('No signature image available');
@@ -2322,35 +2595,41 @@ class DocumentNotificationSystem {
 
             // Load with PDF-LIB
             const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
-            const page = pdfDoc.getPage(0); // SAF is always page 1 (0-indexed)
-
+            
             // Embed signature image
             const signatureImage = await pdfDoc.embedPng(this.signatureImage);
 
             // For SAF documents with dual signing
             if (this.isSafDualSigning && this.linkedSignatureMaps) {
-                // Apply to Accounting position
+                // Apply to Accounting position (first signature)
                 const acct = this.linkedSignatureMaps.accounting;
-                const acctX = acct.x_pct * page.getWidth();
-                const acctY = page.getHeight() - (acct.y_pct * page.getHeight()) - (acct.h_pct * page.getHeight());
+                // Get the page (usually page 1 for SAF)
+                const acctPage = pdfDoc.getPage(acct.page - 1 || 0);
                 
-                page.drawImage(signatureImage, {
+                // Calculate coordinates - FIXED: Y coordinate calculation
+                // PDF-LIB uses bottom-left origin, so we need to subtract from page height
+                const acctX = acct.x_pct * acctPage.getWidth();
+                const acctY = acctPage.getHeight() - (acct.y_pct * acctPage.getHeight()) - (acct.h_pct * acctPage.getHeight());
+                
+                acctPage.drawImage(signatureImage, {
                     x: acctX,
                     y: acctY,
-                    width: acct.w_pct * page.getWidth(),
-                    height: acct.h_pct * page.getHeight()
+                    width: acct.w_pct * acctPage.getWidth(),
+                    height: acct.h_pct * acctPage.getHeight()
                 });
 
-                // Apply to Issuer position
+                // Apply to Issuer position (second signature)
                 const issuer = this.linkedSignatureMaps.issuer;
-                const issuerX = issuer.x_pct * page.getWidth();
-                const issuerY = page.getHeight() - (issuer.y_pct * page.getHeight()) - (issuer.h_pct * page.getHeight());
+                const issuerPage = pdfDoc.getPage(issuer.page - 1 || 0);
                 
-                page.drawImage(signatureImage, {
+                const issuerX = issuer.x_pct * issuerPage.getWidth();
+                const issuerY = issuerPage.getHeight() - (issuer.y_pct * issuerPage.getHeight()) - (issuer.h_pct * issuerPage.getHeight());
+                
+                issuerPage.drawImage(signatureImage, {
                     x: issuerX,
                     y: issuerY,
-                    width: issuer.w_pct * page.getWidth(),
-                    height: issuer.h_pct * page.getHeight()
+                    width: issuer.w_pct * issuerPage.getWidth(),
+                    height: issuer.h_pct * issuerPage.getHeight()
                 });
 
             } else {
@@ -2358,14 +2637,22 @@ class DocumentNotificationSystem {
                 const pageIndex = (this.currentSignatureMap.page || this.currentPage) - 1;
                 const page = pdfDoc.getPage(pageIndex);
                 const { x_pct, y_pct, w_pct, h_pct } = this.currentSignatureMap;
+                
                 const pageWidth = page.getWidth();
                 const pageHeight = page.getHeight();
+                
+                // FIXED: Y coordinate calculation - subtract from page height
                 const x = x_pct * pageWidth;
                 const y = pageHeight - (y_pct * pageHeight) - (h_pct * pageHeight);
                 const width = w_pct * pageWidth;
                 const height = h_pct * pageHeight;
 
-                page.drawImage(signatureImage, { x, y, width, height });
+                page.drawImage(signatureImage, { 
+                    x, 
+                    y, 
+                    width, 
+                    height 
+                });
             }
 
             const modifiedPdfBytes = await pdfDoc.save();
@@ -2535,6 +2822,13 @@ class DocumentNotificationSystem {
         const doc = this.currentDocument && this.currentDocument.id === docId
             ? this.currentDocument
             : this.documents.find(d => d.id === docId);
+
+        // Check if signature has content
+        const signatureCanvas = document.getElementById('signatureCanvas');
+        if (signatureCanvas && !this.hasCanvasContent(signatureCanvas)) {
+            this.showToast({ type: 'error', title: 'No Signature', message: 'Please draw or upload a signature first.' });
+            return;
+        }
 
         // Custom message for SAF dual signing
         const isSaf = doc?.doc_type === 'saf';
@@ -2942,7 +3236,7 @@ class DocumentNotificationSystem {
             this.fullScale = 1.0;
             this.canvasOffsetX = 0;
             this.canvasOffsetY = 0;
-            this.renderFullPage();
+            await this.renderFullPage();
             this.updateFullControls();
         } catch (error) {
             console.error('Error loading full PDF:', error);
@@ -2950,6 +3244,7 @@ class DocumentNotificationSystem {
         }
     }
 
+    // Update the renderFullPage method to ensure redaction overlays are rendered
     async renderFullPage() {
         if (!this.fullPdfDoc || !this.fullCanvas) return;
 
@@ -2966,6 +3261,16 @@ class DocumentNotificationSystem {
             };
 
             await page.render(renderContext).promise;
+            
+            // Render redaction overlays for completed signatures
+            const container = document.getElementById('fullPdfContainer');
+            if (container && this.currentDocument) {
+                // Clear any existing overlays
+                container.querySelectorAll('.completed-signature-container').forEach(el => el.remove());
+                
+                // Render new overlays
+                this.renderCompletedSignatures(this.currentDocument, container, this.fullCanvas);
+            }
             
             // Update canvas position after rendering
             this.updateCanvasPosition();
@@ -2988,62 +3293,62 @@ class DocumentNotificationSystem {
         if (nextBtn) nextBtn.disabled = this.fullCurrentPage >= this.fullTotalPages;
     }
 
-    fullPrevPage() {
+    async fullPrevPage() {
         if (this.fullCurrentPage > 1) {
             this.fullCurrentPage--;
-            this.renderFullPage();
+            await this.renderFullPage();
             this.updateFullControls();
         }
     }
 
-    fullNextPage() {
+    async fullNextPage() {
         if (this.fullCurrentPage < this.fullTotalPages) {
             this.fullCurrentPage++;
-            this.renderFullPage();
+            await this.renderFullPage();
             this.updateFullControls();
         }
     }
 
-    fullGoToPage(pageNum) {
+    async fullGoToPage(pageNum) {
         const page = parseInt(pageNum);
         if (page >= 1 && page <= this.fullTotalPages) {
             this.fullCurrentPage = page;
-            this.renderFullPage();
+            await this.renderFullPage();
             this.updateFullControls();
         }
     }
 
-    fullZoomIn() {
+    async fullZoomIn() {
         this.fullScale = Math.min(this.fullScale + 0.25, 3.0);
         this.canvasOffsetX = 0;
         this.canvasOffsetY = 0;
-        this.renderFullPage();
+        await this.renderFullPage();
         this.updateFullControls();
     }
 
-    fullZoomOut() {
+    async fullZoomOut() {
         this.fullScale = Math.max(this.fullScale - 0.25, 0.5);
         this.canvasOffsetX = 0;
         this.canvasOffsetY = 0;
-        this.renderFullPage();
+        await this.renderFullPage();
         this.updateFullControls();
     }
 
-    fullFitToWidth() {
+    async fullFitToWidth() {
         if (!this.fullPdfDoc) return;
         // Simple fit to width - can be enhanced
         this.fullScale = 1.0;
         this.canvasOffsetX = 0;
         this.canvasOffsetY = 0;
-        this.renderFullPage();
+        await this.renderFullPage();
         this.updateFullControls();
     }
 
-    fullResetZoom() {
+    async fullResetZoom() {
         this.fullScale = 1.0;
         this.canvasOffsetX = 0;
         this.canvasOffsetY = 0;
-        this.renderFullPage();
+        await this.renderFullPage();
         this.updateFullControls();
     }
 
@@ -3122,11 +3427,19 @@ class DocumentNotificationSystem {
         content.style.cursor = this.isDragMode ? 'grab' : 'default';
     }
 
+    // Update the updateCanvasPosition method to reposition overlays when dragging
     updateCanvasPosition() {
         if (!this.fullCanvas) return;
         
         const container = document.getElementById('fullPdfContainer');
         container.style.transform = `translate(${this.canvasOffsetX}px, ${this.canvasOffsetY}px)`;
+        
+        // Re-render overlays to adjust for new position
+        if (this.currentDocument) {
+            // Clear and re-render overlays with new position
+            container.querySelectorAll('.completed-signature-container').forEach(el => el.remove());
+            this.renderCompletedSignatures(this.currentDocument, container, this.fullCanvas);
+        }
     }
 };
 

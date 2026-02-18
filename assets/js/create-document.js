@@ -120,6 +120,12 @@ const deptNameMap = {
     'miranda': 'SPCF Miranda'
 };
 
+// Reverse mapping from full name to short ID
+const deptIdMap = {};
+Object.keys(deptNameMap).forEach(id => {
+    deptIdMap[deptNameMap[id]] = id;
+});
+
 /**
  * @section Document Type Selection & Management
  * Functions for switching between different document types and managing form visibility
@@ -153,7 +159,11 @@ function selectDocumentType(type) {
 
     // Show the selected form
     if (type === 'proposal') document.getElementById('proposal-form').style.display = 'block';
-    if (type === 'saf') document.getElementById('saf-form').style.display = 'block';
+    if (type === 'saf') {
+        document.getElementById('saf-form').style.display = 'block';
+        // Load SAF balances after showing form
+        loadSAFBalances();
+    }
     if (type === 'facility') document.getElementById('facility-form').style.display = 'block';
     if (type === 'communication') document.getElementById('communication-form').style.display = 'block';
 
@@ -188,10 +198,13 @@ function loadSAFBalances() {
 /**
  * Update SAF available amounts based on selected department
  * Sets the available SSC and CSC amounts to the department's current balance
- * @param {string} dept - The selected department name
+ * @param {string} dept - The selected department name (full name)
  */
 function updateSAFAvail(dept) {
-    if (!dept) {
+    // Convert full department name to short ID
+    const deptId = deptIdMap[dept] || dept;
+
+    if (!deptId) {
         // If no department selected, set CSC to 0, SSC to SSC balance
         const availSSC = document.getElementById('avail-ssc');
         const availCSC = document.getElementById('avail-csc');
@@ -208,7 +221,7 @@ function updateSAFAvail(dept) {
     const sscCurrent = sscBalance ? sscBalance.initial_amount - sscBalance.used_amount : 0;
 
     // For CSC, use selected department balance
-    const deptBalance = safBalances.find(b => b.department_id === dept);
+    const deptBalance = safBalances.find(b => b.department_id === deptId);
     const deptCurrent = deptBalance ? deptBalance.initial_amount - deptBalance.used_amount : 0;
 
     const availSSC = document.getElementById('avail-ssc');
@@ -429,7 +442,7 @@ function collectSAFData() {
     const balCSC = categories.csc ? funds.csc.available - funds.csc.requested : 0;
 
     const deptValue = document.getElementById('saf-dept').value;
-    const deptFull = deptNameMap[deptValue] || deptValue;
+    const deptFull = deptValue; // Already full name from hidden input
 
     return {
         department: deptFull, // Use full name for department field
@@ -990,6 +1003,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (deptSelect && window.currentUser?.department) {
             deptSelect.value = window.currentUser.department;
             updateSAFAvail(window.currentUser.department);
+            
+            // Auto-check CSC for students, SSC for SSC members
+            if (window.currentUser?.role === 'student') {
+                const cscCheckbox = document.getElementById('saf-csc');
+                if (cscCheckbox) cscCheckbox.checked = true;
+            }
+            if (window.currentUser?.position === 'Supreme Student Council President' || 
+                window.currentUser?.position?.includes('SSC')) {
+                const sscCheckbox = document.getElementById('saf-ssc');
+                if (sscCheckbox) sscCheckbox.checked = true;
+            }
+            
+            // Update locks and regenerate after checkbox changes
+            updateSAFLocks();
+            scheduleGenerate();
         }
     });
 

@@ -12,6 +12,12 @@ if (!$currentUser) {
     exit();
 }
 
+// Restrict to students and admins only (employees cannot access)
+if ($currentUser['role'] !== 'student' && $currentUser['role'] !== 'admin') {
+    header('Location: ' . BASE_URL . '?page=login&error=access_denied');
+    exit();
+}
+
 // Restrict Accounting employees to only SAF access
 if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
     header('Location: ' . BASE_URL . 'saf');

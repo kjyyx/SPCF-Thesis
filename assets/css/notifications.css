@@ -1246,13 +1246,23 @@ body {
 }
 
 .document-list-item.read-only {
-    opacity: 0.6;
-    cursor: default;
+    opacity: 0.7;
+    cursor: pointer;
 }
 
 .document-list-item.read-only:hover {
-    background: white;
-    transform: none;
+    background: #f8f9fa;
+    transform: translateY(-1px);
+    opacity: 0.8;
+}
+
+.signed-indicator {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    color: #10b981;
+    font-size: 14px;
+    z-index: 2;
 }
 
 .document-list-item:focus {
@@ -4721,4 +4731,22 @@ body {
     border-left: 6px solid transparent;
     border-right: 6px solid transparent;
     border-top: 6px solid #1e40af;
+}
+
+/* Read-only mode styles for completed signers */
+.document-view.read-only .action-buttons {
+    display: none;
+}
+
+.document-view.read-only .signature-pad-container {
+    display: none;
+}
+
+.document-view.read-only .notes-container {
+    display: none;
+}
+
+/* Hide filter chips for students */
+body[data-user-role="student"] .filter-chips-modern {
+    display: none;
 }

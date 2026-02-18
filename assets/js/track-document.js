@@ -807,6 +807,12 @@ async function viewDetails(docId) {
 
         if (data.success && data.document) {
             const doc = data.document;
+            console.log('Document loaded:', doc);
+            console.log('Workflow history:', doc.workflow_history);
+            
+            // Store complete document for signature rendering
+            window.currentDocument = doc;
+            
             modalTitle.innerHTML = `<i class="bi bi-file-earmark-text"></i><span>${doc.document_name || doc.title}</span>`;
 
             // PDF Viewer Section
@@ -944,11 +950,13 @@ async function viewDetails(docId) {
                 </div>
             `;
 
-            // Show download button if PDF available (regardless of status)
+            // Show download button if PDF available and document is approved or rejected
             const downloadBtn = document.getElementById('downloadDocumentBtn');
-            if (downloadBtn && doc.file_path) {
+            if (downloadBtn && doc.file_path && (doc.status === 'approved' || doc.status === 'rejected')) {
                 downloadBtn.style.display = 'inline-block';
                 downloadBtn.onclick = () => downloadDocument(doc.id);
+            } else if (downloadBtn) {
+                downloadBtn.style.display = 'none';
             }
 
             // Load PDF if available
@@ -967,8 +975,24 @@ async function viewDetails(docId) {
                 } else {
                     pdfUrl = BASE_URL + 'uploads/' + pdfUrl;
                 }
-                loadPdfInModal(pdfUrl);
+                
+                // Store PDF URL and document for loading after modal is shown
+                window.pendingPdfLoad = { url: pdfUrl, doc: doc };
             }
+
+            modal.show();
+            
+            // Load PDF after modal is fully shown
+            const modalElement = document.getElementById('documentModal');
+            modalElement.addEventListener('shown.bs.modal', async function onModalShown() {
+                modalElement.removeEventListener('shown.bs.modal', onModalShown);
+                
+                if (window.pendingPdfLoad) {
+                    const { url, doc } = window.pendingPdfLoad;
+                    delete window.pendingPdfLoad;
+                    await loadPdfInModal(url, doc);
+                }
+            });
         } else {
             modalTitle.innerHTML = '<i class="bi bi-exclamation-triangle"></i><span>Error</span>';
             modalBody.innerHTML = '<div class="alert alert-danger"><i class="bi bi-x-circle me-2"></i>Failed to load document details</div>';
@@ -991,42 +1015,110 @@ async function viewDetails(docId) {
 }
 
 // Add PDF loading function for modal
-async function loadPdfInModal(url) {
+// Update the loadPdfInModal function
+async function loadPdfInModal(url, doc = null) {
     const canvas = document.getElementById('pdfCanvas');
-    if (!canvas) return;
+    const pdfViewer = document.getElementById('pdfViewer');
+    
+    if (!canvas || !pdfViewer) return;
 
     try {
+        // Clear any existing overlays
+        const existing = pdfViewer.querySelectorAll('.completed-signature-container');
+        existing.forEach(el => el.remove());
+        
+        // Store document for signature rendering
+        window.currentDocument = doc;
+        
+        // Ensure PDF viewer has position relative
+        pdfViewer.style.position = 'relative';
+        
         const pdfjsLib = window['pdfjsLib'];
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
         pdfDoc = await pdfjsLib.getDocument(url).promise;
         totalPdfPages = pdfDoc.numPages;
         currentPdfPage = 1;
+        window.currentPdfPage = 1;
 
         // Update page controls
         updatePdfPageControls();
 
         // Render first page
-        await renderPdfPage(currentPdfPage);
+        await renderPdfPage(1);
+        
     } catch (error) {
         console.error('Error loading PDF:', error);
-        document.getElementById('pdfViewer').innerHTML = '<p class="text-danger">Failed to load PDF preview</p>';
+        pdfViewer.innerHTML = '<p class="text-danger p-3">Failed to load PDF preview</p>';
     }
 }
-
-// Render specific PDF page
 async function renderPdfPage(pageNum) {
     if (!pdfDoc) return;
 
     const canvas = document.getElementById('pdfCanvas');
-    const page = await pdfDoc.getPage(pageNum);
-    const viewport = page.getViewport({ scale: 1.0 });
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
-    const renderContext = {
-        canvasContext: canvas.getContext('2d'),
-        viewport: viewport
-    };
-    await page.render(renderContext).promise;
+    const pdfViewer = document.getElementById('pdfViewer');
+
+    if (!canvas || !pdfViewer) return;
+
+    try {
+        const page = await pdfDoc.getPage(pageNum);
+        
+        // Get the container width
+        const containerWidth = pdfViewer.clientWidth - 20;
+        
+        // Get the page's original dimensions
+        const viewport = page.getViewport({ scale: 1.0 });
+        
+        // Calculate scale to fit width while maintaining quality
+        // Use device pixel ratio for sharper rendering
+        const devicePixelRatio = window.devicePixelRatio || 1;
+        const scale = (containerWidth / viewport.width) * devicePixelRatio;
+        
+        // Set canvas dimensions in physical pixels
+        const scaledViewport = page.getViewport({ scale: scale });
+        
+        canvas.width = scaledViewport.width;
+        canvas.height = scaledViewport.height;
+        
+        // Set canvas CSS dimensions to match container
+        canvas.style.width = containerWidth + 'px';
+        canvas.style.height = (scaledViewport.height / devicePixelRatio) + 'px';
+        
+        // Render with high quality
+        const renderContext = {
+            canvasContext: canvas.getContext('2d', { 
+                alpha: false,
+                desynchronized: true 
+            }),
+            viewport: scaledViewport,
+            intent: 'display'
+        };
+        
+        // Clear canvas with white background
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        await page.render(renderContext).promise;
+        
+        console.log(`Page ${pageNum} rendered at scale ${scale} (devicePixelRatio: ${devicePixelRatio})`);
+        
+        // Update current page for signature filtering
+        window.currentPdfPage = pageNum;
+        
+        // Re-render signatures for this page
+        if (window.currentDocument) {
+            // Clear existing signatures
+            const existing = pdfViewer.querySelectorAll('.completed-signature-container');
+            existing.forEach(el => el.remove());
+            
+            // Render signatures for current page only
+            renderCompletedSignatures(window.currentDocument, pdfViewer);
+        }
+        
+    } catch (error) {
+        console.error('Error rendering PDF page:', error);
+    }
 }
 
 // Update PDF page controls
@@ -1039,27 +1131,31 @@ function updatePdfPageControls() {
     if (nextBtn) nextBtn.disabled = currentPdfPage >= totalPdfPages;
     if (pageInfo) pageInfo.textContent = `Page ${currentPdfPage} of ${totalPdfPages}`;
 
-    // Add event listeners if not already added
-    if (prevBtn && !prevBtn.hasEventListener) {
-        prevBtn.addEventListener('click', () => {
+    // Remove old listeners and add new ones
+    if (prevBtn) {
+        const newPrevBtn = prevBtn.cloneNode(true);
+        prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
+        
+        newPrevBtn.addEventListener('click', async () => {
             if (currentPdfPage > 1) {
                 currentPdfPage--;
-                renderPdfPage(currentPdfPage);
+                await renderPdfPage(currentPdfPage);
                 updatePdfPageControls();
             }
         });
-        prevBtn.hasEventListener = true;
     }
 
-    if (nextBtn && !nextBtn.hasEventListener) {
-        nextBtn.addEventListener('click', () => {
+    if (nextBtn) {
+        const newNextBtn = nextBtn.cloneNode(true);
+        nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
+        
+        newNextBtn.addEventListener('click', async () => {
             if (currentPdfPage < totalPdfPages) {
                 currentPdfPage++;
-                renderPdfPage(currentPdfPage);
+                await renderPdfPage(currentPdfPage);
                 updatePdfPageControls();
             }
         });
-        nextBtn.hasEventListener = true;
     }
 }
 
@@ -1332,3 +1428,242 @@ function savePreferences() {
 }
 
 // Enhanced functionality complete
+
+// Function to render completed signatures as redaction overlays
+// Replace the renderCompletedSignatures function with this corrected version
+function renderCompletedSignatures(doc, container) {
+    console.log('renderCompletedSignatures called with doc:', doc, 'container:', container);
+    
+    // Clear any existing overlays first
+    const existing = container.querySelectorAll('.completed-signature-container');
+    existing.forEach(el => el.remove());
+
+    // Ensure container has position relative
+    container.style.position = 'relative';
+    
+    const canvas = container.querySelector('canvas');
+    if (!canvas) {
+        console.log('No canvas found in container');
+        return;
+    }
+
+    // Wait for canvas to be properly rendered and visible
+    if (canvas.width === 0 || canvas.height === 0 || canvas.getBoundingClientRect().width === 0) {
+        console.log('Canvas not properly sized yet, waiting...');
+        setTimeout(() => renderCompletedSignatures(doc, container), 200);
+        return;
+    }
+
+    // Get current page from the PDF viewer
+    const currentPage = window.currentPdfPage || 1;
+    console.log('Current PDF page:', currentPage);
+
+    // Get fresh dimensions
+    const containerRect = container.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    console.log('Canvas display rect:', canvasRect);
+
+    // Get workflow history - this contains all signers with their info
+    const workflowHistory = doc.workflow_history || [];
+    console.log('Workflow history:', workflowHistory);
+
+    // Filter for completed signatures (approved/reviewed steps)
+    const completedSignatures = workflowHistory.filter(step => 
+        step.status === 'completed' || step.status === 'approved'
+    );
+
+    console.log('Completed signatures found:', completedSignatures.length);
+
+    completedSignatures.forEach((step, index) => {
+        console.log(`Processing step ${index}:`, step);
+
+        // Get signature map from the step
+        let signatureMap = step.signature_map;
+        
+        if (typeof signatureMap === 'string') {
+            try {
+                signatureMap = JSON.parse(signatureMap);
+            } catch (e) {
+                console.log('Failed to parse signature_map:', e);
+                signatureMap = null;
+            }
+        }
+        
+        // Handle different signature map structures
+        let mapsToRender = [];
+        
+        if (signatureMap) {
+            // Check if it's a dual signature map (SAF)
+            if (signatureMap.accounting && signatureMap.issuer) {
+                // Dual signature - add both with proper labels
+                mapsToRender.push({
+                    ...signatureMap.accounting,
+                    label: 'Accounting',
+                    step: step
+                });
+                mapsToRender.push({
+                    ...signatureMap.issuer,
+                    label: 'Issuer',
+                    step: step
+                });
+            } else {
+                // Single signature
+                mapsToRender.push({
+                    ...signatureMap,
+                    step: step
+                });
+            }
+        } else {
+            // Default position if no map
+            const baseY = 0.78;
+            const offset = index * 0.1;
+            mapsToRender.push({
+                x_pct: 0.62,
+                y_pct: Math.max(0.1, baseY - offset),
+                w_pct: 0.28,
+                h_pct: 0.1,
+                page: 1,
+                step: step
+            });
+        }
+
+        // Render each signature map
+        mapsToRender.forEach((map) => {
+            // Check if this signature belongs on the current page
+            const signaturePage = map.page || 1;
+            if (signaturePage !== currentPage) {
+                console.log(`Skipping signature on page ${signaturePage}, current page is ${currentPage}`);
+                return;
+            }
+
+            // Calculate position using display dimensions
+            const left = (canvasRect.left - containerRect.left) + (map.x_pct * canvasRect.width);
+            const top = (canvasRect.top - containerRect.top) + (map.y_pct * canvasRect.height);
+            const width = (map.w_pct || 0.28) * canvasRect.width;
+            const height = (map.h_pct || 0.1) * canvasRect.height;
+
+            console.log(`Rendering signature at:`, { left, top, width, height, page: signaturePage });
+
+            // Get signer details from the step - MATCHING NOTIFICATIONS PAGE FORMAT
+            const stepData = map.step;
+            
+            // Extract name - try multiple possible fields
+            let name = 'Unknown';
+            if (stepData.assignee_name) {
+                name = stepData.assignee_name;
+            } else if (stepData.created_by_name) {
+                name = stepData.created_by_name;
+            } else if (stepData.from_office) {
+                // Use office name as fallback
+                name = stepData.from_office;
+            }
+            
+            // Extract position/title
+            let position = '';
+            if (stepData.assignee_position) {
+                position = stepData.assignee_position;
+            } else if (stepData.position) {
+                position = stepData.position;
+            }
+            
+            // Extract timestamp - use the appropriate date field
+            let timestamp = '';
+            if (stepData.signed_at) {
+                timestamp = new Date(stepData.signed_at).toLocaleString();
+            } else if (stepData.created_at) {
+                timestamp = new Date(stepData.created_at).toLocaleString();
+            } else if (stepData.acted_at) {
+                timestamp = new Date(stepData.acted_at).toLocaleString();
+            }
+
+            // Get office/role for additional context
+            const office = stepData.from_office || stepData.office_name || '';
+            
+            // For SAF documents, add the role label
+            if (map.label) {
+                // If it's a dual signature, show the role
+                name = `${name} (${map.label})`;
+            } else if (office.includes('Accounting')) {
+                name = `${name} (Accounting)`;
+            } else if (office.includes('Creator') || office.includes('Student')) {
+                name = `${name} (Issuer)`;
+            }
+
+            console.log(`Signer details:`, { name, position, timestamp, office });
+
+            // Create redaction container
+            const signatureContainer = document.createElement('div');
+            signatureContainer.className = 'completed-signature-container';
+            signatureContainer.setAttribute('data-page', signaturePage);
+            signatureContainer.setAttribute('data-signer', name);
+            
+            signatureContainer.style.position = 'absolute';
+            signatureContainer.style.left = left + 'px';
+            signatureContainer.style.top = top + 'px';
+            signatureContainer.style.width = width + 'px';
+            signatureContainer.style.height = height + 'px';
+            signatureContainer.style.zIndex = '1060';
+            signatureContainer.style.pointerEvents = 'none';
+            signatureContainer.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+            signatureContainer.style.borderRadius = '4px';
+            signatureContainer.style.overflow = 'hidden';
+
+            // Create redaction box
+            const redactionBox = document.createElement('div');
+            redactionBox.className = 'signature-redaction';
+            redactionBox.style.width = '100%';
+            redactionBox.style.height = '100%';
+            redactionBox.style.display = 'flex';
+            redactionBox.style.alignItems = 'center';
+            redactionBox.style.justifyContent = 'center';
+            redactionBox.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+            redactionBox.style.color = 'white';
+            redactionBox.style.fontWeight = '600';
+            redactionBox.style.fontSize = '12px';
+            redactionBox.style.padding = '6px';
+            redactionBox.style.textAlign = 'center';
+            redactionBox.style.backdropFilter = 'blur(4px)';
+            redactionBox.style.WebkitBackdropFilter = 'blur(4px)';
+            redactionBox.style.border = '1px solid rgba(255,255,255,0.2)';
+            redactionBox.style.boxSizing = 'border-box';
+            redactionBox.style.lineHeight = '1.4';
+            
+            // Format the display - matching notifications page style
+            redactionBox.innerHTML = `
+                <div style="text-align: center; width: 100%;">
+                    <div style="font-weight:700; margin-bottom:2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${name}</div>
+                    ${position ? `<div style="font-size:11px; opacity:0.9; margin-bottom:2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${position}</div>` : ''}
+                    <div style="font-size:10px; opacity:0.8;">${timestamp}</div>
+                </div>
+            `;
+
+            signatureContainer.appendChild(redactionBox);
+            container.appendChild(signatureContainer);
+        });
+    });
+    
+    console.log('Finished rendering signatures');
+}
+
+// Add this debug helper (optional, remove in production)
+function debugRedactionPositions() {
+    const viewer = document.getElementById('pdfViewer');
+    const containers = viewer.querySelectorAll('.completed-signature-container');
+
+    console.log('Redaction containers found:', containers.length);
+    containers.forEach((container, i) => {
+        const rect = container.getBoundingClientRect();
+        console.log(`Container ${i}:`, {
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            height: rect.height,
+            style: container.style.cssText
+        });
+    });
+}
+
+// Call this from browser console to debug
+// debugRedactionPositions();
+

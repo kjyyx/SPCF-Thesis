@@ -186,18 +186,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                     <label class="form-label">
                       <i class="bi bi-building"></i>Department <span class="required">*</span>
                     </label>
-                    <select id="prop-department" class="form-select">
-                      <option value="">Select Department</option>
-                      <option value="College of Arts, Social Sciences, and Education">College of Arts, Social Sciences, and Education (CASSED)</option>
-                      <option value="College of Business">College of Business (COB)</option>
-                      <option value="College of Computing and Information Sciences">College of Computing and Information Sciences (CCIS)</option>
-                      <option value="College of Criminology">College of Criminology (COC)</option>
-                      <option value="College of Engineering">College of Engineering (COE)</option>
-                      <option value="College of Hospitality and Tourism Management">College of Hospitality and Tourism Management (CHTM)</option>
-                      <option value="College of Nursing">College of Nursing (CON)</option>
-                      <option value="SPCF Miranda">SPCF Miranda (MIRANDA)</option>
-                      <option value="Supreme Student Council">Supreme Student Council (SSC)</option>
-                    </select>
+                    <input type="text" class="form-control" value="<?php echo htmlspecialchars($currentUser['department'] ?? ''); ?>" readonly>
+                    <input type="hidden" id="prop-department" value="<?php echo htmlspecialchars($currentUser['department'] ?? ''); ?>">
                   </div>
                 </div>
 
@@ -351,13 +341,20 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                     </label>
                     <div class="category-checkboxes">
                       <div class="form-check">
-                        <input id="saf-ssc" class="form-check-input saf-cat" type="checkbox">
+                        <input id="saf-ssc" class="form-check-input saf-cat" type="checkbox" <?php echo ($currentUser['position'] !== 'Supreme Student Council President') ? 'disabled' : ''; ?>>
                         <label class="form-check-label" for="saf-ssc">SSC</label>
                       </div>
                       <div class="form-check">
-                        <input id="saf-csc" class="form-check-input saf-cat" type="checkbox">
+                        <input id="saf-csc" class="form-check-input saf-cat" type="checkbox" <?php echo ($currentUser['position'] !== 'College Student Council President') ? 'disabled' : ''; ?>>
                         <label class="form-check-label" for="saf-csc">CSC</label>
                       </div>
+                    </div>
+                    <div class="form-text">
+                      <?php if ($currentUser['position'] === 'Supreme Student Council President'): ?>
+                        As SSC President, you can only request SSC funds.
+                      <?php elseif ($currentUser['position'] === 'College Student Council President'): ?>
+                        As CSC President, you can only request CSC funds.
+                      <?php endif; ?>
                     </div>
                   </div>
                 </div>
@@ -385,18 +382,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                     <label class="form-label">
                       <i class="bi bi-building"></i>College / Department <span class="required">*</span>
                     </label>
-                    <select id="saf-dept" class="form-select">
-                      <option value="">Select Department</option>
-                      <option value="casse" <?php echo ($currentUser['department'] === 'College of Arts, Social Sciences, and Education') ? 'selected' : ''; ?>>College of Arts, Social Sciences, and Education</option>
-                      <option value="cob" <?php echo ($currentUser['department'] === 'College of Business') ? 'selected' : ''; ?>>College of Business</option>
-                      <option value="ccis" <?php echo ($currentUser['department'] === 'College of Computing and Information Sciences') ? 'selected' : ''; ?>>College of Computing and Information Sciences</option>
-                      <option value="coc" <?php echo ($currentUser['department'] === 'College of Criminology') ? 'selected' : ''; ?>>College of Criminology</option>
-                      <option value="coe" <?php echo ($currentUser['department'] === 'College of Engineering') ? 'selected' : ''; ?>>College of Engineering</option>
-                      <option value="chtm" <?php echo ($currentUser['department'] === 'College of Hospitality and Tourism Management') ? 'selected' : ''; ?>>College of Hospitality and Tourism Management</option>
-                      <option value="con" <?php echo ($currentUser['department'] === 'College of Nursing') ? 'selected' : ''; ?>>College of Nursing</option>
-                      <option value="miranda" <?php echo ($currentUser['department'] === 'SPCF Miranda') ? 'selected' : ''; ?>>SPCF Miranda</option>
-                      <option value="ssc">Supreme Student Council</option>
-                    </select>
+                    <input type="text" class="form-control" value="<?php echo htmlspecialchars($currentUser['department'] ?? ''); ?>" readonly>
+                    <input type="hidden" id="saf-dept" value="<?php echo htmlspecialchars($currentUser['department'] ?? ''); ?>">
                   </div>
                   <div class="col-md-6">
                     <!-- Placeholder -->
@@ -420,8 +407,7 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                       <tbody>
                         <tr id="row-ssc" style="display:none">
                           <td>SSC</td>
-                          <td><input id="avail-ssc" class="form-control" type="number" min="0" step="1"
-                              placeholder="0" readonly></td>
+                          <td><input id="avail-ssc" class="form-control" type="text" placeholder="₱0" readonly></td>
                           <td>
                             <div class="saf-input-wrapper">
                               <input id="req-ssc" class="form-control text-center" type="number" min="0" step="100"
@@ -438,8 +424,7 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                         </tr>
                         <tr id="row-csc" style="display:none">
                           <td>CSC</td>
-                          <td><input id="avail-csc" class="form-control" type="number" min="0" step="1"
-                              placeholder="0" readonly></td>
+                          <td><input id="avail-csc" class="form-control" type="text" placeholder="₱0" readonly></td>
                           <td>
                             <div class="saf-input-wrapper">
                               <input id="req-csc" class="form-control text-center" type="number" min="0" step="100"
@@ -486,18 +471,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                 <div class="row g-3 mt-2">
                   <div class="col-md-6">
                     <label class="form-label">Department <span class="required">*</span></label>
-                    <select class="form-select" id="fac-dept">
-                      <option value="">Select Department</option>
-                      <option value="College of Arts, Social Sciences, and Education">College of Arts, Social Sciences, and Education (CASSED)</option>
-                      <option value="College of Business">College of Business (COB)</option>
-                      <option value="College of Computing and Information Sciences">College of Computing and Information Sciences (CCIS)</option>
-                      <option value="College of Criminology">College of Criminology (COC)</option>
-                      <option value="College of Engineering">College of Engineering (COE)</option>
-                      <option value="College of Hospitality and Tourism Management">College of Hospitality and Tourism Management (CHTM)</option>
-                      <option value="College of Nursing">College of Nursing (CON)</option>
-                      <option value="SPCF Miranda">SPCF Miranda (MIRANDA)</option>
-                      <option value="Supreme Student Council">Supreme Student Council (SSC)</option>
-                    </select>
+                    <input type="text" class="form-control" value="<?php echo htmlspecialchars($currentUser['department'] ?? ''); ?>" readonly>
+                    <input type="hidden" id="fac-dept" value="<?php echo htmlspecialchars($currentUser['department'] ?? ''); ?>">
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Clean and Set-up Committee</label>
@@ -862,18 +837,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Department <span class="required">*</span></label>
-                    <select id="comm-department-select" class="form-select">
-                      <option value="">Select Department</option>
-                      <option value="College of Arts, Social Sciences, and Education">College of Arts, Social Sciences, and Education (CASSED)</option>
-                      <option value="College of Business">College of Business (COB)</option>
-                      <option value="College of Computing and Information Sciences">College of Computing and Information Sciences (CCIS)</option>
-                      <option value="College of Criminology">College of Criminology (COC)</option>
-                      <option value="College of Engineering">College of Engineering (COE)</option>
-                      <option value="College of Hospitality and Tourism Management">College of Hospitality and Tourism Management (CHTM)</option>
-                      <option value="College of Nursing">College of Nursing (CON)</option>
-                      <option value="SPCF Miranda">SPCF Miranda (MIRANDA)</option>
-                      <option value="Supreme Student Council">Supreme Student Council (SSC)</option>
-                    </select>
+                    <input type="text" class="form-control" value="<?php echo htmlspecialchars($currentUser['department'] ?? ''); ?>" readonly>
+                    <input type="hidden" id="comm-department-select" value="<?php echo htmlspecialchars($currentUser['department'] ?? ''); ?>">
                   </div>
                 </div>
 
@@ -1200,6 +1165,16 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
 </body>
 
 <script>
+  // Set current user data for JavaScript access
+  window.currentUser = <?php echo json_encode([
+    'id' => $currentUser['id'] ?? null,
+    'firstName' => $currentUser['first_name'] ?? '',
+    'lastName' => $currentUser['last_name'] ?? '',
+    'position' => $currentUser['position'] ?? '',
+    'department' => $currentUser['department'] ?? '',
+    'role' => $currentUser['role'] ?? ''
+  ]); ?>;
+
   // Fetch employees for dropdowns
   fetch(BASE_URL + 'api/employees.php')
     .then(response => {

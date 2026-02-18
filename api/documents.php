@@ -581,7 +581,7 @@ function handleGet()
 
             // Fetch workflow history
             $historyStmt = $db->prepare("
-                SELECT ds.id, ds.status, ds.name, ds.acted_at
+                SELECT ds.id, ds.status, ds.name, ds.acted_at, ds.signature_map
                 FROM document_steps ds
                 WHERE ds.document_id = ?
                 ORDER BY ds.step_order ASC
@@ -632,7 +632,8 @@ function handleGet()
                         'status' => $step['status'] ?: 'pending',
                         'action' => $step['status'] === 'completed' ? 'Approved' : ($step['status'] === 'rejected' ? 'Rejected' : 'Pending'),
                         'office_name' => $step['name'] ?: 'Unknown',
-                        'from_office' => $step['name'] ?: 'Unknown'
+                        'from_office' => $step['name'] ?: 'Unknown',
+                        'signature_map' => $step['signature_map']
                     ];
                 }, $workflow_history),
                 'notes' => array_map(function ($note) {
@@ -763,13 +764,12 @@ function handleGet()
             return;
         }
         // Get documents assigned to current user (employee or student council president) that need action or were recently completed
-        $params = [];
-        if ($currentUser['role'] === 'employee') {
-            $params = [$currentUser['id'], 'employee', $currentUser['id'], 'student'];
-        } elseif ($currentUser['role'] === 'student' && ($currentUser['position'] === 'Supreme Student Council President' || $currentUser['position'] === 'College Student Council President')) {
-            $params = [$currentUser['id'], 'employee', $currentUser['id'], 'student'];
-        } else {
-            // For regular students, show their own documents
+        $userId = $currentUser['id'];
+        $isEmployee = ($currentUser['role'] === 'employee');
+        $isStudentCouncil = ($currentUser['role'] === 'student' && ($currentUser['position'] === 'Supreme Student Council President' || $currentUser['position'] === 'College Student Council President'));
+        
+        if (!$isEmployee && !$isStudentCouncil) {
+            // For regular students, show documents assigned to them with pending signatures
             $studentDocumentsQuery = "
                 SELECT DISTINCT
                     d.id,
@@ -785,7 +785,9 @@ function handleGet()
                     CONCAT(s.first_name, ' ', s.last_name) as student_name,
                     s.department as student_department,
                     d.file_path,
-                    CASE WHEN d.status = 'approved' THEN 1 ELSE 0 END as user_action_completed,
+                    CASE WHEN d.status IN ('approved', 'rejected') THEN 1
+                         WHEN ds.status = 'pending' AND ds.assigned_to_student_id = ? THEN 0
+                         ELSE 1 END as user_action_completed,
                     ds.id as step_id,
                     ds.step_order,
                     ds.name as step_name,
@@ -802,17 +804,21 @@ function handleGet()
                     dsg.signed_at
                 FROM documents d
                 LEFT JOIN students s ON d.student_id = s.id
-                LEFT JOIN document_steps ds ON d.id = ds.document_id
+                JOIN document_steps ds ON d.id = ds.document_id
                 LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
                 LEFT JOIN students st ON ds.assigned_to_student_id = st.id
                 LEFT JOIN document_signatures dsg ON dsg.step_id = ds.id
                     AND ((dsg.employee_id = ds.assigned_to_employee_id AND ds.assigned_to_employee_id IS NOT NULL)
                          OR (dsg.student_id = ds.assigned_to_student_id AND ds.assigned_to_student_id IS NOT NULL))
-                WHERE d.student_id = ?
+                WHERE EXISTS (
+                    SELECT 1 FROM document_steps ds_student
+                    WHERE ds_student.document_id = d.id
+                    AND ds_student.assigned_to_student_id = ?
+                )
                 ORDER BY d.uploaded_at DESC, ds.step_order ASC
             ";
             $stmt = $db->prepare($studentDocumentsQuery);
-            $stmt->execute([$currentUser['id']]);
+            $stmt->execute([$currentUser['id'], $currentUser['id']]);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // Group by document and organize workflow
@@ -870,8 +876,15 @@ function handleGet()
         $isAccounting = ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false);
         $docTypeFilter = $isAccounting ? "AND d.doc_type = 'saf'" : "";
 
-        // For employees: Show pending documents assigned to them + all approved documents
-        $pendingQuery = "
+        // For employees and student council presidents: Show all documents assigned to them (past and present)
+        $userId = $currentUser['id'];
+        $isEmployee = ($currentUser['role'] === 'employee');
+        $isStudentCouncil = ($currentUser['role'] === 'student' && ($currentUser['position'] === 'Supreme Student Council President' || $currentUser['position'] === 'College Student Council President'));
+        
+        $assignmentCondition = $isEmployee ? "ds_employee.assigned_to_employee_id = ?" : "ds_employee.assigned_to_student_id = ?";
+        $pendingCheckCondition = $isEmployee ? "ds_check.assigned_to_employee_id = ?" : "ds_check.assigned_to_student_id = ?";
+        
+        $employeeQuery = "
             SELECT DISTINCT
                 d.id,
                 d.title,
@@ -886,7 +899,14 @@ function handleGet()
                 CONCAT(s.first_name, ' ', s.last_name) as student_name,
                 s.department as student_department,
                 d.file_path,
-                NULL as user_action_completed,
+                CASE WHEN d.status IN ('approved', 'rejected') THEN 1
+                     WHEN EXISTS (
+                         SELECT 1 FROM document_steps ds_check
+                         WHERE ds_check.document_id = d.id
+                         AND {$pendingCheckCondition}
+                         AND ds_check.status = 'pending'
+                     ) THEN 0
+                     ELSE 1 END as user_action_completed,
                 ds.id as step_id,
                 ds.step_order,
                 ds.name as step_name,
@@ -909,72 +929,17 @@ function handleGet()
             LEFT JOIN document_signatures dsg ON dsg.step_id = ds.id
                 AND ((dsg.employee_id = ds.assigned_to_employee_id AND ds.assigned_to_employee_id IS NOT NULL)
                      OR (dsg.student_id = ds.assigned_to_student_id AND ds.assigned_to_student_id IS NOT NULL))
-            WHERE ds.status = 'pending'
-            AND (
-                (ds.assigned_to_employee_id = ? AND ? = 'employee')
-                OR (ds.assigned_to_student_id = ? AND ? = 'student')
+            WHERE EXISTS (
+                SELECT 1 FROM document_steps ds_employee
+                WHERE ds_employee.document_id = d.id
+                AND {$assignmentCondition}
             )
             {$docTypeFilter}
-            AND NOT EXISTS (
-                SELECT 1 FROM document_steps ds_prev
-                WHERE ds_prev.document_id = ds.document_id
-                AND ds_prev.step_order < ds.step_order
-                AND ds_prev.status = 'pending'
-            )
+            ORDER BY d.uploaded_at DESC, ds.step_order ASC
         ";
-        $stmt = $db->prepare($pendingQuery);
-        $stmt->execute($params);
-        $pendingRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Query for approved documents (all approved documents for employees)
-        $approvedQuery = "
-            SELECT DISTINCT
-                d.id,
-                d.title,
-                d.doc_type,
-                d.description,
-                d.status,
-                d.current_step,
-                d.uploaded_at,
-                d.date,
-                d.earliest_start_time,
-                s.id as student_id,
-                CONCAT(s.first_name, ' ', s.last_name) as student_name,
-                s.department as student_department,
-                d.file_path,
-                1 as user_action_completed,
-                ds.id as step_id,
-                ds.step_order,
-                ds.name as step_name,
-                ds.status as step_status,
-                ds.note,
-                ds.signature_map,
-                ds.acted_at,
-                ds.assigned_to_employee_id,
-                ds.assigned_to_student_id,
-                e.first_name as assignee_first,
-                e.last_name as assignee_last,
-                st.first_name as student_assignee_first,
-                st.last_name as student_assignee_last,
-                dsg.status as signature_status,
-                dsg.signed_at
-            FROM documents d
-            LEFT JOIN students s ON d.student_id = s.id
-            JOIN document_steps ds ON d.id = ds.document_id
-            LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
-            LEFT JOIN students st ON ds.assigned_to_student_id = st.id
-            LEFT JOIN document_signatures dsg ON dsg.step_id = ds.id
-                AND ((dsg.employee_id = ds.assigned_to_employee_id AND ds.assigned_to_employee_id IS NOT NULL)
-                     OR (dsg.student_id = ds.assigned_to_student_id AND ds.assigned_to_student_id IS NOT NULL))
-            WHERE d.status = 'approved'
-            {$docTypeFilter}
-        ";
-        $stmt2 = $db->prepare($approvedQuery);
-        $stmt2->execute();
-        $approvedRows = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-
-        // Merge rows
-        $rows = array_merge($pendingRows, $approvedRows);
+        $stmt = $db->prepare($employeeQuery);
+        $stmt->execute([$userId, $userId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Group by document and organize workflow
         $processedDocuments = [];
@@ -2100,6 +2065,118 @@ function signDocument($input, $files = null)
                 $stmt->execute([$notes, $stepId, $currentUser['id']]);
             }
 
+            // Check if this is EVP approval for SAF document - deduct funds immediately
+            $stepStmt = $db->prepare("SELECT name FROM document_steps WHERE id = ?");
+            $stepStmt->execute([$stepId]);
+            $currentStep = $stepStmt->fetch(PDO::FETCH_ASSOC);
+            $docStmt = $db->prepare("SELECT doc_type, data FROM documents WHERE id = ?");
+            $docStmt->execute([$documentId]);
+            $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
+            if ($doc && $doc['doc_type'] === 'saf' && $currentStep && strpos($currentStep['name'], 'EVP') !== false) {
+                // Check if funds have already been deducted for this document
+                $existingTransStmt = $db->prepare("SELECT COUNT(*) as count FROM saf_transactions WHERE transaction_description LIKE ?");
+                $existingTransStmt->execute(["%Document ID: {$documentId}%"]);
+                $existingTrans = $existingTransStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($existingTrans['count'] > 0) {
+                    // Funds already deducted, skip
+                    addAuditLog(
+                        'SAF_DEDUCT_SKIPPED',
+                        'SAF Management',
+                        "SAF fund deduction skipped - already processed for document",
+                        $documentId,
+                        'Document',
+                        'INFO'
+                    );
+                    return ['success' => true, 'message' => 'Document approved successfully'];
+                }
+
+                $data = json_decode($doc['data'], true);
+                if ($data) {
+                    $reqSSC = $data['reqSSC'] ?? 0;
+                    $reqCSC = $data['reqCSC'] ?? 0;
+                    $department = $data['department']; // This is the CSC department (full name)
+
+                    // Reverse mapping from full names to short IDs (case-insensitive)
+                    $reverseDeptMap = [
+                        'supreme student council' => 'ssc',
+                        'college of arts, social sciences and education' => 'casse',
+                        'college of arts, social sciences, and education' => 'casse', // Also handle title case
+                        'college of business' => 'cob',
+                        'college of computing and information sciences' => 'ccis',
+                        'college of criminology' => 'coc',
+                        'college of engineering' => 'coe',
+                        'college of hospitality and tourism management' => 'chtm',
+                        'college of nursing' => 'con',
+                        'spcf miranda' => 'miranda'
+                    ];
+                    $deptLower = strtolower(trim($department));
+                    $deptId = $reverseDeptMap[$deptLower] ?? $department; // Fallback to original if not found
+
+                    // Check available balances before deducting
+                    $balanceCheckStmt = $db->prepare("SELECT initial_amount - used_amount as available FROM saf_balances WHERE department_id = ?");
+                    
+                    // Check SSC balance if requesting SSC funds
+                    if ($reqSSC > 0) {
+                        $balanceCheckStmt->execute(['ssc']);
+                        $sscBalance = $balanceCheckStmt->fetch(PDO::FETCH_ASSOC);
+                        if (!$sscBalance || $sscBalance['available'] < $reqSSC) {
+                            throw new Exception("Insufficient SSC SAF funds. Available: ₱" . ($sscBalance['available'] ?? 0) . ", Requested: ₱{$reqSSC}");
+                        }
+                    }
+                    
+                    // Check CSC balance if requesting CSC funds
+                    if ($reqCSC > 0 && $deptId) {
+                        $balanceCheckStmt->execute([$deptId]);
+                        $cscBalance = $balanceCheckStmt->fetch(PDO::FETCH_ASSOC);
+                        if (!$cscBalance || $cscBalance['available'] < $reqCSC) {
+                            throw new Exception("Insufficient {$deptId} SAF funds. Available: ₱" . ($cscBalance['available'] ?? 0) . ", Requested: ₱{$reqCSC}");
+                        }
+                    }
+
+                    // Prepare transaction statement
+                    $transStmt = $db->prepare("INSERT INTO saf_transactions (department_id, transaction_type, transaction_amount, transaction_description, transaction_date, created_by) VALUES (?, 'deduct', ?, ?, NOW(), ?)");
+
+                    // Deduct SSC funds from 'ssc' department
+                    if ($reqSSC > 0) {
+                        $updateStmt = $db->prepare("UPDATE saf_balances SET used_amount = used_amount + ?, current_balance = initial_amount - used_amount WHERE department_id = ?");
+                        $updateStmt->execute([$reqSSC, 'ssc']);
+
+                        // Add transaction record for SSC
+                        $transStmt->execute(['ssc', $reqSSC, "SAF Request (SSC): " . ($data['title'] ?? 'Untitled') . " - Document ID: {$documentId}", $currentUser['id']]);
+
+                        // Audit log for SSC fund deduction
+                        addAuditLog(
+                            'SAF_DEDUCTED',
+                            'SAF Management',
+                            "Deducted ₱{$reqSSC} from SSC SAF balance for EVP-approved document",
+                            $documentId,
+                            'Document',
+                            'INFO'
+                        );
+                    }
+
+                    // Deduct CSC funds from selected department (using mapped short ID)
+                    if ($reqCSC > 0 && $deptId) {
+                        $updateStmt = $db->prepare("UPDATE saf_balances SET used_amount = used_amount + ?, current_balance = initial_amount - used_amount WHERE department_id = ?");
+                        $updateStmt->execute([$reqCSC, $deptId]);
+
+                        // Add transaction record for CSC
+                        $transStmt->execute([$deptId, $reqCSC, "SAF Request (CSC): " . ($data['title'] ?? 'Untitled') . " - Document ID: {$documentId}", $currentUser['id']]);
+
+                        // Audit log for CSC fund deduction
+                        addAuditLog(
+                            'SAF_DEDUCTED',
+                            'SAF Management',
+                            "Deducted ₱{$reqCSC} from {$deptId} SAF balance for EVP-approved document",
+                            $documentId,
+                            'Document',
+                            'INFO'
+                        );
+                    }
+                }
+            }
+
             // Persist signature mapping (percent-based) to database
             if ($signatureMap && $stepId) {
                 $stmt = $db->prepare("UPDATE document_steps SET signature_map = ? WHERE id = ?");
@@ -2247,69 +2324,8 @@ function signDocument($input, $files = null)
                 }
 
                 // Deduct SAF funds if fully approved SAF document
-                if ($doc['doc_type'] === 'saf') {
-                    $data = json_decode($doc['data'], true);
-                    if ($data) {
-                        $reqSSC = $data['reqSSC'] ?? 0;
-                        $reqCSC = $data['reqCSC'] ?? 0;
-                        $department = $data['department']; // This is the CSC department (full name)
-
-                        // Reverse mapping from full names to short IDs
-                        $reverseDeptMap = [
-                            'Supreme Student Council' => 'ssc',
-                            'College of Arts, Social Sciences, and Education' => 'casse',
-                            'College of Business' => 'cob',
-                            'College of Computing and Information Sciences' => 'ccis',
-                            'College of Criminology' => 'coc',
-                            'College of Engineering' => 'coe',
-                            'College of Hospitality and Tourism Management' => 'chtm',
-                            'College of Nursing' => 'con',
-                            'SPCF Miranda' => 'miranda'
-                        ];
-                        $deptId = $reverseDeptMap[$department] ?? $department; // Fallback to original if not found
-
-                        // Prepare transaction statement
-                        $transStmt = $db->prepare("INSERT INTO saf_transactions (department_id, transaction_type, transaction_amount, transaction_description, transaction_date) VALUES (?, 'deduct', ?, ?, NOW())");
-
-                        // Deduct SSC funds from 'ssc' department
-                        if ($reqSSC > 0) {
-                            $updateStmt = $db->prepare("UPDATE saf_balances SET used_amount = used_amount + ? WHERE department_id = ?");
-                            $updateStmt->execute([$reqSSC, 'ssc']);
-
-                            // Add transaction record for SSC
-                            $transStmt->execute(['ssc', $reqSSC, "SAF Request (SSC): " . ($data['title'] ?? 'Untitled')]);
-
-                            // Audit log for SSC fund deduction
-                            addAuditLog(
-                                'SAF_DEDUCTED',
-                                'SAF Management',
-                                "Deducted ₱{$reqSSC} from SSC SAF balance for approved document",
-                                $documentId,
-                                'Document',
-                                'INFO'
-                            );
-                        }
-
-                        // Deduct CSC funds from selected department (using mapped short ID)
-                        if ($reqCSC > 0 && $deptId) {
-                            $updateStmt = $db->prepare("UPDATE saf_balances SET used_amount = used_amount + ? WHERE department_id = ?");
-                            $updateStmt->execute([$reqCSC, $deptId]);
-
-                            // Add transaction record for CSC
-                            $transStmt->execute([$deptId, $reqCSC, "SAF Request (CSC): " . ($data['title'] ?? 'Untitled')]);
-
-                            // Audit log for CSC fund deduction
-                            addAuditLog(
-                                'SAF_DEDUCTED',
-                                'SAF Management',
-                                "Deducted ₱{$reqCSC} from {$deptId} SAF balance for approved document",
-                                $documentId,
-                                'Document',
-                                'INFO'
-                            );
-                        }
-                    }
-                }
+                // NOTE: Funds are now deducted when EVP approves, not when all steps are completed
+                // This block is kept for any future logic that needs to run when fully approved
             } else {
                 // Update current step and status
                 $stmt = $db->prepare("
@@ -2367,53 +2383,57 @@ function signDocument($input, $files = null)
         $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
 
         if ($doc && $doc['doc_type'] === 'proposal') {
+            // Create event only if fully approved and it's a proposal
             $eventTitle = $doc['title'];
             $eventDate = $doc['date'];
             $venue = $doc['venue'];
             $eventTime = $doc['earliest_start_time'];
-
+            
             if ($eventTitle && $eventDate) {
                 // Check if event already exists for this document to avoid duplicates
                 $stmt = $db->prepare("SELECT id FROM events WHERE title = ? AND event_date = ? LIMIT 1");
                 $stmt->execute([$eventTitle, $eventDate]);
                 $existingEvent = $stmt->fetch(PDO::FETCH_ASSOC);
-
+                
                 if (!$existingEvent) {
-                    // Create event via internal API call (use cURL to POST to api/events.php)
+                    // Prepare event data
                     $eventData = [
                         'title' => $eventTitle,
                         'event_date' => $eventDate,
-                        'venue' => $venue,
-                        'event_time' => $eventTime,
-                        'department' => $doc['department'],
-                        'description' => $venue, // Use venue as description
-                        'approved' => 1  // Mark as approved
+                        'event_time' => $eventTime ?: null,
+                        'venue' => $venue ?: 'TBD',
+                        'department' => $doc['department'] ?: 'University',
+                        'description' => $venue ?: 'Event from approved project proposal',
+                        'approved' => 1  // Mark as approved since the proposal is fully approved
                     ];
-
-                    // Use cURL to POST to api/events.php (assuming session context is available)
+                    
+                    // Use cURL to POST to api/events.php (adjust URL for production)
+                    $apiUrl = (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') === false) 
+                        ? 'https://spcf-signum.com/SPCF-Thesis/api/events.php'  // Replace with actual production URL
+                        : 'http://localhost/SPCF-Thesis/api/events.php';
+                    
                     $ch = curl_init();
-                    curl_setopt($ch, CURLOPT_URL, 'http://localhost/SPCF-Thesis/api/events.php'); // Adjust URL as needed
+                    curl_setopt($ch, CURLOPT_URL, $apiUrl);
                     curl_setopt($ch, CURLOPT_POST, true);
                     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($eventData));
                     curl_setopt($ch, CURLOPT_HTTPHEADER, [
                         'Content-Type: application/json',
-                        'Cookie: ' . session_name() . '=' . session_id() // Pass session for auth
+                        'Cookie: ' . session_name() . '=' . session_id()  // Pass session for auth
                     ]);
                     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                    curl_setopt($ch, CURLOPT_TIMEOUT, 10);  // 10-second timeout to prevent hanging
-                    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);  // 5-second connection timeout
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 10);  // 10-second timeout
                     $response = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
                     $curlError = curl_error($ch);
                     curl_close($ch);
-
-                    if ($curlError) {
-                        error_log("CURL error creating event for document $documentId: $curlError");
+                    
+                    if ($httpCode === 200) {
+                        error_log("Event created successfully for fully approved proposal: " . $eventTitle);
                     } else {
-                        $result = json_decode($response, true);
-                        if (!$result || !$result['success']) {
-                            error_log("Failed to create calendar event for document ID $documentId: " . ($result['message'] ?? 'Unknown error'));
-                        }
+                        error_log("Failed to create event for proposal: " . $eventTitle . " - HTTP Code: " . $httpCode . " - Response: " . $response . " - cURL Error: " . $curlError);
                     }
+                } else {
+                    error_log("Event already exists for proposal: " . $eventTitle);
                 }
             }
         }

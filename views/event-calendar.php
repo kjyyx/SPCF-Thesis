@@ -74,7 +74,8 @@ $pendingCount = $stmt->fetchColumn();
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global.css"><!-- Global shared UI styles -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/event-calendar.css"><!-- Calendar-specific styles -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/toast.css">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global-notifications.css"><!-- Global notifications styles -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global-notifications.css">
+    <!-- Global notifications styles -->
 
     <script>
         // Pass user data to JavaScript
@@ -143,7 +144,8 @@ $pendingCount = $stmt->fetchColumn();
                                         <i class="bi bi-search"></i>
                                         <span>Track</span>
                                     </button>
-                                    <button class="action-compact-btn" onclick="window.location.href='<?php echo BASE_URL; ?>?page=saf'"
+                                    <button class="action-compact-btn"
+                                        onclick="window.location.href='<?php echo BASE_URL; ?>?page=saf'"
                                         title="Student Allocated Funds">
                                         <i class="bi bi-cash-coin"></i>
                                         <span>SAF</span>
@@ -153,8 +155,8 @@ $pendingCount = $stmt->fetchColumn();
                                         <i class="bi bi-clipboard-check"></i>
                                         <span>In review</span>
                                     </button>
-                                    
-                                                                        <?php if ($currentUser['position'] === 'Supreme Student Council President'): ?>
+
+                                    <?php if ($currentUser['position'] === 'Supreme Student Council President'): ?>
                                         <button class="action-compact-btn" onclick="openPendingApprovals()" id="approvalsBtn"
                                             title="View Pending Approvals">
                                             <i class="bi bi-clipboard-check"></i>
@@ -177,18 +179,19 @@ $pendingCount = $stmt->fetchColumn();
                                         <span>Approvals</span>
                                     </button>
                                     <?php if (stripos($currentUser['position'] ?? '', 'OSA') !== false): ?>
-                                    <button class="action-compact-btn" onclick="window.location.href='<?php echo BASE_URL; ?>?page=saf'"
-                                        title="Student Allocated Funds">
-                                        <i class="bi bi-cash-coin"></i>
-                                        <span>SAF</span>
-                                    </button>
+                                        <button class="action-compact-btn"
+                                            onclick="window.location.href='<?php echo BASE_URL; ?>?page=saf'"
+                                            title="Student Allocated Funds">
+                                            <i class="bi bi-cash-coin"></i>
+                                            <span>SAF</span>
+                                        </button>
                                     <?php endif; ?>
                                     <?php if (in_array($currentUser['position'] ?? '', ['CSC Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'])): ?>
-                                    <button class="action-compact-btn" onclick="openPubmatApprovals()"
-                                        title="View pending pubmat approvals">
-                                        <i class="bi bi-file-earmark-text me-2"></i>
-                                        <span>Pubmat</span>
-                                    </button>
+                                        <button class="action-compact-btn" onclick="openPubmatApprovals()"
+                                            title="View pending pubmat approvals">
+                                            <i class="bi bi-file-earmark-text me-2"></i>
+                                            <span>Pubmat</span>
+                                        </button>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -281,7 +284,8 @@ $pendingCount = $stmt->fetchColumn();
                             <div class="col-md-6">
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="bi bi-search"></i></span>
-                                    <input type="text" class="form-control" id="eventSearch" placeholder="Search events...">
+                                    <input type="text" class="form-control" id="eventSearch"
+                                        placeholder="Search events...">
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -535,7 +539,8 @@ $pendingCount = $stmt->fetchColumn();
     </div>
 
     <!-- Profile Settings Modal -->
-    <div class="modal fade" id="profileSettingsModal" tabindex="-1" aria-labelledby="profileSettingsLabel" aria-hidden="true">
+    <div class="modal fade" id="profileSettingsModal" tabindex="-1" aria-labelledby="profileSettingsLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
@@ -570,10 +575,10 @@ $pendingCount = $stmt->fetchColumn();
                             <input type="tel" class="form-control" id="profilePhone">
                         </div>
                         <?php if ($currentUser['role'] === 'student'): ?>
-                        <div class="mb-3">
-                            <label for="profilePosition" class="form-label">Position/Role</label>
-                            <input type="text" class="form-control" id="profilePosition" readonly>
-                        </div>
+                            <div class="mb-3">
+                                <label for="profilePosition" class="form-label">Position/Role</label>
+                                <input type="text" class="form-control" id="profilePosition" readonly>
+                            </div>
                         <?php endif; ?>
                         <div class="mb-3">
                             <label class="form-label">Theme Preference</label>
@@ -659,15 +664,18 @@ $pendingCount = $stmt->fetchColumn();
                     <div class="accordion" id="helpAccordion">
                         <div class="accordion-item">
                             <h2 class="accordion-header">
-                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#gettingStarted">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#gettingStarted">
                                     Getting Started
                                 </button>
                             </h2>
-                            <div id="gettingStarted" class="accordion-collapse collapse show" data-bs-parent="#helpAccordion">
+                            <div id="gettingStarted" class="accordion-collapse collapse show"
+                                data-bs-parent="#helpAccordion">
                                 <div class="accordion-body">
                                     <p>Welcome to Sign-um Document Portal! Here's how to get started:</p>
                                     <ul>
-                                        <li><strong>Students:</strong> View events, create documents, track progress</li>
+                                        <li><strong>Students:</strong> View events, create documents, track progress
+                                        </li>
                                         <li><strong>Employees:</strong> Manage events, approve documents</li>
                                         <li><strong>Admins:</strong> Full system management</li>
                                     </ul>
@@ -676,11 +684,13 @@ $pendingCount = $stmt->fetchColumn();
                         </div>
                         <div class="accordion-item">
                             <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#calendarFeatures">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#calendarFeatures">
                                     Calendar Features
                                 </button>
                             </h2>
-                            <div id="calendarFeatures" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                            <div id="calendarFeatures" class="accordion-collapse collapse"
+                                data-bs-parent="#helpAccordion">
                                 <div class="accordion-body">
                                     <h6>Views</h6>
                                     <ul>
@@ -689,7 +699,7 @@ $pendingCount = $stmt->fetchColumn();
                                         <li><strong>List View:</strong> Chronological event list</li>
                                         <li><strong>Agenda View:</strong> Grouped by date with details</li>
                                     </ul>
-                                    
+
                                     <h6>Features</h6>
                                     <ul>
                                         <li><strong>Search:</strong> Find events by title or department</li>
@@ -697,7 +707,7 @@ $pendingCount = $stmt->fetchColumn();
                                         <li><strong>Export:</strong> Download events as CSV</li>
                                         <li><strong>Navigation:</strong> Use arrow keys or buttons to navigate</li>
                                     </ul>
-                                    
+
                                     <h6>Keyboard Shortcuts</h6>
                                     <ul>
                                         <li><kbd>Ctrl</kbd> + <kbd>←</kbd> / <kbd>→</kbd>: Previous/Next month</li>
@@ -712,11 +722,13 @@ $pendingCount = $stmt->fetchColumn();
                         </div>
                         <div class="accordion-item">
                             <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#contactSupport">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#contactSupport">
                                     Contact Support
                                 </button>
                             </h2>
-                            <div id="contactSupport" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                            <div id="contactSupport" class="accordion-collapse collapse"
+                                data-bs-parent="#helpAccordion">
                                 <div class="accordion-body">
                                     <p>For technical support, please contact:</p>
                                     <p><strong>Email:</strong> support@signum.edu.ph</p>

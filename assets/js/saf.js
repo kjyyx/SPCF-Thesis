@@ -2,7 +2,7 @@
 var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
 // Departments data with mapping
 const DEPARTMENTS = [
-  { id: 'casse', name: 'College of Arts and Social Sciences and Education', short: 'CASSE', db_id: 'casse' },
+  { id: 'casse', name: 'College of Arts, Social Sciences and Education', short: 'CASSE', db_id: 'casse' },
   { id: 'ccis', name: 'College of Computing and Information Sciences', short: 'CCIS', db_id: 'ccis' },
   { id: 'chtm', name: 'College of Hospitality and Tourism Management', short: 'CHTM', db_id: 'chtm' },
   { id: 'cob', name: 'College of Business', short: 'COB', db_id: 'cob' },
@@ -10,13 +10,16 @@ const DEPARTMENTS = [
   { id: 'coe', name: 'College of Engineering', short: 'COE', db_id: 'coe' },
   { id: 'con', name: 'College of Nursing', short: 'CON', db_id: 'con' },
   { id: 'miranda', name: 'SPCF Miranda', short: 'Miranda', db_id: 'miranda' },
-  { id: 'ssc', name: 'Supreme Student Council', short: 'SSC', db_id: 'ssc' }
+  { id: 'ssc', name: 'Supreme Student Council (SSC)', short: 'SSC', db_id: 'ssc' }
 ];
 
 // Department mapping
 const deptMap = {};
 const deptNameToIdMap = {};
-DEPARTMENTS.forEach(dept => {/* Lines 20-22 omitted */});
+DEPARTMENTS.forEach(dept => {
+  deptMap[dept.id] = dept;
+  deptNameToIdMap[dept.name] = dept.db_id;
+});
 
 // State
 let currentLevel = null;
@@ -89,7 +92,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (window.currentUser.role === 'student') {
     currentLevel = 'level1';
     const originalDept = window.currentUser.department;
-    currentDeptId = deptNameToIdMap[originalDept.trim().toLowerCase()] || originalDept;
+    currentDeptId = deptNameToIdMap[originalDept.trim()] || originalDept;
   } else if (window.currentUser.role === 'employee') {
     if (window.currentUser.position && window.currentUser.position.includes('Accounting')) {
       currentLevel = 'level3';
@@ -131,9 +134,11 @@ async function initDataSdk() {
       allData = result.data;
       renderCurrentView();
     } else {
+      console.error('SAF JS: Failed to load data:', result.message);
       showToast('Failed to load SAF data', 'danger');
     }
   } catch (error) {
+    console.error('SAF JS: Error initializing data:', error);
     showToast('Failed to initialize SAF data', 'danger');
   }
 }
@@ -232,7 +237,7 @@ function renderDeptCards() {
     const saf = getDeptSAF(dept.db_id);
     const initial = saf.initial_amount || 0;
     const used = saf.used_amount || 0;
-    const current = initial - used;
+    const current = saf.current_balance || 0;
     totalBalance += current;
     const percentage = initial > 0 ? ((current / initial) * 100).toFixed(0) : 0;
 
@@ -292,7 +297,7 @@ function renderDeptDetails(deptId) {
 
   const initial = saf.initial_amount || 0;
   const used = saf.used_amount || 0;
-  const current = initial - used;
+  const current = saf.current_balance || 0;
 
   document.getElementById('dept-name').textContent = dept.name;
   document.getElementById('initial-amount').textContent = formatCurrency(initial);

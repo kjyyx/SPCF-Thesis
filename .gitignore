@@ -1,0 +1,10 @@
+vendor/
+.env
+.env.*
+.vscode/
+uploads/
+assets/signatures/
+conversion.log
+deploy.log
+*.old
+*.rejected

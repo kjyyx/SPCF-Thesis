@@ -36,4 +36,4 @@ if (ENVIRONMENT === 'development') {
 }
 
 // Timezone
-date_default_timezone_set('Asia/Manila');
+date_default_timezone_set('Asia/Kuala_Lumpur');

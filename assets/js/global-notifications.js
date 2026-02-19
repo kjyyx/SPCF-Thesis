@@ -1,53 +1,124 @@
 /**
- * Global Notifications - Premium Experience with Delightful Micro-interactions
- * Aesthetic: Luxurious minimalism with playful details
+ * Real-time Notification System
  */
-(function () {
-    var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
+(function() {
+    const BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
     const API = BASE_URL + 'api/notifications.php';
-    const POLL_INTERVAL = 60000; // 1 minute
+    const POLL_INTERVAL = 30000; // 30 seconds
+    const FAST_POLL_INTERVAL = 5000; // 5 seconds when modal is open
+    
     let pollHandle = null;
-    let timeUpdateHandle = null;
-    let cache = [];
+    let lastFetchTime = null;
     let isModalOpen = false;
+    let notificationsCache = [];
+    let unreadCount = 0;
+    let typeFilters = {
+        document: true,
+        event: true,
+        system: true
+    };
 
+    // Notification icons based on type
     const ICONS = {
-        pending_document: 'bi-file-earmark-text',
-        new_document: 'bi-file-earmark-text',
-        document_status: 'bi-file-earmark-text',
-        deadline_approaching: 'bi-clock',
-        overdue: 'bi-exclamation-triangle',
-        saf_funds_ready: 'bi-cash',
-        new_note: 'bi-chat-dots',
-        approved_ready: 'bi-check-circle',
-        upcoming_event: 'bi-calendar-event',
-        event_reminder: 'bi-calendar-event',
-        pending_material: 'bi-image',
-        material_status: 'bi-image',
-        new_user: 'bi-person-plus',
-        security_alert: 'bi-shield-exclamation',
-        account: 'bi-key',
-        profile_reminder: 'bi-person-gear',
-        system: 'bi-gear'
+        document: {
+            pending_document: 'bi-file-earmark-text',
+            doc_status_approved: 'bi-check-circle-fill text-success',
+            doc_status_rejected: 'bi-x-circle-fill text-danger',
+            doc_status_in_review: 'bi-clock-history text-warning',
+            new_note: 'bi-chat-dots text-info',
+            default: 'bi-file-earmark'
+        },
+        event: {
+            event: 'bi-calendar-event',
+            event_reminder: 'bi-calendar-check-fill',
+            default: 'bi-calendar'
+        },
+        system: {
+            new_user: 'bi-person-plus-fill',
+            security: 'bi-shield-exclamation',
+            default: 'bi-gear'
+        }
     };
 
     function qs(id) {
         return document.getElementById(id);
     }
 
-    function escapeHtml(str) {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
+    // Initialize
+    function init() {
+        // Initial fetch
+        fetchNotifications(true);
+        
+        // Start polling
+        startPolling();
+        
+        // Handle visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopPolling();
+            } else {
+                fetchNotifications(false);
+                startPolling();
+            }
+        });
+        
+        // Handle online/offline
+        window.addEventListener('online', () => {
+            fetchNotifications(false);
+            startPolling();
+        });
+        
+        window.addEventListener('offline', () => {
+            stopPolling();
+        });
+        
+        // Setup event listeners
+        setupEventListeners();
     }
 
-    async function fetchNotifications(showToastOnError = false) {
+    function setupEventListeners() {
+        // Keyboard shortcut: Ctrl+N to open notifications
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'n' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                showNotificationsModal();
+            }
+        });
+        
+        // Filter buttons
+        document.querySelectorAll('[data-notification-filter]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const filter = this.dataset.notificationFilter;
+                typeFilters[filter] = !typeFilters[filter];
+                this.classList.toggle('active', typeFilters[filter]);
+                refreshNotificationsList();
+            });
+        });
+    }
+
+    async function fetchNotifications(showLoading = false) {
         try {
-            const response = await fetch(API, {
+            const url = new URL(API, window.location.origin);
+            url.searchParams.append('t', Date.now()); // Cache bust
+            
+            if (showLoading && qs('notificationsList')) {
+                qs('notificationsList').innerHTML = `
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading notifications...</p>
+                    </div>
+                `;
+            }
+            
+            const response = await fetch(url, {
                 method: 'GET',
                 credentials: 'same-origin',
-                headers: { 'Accept': 'application/json' }
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             });
             
             if (!response.ok) {
@@ -56,340 +127,161 @@
             
             const data = await response.json();
             
-            if (data.success !== false) {
-                const oldCount = cache.filter(n => !n.read).length;
-                const newCount = (data.unread_count || 0);
+            if (data.success) {
+                const oldUnreadCount = unreadCount;
+                notificationsCache = data.notifications || [];
+                unreadCount = data.unread_count || 0;
+                lastFetchTime = data.timestamp || new Date().toISOString();
                 
-                cache = data.notifications || [];
-                console.log('Notifications fetched:', cache.length, 'items');
-                updateBadge(newCount, oldCount !== newCount && newCount > oldCount);
+                updateBadge(unreadCount);
                 
+                // Check for new notifications
+                if (unreadCount > oldUnreadCount) {
+                    handleNewNotifications(unreadCount - oldUnreadCount);
+                }
+                
+                // Update modal if open
                 if (isModalOpen) {
                     refreshNotificationsList();
                 }
+                
+                // Update filter counts
+                updateFilterCounts(data.type_counts || {});
+                
+                // Trigger custom event
+                window.dispatchEvent(new CustomEvent('notificationsUpdated', {
+                    detail: { 
+                        count: unreadCount, 
+                        notifications: notificationsCache,
+                        timestamp: lastFetchTime
+                    }
+                }));
             }
         } catch (error) {
             console.error('Notification fetch error:', error);
-            if (showToastOnError && window.ToastManager) {
-                window.ToastManager.error('Failed to load notifications', 'Network Error');
+            if (showLoading && window.ToastManager) {
+                window.ToastManager.error('Failed to load notifications', 'Error');
             }
         }
     }
 
-    function updateBadge(count, isNew = false) {
+    function handleNewNotifications(newCount) {
+        // Show browser notification if permitted
+        if (Notification.permission === 'granted' && document.visibilityState === 'visible') {
+            new Notification('New Notification' + (newCount > 1 ? 's' : ''), {
+                body: `You have ${newCount} new notification${newCount > 1 ? 's' : ''}`,
+                icon: BASE_URL + 'assets/images/notification-icon.png',
+                badge: BASE_URL + 'assets/images/notification-badge.png',
+                silent: false
+            });
+        }
+        
+        // Animate bell
+        const bell = qs('notificationBell');
+        if (bell) {
+            bell.classList.add('bell-ring');
+            setTimeout(() => bell.classList.remove('bell-ring'), 1000);
+        }
+        
+        // Show toast notification
+        if (window.ToastManager) {
+            window.ToastManager.info(
+                `You have ${newCount} new notification${newCount > 1 ? 's' : ''}`,
+                'New Notification',
+                { 
+                    duration: 5000,
+                    position: 'top-right'
+                }
+            );
+        }
+    }
+
+    function updateBadge(count) {
         const badge = qs('notificationCount');
-        if (badge) {
-            if (count > 0) {
-                badge.textContent = count > 99 ? '99+' : count;
-                badge.style.display = 'flex';
-                
-                if (isNew) {
-                    // Exciting entrance for new notifications
-                    badge.style.animation = 'none';
-                    void badge.offsetWidth;
-                    badge.style.animation = 'badgeEntrance 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), badgePulse 3s ease-in-out 0.5s infinite';
-                    
-                    // Add a subtle shake to the bell
-                    const bell = qs('notificationBell');
-                    if (bell) {
-                        bell.style.animation = 'bellShake 0.5s ease';
-                        setTimeout(() => bell.style.animation = '', 500);
-                    }
-                }
-            } else {
-                // Smooth exit
-                badge.style.animation = 'badgeExit 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards';
-                setTimeout(() => {
+        if (!badge) return;
+        
+        if (count > 0) {
+            badge.textContent = count > 99 ? '99+' : count;
+            badge.style.display = 'flex';
+            badge.classList.add('badge-pop');
+            setTimeout(() => badge.classList.remove('badge-pop'), 300);
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    function updateFilterCounts(typeCounts) {
+        document.querySelectorAll('[data-notification-filter]').forEach(btn => {
+            const filter = btn.dataset.notificationFilter;
+            const count = typeCounts[filter] || 0;
+            const badge = btn.querySelector('.filter-badge');
+            
+            if (badge) {
+                if (count > 0) {
+                    badge.textContent = count;
+                    badge.style.display = 'inline';
+                } else {
                     badge.style.display = 'none';
-                }, 400);
-            }
-        }
-    }
-
-    function buildListHTML() {
-        if (!cache.length) {
-            return `
-                <div class="notification-empty-state">
-                    <i class="bi bi-bell-slash text-muted" style="font-size: 3rem;"></i>
-                    <h5>No notifications</h5>
-                    <p class="text-muted">You're all caught up! Check back later for updates.</p>
-                </div>
-            `;
-        }
-        
-        return cache.map((n, index) => {
-            const icon = ICONS[n.type] || 'bi-bell';
-            const iconClass = `notification-icon-${n.type.replace(/_/g, '-')}`;
-            const dt = new Date(n.timestamp);
-            const dateStr = isNaN(dt.getTime()) ? '' : formatRelativeTime(dt);
-            const readClass = n.read ? 'notification-read' : 'notification-unread';
-            const clickHandler = ''; // Removed clickability to prevent errors
-            const animationDelay = (index * 0.05).toFixed(2);
-            
-            return `
-                <div class="list-group-item notification-item ${readClass}" 
-                     ${clickHandler}
-                     style="animation: slideIn 0.5s ease ${animationDelay}s both"
-                     data-notification-id="${n.id}"
-                     aria-label="${escapeHtml(n.title || 'Notification')}">
-                    <div class="d-flex w-100 justify-content-between align-items-start">
-                        <h6 class="mb-1">
-                            <i class="bi ${icon} ${iconClass}"></i>
-                            ${escapeHtml(n.title || 'Notification')}
-                        </h6>
-                        <small class="text-muted">${dateStr}</small>
-                    </div>
-                    <p class="mb-1">${escapeHtml(n.message || '')}</p>
-                </div>
-            `;
-        }).join('');
-    }
-
-    function formatRelativeTime(date) {
-        const now = new Date();
-        const diffMs = now - date;
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-
-        if (diffMins < 1) return 'Just now';
-        if (diffMins === 1) return '1 min ago';
-        if (diffMins < 60) return `${diffMins} mins ago`;
-        if (diffHours === 1) return '1 hour ago';
-        if (diffHours < 24) return `${diffHours} hours ago`;
-        if (diffDays === 1) return 'Yesterday';
-        if (diffDays < 7) return `${diffDays} days ago`;
-        if (diffDays < 14) return '1 week ago';
-        
-        return date.toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric',
-            year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-        });
-    }
-
-    function addDynamicStyles() {
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
-            .notification-empty-state { text-align: center; padding: 2rem; }
-        `;
-        document.head.appendChild(style);
-    }
-
-    function showNotifications() {
-        const modalEl = qs('notificationsModal');
-        const list = qs('notificationsList');
-        
-        if (list) {
-            // Premium loading experience
-            list.innerHTML = `
-                <div class="notification-loading" style="animation: fadeInScale 0.4s ease">
-                    <div class="spinner-border" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <div class="notification-loading-text">Loading notifications...</div>
-                </div>
-            `;
-            
-            // Smooth content reveal
-            setTimeout(() => {
-                list.style.transition = 'opacity 0.3s ease';
-                list.style.opacity = '0';
-                
-                setTimeout(() => {
-                    list.innerHTML = buildListHTML();
-                    list.style.opacity = '1';
-                    
-                    // Setup interactions
-                    setupKeyboardNavigation(list);
-                    setupCardHoverEffects(list);
-                    setupParallaxEffect(list);
-                }, 200);
-            }, 300);
-        }
-        
-        if (modalEl && window.bootstrap) {
-            const modal = new bootstrap.Modal(modalEl);
-            modal.show();
-            isModalOpen = true;
-            
-            // Add refresh button to modal footer
-            const footer = modalEl.querySelector('.modal-footer');
-            if (footer && !footer.querySelector('.refresh-btn')) {
-                const refreshBtn = document.createElement('button');
-                refreshBtn.className = 'btn btn-outline-primary btn-sm refresh-btn';
-                refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i>Refresh';
-                refreshBtn.onclick = () => fetchNotifications(true);
-                footer.insertBefore(refreshBtn, footer.firstChild);
-            }
-            
-            modalEl.addEventListener('hidden.bs.modal', () => {
-                isModalOpen = false;
-                stopTimeUpdates();
-            }, { once: true });
-        }
-    }
-
-function refreshNotificationsList() {
-    const list = qs('notificationsList');
-    if (!list) return;
-    
-    // Smooth refresh without loading state
-    list.style.transition = 'opacity 0.2s ease';
-    list.style.opacity = '0.5';
-    
-    setTimeout(() => {
-        list.innerHTML = buildListHTML();
-        list.style.opacity = '1';
-        
-        setupKeyboardNavigation(list);
-        setupCardHoverEffects(list);
-        setupParallaxEffect(list);
-        
-        // Restart time updates to ensure they're active
-        if (isModalOpen) {
-            startTimeUpdates();
-        }
-    }, 200);
-}
-
-    function setupKeyboardNavigation(list) {
-        const items = list.querySelectorAll('.notification-item');
-        items.forEach((item, index) => {
-            item.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    // Add press animation
-                    item.style.transform = 'scale(0.97)';
-                    setTimeout(() => {
-                        item.click();
-                    }, 100);
-                } 
-                else if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    if (items[index + 1]) {
-                        items[index + 1].focus();
-                        items[index + 1].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }
-                } 
-                else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    if (items[index - 1]) {
-                        items[index - 1].focus();
-                        items[index - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }
                 }
-                else if (e.key === 'Home') {
-                    e.preventDefault();
-                    items[0].focus();
-                    items[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-                else if (e.key === 'End') {
-                    e.preventDefault();
-                    const lastItem = items[items.length - 1];
-                    lastItem.focus();
-                    lastItem.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                }
-            });
-        });
-    }
-
-    function setupCardHoverEffects(list) {
-        const items = list.querySelectorAll('.notification-item');
-        items.forEach(item => {
-            let timeout;
-            
-            item.addEventListener('mouseenter', function() {
-                clearTimeout(timeout);
-                this.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
-            });
-            
-            item.addEventListener('mouseleave', function() {
-                timeout = setTimeout(() => {
-                    this.style.transform = '';
-                }, 100);
-            });
-        });
-    }
-
-    function setupParallaxEffect(list) {
-        const items = list.querySelectorAll('.notification-item');
-        items.forEach(item => {
-            item.addEventListener('mousemove', function(e) {
-                const rect = this.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
-                
-                const deltaX = (x - centerX) / centerX;
-                const deltaY = (y - centerY) / centerY;
-                
-                // Subtle tilt effect
-                this.style.transform = `
-                    translateY(-6px) 
-                    translateX(2px) 
-                    scale(1.02)
-                    perspective(1000px)
-                    rotateY(${deltaX * 3}deg) 
-                    rotateX(${-deltaY * 3}deg)
-                `;
-            });
-            
-            item.addEventListener('mouseleave', function() {
-                this.style.transform = '';
-            });
-        });
-    }
-
-    async function markAllAsRead() {
-        const unreadIds = cache.filter(n => !n.read).map(n => n.id);
-        
-        if (unreadIds.length === 0) {
-            if (window.ToastManager) {
-                window.ToastManager.info('All notifications are already read', 'Nothing to do');
             }
-            return;
-        }
+        });
+    }
 
-        // Save original state for rollback
-        const originalCache = JSON.parse(JSON.stringify(cache));
-        const originalBadgeCount = cache.filter(n => !n.read).length;
-
-        // Button loading state
-        const markAllBtn = document.querySelector('[onclick*="markAllAsRead"]');
-        let originalText = '';
-        
-        if (markAllBtn) {
-            originalText = markAllBtn.innerHTML;
-            markAllBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Marking...';
-            markAllBtn.disabled = true;
-            markAllBtn.style.opacity = '0.7';
-        }
-
-        // Optimistic update with delightful animation
-        const list = qs('notificationsList');
-        if (list) {
-            const unreadItems = list.querySelectorAll('.notification-unread');
-            unreadItems.forEach((item, index) => {
-                setTimeout(() => {
-                    item.style.transition = 'all 0.5s ease';
+    async function markAsRead(notificationId) {
+        try {
+            const response = await fetch(API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notification_id: notificationId }),
+                credentials: 'same-origin'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Update local cache
+                const notification = notificationsCache.find(n => n.id == notificationId);
+                if (notification) {
+                    notification.is_read = 1;
+                }
+                
+                // Recalculate unread count
+                unreadCount = notificationsCache.filter(n => !n.is_read).length;
+                updateBadge(unreadCount);
+                
+                // Update UI
+                const item = document.querySelector(`[data-notification-id="${notificationId}"]`);
+                if (item) {
                     item.classList.remove('notification-unread');
                     item.classList.add('notification-read');
                     
-                    // Flash effect
-                    item.style.background = 'rgba(99, 102, 241, 0.15)';
-                    setTimeout(() => {
-                        item.style.background = '';
-                    }, 300);
-                }, index * 80);
-            });
+                    // Remove mark read button
+                    const markReadBtn = item.querySelector('.mark-read-btn');
+                    if (markReadBtn) markReadBtn.remove();
+                }
+                
+                // Show success toast
+                if (window.ToastManager) {
+                    window.ToastManager.success('Notification marked as read', 'Success');
+                }
+            }
+        } catch (error) {
+            console.error('Error marking as read:', error);
+            if (window.ToastManager) {
+                window.ToastManager.error('Failed to mark as read', 'Error');
+            }
         }
+    }
+
+    async function markAllAsRead() {
+        const unreadIds = notificationsCache.filter(n => !n.is_read).map(n => n.id);
         
-        cache.forEach(n => n.read = true);
-        updateBadge(0);
+        if (unreadIds.length === 0) {
+            if (window.ToastManager) {
+                window.ToastManager.info('No unread notifications', 'Info');
+            }
+            return;
+        }
 
         try {
             const response = await fetch(API, {
@@ -399,47 +291,210 @@ function refreshNotificationsList() {
                 credentials: 'same-origin'
             });
             
-            const result = await response.json();
+            const data = await response.json();
             
-            if (result.success) {
-                // Force a full refresh from server to ensure consistency
-                await fetchNotifications(true);  // Pass true to skip toast on error
-                if (isModalOpen) {
-                    refreshNotificationsList();
-                }
-
+            if (data.success) {
+                // Update local cache
+                notificationsCache.forEach(n => n.is_read = 1);
+                unreadCount = 0;
+                updateBadge(0);
+                
+                // Update UI
+                document.querySelectorAll('.notification-item').forEach(item => {
+                    item.classList.remove('notification-unread');
+                    item.classList.add('notification-read');
+                    
+                    const markReadBtn = item.querySelector('.mark-read-btn');
+                    if (markReadBtn) markReadBtn.remove();
+                });
+                
                 if (window.ToastManager) {
-                    window.ToastManager.success(
-                        `${unreadIds.length} notification${unreadIds.length > 1 ? 's' : ''} marked as read`, 
-                        'Success'
-                    );
+                    window.ToastManager.success('All notifications marked as read', 'Success');
                 }
-            } else {
-                throw new Error('Server error');
             }
         } catch (error) {
-            console.error('Error:', error);
-            // Rollback optimistic updates
-            cache = originalCache;
-            updateBadge(originalBadgeCount);
-            if (isModalOpen) {
-                refreshNotificationsList();
-            }
+            console.error('Error marking all as read:', error);
             if (window.ToastManager) {
-                window.ToastManager.error('Failed to mark as read', 'Error');
-            }
-        } finally {
-            if (markAllBtn) {
-                markAllBtn.innerHTML = originalText;
-                markAllBtn.disabled = false;
-                markAllBtn.style.opacity = '1';
+                window.ToastManager.error('Failed to mark all as read', 'Error');
             }
         }
     }
 
+    function getIconForNotification(notification) {
+        const type = notification.type;
+        const refType = notification.reference_type || 'default';
+        
+        if (ICONS[type] && ICONS[type][refType]) {
+            return ICONS[type][refType];
+        } else if (ICONS[type] && ICONS[type].default) {
+            return ICONS[type].default;
+        }
+        
+        return 'bi-bell';
+    }
+
+    function buildNotificationsHTML() {
+        const filteredNotifications = notificationsCache.filter(n => typeFilters[n.type] !== false);
+        
+        if (filteredNotifications.length === 0) {
+            return `
+                <div class="notification-empty-state">
+                    <i class="bi bi-bell-slash" style="font-size: 4rem; color: #cbd5e1;"></i>
+                    <h5 class="mt-3">No notifications</h5>
+                    <p class="text-muted mb-0">You're all caught up!</p>
+                    ${Object.values(typeFilters).some(v => !v) ? 
+                        '<p class="text-muted small mt-2">Some filters are turned off</p>' : ''}
+                </div>
+            `;
+        }
+        
+        return filteredNotifications.map((n, index) => {
+            const icon = getIconForNotification(n);
+            const date = new Date(n.created_at);
+            const timeStr = n.time_ago || formatTimeAgo(date);
+            const readClass = n.is_read ? 'notification-read' : 'notification-unread';
+            
+            // Get related link based on type
+            let actionLink = '#';
+            if (n.related_document_id) {
+                actionLink = `${BASE_URL}view-document.php?id=${n.related_document_id}`;
+            } else if (n.related_event_id) {
+                actionLink = `${BASE_URL}view-event.php?id=${n.related_event_id}`;
+            }
+            
+            return `
+                <div class="list-group-item notification-item ${readClass}" 
+                     data-notification-id="${n.id}"
+                     data-notification-type="${n.type}"
+                     data-reference-type="${n.reference_type || ''}"
+                     style="animation: slideInUp 0.3s ease ${index * 0.05}s both">
+                    <div class="d-flex w-100 justify-content-between align-items-start">
+                        <h6 class="mb-1">
+                            <i class="bi ${icon} me-2"></i>
+                            ${escapeHtml(n.title)}
+                        </h6>
+                        <small class="text-muted timestamp" title="${formatFullDate(date)}">${timeStr}</small>
+                    </div>
+                    <p class="mb-2">${escapeHtml(n.message)}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        ${!n.is_read ? `
+                            <button class="btn btn-sm btn-link mark-read-btn p-0" 
+                                    onclick="event.stopPropagation(); window.markNotificationRead(${n.id})">
+                                <i class="bi bi-check-circle me-1"></i>Mark as read
+                            </button>
+                        ` : '<div></div>'}
+                        ${actionLink !== '#' ? `
+                            <a href="${actionLink}" class="btn btn-sm btn-link p-0" 
+                               onclick="event.stopPropagation()">
+                                <i class="bi bi-box-arrow-up-right me-1"></i>View
+                            </a>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function refreshNotificationsList() {
+        const list = qs('notificationsList');
+        if (!list) return;
+        
+        // Store scroll position
+        const scrollPos = list.scrollTop;
+        
+        list.innerHTML = buildNotificationsHTML();
+        
+        // Restore scroll position
+        list.scrollTop = scrollPos;
+        
+        // Add click handlers
+        setupNotificationClickHandlers();
+    }
+
+    function setupNotificationClickHandlers() {
+        document.querySelectorAll('.notification-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                // Don't trigger if clicking on a button or link
+                if (e.target.closest('button') || e.target.closest('a')) return;
+                
+                const id = this.dataset.notificationId;
+                if (id && this.classList.contains('notification-unread')) {
+                    markAsRead(id);
+                }
+                
+                // Navigate to related content if available
+                const link = this.querySelector('a[href]');
+                if (link && link.href !== '#') {
+                    window.location.href = link.href;
+                }
+            });
+        });
+    }
+
+    function formatTimeAgo(date) {
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+        if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+        if (diffDays === 1) return 'Yesterday';
+        if (diffDays < 7) return `${diffDays} days ago`;
+        
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function formatFullDate(date) {
+        return date.toLocaleString('en-US', { 
+            month: 'long', 
+            day: 'numeric', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function showNotificationsModal() {
+        const modalEl = qs('notificationsModal');
+        if (!modalEl) return;
+        
+        isModalOpen = true;
+        
+        // Create modal if using Bootstrap
+        if (window.bootstrap) {
+            const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            modal.show();
+            
+            modalEl.addEventListener('hidden.bs.modal', () => {
+                isModalOpen = false;
+                startPolling(); // Switch back to normal polling
+            }, { once: true });
+        }
+        
+        // Refresh list
+        refreshNotificationsList();
+        
+        // Switch to fast polling
+        startFastPolling();
+    }
+
     function startPolling() {
-        if (pollHandle) return;
+        stopPolling();
         pollHandle = setInterval(() => fetchNotifications(false), POLL_INTERVAL);
+    }
+
+    function startFastPolling() {
+        stopPolling();
+        pollHandle = setInterval(() => fetchNotifications(false), FAST_POLL_INTERVAL);
     }
 
     function stopPolling() {
@@ -449,143 +504,11 @@ function refreshNotificationsList() {
         }
     }
 
-    function init() {
-        // Smooth initial load
-        setTimeout(() => fetchNotifications(false), 600);
-        
-        startPolling();
-        
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                stopPolling();
-            } else {
-                fetchNotifications(false);
-                startPolling();
-            }
-        });
-
-        addDynamicStyles();
-        setupBellInteraction();
-    }
-
-    function addDynamicStyles() {
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes cardSlideIn {
-                from {
-                    opacity: 0;
-                    transform: translateX(-40px) translateY(20px) scale(0.95);
-                    filter: blur(8px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateX(0) translateY(0) scale(1);
-                    filter: blur(0);
-                }
-            }
-            
-            @keyframes fadeInScale {
-                from {
-                    opacity: 0;
-                    transform: scale(0.9);
-                }
-                to {
-                    opacity: 1;
-                    transform: scale(1);
-                }
-            }
-            
-            @keyframes emptyEntrance {
-                from {
-                    opacity: 0;
-                    transform: scale(0.85) translateY(30px);
-                }
-                to {
-                    opacity: 1;
-                    transform: scale(1) translateY(0);
-                }
-            }
-            
-            @keyframes badgeExit {
-                to {
-                    opacity: 0;
-                    transform: scale(0) rotate(-180deg);
-                }
-            }
-            
-            @keyframes bellShake {
-                0%, 100% { transform: rotate(0deg); }
-                10%, 30%, 50%, 70%, 90% { transform: rotate(-12deg); }
-                20%, 40%, 60%, 80% { transform: rotate(12deg); }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    function setupBellInteraction() {
-        const bell = qs('notificationBell');
-        if (bell) {
-            // Fun bell shake on click
-            bell.addEventListener('click', function() {
-                this.style.animation = 'bellShake 0.6s cubic-bezier(0.36, 0, 0.66, -0.56)';
-                setTimeout(() => {
-                    this.style.animation = '';
-                }, 600);
-            });
-            
-            // Subtle hover glow
-            bell.addEventListener('mouseenter', function() {
-                this.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
-            });
-        }
-    }
-
     // Public API
-    window.refreshNotifications = fetchNotifications;
-    window.showNotifications = function () {
-        if (!cache.length) {
-            fetchNotifications().then(showNotifications);
-        } else {
-            showNotifications();
-        }
-    };
-    window.markAllAsRead = markAllAsRead;
-    window.__stopNotificationsPolling = stopPolling;
-
-function startTimeUpdates() {
-    stopTimeUpdates(); // Clear any existing
-    timeUpdateHandle = setInterval(() => {
-        updateDisplayedTimes();
-    }, 60000); // Update every minute
-}
-
-function stopTimeUpdates() {
-    if (timeUpdateHandle) {
-        clearInterval(timeUpdateHandle);
-        timeUpdateHandle = null;
-    }
-}
-
-function updateDisplayedTimes() {
-    const timeElements = document.querySelectorAll('.notification-item');
-    timeElements.forEach((el) => {
-        const timeElement = el.querySelector('small.text-muted');
-        if (!timeElement) return;
-        
-        // Get the notification ID from the data attribute
-        const notificationId = el.dataset.notificationId;
-        if (!notificationId) return;
-        
-        // Find the corresponding notification in cache
-        const notification = cache.find(n => n.id == notificationId);
-        if (notification && notification.timestamp) {
-            const dt = new Date(notification.timestamp);
-            if (!isNaN(dt.getTime())) {
-                timeElement.textContent = formatRelativeTime(dt);
-            }
-        }
-    });
-}
+    window.refreshNotifications = () => fetchNotifications(true);
+    window.showNotifications = showNotificationsModal;
+    window.markNotificationRead = markAsRead;
+    window.markAllNotificationsRead = markAllAsRead;
 
     // Initialize
     if (document.readyState === 'loading') {
@@ -593,7 +516,4 @@ function updateDisplayedTimes() {
     } else {
         init();
     }
-    
-    // Expose refreshNotifications globally
-    window.refreshNotifications = fetchNotifications;
 })();

@@ -49,117 +49,6 @@ $requires2faSetup = false;
 $twoFactorSecret = '';
 $twoFactorUserId = '';
 
-// Process login form if submitted - DISABLED: Using JavaScript API instead
-/*
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
-    $userId = $_POST['userId'] ?? '';
-    $password = $_POST['password'] ?? '';
-
-    if (!empty($userId) && !empty($password)) {
-        // Automatic user role detection based on user ID prefix
-        $loginType = '';
-        $userIdUpper = strtoupper($userId); // Convert to uppercase for case-insensitive check
-        if (substr($userIdUpper, 0, 3) === 'ADM') {
-            $loginType = 'admin';
-        } elseif (substr($userIdUpper, 0, 3) === 'EMP') {
-            $loginType = 'employee';
-        } elseif (substr($userIdUpper, 0, 3) === 'STU') {
-            $loginType = 'student';
-        } else {
-            $error = 'Invalid User ID format. User ID must start with ADM, EMP, or STU (case-insensitive).';
-        }
-
-        if ($loginType) {
-            // Check for brute force cooldown
-            $db = new Database();
-            $conn = $db->getConnection();
-            $stmt = $conn->prepare("SELECT attempts, locked_until FROM login_attempts WHERE user_id = ?");
-            $stmt->execute([$userId]);
-            $attemptData = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            $now = new DateTime();
-            if ($attemptData && $attemptData['locked_until'] && new DateTime($attemptData['locked_until']) > $now) {
-                $remaining = $now->diff(new DateTime($attemptData['locked_until']));
-                $minutes = $remaining->i;
-                $seconds = $remaining->s;
-                $error = "Too many failed attempts. Try again in {$minutes}m {$seconds}s.";
-            } else {
-                $auth = new Auth();
-                $user = $auth->login($userId, $password, $loginType);
-
-                if ($user) {
-                    // Check 2FA status
-                    if (!empty($user['2fa_secret'])) {
-                        if ($user['2fa_enabled'] == 1) {
-                            // 2FA is set up, require code
-                            $requires2fa = true;
-                            $twoFactorUserId = $user['id'];
-                        } else {
-                            // 2FA secret exists but not set up - prompt for setup
-                            $requires2faSetup = true;
-                            $twoFactorUserId = $user['id'];
-                            $twoFactorSecret = $user['2fa_secret'];
-                        }
-                    } else {
-                        // No 2FA - proceed (or enforce for students)
-                        if ($user['role'] === 'student') {
-                            // Generate secret for students
-                            require_once ROOT_PATH . 'vendor/autoload.php';
-                            $google2fa = new PragmaRX\Google2FA\Google2FA();
-                            $secret = $google2fa->generateSecretKey();
-                            $stmt = $conn->prepare("UPDATE students SET 2fa_secret = ? WHERE id = ?");
-                            $stmt->execute([$secret, $user['id']]);
-                            $requires2faSetup = true;
-                            $twoFactorUserId = $user['id'];
-                            $twoFactorSecret = $secret;
-                        } else {
-                            // Normal login for non-students
-                            loginUser($user);
-                            addAuditLog('LOGIN', 'Authentication', "User {$user['first_name']} {$user['last_name']} logged in", $user['id'], 'User', 'INFO');
-
-                            // Reset attempts on success
-                            $stmt = $conn->prepare("DELETE FROM login_attempts WHERE user_id = ?");
-                            $stmt->execute([$userId]);
-
-                            // Redirect based on role
-                            if ($user['role'] === 'admin') {
-                                header('Location: ' . BASE_URL . 'dashboard');
-                            } else {
-                                header('Location: ' . BASE_URL . 'calendar');
-                            }
-                            exit();
-                        }
-                    }
-
-                    // Reset attempts on success (for 2FA cases)
-                    if ($requires2fa || $requires2faSetup) {
-                        $stmt = $conn->prepare("DELETE FROM login_attempts WHERE user_id = ?");
-                        $stmt->execute([$userId]);
-                    }
-                } else {
-                    // Login failed
-                    $error = 'Invalid credentials. Please try again.';
-
-                    // ADD AUDIT LOG FOR FAILED LOGIN
-                    addAuditLog('LOGIN_FAILED', 'Security', "Failed login attempt for user: {$userId}", null, 'User', 'WARNING');
-
-                    // Increment attempts on failure
-                    $attempts = ($attemptData ? $attemptData['attempts'] : 0) + 1;
-                    $lockedUntil = null;
-                    if ($attempts >= 5) {
-                        $lockedUntil = $now->add(new DateInterval('PT1M'))->format('Y-m-d H:i:s'); // 1 minute lock
-                        $attempts = 0; // Reset after lock
-                    }
-                    $stmt = $conn->prepare("INSERT INTO login_attempts (user_id, attempts, locked_until) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE attempts = ?, locked_until = ?");
-                    $stmt->execute([$userId, $attempts, $lockedUntil, $attempts, $lockedUntil]);
-                }
-            }
-        }
-    } else {
-        $error = 'Please fill in all fields.';
-    }
-}
-*/
 ?>
 
 
@@ -176,6 +65,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/user-login.css">
     <script src="<?php echo BASE_URL; ?>assets/js/user-login.js"></script>
+    <!-- Add this after your other CSS links -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <!-- OR use this more reliable library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script></div>
 </head>
 
 <body>
@@ -518,6 +412,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     </div>
 </div>
 
+    <!-- Add this before closing body tag -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <script>
+    // Override QRCode with the more reliable library
+    window.QRCode = {
+        toCanvas: function(canvas, text, options, callback) {
+            if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
+                return QRCode.toCanvas(canvas, text, options, callback);
+            }
+        }
+    };
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 

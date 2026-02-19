@@ -20,6 +20,9 @@ class Database {
             );
             $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+            // Set MySQL session timezone to match PHP
+            $this->conn->exec("SET time_zone = '+08:00'"); // Kuala Lumpur is UTC+8
+
         } catch(PDOException $exception) {
             error_log("Connection error: " . $exception->getMessage());
             if (ENVIRONMENT === 'development') {

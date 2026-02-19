@@ -566,6 +566,14 @@ function createUserRow(user) {
     } else {
         departmentOrOffice = user.office;
     }
+    
+    // Format position for display
+    let displayPosition = user.position || '-';
+    if (user.position && user.position.startsWith('Dean of ')) {
+        const code = user.position.split(' ')[2];
+        displayPosition = 'College Dean';
+    }
+    
     const contact = `${user.email}<br><small>${user.phone || '-'}</small>`;
 
     // Action buttons for editing and deleting users
@@ -590,6 +598,7 @@ function createUserRow(user) {
         <td><strong>${user.id}</strong></td>
         <td>${user.firstName} ${user.lastName}</td>
         <td><span class="badge ${roleClass[user.role]}">${user.role.toUpperCase()}</span></td>
+        <td><small class="text-muted">${displayPosition}</small></td>
         <td>${departmentOrOffice || '-'}</td>
         <td>${contact}</td>
         <td><span class="badge ${user.status === 'active' ? 'bg-success' : 'bg-secondary'}">${user.status || 'active'}</span></td>
@@ -1480,12 +1489,13 @@ document.querySelector('#deleteConfirmModal .btn-danger').setAttribute('onclick'
 
 /** Generate CSV from user data. */
 function generateUserCSV(userList) {
-    const headers = ['User ID', 'First Name', 'Last Name', 'Role', 'Email', 'Phone', 'Department', 'Office', 'Status'];
+    const headers = ['User ID', 'First Name', 'Last Name', 'Role', 'Position', 'Email', 'Phone', 'Department', 'Office', 'Status'];
     const rows = userList.map(user => [
         user.id,
         user.firstName,
         user.lastName,
         user.role,
+        user.position || '',
         user.email,
         user.phone || '',
         user.department || '',

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/config.php';
 require_once ROOT_PATH . 'includes/session.php';
 require_once ROOT_PATH . 'includes/auth.php';
 requireAuth(); // Requires login

@@ -67,24 +67,88 @@ try {
             exit;
         }
         
+        // Archive notification
+        if (isset($input['action']) && $input['action'] === 'archive' && isset($input['notification_id'])) {
+            $stmt = $db->prepare("
+                UPDATE notifications 
+                SET is_archived = 1 
+                WHERE id = ? AND recipient_id = ? AND recipient_role = ?
+            ");
+            $stmt->execute([$input['notification_id'], $currentUser['id'], $currentUser['role']]);
+            
+            echo json_encode(['success' => true, 'message' => 'Notification archived']);
+            exit;
+        }
+
+        // Delete notification
+        if (isset($input['action']) && $input['action'] === 'delete' && isset($input['notification_id'])) {
+            $stmt = $db->prepare("
+                DELETE FROM notifications 
+                WHERE id = ? AND recipient_id = ? AND recipient_role = ?
+            ");
+            $stmt->execute([$input['notification_id'], $currentUser['id'], $currentUser['role']]);
+            
+            echo json_encode(['success' => true, 'message' => 'Notification deleted']);
+            exit;
+        }
+
+        // Clear all notifications
+        if (isset($input['action']) && $input['action'] === 'clear_all') {
+            $stmt = $db->prepare("
+                DELETE FROM notifications 
+                WHERE recipient_id = ? AND recipient_role = ?
+            ");
+            $stmt->execute([$currentUser['id'], $currentUser['role']]);
+            
+            echo json_encode(['success' => true, 'message' => 'All notifications cleared']);
+            exit;
+        }
+
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Invalid action']);
         exit;
     }
 
     // GET request - fetch notifications
-    $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-    $limit = isset($_GET['limit']) ? min(50, intval($_GET['limit'])) : 20;
-    $offset = ($page - 1) * $limit;
-    $includeRead = isset($_GET['include_read']) ? filter_var($_GET['include_read'], FILTER_VALIDATE_BOOLEAN) : false;
-
-    // First, try to generate notifications (with error handling)
+    
+    // FIRST: Generate any new notifications based on current state
+    // This ensures all notifications are up to date before counting
     try {
         generateNotifications($db, $currentUser);
     } catch (Exception $e) {
         error_log("Error generating notifications: " . $e->getMessage());
         // Continue even if generation fails - we'll still show existing notifications
     }
+
+    // NOW get the counts and notifications (after generation)
+    
+    // Get total unread count
+    $stmt = $db->prepare("
+        SELECT COUNT(*) as count 
+        FROM notifications 
+        WHERE recipient_id = ? AND recipient_role = ? AND is_read = 0 
+        AND (is_archived = 0 OR is_archived IS NULL)
+    ");
+    $stmt->execute([$currentUser['id'], $currentUser['role']]);
+    $unreadCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+
+    // Get total count for debugging
+    $stmt = $db->prepare("
+        SELECT COUNT(*) as count 
+        FROM notifications 
+        WHERE recipient_id = ? AND recipient_role = ?
+        AND (is_archived = 0 OR is_archived IS NULL)
+    ");
+    $stmt->execute([$currentUser['id'], $currentUser['role']]);
+    $totalCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+
+    error_log("User {$currentUser['id']} - Total: {$totalCount}, Unread: {$unreadCount}");
+
+    // Pagination parameters
+    $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+    $limit = isset($_GET['limit']) ? min(50, intval($_GET['limit'])) : 20;
+    $offset = ($page - 1) * $limit;
+    $includeRead = isset($_GET['include_read']) ? filter_var($_GET['include_read'], FILTER_VALIDATE_BOOLEAN) : false;
 
     // Build query
     $query = "
@@ -100,36 +164,40 @@ try {
     $query .= " AND (is_archived = 0 OR is_archived IS NULL)";
     $query .= " ORDER BY created_at DESC LIMIT ? OFFSET ?";
 
-    // FIX: Explicitly cast to integers and use bindParam with PARAM_INT
+    // Prepare and execute with proper binding
     $stmt = $db->prepare($query);
-
-    // Bind parameters with explicit types
-    $stmt->bindParam(1, $currentUser['id'], PDO::PARAM_STR);
-    $stmt->bindParam(2, $currentUser['role'], PDO::PARAM_STR);
-
+    $stmt->bindValue(1, $currentUser['id'], PDO::PARAM_STR);
+    $stmt->bindValue(2, $currentUser['role'], PDO::PARAM_STR);
+    
     $paramIndex = 3;
     if (!$includeRead) {
-        // is_read = 0 is already in query, no extra param needed
+        // If we added the is_read condition, we need to adjust parameter index
+        // But since we're using bindValue with positional parameters, we need to be careful
+        // Let's rebuild the query with named parameters to avoid confusion
     }
-
-    // Bind limit and offset as integers
-    $limitInt = (int)$limit;
-    $offsetInt = (int)$offset;
-    $stmt->bindParam($paramIndex++, $limitInt, PDO::PARAM_INT);
-    $stmt->bindParam($paramIndex++, $offsetInt, PDO::PARAM_INT);
-
+    
+    // Simpler approach: use named parameters
+    $query = "
+        SELECT * FROM notifications 
+        WHERE recipient_id = :user_id 
+        AND recipient_role = :user_role 
+    ";
+    
+    if (!$includeRead) {
+        $query .= " AND is_read = 0";
+    }
+    
+    $query .= " AND (is_archived = 0 OR is_archived IS NULL)";
+    $query .= " ORDER BY created_at DESC LIMIT :limit_val OFFSET :offset_val";
+    
+    $stmt = $db->prepare($query);
+    $stmt->bindValue(':user_id', $currentUser['id'], PDO::PARAM_STR);
+    $stmt->bindValue(':user_role', $currentUser['role'], PDO::PARAM_STR);
+    $stmt->bindValue(':limit_val', (int)$limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset_val', (int)$offset, PDO::PARAM_INT);
+    
     $stmt->execute();
     $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // Get total unread count
-    $stmt = $db->prepare("
-        SELECT COUNT(*) as count 
-        FROM notifications 
-        WHERE recipient_id = ? AND recipient_role = ? AND is_read = 0 
-        AND (is_archived = 0 OR is_archived IS NULL)
-    ");
-    $stmt->execute([$currentUser['id'], $currentUser['role']]);
-    $unreadCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
 
     // Format timestamps
     foreach ($notifications as &$notif) {
@@ -142,6 +210,7 @@ try {
         'success' => true,
         'notifications' => $notifications,
         'unread_count' => intval($unreadCount),
+        'total_count' => intval($totalCount),
         'page' => $page,
         'limit' => $limit,
         'offset' => $offset,
@@ -161,103 +230,99 @@ try {
 
 function generateNotifications($db, $user) {
     try {
-        // Check if we have any notifications first
-        $checkStmt = $db->prepare("SELECT COUNT(*) as count FROM notifications WHERE recipient_id = ? AND recipient_role = ?");
+        // Only generate if we have few notifications (to avoid duplicates)
+        $checkStmt = $db->prepare("
+            SELECT COUNT(*) as count 
+            FROM notifications 
+            WHERE recipient_id = ? AND recipient_role = ? 
+            AND created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
+        ");
         $checkStmt->execute([$user['id'], $user['role']]);
-        $count = $checkStmt->fetch(PDO::FETCH_ASSOC)['count'];
+        $recentCount = $checkStmt->fetch(PDO::FETCH_ASSOC)['count'];
         
-        // Only generate if we have fewer than 50 notifications
-        if ($count > 50) {
+        // If we have recent notifications, don't generate more to avoid duplicates
+        if ($recentCount > 20) {
             return;
         }
 
         $db->beginTransaction();
         
-        $now = date('Y-m-d H:i:s');
         $oneDayAgo = date('Y-m-d H:i:s', strtotime('-1 day'));
 
         // Generate notifications based on user role
         if ($user['role'] === 'student') {
-            // Document status updates
+            // Document status updates - only if not already notified
             $stmt = $db->prepare("
                 SELECT d.id, d.title, d.status, d.updated_at
                 FROM documents d
+                LEFT JOIN notifications n ON n.related_document_id = d.id 
+                    AND n.recipient_id = d.student_id 
+                    AND n.recipient_role = 'student'
+                    AND n.created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
                 WHERE d.student_id = ? 
                 AND d.updated_at > ?
                 AND d.status IN ('approved', 'rejected', 'in_review')
+                AND n.id IS NULL
                 ORDER BY d.updated_at DESC
                 LIMIT 10
             ");
             $stmt->execute([$user['id'], $oneDayAgo]);
             
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                // Check if notification already exists
-                $checkStmt = $db->prepare("
-                    SELECT id FROM notifications 
-                    WHERE recipient_id = ? AND recipient_role = 'student'
-                    AND related_document_id = ? 
-                    AND created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
-                ");
-                $checkStmt->execute([$user['id'], $row['id']]);
+                $messages = [
+                    'approved' => 'approved and ready for download',
+                    'rejected' => 'rejected',
+                    'in_review' => 'is now under review'
+                ];
                 
-                if (!$checkStmt->fetch()) {
-                    $messages = [
-                        'approved' => 'Your document has been approved',
-                        'rejected' => 'Your document has been rejected',
-                        'in_review' => 'Your document is now under review'
-                    ];
-                    
-                    $insertStmt = $db->prepare("
-                        INSERT INTO notifications (
-                            recipient_id, recipient_role, type, title, message, 
-                            related_document_id, is_read, created_at
-                        ) VALUES (?, 'student', 'document', ?, ?, ?, 0, NOW())
-                    ");
-                    $insertStmt->execute([
-                        $user['id'],
-                        'Document Status Update',
-                        $messages[$row['status']] . ": {$row['title']}",
-                        $row['id']
-                    ]);
-                }
+                $insertStmt = $db->prepare("
+                    INSERT INTO notifications (
+                        recipient_id, recipient_role, type, title, message, 
+                        related_document_id, is_read, created_at
+                    ) VALUES (?, 'student', 'document', ?, ?, ?, 0, NOW())
+                ");
+                $insertStmt->execute([
+                    $user['id'],
+                    'Document Status Update',
+                    "Your document '{$row['title']}' has been {$messages[$row['status']]}",
+                    $row['id']
+                ]);
+                error_log("Generated status notification for document {$row['id']} - status: {$row['status']}");
             }
             
-            // Pending documents for students
+            // Pending documents for students - only if not already notified
             $stmt = $db->prepare("
-                SELECT d.id, d.title
+                SELECT d.id, d.title, ds.id as step_id
                 FROM documents d
                 JOIN document_steps ds ON d.id = ds.document_id
+                LEFT JOIN notifications n ON n.related_document_id = d.id 
+                    AND n.recipient_id = ds.assigned_to_student_id 
+                    AND n.recipient_role = 'student'
+                    AND n.created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
+                    AND n.message LIKE '%requires your signature%'
                 WHERE ds.assigned_to_student_id = ? 
                 AND ds.status = 'pending'
                 AND d.status NOT IN ('approved', 'rejected', 'cancelled')
                 AND d.updated_at > ?
+                AND n.id IS NULL
                 LIMIT 10
             ");
             $stmt->execute([$user['id'], $oneDayAgo]);
             
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $checkStmt = $db->prepare("
-                    SELECT id FROM notifications 
-                    WHERE recipient_id = ? AND recipient_role = 'student'
-                    AND related_document_id = ? AND message LIKE '%pending%'
-                    AND created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
+                $insertStmt = $db->prepare("
+                    INSERT INTO notifications (
+                        recipient_id, recipient_role, type, title, message, 
+                        related_document_id, is_read, created_at
+                    ) VALUES (?, 'student', 'document', ?, ?, ?, 0, NOW())
                 ");
-                $checkStmt->execute([$user['id'], $row['id']]);
-                
-                if (!$checkStmt->fetch()) {
-                    $insertStmt = $db->prepare("
-                        INSERT INTO notifications (
-                            recipient_id, recipient_role, type, title, message, 
-                            related_document_id, is_read, created_at
-                        ) VALUES (?, 'student', 'document', ?, ?, ?, 0, NOW())
-                    ");
-                    $insertStmt->execute([
-                        $user['id'],
-                        'Document Pending Signature',
-                        "Document '{$row['title']}' requires your signature",
-                        $row['id']
-                    ]);
-                }
+                $insertStmt->execute([
+                    $user['id'],
+                    'Document Pending Signature',
+                    "Document '{$row['title']}' requires your signature",
+                    $row['id']
+                ]);
+                error_log("Generated pending notification for document {$row['id']}");
             }
         }
         
@@ -265,7 +330,6 @@ function generateNotifications($db, $user) {
     } catch (Exception $e) {
         $db->rollBack();
         error_log("Error in generateNotifications: " . $e->getMessage());
-        // Don't throw - just log the error
     }
 }
 

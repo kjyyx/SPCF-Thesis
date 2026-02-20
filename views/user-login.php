@@ -1,6 +1,6 @@
 <?php
-// Use absolute paths
-require_once ROOT_PATH . 'includes/config.php';
+// Use absolute paths - include config first to define ROOT_PATH
+require_once __DIR__ . '/../includes/config.php';
 require_once ROOT_PATH . 'includes/auth.php';
 require_once ROOT_PATH . 'includes/session.php';
 require_once ROOT_PATH . 'includes/database.php';

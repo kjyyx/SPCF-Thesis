@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/config.php';
 require_once ROOT_PATH . 'includes/session.php';
 require_once ROOT_PATH . 'includes/auth.php';
 requireAuth(); // Requires login
@@ -486,14 +487,15 @@ addAuditLog('ADMIN_DASHBOARD_VIEWED', 'User Management', 'Viewed admin dashboard
                                         <th width="40">
                                             <input type="checkbox" id="selectAllUsers" onchange="toggleSelectAll()">
                                         </th>
-                                        <th>User ID</th>
-                                        <th>Name</th>
-                                        <th>Role</th>
-                                        <th>Department/Office</th>
-                                        <th>Contact</th>
-                                        <th>Status</th>
-                                        <th>2FA</th>
-                                        <th>Actions</th>
+                                        <th width="8%">User ID</th>
+                                        <th width="15%">Name</th>
+                                        <th width="8%">Role</th>
+                                        <th width="12%">Position</th>
+                                        <th width="15%">Department/Office</th>
+                                        <th width="15%">Contact</th>
+                                        <th width="6%">Status</th>
+                                        <th width="6%">2FA</th>
+                                        <th width="15%">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="usersTableBody">

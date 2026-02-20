@@ -17,137 +17,233 @@ function detectLoginType(userId) {
     }
 }
 
-// Load QRCode library dynamically
-function loadQRCode() {
-    return new Promise((resolve) => {
-        console.log('Initializing QR code generator...');
-
-        // Use reliable inline implementation with Google Charts
-        window.QRCode = {
-            toCanvas: function (canvas, text, options, callback) {
-                const size = options?.width || 160; // Default to 160px for better fit
-
-                // Create a visual QR-like pattern using canvas
-                canvas.width = size;
-                canvas.height = size;
-                const ctx = canvas.getContext('2d');
-
-                // Fill white background
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, size, size);
-
-                // Generate a visual pattern that represents the data
-                ctx.fillStyle = 'black';
-                const moduleSize = size / 25; // 25x25 grid
-
-                // Draw corner markers (like QR code finder patterns)
-                ctx.fillRect(0, 0, moduleSize * 7, moduleSize * 7);
-                ctx.fillStyle = 'white';
-                ctx.fillRect(moduleSize, moduleSize, moduleSize * 5, moduleSize * 5);
-                ctx.fillStyle = 'black';
-                ctx.fillRect(moduleSize * 2, moduleSize * 2, moduleSize * 3, moduleSize * 3);
-
-                // Draw data pattern based on text
-                ctx.fillStyle = 'black';
-                const data = text.substring(0, 50); // Limit data
-                for (let i = 0; i < data.length; i++) {
-                    const charCode = data.charCodeAt(i);
-                    const x = 9 + (i % 8) * 2;
-                    const y = 9 + Math.floor(i / 8) * 2;
-
-                    if (x < 23 && y < 23) {
-                        // Draw 2x2 block for each character
-                        if (charCode & 1) ctx.fillRect(x * moduleSize, y * moduleSize, moduleSize * 2, moduleSize);
-                        if (charCode & 2) ctx.fillRect(x * moduleSize, (y + 1) * moduleSize, moduleSize * 2, moduleSize);
-                    }
-                }
-
-                // Add border
-                ctx.strokeStyle = '#ddd';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(1, 1, size - 2, size - 2);
-
-                // Add text label
-                ctx.fillStyle = 'black';
-                ctx.font = '12px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('2FA Setup QR', size / 2, size - 10);
-
-                console.log('Visual QR pattern generated on canvas');
-                if (callback) callback(null);
+// Enhanced QR Code Generation with Multiple Fallbacks
+function generateQRCode(containerId, secret, userId = 'User') {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error('QR Code container not found:', containerId);
+        return;
+    }
+    
+    // Clear container
+    container.innerHTML = '';
+    
+    // Create OTP URL
+    const otpUrl = `otpauth://totp/Sign-um:${userId}?secret=${secret}&issuer=Sign-um&algorithm=SHA1&digits=6&period=30`;
+    
+    console.log('Generating QR for URL:', otpUrl);
+    
+    // Create wrapper
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        padding: 10px;
+    `;
+    
+    // Show loading state
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'qr-loading';
+    loadingDiv.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 250px;
+        width: 100%;
+    `;
+    loadingDiv.innerHTML = `
+        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3 text-muted">Generating QR Code...</p>
+    `;
+    container.appendChild(loadingDiv);
+    
+    // Try multiple QR code providers in sequence
+    tryQRCodeProvider(0);
+    
+    function tryQRCodeProvider(attempt) {
+        const providers = [
+            {
+                name: 'Google Charts',
+                url: `https://chart.googleapis.com/chart?chs=250x250&cht=qr&chl=${encodeURIComponent(otpUrl)}&choe=UTF-8&chld=H|0`
+            },
+            {
+                name: 'QR Server',
+                url: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(otpUrl)}`
+            },
+            {
+                name: 'GoQR',
+                url: `https://api.qr-code-generator.com/v1/create?size=250x250&data=${encodeURIComponent(otpUrl)}`
             }
+        ];
+        
+        if (attempt >= providers.length) {
+            // All providers failed, show manual entry
+            console.error('All QR code providers failed');
+            showManualEntry();
+            return;
+        }
+        
+        console.log(`Trying ${providers[attempt].name}...`);
+        
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        
+        img.onload = function() {
+            console.log(`${providers[attempt].name} QR code loaded successfully`);
+            
+            // Clear loading
+            container.innerHTML = '';
+            
+            // Set image styles
+            img.style.cssText = `
+                display: block;
+                width: 250px;
+                height: 250px;
+                max-width: 100%;
+                border-radius: 16px;
+                box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+                border: 4px solid white;
+                margin: 0 auto;
+                object-fit: contain;
+                background: white;
+                padding: 8px;
+            `;
+            
+            wrapper.appendChild(img);
+            
+            // Add secret backup
+            addSecretBackup(wrapper, secret, userId);
+            
+            container.appendChild(wrapper);
         };
-
-        console.log('QR code generator initialized');
-        resolve();
-    });
-}
-
-// Simple QR code data generation (improved alphanumeric encoding)
-function generateSimpleQR(text) {
-    const size = 21;
-    const qr = Array(size).fill().map(() => Array(size).fill(false));
-
-    // Add finder patterns (the big squares in corners)
-    // Top-left finder
-    for (let i = 0; i < 7; i++) {
-        for (let j = 0; j < 7; j++) {
-            if ((i === 0 || i === 6 || j === 0 || j === 6) ||
-                (i >= 2 && i <= 4 && j >= 2 && j <= 4)) {
-                qr[i][j] = true;
-            }
-        }
+        
+        img.onerror = function() {
+            console.log(`${providers[attempt].name} failed, trying next...`);
+            tryQRCodeProvider(attempt + 1);
+        };
+        
+        // Add cache buster to avoid caching issues
+        img.src = providers[attempt].url + '&_=' + new Date().getTime();
     }
-
-    // Top-right finder
-    for (let i = 0; i < 7; i++) {
-        for (let j = 0; j < 7; j++) {
-            if ((i === 0 || i === 6 || j === 0 || j === 6) ||
-                (i >= 2 && i <= 4 && j >= 2 && j <= 4)) {
-                qr[i][size - 7 + j] = true;
-            }
-        }
+    
+    function addSecretBackup(wrapper, secret, userId) {
+        const backupDiv = document.createElement('div');
+        backupDiv.className = 'qr-secret-backup';
+        backupDiv.style.cssText = `
+            margin-top: 25px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 16px;
+            border: 2px solid #e2e8f0;
+            width: 100%;
+            max-width: 300px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        `;
+        
+        backupDiv.innerHTML = `
+            <div style="margin-bottom: 12px; color: #475569; font-size: 0.9rem; font-weight: 500;">
+                <i class="bi bi-key-fill" style="color: #667eea; margin-right: 5px;"></i>
+                Can't scan the QR code?
+            </div>
+            <div style="
+                background: white;
+                border-radius: 12px;
+                padding: 15px;
+                margin-bottom: 12px;
+                border: 1px dashed #94a3b8;
+            ">
+                <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 5px;">Secret Key:</div>
+                <code style="
+                    display: block;
+                    color: #1e293b;
+                    font-size: 16px;
+                    font-weight: 700;
+                    letter-spacing: 2px;
+                    word-break: break-all;
+                    font-family: 'SF Mono', 'Monaco', monospace;
+                ">${secret}</code>
+            </div>
+            <div style="color: #64748b; font-size: 0.8rem;">
+                <i class="bi bi-info-circle me-1"></i>
+                Account: <strong>${userId}</strong><br>
+                Issuer: <strong>Sign-um</strong>
+            </div>
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 0.75rem; color: #94a3b8;">
+                Open your authenticator app and tap "Enter setup key"
+            </div>
+        `;
+        
+        wrapper.appendChild(backupDiv);
     }
-
-    // Bottom-left finder
-    for (let i = 0; i < 7; i++) {
-        for (let j = 0; j < 7; j++) {
-            if ((i === 0 || i === 6 || j === 0 || j === 6) ||
-                (i >= 2 && i <= 4 && j >= 2 && j <= 4)) {
-                qr[size - 7 + i][j] = true;
-            }
-        }
+    
+    function showManualEntry() {
+        container.innerHTML = '';
+        
+        const manualDiv = document.createElement('div');
+        manualDiv.className = 'manual-entry';
+        manualDiv.style.cssText = `
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border: 2px solid #fbbf24;
+            border-radius: 20px;
+            padding: 30px 20px;
+            text-align: center;
+            width: 100%;
+            max-width: 320px;
+            margin: 0 auto;
+            box-shadow: 0 10px 25px rgba(251, 191, 36, 0.2);
+        `;
+        
+        manualDiv.innerHTML = `
+            <i class="bi bi-exclamation-triangle-fill" style="font-size: 48px; color: #f59e0b;"></i>
+            <h6 style="margin: 20px 0 10px; color: #92400e; font-weight: 700;">QR Code Unavailable</h6>
+            <p style="color: #92400e; font-size: 14px; margin-bottom: 20px;">
+                Please set up two-factor authentication manually using the key below:
+            </p>
+            <div style="
+                background: white;
+                border-radius: 12px;
+                padding: 15px;
+                margin-bottom: 15px;
+                border: 2px solid #fbbf24;
+            ">
+                <div style="color: #666; font-size: 12px; margin-bottom: 5px;">Your secret key:</div>
+                <code style="
+                    display: block;
+                    background: #f8fafc;
+                    padding: 15px;
+                    border-radius: 8px;
+                    color: #1e293b;
+                    font-size: 16px;
+                    font-weight: bold;
+                    word-break: break-all;
+                    border: 1px solid #e2e8f0;
+                ">${secret}</code>
+            </div>
+            <div style="background: white; border-radius: 8px; padding: 10px; margin-bottom: 15px;">
+                <p style="margin: 0; color: #4b5563; font-size: 13px;">
+                    <strong>Setup instructions:</strong><br>
+                    1. Open Google Authenticator<br>
+                    2. Tap "+" and "Enter setup key"<br>
+                    3. Enter account: ${userId}<br>
+                    4. Enter key above<br>
+                    5. Tap "Add"
+                </p>
+            </div>
+            <div style="color: #92400e; font-size: 12px;">
+                <i class="bi bi-shield-check me-1"></i>
+                After setup, enter the 6-digit code below
+            </div>
+        `;
+        
+        container.appendChild(manualDiv);
     }
-
-    // Add timing patterns
-    for (let i = 8; i < size - 8; i++) {
-        qr[6][i] = (i % 2 === 0);
-        qr[i][6] = (i % 2 === 0);
-    }
-
-    // Simple data encoding - convert text to binary-like pattern
-    // This creates a visual pattern but won't be a valid QR code
-    // For a real implementation, we'd need proper Reed-Solomon encoding
-    const data = text.split('').map(c => c.charCodeAt(0));
-    let bitIndex = 0;
-
-    // Fill data area with a pattern based on the text
-    for (let y = 9; y < size - 4; y++) {
-        for (let x = 9; x < size - 4; x++) {
-            if (bitIndex < data.length * 8) {
-                const byteIndex = Math.floor(bitIndex / 8);
-                const bitOffset = bitIndex % 8;
-                const bit = (data[byteIndex] >> (7 - bitOffset)) & 1;
-                qr[y][x] = bit === 1;
-                bitIndex++;
-            } else {
-                // Fill remaining with checkerboard pattern
-                qr[y][x] = (x + y) % 2 === 0;
-            }
-        }
-    }
-
-    return qr;
 }
 
 // Password visibility toggle (global so inline onclick can call it)
@@ -374,79 +470,23 @@ function attachLoginSubmitHandler() {
 
                 // Handle 2FA setup requirement
                 if (data.requires_2fa_setup) {
-                    console.log('Requires 2FA setup, secret:', data.secret);
+                    console.log('Setting up 2FA with secret:', data.secret);
+                    console.log('For user:', data.user_id);
+                    
+                    // Use the simplified QR generator
+                    generateQRCode('qrCodeContainer', data.secret, data.user_id);
+                    
                     window.tempUserId = data.user_id;
-
-                    // Show 2FA setup modal
+                    
+                    // Update button text
+                    const loginBtn = document.getElementById('loginButton');
+                    if (loginBtn) {
+                        loginBtn.innerHTML = '<i class="bi bi-shield-plus me-2"></i>Complete 2FA Setup';
+                    }
+                    
+                    // Show the setup modal
                     const setupModal = new bootstrap.Modal(document.getElementById('2faSetupModal'));
                     setupModal.show();
-
-                    // Generate QR code
-                    const qrUrl = `otpauth://totp/Sign-um:${data.user_id}?secret=${data.secret}&issuer=Sign-um`;
-                    console.log('Generating QR code with URL:', qrUrl);
-                    const container = document.getElementById('qrCodeContainer');
-                    if (container) {
-                        container.innerHTML = '';
-
-                        // Try QRCode library first
-                        if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
-                            const canvas = document.createElement('canvas');
-                            canvas.width = 240;
-                            canvas.height = 240;
-                            canvas.style.display = 'block';
-                            canvas.style.margin = '0 auto';
-                            canvas.style.maxWidth = '240px';
-                            canvas.style.height = 'auto';
-                            container.appendChild(canvas);
-                            QRCode.toCanvas(canvas, qrUrl, { width: 240 }, function (error) {
-                                if (error) {
-                                    console.error('QRCode generation failed, trying Google Charts...');
-                                    // Fallback to Google Charts
-                                    container.innerHTML = '';
-                                    const img = document.createElement('img');
-                                    img.src = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;
-                                    img.style.display = 'block';
-                                    img.style.margin = '0 auto';
-                                    img.style.maxWidth = '240px';
-                                    img.style.height = 'auto';
-                                    img.onload = () => {
-                                        console.log('Google Charts QR code loaded successfully');
-                                        container.innerHTML = '';
-                                        container.appendChild(img);
-                                        addTextBackup(container, data.secret);
-                                    };
-                                    img.onerror = () => {
-                                        console.error('Google Charts QR code failed too');
-                                        // Show text only
-                                        container.innerHTML = '';
-                                        addTextBackup(container, data.secret);
-                                    };
-                                } else {
-                                    console.log('QRCode canvas generation successful');
-                                    addTextBackup(container, data.secret);
-                                }
-                            });
-                        } else {
-                            // Direct fallback to Google Charts
-                            console.log('QRCode not available, using Google Charts API');
-                            const img = document.createElement('img');
-                            img.src = `https://chart.googleapis.com/chart?chs=240x240&cht=qr&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;
-                            img.style.display = 'block';
-                            img.style.margin = '0 auto';
-                            img.style.maxWidth = '240px';
-                            img.style.height = 'auto';
-                            img.onload = () => {
-                                console.log('Google Charts QR code loaded successfully');
-                                container.appendChild(img);
-                                addTextBackup(container, data.secret);
-                            };
-                            img.onerror = () => {
-                                console.error('Google Charts QR code failed');
-                                // Show text only
-                                addTextBackup(container, data.secret);
-                            };
-                        }
-                    }
                 } else if (data.requires_2fa) {
                     console.log('Requires 2FA verification');
                     window.tempUserId = data.user_id;

@@ -1624,3 +1624,59 @@
 2026-02-19 04:32:17 - PDF saved to: C:\xampp\htdocs\SPCF-Thesis\includes/../uploads/doc_Digital_Skills_Bootcamp_2026_699621cca52d1.pdf
 2026-02-19 04:32:17 - DOCX cleaned up successfully
 2026-02-19 04:32:17 - Conversion successful
+2026-02-19 05:06:36 - Starting conversion for: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc__Lifelong_Learning_Development_699629dcea66a.docx
+2026-02-19 05:06:36 - API key found
+2026-02-19 05:06:36 - DOCX file exists, size: 188850
+2026-02-19 05:06:36 - CloudConvert client created
+2026-02-19 05:06:36 - Creating job
+2026-02-19 05:06:37 - Job created: dfc3fa70-f46d-42f4-ba02-e53f9ab93935
+2026-02-19 05:06:37 - Uploading file
+2026-02-19 05:06:38 - File uploaded
+2026-02-19 05:06:38 - Waiting for completion
+2026-02-19 05:06:40 - Job completed, status: finished
+2026-02-19 05:06:40 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/6bb90613-eb23-4401-815c-0fba6a38a108/doc__Lifelong_Learning_Development_699629dcea66a.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260218%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260218T210641Z&X-Amz-Expires=86400&X-Amz-Signature=3ea65a27fe7eafd7ea59bc74573c5428299bfac8d39e443ca357ca6c150245e6&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22doc__Lifelong_Learning_Development_699629dcea66a.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-19 05:06:41 - PDF saved to: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc__Lifelong_Learning_Development_699629dcea66a.pdf
+2026-02-19 05:06:41 - DOCX cleaned up successfully
+2026-02-19 05:06:41 - Conversion successful
+2026-02-19 13:50:56 - Starting conversion for: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc__MOCK__Unity_Summit_2026__The__6996a4c00f110.docx
+2026-02-19 13:50:56 - API key found
+2026-02-19 13:50:56 - DOCX file exists, size: 272980
+2026-02-19 13:50:56 - CloudConvert client created
+2026-02-19 13:50:56 - Creating job
+2026-02-19 13:50:56 - Job created: 189d2fa2-de90-46de-bbd3-bef7ac2fa32c
+2026-02-19 13:50:56 - Uploading file
+2026-02-19 13:50:58 - File uploaded
+2026-02-19 13:50:58 - Waiting for completion
+2026-02-19 13:50:59 - Job completed, status: finished
+2026-02-19 13:50:59 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/ac9f94d6-b135-410e-8ef2-57b7d5170690/doc__MOCK__Unity_Summit_2026__The__6996a4c00f110.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260219%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260219T055100Z&X-Amz-Expires=86400&X-Amz-Signature=612cfb226544d4b4078998b496efa191fde76fd94eeb14f773ee67534590d7a4&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22doc__MOCK__Unity_Summit_2026__The__6996a4c00f110.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-19 13:51:00 - PDF saved to: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc__MOCK__Unity_Summit_2026__The__6996a4c00f110.pdf
+2026-02-19 13:51:00 - DOCX cleaned up successfully
+2026-02-19 13:51:00 - Conversion successful
+2026-02-19 13:53:41 - Starting conversion for: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc__MOCK__Unity_Summit_2026__The__6996a56517fcf.docx
+2026-02-19 13:53:41 - API key found
+2026-02-19 13:53:41 - DOCX file exists, size: 95972
+2026-02-19 13:53:41 - CloudConvert client created
+2026-02-19 13:53:41 - Creating job
+2026-02-19 13:53:41 - Job created: 1621134f-d4ae-4d16-a535-01407d69e2d0
+2026-02-19 13:53:41 - Uploading file
+2026-02-19 13:53:42 - File uploaded
+2026-02-19 13:53:42 - Waiting for completion
+2026-02-19 13:53:44 - Job completed, status: finished
+2026-02-19 13:53:44 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/f4b39140-5be5-4548-b4f7-b25164233ad3/doc__MOCK__Unity_Summit_2026__The__6996a56517fcf.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260219%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260219T055345Z&X-Amz-Expires=86400&X-Amz-Signature=b01a7f4c6c462a92e5c54dadd49aa741c407686c7b6e683ef291bdff96e9ca09&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22doc__MOCK__Unity_Summit_2026__The__6996a56517fcf.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-19 13:53:45 - PDF saved to: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc__MOCK__Unity_Summit_2026__The__6996a56517fcf.pdf
+2026-02-19 13:53:45 - DOCX cleaned up successfully
+2026-02-19 13:53:45 - Conversion successful
+2026-02-19 23:12:49 - Starting conversion for: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc_SAF__Debugging__6997287182bb1.docx
+2026-02-19 23:12:49 - API key found
+2026-02-19 23:12:49 - DOCX file exists, size: 89328
+2026-02-19 23:12:49 - CloudConvert client created
+2026-02-19 23:12:49 - Creating job
+2026-02-19 23:12:50 - Job created: cdb793a8-af1e-4b5c-9fb6-5b6371a77242
+2026-02-19 23:12:50 - Uploading file
+2026-02-19 23:12:51 - File uploaded
+2026-02-19 23:12:51 - Waiting for completion
+2026-02-19 23:12:53 - Job completed, status: finished
+2026-02-19 23:12:53 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/fd6c3bc9-86ee-467f-a912-2a31cfbc7940/doc_SAF__Debugging__6997287182bb1.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260219%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260219T151254Z&X-Amz-Expires=86400&X-Amz-Signature=78c2a45d81ace1b1e04579a500804f789d5c2b490f5bbe54954ebd8b6c49db7f&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22doc_SAF__Debugging__6997287182bb1.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-19 23:12:54 - PDF saved to: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc_SAF__Debugging__6997287182bb1.pdf
+2026-02-19 23:12:54 - DOCX cleaned up successfully
+2026-02-19 23:12:54 - Conversion successful

@@ -390,12 +390,12 @@ async function fetchNotifications(showLoading = false) {
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li>
-                                    <a class="dropdown-item" href="#" onclick="NotificationFeatures.archiveNotification(${n.id})">
+                                    <a class="dropdown-item" href="#" onclick="event.preventDefault(); NotificationFeatures.archiveNotification(${n.id})">
                                         <i class="bi bi-archive me-2"></i>Archive
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item text-danger" href="#" onclick="NotificationFeatures.deleteNotification(${n.id})">
+                                    <a class="dropdown-item text-danger" href="#" onclick="event.preventDefault(); NotificationFeatures.deleteNotification(${n.id})">
                                         <i class="bi bi-trash me-2"></i>Delete
                                     </a>
                                 </li>
@@ -541,6 +541,8 @@ async function fetchNotifications(showLoading = false) {
     window.showNotifications = showNotificationsModal;
     window.markNotificationRead = markAsRead;
     window.markAllNotificationsRead = markAllAsRead;
+    window.markAllAsRead = markAllAsRead;
+    window.markAsRead = markAsRead;
 
     // New features object
     const NotificationFeatures = {

@@ -1358,7 +1358,7 @@ async function submitDocument() {
 
                     // Redirect to sign if needed
                     if (result.needs_signing) {
-                        window.location.href = BASE_URL + 'views/notifications.php?sign_doc=' + result.document_id;
+                        window.location.href = BASE_URL + '?page=notifications&sign_doc=' + result.document_id;
                     } else {
                         // Redirect to dashboard or appropriate page
                         window.location.href = BASE_URL + '?page=dashboard';
@@ -1531,38 +1531,25 @@ function savePreferences() {
     bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
 }
 
+if (window.NavbarSettings) {
+    window.openProfileSettings = window.NavbarSettings.openProfileSettings;
+    window.openChangePassword = window.NavbarSettings.openChangePassword;
+    window.openPreferences = window.NavbarSettings.openPreferences;
+    window.showHelp = window.NavbarSettings.showHelp;
+    window.savePreferences = window.NavbarSettings.savePreferences;
+    window.saveProfileSettings = window.NavbarSettings.saveProfileSettings;
+}
+
 // Handle profile settings form
 document.addEventListener('DOMContentLoaded', function () {
     const profileForm = document.getElementById('profileSettingsForm');
     if (profileForm) {
         profileForm.addEventListener('submit', async function (e) {
-            e.preventDefault();
-
-            const firstName = document.getElementById('profileFirstName').value;
-            const lastName = document.getElementById('profileLastName').value;
-            const email = document.getElementById('profileEmail').value;
-            const phone = document.getElementById('profilePhone').value;
-            const darkMode = document.getElementById('darkModeToggle').checked;
-            const messagesDiv = document.getElementById('profileSettingsMessages');
-
-            if (!firstName || !lastName || !email) {
-                if (messagesDiv) messagesDiv.innerHTML = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Please fill in all required fields.</div>';
-                return;
+            if (window.NavbarSettings?.saveProfileSettings) {
+                await window.NavbarSettings.saveProfileSettings(e);
+            } else {
+                e.preventDefault();
             }
-
-            // Save dark mode preference
-            localStorage.setItem('darkMode', darkMode);
-
-            // Show success message
-            if (messagesDiv) messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Profile updated successfully!</div>';
-
-            // Apply theme
-            document.body.classList.toggle('dark-theme', darkMode);
-
-            // Close modal after a delay
-            setTimeout(() => {
-                bootstrap.Modal.getInstance(document.getElementById('profileSettingsModal')).hide();
-            }, 1500);
         });
     }
 });

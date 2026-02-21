@@ -49,7 +49,15 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 // --------------------------------------
 // Guard: Require authentication + admin role
 // --------------------------------------
-if (!isLoggedIn() || ($_SESSION['user_role'] ?? null) !== 'admin') {
+$__usersMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$__usersRaw = file_get_contents('php://input');
+$__usersPayload = json_decode($__usersRaw, true);
+if (!is_array($__usersPayload)) {
+    $__usersPayload = [];
+}
+$__isProfileUpdate = ($__usersMethod === 'POST' && ($__usersPayload['action'] ?? '') === 'update_profile');
+
+if (!isLoggedIn() || (! $__isProfileUpdate && ($_SESSION['user_role'] ?? null) !== 'admin')) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Forbidden']);
     exit();
@@ -81,9 +89,8 @@ function json_error(string $message, int $status = 400): void
  */
 function get_json_payload(): array
 {
-    $raw = file_get_contents('php://input');
-    $data = json_decode($raw, true);
-    return is_array($data) ? $data : [];
+    global $__usersPayload;
+    return is_array($__usersPayload) ? $__usersPayload : [];
 }
 
 // --------------------------------------

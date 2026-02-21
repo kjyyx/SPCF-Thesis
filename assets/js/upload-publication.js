@@ -605,4 +605,13 @@ function savePreferences() {
     bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
 }
 
+if (window.NavbarSettings) {
+    window.openProfileSettings = window.NavbarSettings.openProfileSettings;
+    window.openChangePassword = window.NavbarSettings.openChangePassword;
+    window.openPreferences = window.NavbarSettings.openPreferences;
+    window.showHelp = window.NavbarSettings.showHelp;
+    window.savePreferences = window.NavbarSettings.savePreferences;
+    window.saveProfileSettings = window.NavbarSettings.saveProfileSettings;
+}
+
 // Enhanced functionality complete

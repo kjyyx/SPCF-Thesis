@@ -60,9 +60,11 @@ class DocumentNotificationSystem {
         this.searchTerm = '';
         this.currentFilter = 'all';
         this.sortOption = 'date_desc';
+        this.currentGroup = 'none'; // New grouping property
         this.isLoading = false;
         this.retryCount = 0;
         this.maxRetries = 3;
+        this.isApplyingFilters = false; // Prevent multiple simultaneous filter applications
         this.linkedTargets = null; // Store linked signature targets for SAF
         this.linkedSignatureMaps = null; // Store positions for both signatures
         this.isSafDualSigning = false; // Flag for SAF dual signature mode
@@ -80,6 +82,8 @@ class DocumentNotificationSystem {
         this.dragStartY = 0;
         this.canvasOffsetX = 0;
         this.canvasOffsetY = 0;
+        this.threadComments = [];
+        this.replyTarget = null;
     }
 
     // Initialize the application with enhanced error handling
@@ -93,7 +97,7 @@ class DocumentNotificationSystem {
 
             if (!userHasAccess) {
                 console.error('Access denied: Invalid user role or position');
-                window.location.href = 'user-login.php?error=access_denied';
+                window.location.href = BASE_URL + '?page=login&error=access_denied';
                 return;
             }
 
@@ -103,6 +107,7 @@ class DocumentNotificationSystem {
             this.setupEventListeners();
             this.updateStatsDisplay();
             this.setupSearchFunctionality();
+            this.initGroupingControls(); // Initialize grouping controls
 
             // Add resize listener for fit to width
             window.addEventListener('resize', this.debounce(() => {
@@ -120,6 +125,76 @@ class DocumentNotificationSystem {
                 message: 'Failed to load the document system. Please refresh the page.'
             });
         }
+    }
+
+    // Add this method to initialize grouping controls
+    initGroupingControls() {
+        const groupOptions = document.querySelectorAll('.group-option');
+        const groupTrigger = document.getElementById('groupTrigger');
+        const groupMenu = document.getElementById('groupMenu');
+
+        if (!groupOptions.length) return;
+
+        // Remove any existing event listeners to prevent duplicates
+        groupOptions.forEach(option => {
+            const clone = option.cloneNode(true);
+            option.parentNode.replaceChild(clone, option);
+        });
+
+        // Re-query the options after cloning
+        const freshGroupOptions = document.querySelectorAll('.group-option');
+
+        // Set initial active state
+        freshGroupOptions.forEach(opt => {
+            if (opt.dataset.group === this.currentGroup) {
+                opt.classList.add('active');
+            } else {
+                opt.classList.remove('active');
+            }
+        });
+
+        // Update trigger text
+        if (groupTrigger) {
+            const activeOption = document.querySelector('.group-option.active');
+            if (activeOption) {
+                const span = activeOption.querySelector('span');
+                if (span) {
+                    const labelSpan = groupTrigger.querySelector('.group-label');
+                    if (labelSpan) labelSpan.textContent = span.textContent;
+                }
+            }
+        }
+
+        // Add click handlers
+        freshGroupOptions.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Update active states
+                freshGroupOptions.forEach(opt => opt.classList.remove('active'));
+                option.classList.add('active');
+                
+                // Update trigger text
+                const span = option.querySelector('span');
+                if (span && groupTrigger) {
+                    const labelSpan = groupTrigger.querySelector('.group-label');
+                    if (labelSpan) labelSpan.textContent = span.textContent;
+                }
+                
+                // Set group and re-render
+                const newGroup = option.dataset.group;
+                if (this.currentGroup !== newGroup) {
+                    this.currentGroup = newGroup;
+                    this.applyFiltersAndSearch();
+                }
+                
+                // Close menu after rendering
+                setTimeout(() => {
+                    if (groupMenu) groupMenu.style.display = 'none';
+                }, 50);
+            });
+        });
     }
 
     // Check if student has pending signatures
@@ -412,42 +487,53 @@ class DocumentNotificationSystem {
 
     // Apply both filters and search
     applyFiltersAndSearch() {
-        let filtered = [];
-
-        // Apply status filter
-        if (this.currentFilter === 'all') {
-            filtered = [...this.pendingDocuments, ...this.completedDocuments];
-        } else if (this.currentFilter === 'submitted') {
-            filtered = this.pendingDocuments.filter(doc => doc.status !== 'signed' && doc.status !== 'rejected');
-        } else if (this.currentFilter === 'in_review') {
-            filtered = this.pendingDocuments.filter(doc => doc.status === 'in_review');
-        } else if (this.currentFilter === 'approved') {
-            filtered = [...this.pendingDocuments, ...this.completedDocuments].filter(doc => doc.status === 'approved');
-        } else if (this.currentFilter === 'rejected') {
-            filtered = this.completedDocuments.filter(doc => doc.status === 'rejected');
-        } else {
-            filtered = this.pendingDocuments.filter(doc => doc.status === this.currentFilter);
+        // Prevent multiple simultaneous filter applications
+        if (this.isApplyingFilters) {
+            return;
         }
+        
+        this.isApplyingFilters = true;
+        
+        try {
+            let filtered = [];
 
-        // Apply search filter
-        if (this.searchTerm) {
-            const term = this.searchTerm.toLowerCase();
-            filtered = filtered.filter(doc =>
-                (doc.title && doc.title.toLowerCase().includes(term)) ||
-                (doc.doc_type && this.formatDocType(doc.doc_type).toLowerCase().includes(term)) ||
-                (doc.student?.department && doc.student.department.toLowerCase().includes(term)) ||
-                (doc.from && doc.from.toLowerCase().includes(term))
-            );
+            // Apply status filter
+            if (this.currentFilter === 'all') {
+                filtered = [...this.pendingDocuments, ...this.completedDocuments];
+            } else if (this.currentFilter === 'submitted') {
+                filtered = this.pendingDocuments.filter(doc => doc.status !== 'signed' && doc.status !== 'rejected');
+            } else if (this.currentFilter === 'in_review') {
+                filtered = this.pendingDocuments.filter(doc => doc.status === 'in_review');
+            } else if (this.currentFilter === 'approved') {
+                filtered = [...this.pendingDocuments, ...this.completedDocuments].filter(doc => doc.status === 'approved');
+            } else if (this.currentFilter === 'rejected') {
+                filtered = this.completedDocuments.filter(doc => doc.status === 'rejected');
+            } else {
+                filtered = this.pendingDocuments.filter(doc => doc.status === this.currentFilter);
+            }
+
+            // Apply search filter
+            if (this.searchTerm) {
+                const term = this.searchTerm.toLowerCase();
+                filtered = filtered.filter(doc =>
+                    (doc.title && doc.title.toLowerCase().includes(term)) ||
+                    (doc.doc_type && this.formatDocType(doc.doc_type).toLowerCase().includes(term)) ||
+                    (doc.student?.department && doc.student.department.toLowerCase().includes(term)) ||
+                    (doc.from && doc.from.toLowerCase().includes(term))
+                );
+            }
+
+            // Apply sorting
+            filtered = this.sortDocuments([...filtered], this.sortOption);
+
+            this.filteredDocuments = filtered;
+            this.renderFilteredDocuments();
+        } finally {
+            this.isApplyingFilters = false;
         }
-
-        // Apply sorting
-        filtered = this.sortDocuments([...filtered], this.sortOption);
-
-        this.filteredDocuments = filtered;
-        this.renderFilteredDocuments();
     }
 
-    // Render filtered documents
+    // Enhanced renderFilteredDocuments method
     renderFilteredDocuments() {
         const container = document.getElementById('documentsContainer');
         if (!container) return;
@@ -470,14 +556,328 @@ class DocumentNotificationSystem {
             return;
         }
 
-        this.filteredDocuments.forEach(doc => {
-            // Allow all documents to be clickable for tracking purposes
-            // The read-only styling will still indicate user's signing status
-            const card = this.createDocumentCard(doc, false);
-            container.appendChild(card);
-        });
+        // Handle grouping
+        if (this.currentGroup !== 'none') {
+            this.renderGroupedDocuments(container);
+        } else {
+            // Create a wrapper for ungrouped documents
+            const listWrapper = document.createElement('div');
+            listWrapper.className = 'documents-list';
+            
+            this.filteredDocuments.forEach(doc => {
+                const card = this.createDocumentCard(doc, false);
+                listWrapper.appendChild(card);
+            });
+            
+            container.appendChild(listWrapper);
+        }
 
         this.updateStatsDisplay();
+    }
+
+    // Enhanced renderGroupedDocuments method
+    renderGroupedDocuments(container) {
+        const groups = this.groupDocuments(this.filteredDocuments, this.currentGroup);
+        
+        // Create wrapper for all groups
+        const groupsWrapper = document.createElement('div');
+        groupsWrapper.className = 'groups-container';
+
+        // Sort groups alphabetically
+        const sortedGroups = Object.keys(groups).sort();
+
+        sortedGroups.forEach(groupKey => {
+            const groupDocs = groups[groupKey];
+            if (groupDocs.length === 0) return;
+
+            // Create group section
+            const groupSection = document.createElement('div');
+            groupSection.className = 'document-group';
+            groupSection.setAttribute('data-group', groupKey);
+
+            // Create group header with toggle functionality
+            const groupHeader = document.createElement('div');
+            groupHeader.className = 'document-group-header';
+            groupHeader.innerHTML = `
+                <div class="group-header-content" role="button" tabindex="0" aria-expanded="true">
+                    <div class="group-title-wrapper">
+                        <i class="bi ${this.getGroupIcon(this.currentGroup)} group-icon"></i>
+                        <h5 class="group-title">
+                            ${this.formatGroupLabel(groupKey, this.currentGroup)}
+                        </h5>
+                        <span class="group-count-badge">${groupDocs.length}</span>
+                    </div>
+                    <div class="group-actions">
+                        <button class="group-toggle-btn" title="Toggle group">
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // Create group container for documents
+            const groupContainer = document.createElement('div');
+            groupContainer.className = 'document-group-container expanded';
+
+            // Add documents to group
+            groupDocs.forEach(doc => {
+                const card = this.createDocumentCard(doc, false);
+                groupContainer.appendChild(card);
+            });
+
+            // Add group stats
+            const groupStats = document.createElement('div');
+            groupStats.className = 'group-stats';
+            
+            // Calculate group statistics
+            const pendingCount = groupDocs.filter(d => d.status === 'submitted' || d.status === 'in_review').length;
+            const completedCount = groupDocs.filter(d => d.status === 'approved' || d.status === 'rejected').length;
+            
+            groupStats.innerHTML = `
+                <div class="group-stats-content">
+                    <span class="stat-item">
+                        <i class="bi bi-hourglass-split"></i>
+                        ${pendingCount} Pending
+                    </span>
+                    <span class="stat-item">
+                        <i class="bi bi-check-circle"></i>
+                        ${completedCount} Completed
+                    </span>
+                    <span class="stat-item">
+                        <i class="bi bi-clock"></i>
+                        ${this.getGroupDeadlineInfo(groupDocs)}
+                    </span>
+                </div>
+            `;
+
+            groupSection.appendChild(groupHeader);
+            groupSection.appendChild(groupContainer);
+            groupSection.appendChild(groupStats);
+            groupsWrapper.appendChild(groupSection);
+
+            // Add toggle functionality
+            const toggleBtn = groupHeader.querySelector('.group-toggle-btn');
+            const headerContent = groupHeader.querySelector('.group-header-content');
+            
+            const toggleGroup = () => {
+                const isExpanded = groupContainer.classList.contains('expanded');
+                groupContainer.classList.toggle('expanded');
+                groupContainer.classList.toggle('collapsed');
+                toggleBtn.querySelector('i').className = isExpanded ? 'bi bi-chevron-right' : 'bi bi-chevron-down';
+                headerContent.setAttribute('aria-expanded', !isExpanded);
+            };
+
+            toggleBtn?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleGroup();
+            });
+
+            headerContent?.addEventListener('click', (e) => {
+                if (!e.target.closest('.group-actions')) {
+                    toggleGroup();
+                }
+            });
+
+            headerContent?.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleGroup();
+                }
+            });
+        });
+
+        container.appendChild(groupsWrapper);
+    }
+
+    // Helper method to get deadline info for group
+    getGroupDeadlineInfo(docs) {
+        const urgentCount = docs.filter(doc => {
+            const dueDate = this.getDueDate(doc);
+            const daysLeft = this.getDaysUntilDue(dueDate);
+            return daysLeft !== null && daysLeft <= 2;
+        }).length;
+
+        if (urgentCount > 0) {
+            return `${urgentCount} Urgent`;
+        }
+        return 'No urgent deadlines';
+    }
+
+    // Enhanced groupDocuments method
+    groupDocuments(documents, groupBy) {
+        const groups = {};
+
+        documents.forEach(doc => {
+            let groupKey = 'Other';
+            let groupSortKey = '';
+
+            switch (groupBy) {
+                case 'doc_type':
+                    groupKey = this.getDocumentTypeDisplay(doc.doc_type || doc.document_type || 'Other');
+                    groupSortKey = this.getDocumentTypePriority(doc.doc_type || doc.document_type);
+                    break;
+                    
+                case 'department':
+                    // Get department from various possible locations
+                    const dept = doc.department || 
+                                doc.student?.department || 
+                                doc.from_department || 
+                                'Unknown Department';
+                    groupKey = this.formatDepartmentName(dept);
+                    groupSortKey = groupKey;
+                    break;
+                    
+                case 'status':
+                    groupKey = this.formatStatus(doc.status || doc.current_status || 'Unknown Status');
+                    groupSortKey = this.getStatusPriority(doc.status);
+                    break;
+                    
+                default:
+                    groupKey = 'All Documents';
+                    groupSortKey = '0';
+            }
+
+            if (!groups[groupKey]) {
+                groups[groupKey] = {
+                    docs: [],
+                    sortKey: groupSortKey
+                };
+            }
+            
+            groups[groupKey].docs.push(doc);
+        });
+
+        // Convert to sorted object
+        const sortedGroups = {};
+        Object.keys(groups)
+            .sort((a, b) => {
+                const sortA = groups[a].sortKey || a;
+                const sortB = groups[b].sortKey || b;
+                return sortA.localeCompare(sortB);
+            })
+            .forEach(key => {
+                sortedGroups[key] = groups[key].docs;
+            });
+
+        return sortedGroups;
+    }
+
+    // Get icon for group type
+    getGroupIcon(groupType) {
+        const icons = {
+            'doc_type': 'bi-file-earmark-text',
+            'department': 'bi-building',
+            'status': 'bi-flag'
+        };
+        return icons[groupType] || 'bi-folder';
+    }
+
+    // Format group label for display
+    formatGroupLabel(key, groupType) {
+        if (groupType === 'doc_type') {
+            return this.formatDocType(key);
+        } else if (groupType === 'status') {
+            return key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ');
+        }
+        return key;
+    }
+
+    // Format document type for display
+    formatDocType(type) {
+        const typeMap = {
+            'saf': 'Student Activity Form',
+            'publication': 'Publication',
+            'proposal': 'Project Proposal',
+            'facility': 'Facility Request',
+            'communication': 'Communication'
+        };
+
+        return typeMap[type] || type;
+    }
+
+    // Helper methods for grouping
+    getDocumentTypeDisplay(type) {
+        const typeMap = {
+            'saf': 'Student Activity Form',
+            'publication': 'Publication Material',
+            'proposal': 'Project Proposal',
+            'facility': 'Facility Request',
+            'communication': 'Communication Letter',
+            'material_request': 'Material Request',
+            'event': 'Event Proposal'
+        };
+        return typeMap[type] || type;
+    }
+
+    getDocumentTypePriority(type) {
+        const priorityMap = {
+            'saf': '01',
+            'proposal': '02',
+            'event': '03',
+            'facility': '04',
+            'material_request': '05',
+            'publication': '06',
+            'communication': '07'
+        };
+        return priorityMap[type] || '99' + type;
+    }
+
+    formatDepartmentName(dept) {
+        // Common department abbreviations
+        const deptMap = {
+            'CCS': 'College of Computer Studies',
+            'CBA': 'College of Business Administration',
+            'COE': 'College of Education',
+            'CON': 'College of Nursing',
+            'CAS': 'College of Arts and Sciences',
+            'SSC': 'Supreme Student Council',
+            'CSC': 'College Student Council'
+        };
+        
+        // Return full name if available, otherwise return original
+        return deptMap[dept] || dept;
+    }
+
+    formatStatus(status) {
+        const statusMap = {
+            'submitted': 'Pending Review',
+            'in_review': 'Under Review',
+            'approved': 'Approved',
+            'rejected': 'Rejected',
+            'draft': 'Draft'
+        };
+        return statusMap[status] || status;
+    }
+
+    getStatusPriority(status) {
+        const priorityMap = {
+            'submitted': '01',
+            'in_review': '02',
+            'approved': '03',
+            'rejected': '04',
+            'draft': '05'
+        };
+        return priorityMap[status] || '99';
+    }
+
+    // Helper methods for deadline calculations
+    getDueDate(doc) {
+        // Try different possible due date fields
+        const possibleFields = ['due_date', 'deadline', 'target_date'];
+        for (const field of possibleFields) {
+            if (doc[field]) {
+                return new Date(doc[field]);
+            }
+        }
+        return null;
+    }
+
+    getDaysUntilDue(dueDate) {
+        if (!dueDate) return null;
+        const now = new Date();
+        const diffTime = dueDate.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays;
     }
 
     // Sort documents based on selected option
@@ -845,14 +1245,17 @@ class DocumentNotificationSystem {
     filterDocuments(status) {
         this.currentFilter = status;
         
-        // Update filter chip active states
-        const filterChips = document.querySelectorAll('.filter-chip');
-        filterChips.forEach(chip => {
-            const chipFilter = chip.getAttribute('data-filter');
-            if (chipFilter === status) {
-                chip.classList.add('active');
+        // Update stat card active states
+        const statCards = document.querySelectorAll('.stat-card');
+        statCards.forEach(card => {
+            const cardFilter = card.classList.contains('all') ? 'all' :
+                              card.classList.contains('pending') ? 'submitted' :
+                              card.classList.contains('in-review') ? 'in_review' :
+                              card.classList.contains('approved') ? 'approved' : '';
+            if (cardFilter === status) {
+                card.classList.add('active');
             } else {
-                chip.classList.remove('active');
+                card.classList.remove('active');
             }
         });
         
@@ -1020,24 +1423,12 @@ class DocumentNotificationSystem {
             }).join('');
         }
 
-        // Load existing notes into textarea (from pending step)
-        const notesInput = document.getElementById('notesInput');
-        if (notesInput) {
-            const pendingStep = doc.workflow?.find(s => s.status === 'pending');
-            notesInput.value = pendingStep?.note || '';
-        }
-
-        // Rebind notes debounce
-        if (notesInput) {
-            notesInput.removeEventListener('input', this._notesHandler || (() => { }));
-            this._notesHandler = this.debounce(() => this.saveNotes(), 500);
-            notesInput.addEventListener('input', this._notesHandler);
-        }
+        this.initThreadComments(doc);
 
         // Conditionally hide hierarchy and notes for students
         const isStudentView = this.currentUser?.role === 'student' && (this.currentUser?.position !== 'SSC President' || doc.student?.id === this.currentUser.id);
         let workflowStepsElement = document.getElementById('workflowSteps');
-        const notesContainer = document.querySelector('.notes-container');
+        const commentsContainer = document.querySelector('.comments-container');
 
         if (workflowStepsElement) {
             if (isStudentView) {
@@ -1047,11 +1438,11 @@ class DocumentNotificationSystem {
             }
         }
 
-        if (notesContainer) {
+        if (commentsContainer) {
             if (isStudentView) {
-                notesContainer.closest('.sidebar-card').style.display = 'none'; // Hide notes
+                commentsContainer.closest('.sidebar-card').style.display = 'none';
             } else {
-                notesContainer.closest('.sidebar-card').style.display = 'block';
+                commentsContainer.closest('.sidebar-card').style.display = 'block';
             }
         }
 
@@ -1142,18 +1533,12 @@ class DocumentNotificationSystem {
                 console.log('Disabling sign button, no signature');
                 signBtn.disabled = true;
                 signBtn.title = 'Please add your signature first using the signature pad.';
-                signBtn.style.opacity = '0.5';
-                signBtn.style.cursor = 'not-allowed';
             } else {
-                console.log('Enabling sign button, signature present');
                 signBtn.disabled = false;
                 signBtn.title = '';
-                signBtn.style.opacity = '1';
-                signBtn.style.cursor = 'pointer';
-                console.log('Button state after enabling:', signBtn.disabled, signBtn.textContent);
             }
         } else {
-            // Hide for unauthorized users
+            // Hide all action controls for users not assigned to pending step
             signBtn.style.display = 'none';
             rejectBtn.style.display = 'none';
             signaturePadToggle.style.display = 'none';
@@ -1161,71 +1546,204 @@ class DocumentNotificationSystem {
         }
     }
 
-    // Check if the current user is assigned to the given workflow step
-    isUserAssignedToStep(user, step) {
-        if (!user || !step || !step.assignee_id) return false;
+    async initThreadComments(doc) {
+                    const input = document.getElementById('threadCommentInput');
+                    if (input) input.value = '';
+                    this.clearReplyTarget();
 
-        // Check if the assignee matches the current user
-        if (step.assignee_type === 'employee' && user.role === 'employee' && step.assignee_id === user.id) {
-            return true;
-        }
+                    if (!doc?.id) {
+                        this.threadComments = [];
+                        this.renderThreadComments();
+                        return;
+                    }
 
-        if (step.assignee_type === 'student' && user.role === 'student' && step.assignee_id === user.id) {
-            return true;
-        }
-
-        return false;
+                    await this.loadThreadComments(doc.id);
     }
 
-    // Load PDF with PDF.js
+                async loadThreadComments(documentId) {
+                    try {
+                        const response = await fetch(`${this.apiBase}?action=get_comments&id=${documentId}`, {
+                            method: 'GET',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+
+                        const data = await response.json();
+                        if (!data.success) throw new Error(data.message || 'Failed to load comments');
+
+                        this.threadComments = Array.isArray(data.comments) ? data.comments : [];
+                        this.renderThreadComments();
+                    } catch (error) {
+                        console.error('Error loading thread comments:', error);
+                        this.threadComments = [];
+                        this.renderThreadComments();
+                    }
+                }
+
+                renderThreadComments() {
+                    const commentsList = document.getElementById('threadCommentsList');
+                    if (!commentsList) return;
+
+                    if (!this.threadComments.length) {
+                        commentsList.innerHTML = '<div class="thread-empty-state">No comments yet. Start the discussion.</div>';
+                        return;
+                    }
+
+                    const groupedByParent = this.threadComments.reduce((acc, comment) => {
+                        const key = comment.parent_id === null ? 'root' : String(comment.parent_id);
+                        if (!acc[key]) acc[key] = [];
+                        acc[key].push(comment);
+                        return acc;
+                    }, {});
+
+                    const renderNodes = (parentKey, depth = 0) => {
+                        const children = groupedByParent[parentKey] || [];
+                        return children.map(comment => {
+                            const authorName = this.escapeHtml(comment.author_name || 'Unknown');
+                            const authorRole = this.escapeHtml(comment.author_role || '');
+                            const authorPosition = this.escapeHtml(comment.author_position || '');
+                            const commentText = this.escapeHtml(comment.comment || '');
+                            const timeText = comment.created_at ? new Date(comment.created_at).toLocaleString() : '';
+
+                            return `
+                                <div class="thread-comment-item depth-${Math.min(depth, 4)}" data-comment-id="${comment.id}">
+                                    <div class="thread-comment-header">
+                                        <span class="thread-comment-author">${authorName}</span>
+                                        <span class="thread-comment-meta">${authorRole}${authorPosition ? ` • ${authorPosition}` : ''}</span>
+                                    </div>
+                                    <div class="thread-comment-body">${commentText}</div>
+                                    <div class="thread-comment-actions">
+                                        <span class="thread-comment-time">${this.escapeHtml(timeText)}</span>
+                                        <button type="button" class="reply-comment-btn" data-comment-id="${comment.id}" data-author-name="${authorName}">
+                                            Reply
+                                        </button>
+                                    </div>
+                                    ${renderNodes(String(comment.id), depth + 1)}
+                                </div>
+                            `;
+                        }).join('');
+                    };
+
+                    commentsList.innerHTML = renderNodes('root');
+
+                    commentsList.querySelectorAll('.reply-comment-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const commentId = Number(btn.getAttribute('data-comment-id'));
+                            const authorName = btn.getAttribute('data-author-name') || 'Unknown';
+                            this.setReplyTarget(commentId, authorName);
+                        });
+                    });
+                }
+
+                setReplyTarget(commentId, authorName) {
+                    this.replyTarget = { id: Number(commentId), authorName: authorName || 'Unknown' };
+
+                    const banner = document.getElementById('commentReplyBanner');
+                    const replyAuthorName = document.getElementById('replyAuthorName');
+                    if (replyAuthorName) replyAuthorName.textContent = this.replyTarget.authorName;
+                    if (banner) banner.style.display = 'flex';
+
+                    const input = document.getElementById('threadCommentInput');
+                    if (input) input.focus();
+                }
+
+                clearReplyTarget() {
+                    this.replyTarget = null;
+                    const banner = document.getElementById('commentReplyBanner');
+                    const replyAuthorName = document.getElementById('replyAuthorName');
+                    if (replyAuthorName) replyAuthorName.textContent = '';
+                    if (banner) banner.style.display = 'none';
+                }
+
+                async postComment() {
+                    if (!this.currentDocument?.id) return;
+
+                    const input = document.getElementById('threadCommentInput');
+                    if (!input) return;
+
+                    const comment = input.value.trim();
+                    if (!comment) {
+                        this.showToast({ type: 'warning', title: 'Empty Comment', message: 'Please enter a comment.' });
+                        return;
+                    }
+
+                    const saveIndicator = document.getElementById('notesSaveIndicator');
+                    if (saveIndicator) {
+                        saveIndicator.textContent = 'Posting...';
+                        saveIndicator.style.color = '#f59e0b';
+                    }
+
+                    try {
+                        const response = await fetch(this.apiBase, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'add_comment',
+                                document_id: this.currentDocument.id,
+                                comment,
+                                parent_id: this.replyTarget?.id || null
+                            })
+                        });
+
+                        const data = await response.json();
+                        if (!data.success) throw new Error(data.message || 'Failed to post comment');
+
+                        input.value = '';
+                        this.clearReplyTarget();
+                        await this.loadThreadComments(this.currentDocument.id);
+
+                        if (saveIndicator) {
+                            saveIndicator.textContent = 'Posted';
+                            saveIndicator.style.color = '#10b981';
+                            setTimeout(() => {
+                                saveIndicator.textContent = '';
+                            }, 1500);
+                        }
+                    } catch (error) {
+                        console.error('Error posting comment:', error);
+                        if (saveIndicator) {
+                            saveIndicator.textContent = 'Error';
+                            saveIndicator.style.color = '#ef4444';
+                            setTimeout(() => {
+                                saveIndicator.textContent = '';
+                            }, 2000);
+                        }
+                        this.showToast({ type: 'error', title: 'Error', message: error.message || 'Failed to post comment.' });
+                    }
+    }
+
+    saveNotes() {
+        this.postComment();
+    }
+
     async loadPdf(url) {
-        const loadingDiv = document.getElementById('pdfLoading');
-        const pdfContent = document.getElementById('pdfContent');
-        if (loadingDiv) loadingDiv.style.display = 'flex';
-        if (pdfContent) pdfContent.style.display = 'none';
         try {
-            this.filledPdfBytes = null; // Clear any previous filled PDF data
-            const pdfjsLib = window['pdfjsLib'];
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            this.pdfDoc = await pdfjsLib.getDocument(url).promise;
+            let pdfUrl = url;
+            if (pdfUrl.startsWith('/')) {
+                pdfUrl = BASE_URL + pdfUrl.substring(1);
+            } else if (pdfUrl.startsWith('../')) {
+                pdfUrl = BASE_URL + pdfUrl.substring(3);
+            } else if (pdfUrl.startsWith('SPCF-Thesis/')) {
+                pdfUrl = BASE_URL + pdfUrl.substring(12);
+            } else if (pdfUrl.startsWith('http')) {
+            } else {
+                pdfUrl = BASE_URL + 'uploads/' + pdfUrl;
+            }
+
+            this.pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
             this.totalPages = this.pdfDoc.numPages;
             this.currentPage = 1;
+            this.scale = 1.0;
 
-            // For SAF documents, fill form fields with data before rendering
-            if (this.currentDocument && this.currentDocument.doc_type === 'saf') {
-                await this.fillSafFormFields();
-            }
-
-            // Create canvas for PDF rendering in modern container
-            const canvas = document.createElement('canvas');
-            canvas.id = 'pdfCanvas';
-            canvas.style.maxWidth = '100%';
-            canvas.style.height = 'auto';
-            canvas.style.boxShadow = '0 10px 30px rgba(15, 23, 42, 0.15)';
-            canvas.style.borderRadius = '12px';
-            this.canvas = canvas;
-            this.ctx = canvas.getContext('2d');
-
-            // Replace loading content with canvas
-            if (pdfContent) {
-                pdfContent.innerHTML = '';
-                pdfContent.appendChild(canvas);
-                pdfContent.style.display = 'flex';
-            }
-
-            // Auto-fit to width when PDF loads
+            await this.renderPage();
             this.fitToWidth();
-
-            // Render signature overlay after PDF is loaded
-            if (this.currentDocument) {
-                this.renderSignatureOverlay(this.currentDocument);
-            }
+            this.updateZoomIndicator();
         } catch (error) {
             console.error('Error loading PDF:', error);
-            this.showToast({ type: 'error', title: 'Error', message: 'Failed to load PDF' });
-        } finally {
-            if (loadingDiv) loadingDiv.style.display = 'none';
-            if (pdfContent) pdfContent.style.display = 'flex';
+            this.showToast({
+                type: 'error',
+                title: 'PDF Error',
+                message: 'Failed to load the document preview.'
+            });
         }
     }
 
@@ -2024,6 +2542,38 @@ renderCompletedSignatures(doc, container, canvas = null) {
     }
 
     // Check if current user is assigned to any pending step
+    isUserAssignedToStep(user, step) {
+        if (!user || !step) return false;
+
+        const userId = String(user.id ?? '');
+        const userRole = String(user.role ?? '').toLowerCase();
+
+        if (!userId) return false;
+
+        if (step.assignee_id !== undefined && step.assignee_id !== null) {
+            const stepAssigneeId = String(step.assignee_id);
+            const stepAssigneeType = String(step.assignee_type ?? '').toLowerCase();
+            if (stepAssigneeId === userId) {
+                if (!stepAssigneeType) return true;
+                if (stepAssigneeType === userRole) return true;
+            }
+        }
+
+        if (step.assigned_to !== undefined && step.assigned_to !== null && String(step.assigned_to) === userId) {
+            return true;
+        }
+
+        if (userRole === 'employee' && step.assigned_to_employee_id !== undefined && step.assigned_to_employee_id !== null) {
+            return String(step.assigned_to_employee_id) === userId;
+        }
+
+        if (userRole === 'student' && step.assigned_to_student_id !== undefined && step.assigned_to_student_id !== null) {
+            return String(step.assigned_to_student_id) === userId;
+        }
+
+        return false;
+    }
+
     isUserAssignedToPendingStep(doc) {
         if (!doc.workflow || !this.currentUser) return false;
 
@@ -3062,6 +3612,37 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
             elements.notificationCount.textContent = pendingActions;
             elements.notificationCount.style.display = pendingActions > 0 ? 'flex' : 'none';
         }
+
+        // Make stats cards clickable for filtering
+        this.setupStatsCardClickHandlers();
+    }
+
+    // Setup click handlers for stats cards
+    setupStatsCardClickHandlers() {
+        const statCards = document.querySelectorAll('.stat-card');
+        statCards.forEach(card => {
+            // Remove existing listeners to avoid duplicates
+            card.removeEventListener('click', this.handleStatCardClick);
+            // Add new listener
+            card.addEventListener('click', this.handleStatCardClick.bind(this));
+            // Add cursor pointer style
+            card.style.cursor = 'pointer';
+        });
+    }
+
+    // Handle stat card click for filtering
+    handleStatCardClick(event) {
+        const card = event.currentTarget;
+        const filterType = card.classList.contains('all') ? 'all' :
+                          card.classList.contains('pending') ? 'submitted' :
+                          card.classList.contains('in-review') ? 'in_review' :
+                          card.classList.contains('approved') ? 'approved' : 'all';
+
+        this.filterDocuments(filterType);
+
+        // Update visual active state for stat cards
+        document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
     }
 
     showToast(options) {
@@ -3098,92 +3679,6 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
             6: '👑'  // Executive level
         };
         return icons[level] || '📄';
-    }
-
-    // Save notes (placeholder)
-    saveNotes() {
-        if (!this.currentDocument) {
-            console.warn('No current document to save notes for');
-            return;
-        }
-
-        const notesInput = document.getElementById('notesInput');
-        if (!notesInput) {
-            console.warn('Notes input element not found');
-            return;
-        }
-
-        const note = notesInput.value.trim();
-        const pendingStep = this.currentDocument.workflow?.find(s => s.status === 'pending');
-        if (!pendingStep) {
-            console.warn('No pending step found for notes');
-            return;
-        }
-
-        // Don't save empty notes unless there was a previous note
-        // if (note === '' && (pendingStep.note || '') === '') {
-        //     return;
-        // }
-
-        // Show saving indicator
-        const saveIndicator = document.getElementById('notesSaveIndicator');
-        if (saveIndicator) {
-            saveIndicator.textContent = 'Saving...';
-            saveIndicator.style.color = '#f59e0b';
-        }
-
-        fetch(this.apiBase, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'update_note',
-                document_id: this.currentDocument.id,
-                step_id: pendingStep.id,
-                note: note
-            })
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Update local document data
-                    pendingStep.note = note;
-
-                    // Update save indicator
-                    if (saveIndicator) {
-                        saveIndicator.textContent = 'Saved';
-                        saveIndicator.style.color = '#10b981';
-                        setTimeout(() => {
-                            saveIndicator.textContent = '';
-                        }, 2000);
-                    }
-
-                    // Re-render the document to show updated notes
-                    this.renderDocumentDetail(this.currentDocument);
-
-                    console.log('Notes saved successfully');
-                } else {
-                    throw new Error(data.message || 'Failed to save notes');
-                }
-            })
-            .catch(error => {
-                console.error('Error saving notes:', error);
-
-                // Update save indicator with error
-                if (saveIndicator) {
-                    saveIndicator.textContent = 'Error saving';
-                    saveIndicator.style.color = '#ef4444';
-                    setTimeout(() => {
-                        saveIndicator.textContent = '';
-                    }, 3000);
-                }
-
-                // Show toast notification
-                if (window.ToastManager) {
-                    window.ToastManager.error('Failed to save notes: ' + error.message, 'Error');
-                }
-            });
     }
 
     // Full Document Viewer Methods
@@ -3520,38 +4015,25 @@ function savePreferences() {
     bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
 }
 
+if (window.NavbarSettings) {
+    window.openProfileSettings = window.NavbarSettings.openProfileSettings;
+    window.openChangePassword = window.NavbarSettings.openChangePassword;
+    window.openPreferences = window.NavbarSettings.openPreferences;
+    window.showHelp = window.NavbarSettings.showHelp;
+    window.savePreferences = window.NavbarSettings.savePreferences;
+    window.saveProfileSettings = window.NavbarSettings.saveProfileSettings;
+}
+
 // Handle profile settings form
 document.addEventListener('DOMContentLoaded', function () {
     const profileForm = document.getElementById('profileSettingsForm');
     if (profileForm) {
         profileForm.addEventListener('submit', async function (e) {
-            e.preventDefault();
-
-            const firstName = document.getElementById('profileFirstName').value;
-            const lastName = document.getElementById('profileLastName').value;
-            const email = document.getElementById('profileEmail').value;
-            const phone = document.getElementById('profilePhone').value;
-            const darkMode = document.getElementById('darkModeToggle').checked;
-            const messagesDiv = document.getElementById('profileSettingsMessages');
-
-            if (!firstName || !lastName || !email) {
-                if (messagesDiv) messagesDiv.innerHTML = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Please fill in all required fields.</div>';
-                return;
+            if (window.NavbarSettings?.saveProfileSettings) {
+                await window.NavbarSettings.saveProfileSettings(e);
+            } else {
+                e.preventDefault();
             }
-
-            // Save dark mode preference
-            localStorage.setItem('darkMode', darkMode);
-
-            // Show success message
-            if (messagesDiv) messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Profile updated successfully!</div>';
-
-            // Apply theme
-            document.body.classList.toggle('dark-theme', darkMode);
-
-            // Close modal after a delay
-            setTimeout(() => {
-                bootstrap.Modal.getInstance(document.getElementById('profileSettingsModal')).hide();
-            }, 1500);
         });
     }
 });

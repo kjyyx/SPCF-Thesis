@@ -159,9 +159,9 @@ addAuditLog('ADMIN_DASHBOARD_VIEWED', 'User Management', 'Viewed admin dashboard
                         <i class="bi bi-gear me-1"></i>Settings
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="#" onclick="openProfileSettings()"><i
+                        <li><a class="dropdown-item" href="#" onclick="NavbarSettings.openProfileSettings(); return false;"><i
                                     class="bi bi-person-gear me-2"></i>Profile</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="openChangePassword()"><i
+                        <li><a class="dropdown-item" href="#" onclick="NavbarSettings.openChangePassword(); return false;"><i
                                     class="bi bi-key me-2"></i>Change Password</a></li>
                         <li><a class="dropdown-item" href="#" onclick="openSystemSettings()"><i
                                     class="bi bi-sliders me-2"></i>System Settings</a></li>
@@ -1550,6 +1550,7 @@ addAuditLog('ADMIN_DASHBOARD_VIEWED', 'User Management', 'Viewed admin dashboard
         <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
         <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
         <script src="<?php echo BASE_URL; ?>assets/js/user-login.js"></script>
+        <script src="<?php echo BASE_URL; ?>assets/js/navbar-settings.js"></script>
         <script src="<?php echo BASE_URL; ?>assets/js/global-notifications.js"></script>
         <script src="<?php echo BASE_URL; ?>assets/js/admin-dashboard.js"></script>
         <script>

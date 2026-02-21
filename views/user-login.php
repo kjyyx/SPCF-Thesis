@@ -74,83 +74,115 @@ $twoFactorUserId = '';
 
 <body>
     <main class="login-wrapper" role="main">
-        <div class="login-container" role="dialog" aria-labelledby="login-title">
-            <!-- Login Header -->
-            <div class="login-header">
-                <div class="login-icon" aria-hidden="true">
-                    <i class="bi bi-calendar-event"></i>
-                </div>
-                <h2 id="login-title">Sign-um Document Portal</h2>
-                <p>Event Management System</p>
-            </div>
-
-            <!-- Login Body -->
-            <div class="login-body">
-                <form id="loginForm" aria-label="Login Form">
-                <input type="hidden" id="requires2fa" value="<?php echo $requires2fa ? 'true' : 'false'; ?>">
-                <input type="hidden" id="requires2faSetup" value="<?php echo $requires2faSetup ? 'true' : 'false'; ?>">
-                <input type="hidden" id="twoFactorSecret" value="<?php echo htmlspecialchars($twoFactorSecret); ?>">
-                <input type="hidden" id="twoFactorUserId" value="<?php echo htmlspecialchars($twoFactorUserId); ?>">
-                <!-- Show error if exists -->
-                <?php if (!empty($error)): ?>
-                    <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
-                <?php endif; ?>
-
-                <!-- User ID -->
-                <div class="form-group">
-                    <label for="userId" class="form-label">
-                        <i class="bi bi-person-fill" aria-hidden="true"></i>User ID
-                    </label>
-                    <input type="text" class="form-control" id="userId" name="userId" 
-                        placeholder="Enter your userID" autocomplete="username"
-                        required value="<?= isset($_POST['userId']) ? htmlspecialchars($_POST['userId']) : '' ?>"
-                        aria-describedby="userIdHelp">
+        <div class="login-layout">
+            <aside class="login-info-panel" aria-label="About Sign-um">
+                <div class="info-badge">
+                    <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+                    About the System
                 </div>
 
-                <!-- Password -->
-                <div class="form-group">
-                    <label for="password" class="form-label">
-                        <i class="bi bi-lock-fill" aria-hidden="true"></i>Password
-                    </label>
-                    <div class="password-wrapper">
-                        <input type="password" class="form-control" id="password" name="password"
-                            placeholder="Enter your password" autocomplete="current-password" required
-                            aria-describedby="passwordHelp">
-                        <button type="button" class="password-toggle" id="togglePassword" 
-                            aria-label="Toggle password visibility">
-                            <i class="bi bi-eye" id="passwordIcon" aria-hidden="true"></i>
+                <h1 class="info-title">Sign-um Document Portal</h1>
+                <p class="info-description">
+                    A centralized platform for managing document creation, routing, approval, and tracking across SPCF.
+                </p>
+
+                <div class="info-section">
+                    <h2>Purpose</h2>
+                    <p>
+                        Streamline document workflows, improve accountability, and provide clear status visibility
+                        for students, employees, and administrators.
+                    </p>
+                </div>
+
+                <div class="info-section">
+                    <h2>Key Features</h2>
+                    <ul class="info-features">
+                        <li><i class="bi bi-check2-circle" aria-hidden="true"></i>Role-based access and secure authentication</li>
+                        <li><i class="bi bi-check2-circle" aria-hidden="true"></i>Digital document approvals and signature workflow</li>
+                        <li><i class="bi bi-check2-circle" aria-hidden="true"></i>Real-time tracking of document progress</li>
+                        <li><i class="bi bi-check2-circle" aria-hidden="true"></i>Publication material submission and review flow</li>
+                        <li><i class="bi bi-check2-circle" aria-hidden="true"></i>Audit-ready activity logs and notifications</li>
+                    </ul>
+                </div>
+            </aside>
+
+            <div class="login-container" role="dialog" aria-labelledby="login-title">
+                <!-- Login Header -->
+                <div class="login-header">
+                    <div class="login-icon" aria-hidden="true">
+                        <i class="bi bi-calendar-event"></i>
+                    </div>
+                    <h2 id="login-title">Sign-um Document Portal</h2>
+                    <p>Event Management System</p>
+                </div>
+
+                <!-- Login Body -->
+                <div class="login-body">
+                    <form id="loginForm" aria-label="Login Form">
+                    <input type="hidden" id="requires2fa" value="<?php echo $requires2fa ? 'true' : 'false'; ?>">
+                    <input type="hidden" id="requires2faSetup" value="<?php echo $requires2faSetup ? 'true' : 'false'; ?>">
+                    <input type="hidden" id="twoFactorSecret" value="<?php echo htmlspecialchars($twoFactorSecret); ?>">
+                    <input type="hidden" id="twoFactorUserId" value="<?php echo htmlspecialchars($twoFactorUserId); ?>">
+                    <!-- Show error if exists -->
+                    <?php if (!empty($error)): ?>
+                        <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
+                    <?php endif; ?>
+
+                    <!-- User ID -->
+                    <div class="form-group">
+                        <label for="userId" class="form-label">
+                            <i class="bi bi-person-fill" aria-hidden="true"></i>User ID
+                        </label>
+                        <input type="text" class="form-control" id="userId" name="userId" 
+                            placeholder="Enter your userID" autocomplete="username"
+                            required value="<?= isset($_POST['userId']) ? htmlspecialchars($_POST['userId']) : '' ?>"
+                            aria-describedby="userIdHelp">
+                    </div>
+
+                    <!-- Password -->
+                    <div class="form-group">
+                        <label for="password" class="form-label">
+                            <i class="bi bi-lock-fill" aria-hidden="true"></i>Password
+                        </label>
+                        <div class="password-wrapper">
+                            <input type="password" class="form-control" id="password" name="password"
+                                placeholder="Enter your password" autocomplete="current-password" required
+                                aria-describedby="passwordHelp">
+                            <button type="button" class="password-toggle" id="togglePassword" 
+                                aria-label="Toggle password visibility">
+                                <i class="bi bi-eye" id="passwordIcon" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 2FA elements moved to modals below -->
+
+                    <!-- Error/Success Message -->
+                    <div id="loginError" class="alert alert-danger d-none" role="alert" aria-live="assertive">
+                        <i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i>
+                        <span id="loginErrorMessage"></span>
+                    </div>
+                    <div id="loginSuccess" class="alert alert-success d-none" role="alert" aria-live="polite">
+                        <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+                        <span id="loginSuccessMessage"></span>
+                    </div>
+
+                    <!-- Login Button -->
+                    <button type="submit" class="login-btn" id="loginButton" aria-label="Sign In">
+                        <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>Sign In
+                    </button>
+
+                    <!-- Forgot Password -->
+                    <div class="forgot-password">
+                        <button type="button" onclick="openForgotPassword()" aria-label="Reset Password">
+                            <i class="bi bi-question-circle-fill" aria-hidden="true"></i>
+                            Forgot Password?
                         </button>
                     </div>
-                </div>
-
-                <!-- 2FA elements moved to modals below -->
-
-                <!-- Error/Success Message -->
-                <div id="loginError" class="alert alert-danger d-none" role="alert" aria-live="assertive">
-                    <i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i>
-                    <span id="loginErrorMessage"></span>
-                </div>
-                <div id="loginSuccess" class="alert alert-success d-none" role="alert" aria-live="polite">
-                    <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
-                    <span id="loginSuccessMessage"></span>
-                </div>
-
-                <!-- Login Button -->
-                <button type="submit" class="login-btn" id="loginButton" aria-label="Sign In">
-                    <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>Sign In
-                </button>
-
-                <!-- Forgot Password -->
-                <div class="forgot-password">
-                    <button type="button" onclick="openForgotPassword()" aria-label="Reset Password">
-                        <i class="bi bi-question-circle-fill" aria-hidden="true"></i>
-                        Forgot Password?
-                    </button>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
-    </div>
-</main>
+    </main>
 
     <!-- 2FA Verification Modal -->
     <div class="modal fade" id="2faVerificationModal" tabindex="-1" data-bs-backdrop="static" 

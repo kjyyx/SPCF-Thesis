@@ -1379,6 +1379,15 @@ function savePreferences() {
     applyTheme();
 }
 
+if (window.NavbarSettings) {
+    window.openProfileSettings = window.NavbarSettings.openProfileSettings;
+    window.openChangePassword = window.NavbarSettings.openChangePassword;
+    window.openPreferences = window.NavbarSettings.openPreferences;
+    window.showHelp = window.NavbarSettings.showHelp;
+    window.savePreferences = window.NavbarSettings.savePreferences;
+    window.saveProfileSettings = window.NavbarSettings.saveProfileSettings;
+}
+
 // Handle profile settings form
 document.getElementById('profileSettingsForm').addEventListener('submit', async function (e) {
     e.preventDefault();

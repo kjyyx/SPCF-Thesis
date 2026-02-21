@@ -417,6 +417,12 @@ function handleGet()
             return;
         }
 
+        if (isset($_GET['action']) && $_GET['action'] === 'get_comments' && isset($_GET['id'])) {
+            $documentId = (int) $_GET['id'];
+            getDocumentComments($documentId);
+            return;
+        }
+
         // New: Handle student document fetching
         if (isset($_GET['action']) && $_GET['action'] === 'my_documents') {
             if ($currentUser['role'] !== 'student') {
@@ -468,6 +474,8 @@ function handleGet()
                     $documents[$docId] = [
                         'id' => $row['id'],
                         'document_name' => $row['title'],
+                        'doc_type' => $row['doc_type'],
+                        'document_type' => $row['doc_type'],
                         'status' => $row['status'],
                         'current_location' => $current_location,
                         'created_at' => $row['uploaded_at'],
@@ -623,6 +631,8 @@ function handleGet()
             $document = [
                 'id' => $doc['id'],
                 'document_name' => $doc['title'],
+                'doc_type' => $doc['doc_type'],
+                'document_type' => $doc['doc_type'],
                 'status' => $doc['status'],
                 'current_location' => $current_location,
                 'created_at' => $doc['uploaded_at'],
@@ -1049,6 +1059,150 @@ function updateNote($input)
     }
 }
 
+function ensureThreadedDocumentNotesSchema()
+{
+    global $db;
+
+    $checkStmt = $db->prepare("SHOW COLUMNS FROM document_notes LIKE 'parent_note_id'");
+    $checkStmt->execute();
+    $hasParentColumn = (bool) $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$hasParentColumn) {
+        $db->exec("ALTER TABLE document_notes ADD COLUMN parent_note_id BIGINT(20) NULL AFTER note");
+        $db->exec("ALTER TABLE document_notes ADD KEY idx_parent_note_id (parent_note_id)");
+    }
+}
+
+function userCanAccessDocumentForComments($documentId)
+{
+    global $db, $currentUser;
+
+    if (!$documentId || empty($currentUser['id'])) {
+        return false;
+    }
+
+    if (($currentUser['role'] ?? '') === 'admin') {
+        return true;
+    }
+
+    $userId = $currentUser['id'];
+    $stmt = $db->prepare("SELECT 1
+                         FROM documents d
+                         LEFT JOIN document_steps ds ON ds.document_id = d.id
+                         WHERE d.id = ?
+                         AND (
+                            d.student_id = ?
+                            OR ds.assigned_to_employee_id = ?
+                            OR ds.assigned_to_student_id = ?
+                         )
+                         LIMIT 1");
+    $stmt->execute([$documentId, $userId, $userId, $userId]);
+    return (bool) $stmt->fetchColumn();
+}
+
+function getDocumentComments($documentId)
+{
+    global $db;
+
+    if (!$documentId) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid document id']);
+        return;
+    }
+
+    if (!userCanAccessDocumentForComments($documentId)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Access denied']);
+        return;
+    }
+
+    ensureThreadedDocumentNotesSchema();
+
+    $stmt = $db->prepare("SELECT n.id, n.document_id, n.parent_note_id, n.note, n.created_at, n.author_id, n.author_role,
+                                 CASE
+                                     WHEN n.author_role = 'employee' THEN CONCAT(e.first_name, ' ', e.last_name)
+                                     WHEN n.author_role = 'student' THEN CONCAT(s.first_name, ' ', s.last_name)
+                                     WHEN n.author_role = 'admin' THEN CONCAT(a.first_name, ' ', a.last_name)
+                                     ELSE 'Unknown'
+                                 END AS author_name,
+                                 CASE
+                                     WHEN n.author_role = 'employee' THEN COALESCE(e.position, '')
+                                     WHEN n.author_role = 'student' THEN COALESCE(s.position, '')
+                                     WHEN n.author_role = 'admin' THEN COALESCE(a.position, '')
+                                     ELSE ''
+                                 END AS author_position
+                          FROM document_notes n
+                          LEFT JOIN employees e ON n.author_role = 'employee' AND n.author_id = e.id
+                          LEFT JOIN students s ON n.author_role = 'student' AND n.author_id = s.id
+                          LEFT JOIN administrators a ON n.author_role = 'admin' AND n.author_id = a.id
+                          WHERE n.document_id = ?
+                          ORDER BY n.created_at ASC, n.id ASC");
+    $stmt->execute([$documentId]);
+
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $comments = array_map(function ($row) {
+        return [
+            'id' => (int) $row['id'],
+            'document_id' => (int) $row['document_id'],
+            'parent_id' => $row['parent_note_id'] !== null ? (int) $row['parent_note_id'] : null,
+            'comment' => $row['note'],
+            'created_at' => $row['created_at'],
+            'author_id' => $row['author_id'],
+            'author_role' => $row['author_role'],
+            'author_name' => trim($row['author_name'] ?: 'Unknown'),
+            'author_position' => $row['author_position'] ?: ''
+        ];
+    }, $rows);
+
+    echo json_encode(['success' => true, 'comments' => $comments]);
+}
+
+function addDocumentComment($input)
+{
+    global $db, $currentUser;
+
+    $documentId = (int) ($input['document_id'] ?? 0);
+    $comment = trim($input['comment'] ?? '');
+    $parentId = isset($input['parent_id']) && $input['parent_id'] !== '' ? (int) $input['parent_id'] : null;
+
+    if (!$documentId || $comment === '') {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Document and comment are required']);
+        return;
+    }
+
+    if (!userCanAccessDocumentForComments($documentId)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Access denied']);
+        return;
+    }
+
+    ensureThreadedDocumentNotesSchema();
+
+    if ($parentId !== null) {
+        $parentStmt = $db->prepare("SELECT id FROM document_notes WHERE id = ? AND document_id = ?");
+        $parentStmt->execute([$parentId, $documentId]);
+        if (!$parentStmt->fetch(PDO::FETCH_ASSOC)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Reply target not found']);
+            return;
+        }
+    }
+
+    $insertStmt = $db->prepare("INSERT INTO document_notes (document_id, author_id, author_role, note, parent_note_id)
+                                VALUES (?, ?, ?, ?, ?)");
+    $insertStmt->execute([
+        $documentId,
+        $currentUser['id'],
+        $currentUser['role'],
+        $comment,
+        $parentId
+    ]);
+
+    $newId = (int) $db->lastInsertId();
+    echo json_encode(['success' => true, 'comment_id' => $newId]);
+}
+
 function handlePost()
 {
     global $db, $currentUser;
@@ -1073,6 +1227,9 @@ function handlePost()
                     break;
                 case 'update_note':
                     updateNote($_POST);
+                    break;
+                case 'add_comment':
+                    addDocumentComment($_POST);
                     break;
                 default:
                     http_response_code(400);
@@ -1113,6 +1270,9 @@ function handlePost()
                 break;
             case 'update_note':
                 updateNote($input);
+                break;
+            case 'add_comment':
+                addDocumentComment($input);
                 break;
             default:
                 http_response_code(400);

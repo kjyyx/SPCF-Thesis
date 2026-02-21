@@ -122,7 +122,7 @@ $pageTitle = 'Track Documents';
                             Document Management
                         </h3>
                         <div class="action-buttons">
-                            <button class="btn btn-success" onclick="window.location.href='create-document.php'">
+                            <button class="btn btn-success" onclick="window.location.href='<?php echo BASE_URL; ?>?page=notifications'">
                                 <i class="bi bi-file-plus me-2"></i>New Document
                             </button>
                             <button class="btn btn-primary" onclick="refreshDocuments()">
@@ -133,41 +133,43 @@ $pageTitle = 'Track Documents';
                     
                     <!-- Search and Filter Controls -->
                     <div class="search-controls">
-                        <div class="row">
-                            <div class="col-md-4">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-6">
                                 <div class="input-group">
                                     <span class="input-group-text">
                                         <i class="bi bi-search"></i>
                                     </span>
-                                    <input type="text" class="form-control" id="searchInput" placeholder="Search documents, status, location...">
+                                    <input type="text" class="form-control" id="searchInput" placeholder="Search by document name, type, or location...">
                                     <button class="btn btn-outline-secondary" type="button" id="clearSearch" title="Clear search">
                                         <i class="bi bi-x"></i>
                                     </button>
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="btn-group" role="group" aria-label="Status filter">
                                     <input type="radio" class="btn-check" name="statusFilter" id="filterAll" checked>
-                                    <label class="btn btn-outline-primary btn-sm" for="filterAll">All</label>
-                                    
+                                    <label class="btn btn-outline-primary btn-sm" for="filterAll">
+                                        <i class="bi bi-grid me-1"></i>All
+                                    </label>
+
                                     <input type="radio" class="btn-check" name="statusFilter" id="filterPending">
-                                    <label class="btn btn-outline-primary btn-sm" for="filterPending">Pending</label>
-                                    
-                                    <input type="radio" class="btn-check" name="statusFilter" id="filterInProgress">
-                                    <label class="btn btn-outline-primary btn-sm" for="filterInProgress">In Progress</label>
-                                    
-                                    <input type="radio" class="btn-check" name="statusFilter" id="filterCompleted">
-                                    <label class="btn btn-outline-primary btn-sm" for="filterCompleted">Completed</label>
-                                    
+                                    <label class="btn btn-outline-warning btn-sm" for="filterPending">
+                                        <i class="bi bi-clock me-1"></i>Pending
+                                    </label>
+
                                     <input type="radio" class="btn-check" name="statusFilter" id="filterApproved">
-                                    <label class="btn btn-outline-primary btn-sm" for="filterApproved">Approved</label>
-                                    
+                                    <label class="btn btn-outline-success btn-sm" for="filterApproved">
+                                        <i class="bi bi-check-circle me-1"></i>Approved
+                                    </label>
+
                                     <input type="radio" class="btn-check" name="statusFilter" id="filterRejected">
-                                    <label class="btn btn-outline-primary btn-sm" for="filterRejected">Rejected</label>
+                                    <label class="btn btn-outline-danger btn-sm" for="filterRejected">
+                                        <i class="bi bi-x-circle me-1"></i>Rejected
+                                    </label>
                                 </div>
                             </div>
                             <div class="col-md-2">
-                                <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()" title="Clear all filters and search">
+                                <button class="btn btn-outline-secondary btn-sm w-100" onclick="clearFilters()" title="Clear all filters and search">
                                     <i class="bi bi-x-circle me-1"></i>Clear All
                                 </button>
                             </div>
@@ -290,10 +292,13 @@ $pageTitle = 'Track Documents';
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="documentModalTitle">
-                        <i class="bi bi-file-earmark-text"></i>
-                        <span>Document Details</span>
-                    </h5>
+                    <div class="modal-title-wrapper">
+                        <h5 class="modal-title" id="documentModalTitle">
+                            <i class="bi bi-file-earmark-text"></i>
+                            <span>Document Details</span>
+                        </h5>
+                        <div id="documentModalMeta" class="document-modal-meta"></div>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" id="documentModalBody">
@@ -558,7 +563,7 @@ $pageTitle = 'Track Documents';
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <a href="create-document.php" class="btn btn-primary">Create New Document</a>
+                    <a href="<?php echo BASE_URL; ?>?page=notifications" class="btn btn-primary">Create New Document</a>
                 </div>
             </div>
         </div>

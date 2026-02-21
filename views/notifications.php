@@ -171,10 +171,50 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         <div class="notification-header-modern">
             <div class="container-fluid">
                 <div class="header-modern-wrapper">
-                    <!-- Top Row: Controls -->
-                    <div class="header-controls-row">
-                        <!-- Search Bar -->
-                        <div class="search-box-modern">
+                    <!-- Top Row: Controls and Filtering (Left) -->
+                    <div class="header-controls-row" style="gap: 2rem; align-items: flex-start;">
+                        <!-- Filtering/Stats Cards (Left) -->
+                        <div class="stats-cards-modern" style="margin-right: 1.5rem;">
+                            <div class="stat-card all">
+                                <div class="stat-icon">
+                                    <i class="bi bi-files"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="totalCount">0</div>
+                                    <div class="stat-label">Total</div>
+                                </div>
+                            </div>
+                            <div class="stat-card pending">
+                                <div class="stat-icon">
+                                    <i class="bi bi-hourglass-split"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="submittedCount">0</div>
+                                    <div class="stat-label">Pending</div>
+                                </div>
+                            </div>
+                            <div class="stat-card in-review">
+                                <div class="stat-icon">
+                                    <i class="bi bi-eye-fill"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="inReviewCount">0</div>
+                                    <div class="stat-label">In Review</div>
+                                </div>
+                            </div>
+                            <div class="stat-card approved">
+                                <div class="stat-icon">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-value" id="approvedCount">0</div>
+                                    <div class="stat-label">Completed</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Search Bar (Middle) -->
+                        <div class="search-box-modern" style="flex: 1; max-width: 600px;">
                             <i class="bi bi-search search-icon"></i>
                             <input type="text" class="search-input" id="documentSearch"
                                 placeholder="Search documents by title, type, or department..."
@@ -185,7 +225,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             </button>
                         </div>
 
-                        <!-- Sorting Dropdown -->
+                        <!-- Sorting Dropdown (Right) -->
                         <div class="sort-dropdown-modern">
                             <button class="sort-trigger" id="sortTrigger">
                                 <i class="bi bi-funnel"></i>
@@ -226,68 +266,37 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                 </button>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Bottom Row: Stats and Filters -->
-                    <div class="header-info-row">
-                        <!-- Quick Stats Cards -->
-                        <div class="stats-cards-modern">
-                            <div class="stat-card all">
-                                <div class="stat-icon">
-                                    <i class="bi bi-files"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <div class="stat-value" id="totalCount">0</div>
-                                    <div class="stat-label">Total</div>
-                                </div>
-                            </div>
-                            <div class="stat-card pending">
-                                <div class="stat-icon">
-                                    <i class="bi bi-hourglass-split"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <div class="stat-value" id="submittedCount">0</div>
-                                    <div class="stat-label">Pending</div>
-                                </div>
-                            </div>
-                            <div class="stat-card in-review">
-                                <div class="stat-icon">
-                                    <i class="bi bi-eye-fill"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <div class="stat-value" id="inReviewCount">0</div>
-                                    <div class="stat-label">In Review</div>
-                                </div>
-                            </div>
-                            <div class="stat-card approved">
-                                <div class="stat-icon">
-                                    <i class="bi bi-check-circle-fill"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <div class="stat-value" id="approvedCount">0</div>
-                                    <div class="stat-label">Completed</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Filter Chips -->
-                        <div class="filter-chips-modern">
-                            <button class="filter-chip active" data-filter="all" onclick="documentSystem.filterDocuments('all')">
-                                <i class="bi bi-files"></i>
-                                <span>All</span>
+                        <!-- Grouping Dropdown -->
+                        <div class="group-dropdown-modern">
+                            <button class="group-trigger" id="groupTrigger">
+                                <i class="bi bi-folder"></i>
+                                <span class="group-label">Group</span>
+                                <i class="bi bi-chevron-down"></i>
                             </button>
-                            <button class="filter-chip" data-filter="submitted" onclick="documentSystem.filterDocuments('submitted')">
-                                <i class="bi bi-hourglass-split"></i>
-                                <span>Pending</span>
-                            </button>
-                            <button class="filter-chip" data-filter="in_review" onclick="documentSystem.filterDocuments('in_review')">
-                                <i class="bi bi-eye-fill"></i>
-                                <span>In Review</span>
-                            </button>
-                            <button class="filter-chip" data-filter="approved" onclick="documentSystem.filterDocuments('approved')">
-                                <i class="bi bi-check-circle-fill"></i>
-                                <span>Completed</span>
-                            </button>
+                            <div class="group-menu" id="groupMenu" style="display: none;">
+                                <div class="group-menu-header">Group by</div>
+                                <button class="group-option active" data-group="none">
+                                    <i class="bi bi-list-ul"></i>
+                                    <span>No Grouping</span>
+                                    <i class="bi bi-check-circle-fill group-check"></i>
+                                </button>
+                                <button class="group-option" data-group="doc_type">
+                                    <i class="bi bi-file-earmark-text"></i>
+                                    <span>Document Type</span>
+                                    <i class="bi bi-check-circle-fill group-check"></i>
+                                </button>
+                                <button class="group-option" data-group="department">
+                                    <i class="bi bi-building"></i>
+                                    <span>Department</span>
+                                    <i class="bi bi-check-circle-fill group-check"></i>
+                                </button>
+                                <button class="group-option" data-group="status">
+                                    <i class="bi bi-flag"></i>
+                                    <span>Status</span>
+                                    <i class="bi bi-check-circle-fill group-check"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -295,11 +304,14 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
 
         <script>
-        // Enhanced sort dropdown functionality
+        // Enhanced sort and group dropdown functionality
         document.addEventListener('DOMContentLoaded', function() {
             const sortTrigger = document.getElementById('sortTrigger');
             const sortMenu = document.getElementById('sortMenu');
             const sortOptions = document.querySelectorAll('.sort-option');
+            const groupTrigger = document.getElementById('groupTrigger');
+            const groupMenu = document.getElementById('groupMenu');
+            const groupOptions = document.querySelectorAll('.group-option');
             const searchInput = document.getElementById('documentSearch');
             const clearSearchBtn = document.getElementById('clearSearch');
             
@@ -308,12 +320,23 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                 sortTrigger.addEventListener('click', function(e) {
                     e.stopPropagation();
                     sortMenu.style.display = sortMenu.style.display === 'none' ? 'block' : 'none';
+                    groupMenu.style.display = 'none'; // Close group menu
                 });
             }
             
-            // Close sort menu when clicking outside
+            // Toggle group menu
+            if (groupTrigger) {
+                groupTrigger.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    groupMenu.style.display = groupMenu.style.display === 'none' ? 'block' : 'none';
+                    sortMenu.style.display = 'none'; // Close sort menu
+                });
+            }
+            
+            // Close menus when clicking outside
             document.addEventListener('click', function() {
                 if (sortMenu) sortMenu.style.display = 'none';
+                if (groupMenu) groupMenu.style.display = 'none';
             });
             
             // Sort option selection
@@ -330,6 +353,23 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                     sortMenu.style.display = 'none';
                 });
             });
+            
+            // Group option selection - REMOVED: Handled by initGroupingControls() in notifications.js
+            /*
+            groupOptions.forEach(option => {
+                option.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    groupOptions.forEach(opt => opt.classList.remove('active'));
+                    this.classList.add('active');
+                    const groupValue = this.dataset.group;
+                    if (window.documentSystem) {
+                        window.documentSystem.currentGroup = groupValue;
+                        window.documentSystem.renderDocuments();
+                    }
+                    groupMenu.style.display = 'none';
+                });
+            });
+            */
             
             // Search input clear button
             if (searchInput && clearSearchBtn) {
@@ -361,16 +401,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                     Documents
                                 </h3>
                                 <span class="document-count" id="documentCount">0 documents</span>
-                            </div>
-                            <div class="list-header-right">
-                                <div class="view-toggle">
-                                    <button class="view-btn active" data-view="list" title="List View">
-                                        <i class="bi bi-list-ul"></i>
-                                    </button>
-                                    <button class="view-btn" data-view="grid" title="Grid View">
-                                        <i class="bi bi-grid-3x3-gap"></i>
-                                    </button>
-                                </div>
                             </div>
                         </div>
                         
@@ -607,13 +637,26 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                 </h3>
                             </div>
                             <div class="card-content">
-                                <div class="notes-container">
-                                    <textarea class="notes-input" id="notesInput" rows="4"
-                                        placeholder="Add your notes or comments about this document..."></textarea>
+                                <div class="comments-container">
+                                    <div id="threadCommentsList" class="thread-comments-list"></div>
+
+                                    <div id="commentReplyBanner" class="comment-reply-banner" style="display:none;">
+                                        <div class="reply-banner-text">
+                                            Replying to <span id="replyAuthorName"></span>
+                                        </div>
+                                        <button type="button" class="reply-cancel-btn" onclick="documentSystem.clearReplyTarget()">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </div>
+
+                                    <textarea class="notes-input" id="threadCommentInput" rows="3"
+                                        placeholder="Write a comment..."></textarea>
+
                                     <div class="notes-actions">
-                                        <button class="btn-notes save" onclick="documentSystem.saveNotes()">
-                                            <i class="bi bi-check2"></i>
-                                            Save Notes
+                                        <span id="notesSaveIndicator"></span>
+                                        <button class="btn-notes save" id="postCommentBtn" onclick="documentSystem.postComment()">
+                                            <i class="bi bi-send"></i>
+                                            Post Comment
                                         </button>
                                     </div>
                                 </div>
@@ -1072,64 +1115,14 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     </script>
 
     <script>
-        // Navbar functions
-        function openProfileSettings() {
-            // Populate form with current user data
-            if (window.currentUser) {
-                document.getElementById('profileFirstName').value = window.currentUser.firstName || '';
-                document.getElementById('profileLastName').value = window.currentUser.lastName || '';
-                document.getElementById('profileEmail').value = window.currentUser.email || '';
-                document.getElementById('profilePhone').value = '';
-                document.getElementById('darkModeToggle').checked = localStorage.getItem('darkMode') === 'true';
-            }
-
-            const modal = new bootstrap.Modal(document.getElementById('profileSettingsModal'));
-            modal.show();
-        }
-
-        function openPreferences() {
-            // Load preferences from localStorage
-            const emailNotifications = localStorage.getItem('emailNotifications') !== 'false'; // default true
-            const browserNotifications = localStorage.getItem('browserNotifications') !== 'false'; // default true
-            const defaultView = localStorage.getItem('defaultView') || 'month';
-
-            document.getElementById('emailNotifications').checked = emailNotifications;
-            document.getElementById('browserNotifications').checked = browserNotifications;
-            document.getElementById('defaultView').value = defaultView;
-
-            const modal = new bootstrap.Modal(document.getElementById('preferencesModal'));
-            modal.show();
-        }
-
-        function showHelp() {
-            const modal = new bootstrap.Modal(document.getElementById('helpModal'));
-            modal.show();
-        }
-
-        function savePreferences() {
-            const emailNotifications = document.getElementById('emailNotifications').checked;
-            const browserNotifications = document.getElementById('browserNotifications').checked;
-            const defaultView = document.getElementById('defaultView').value;
-
-            // Save to localStorage
-            localStorage.setItem('emailNotifications', emailNotifications);
-            localStorage.setItem('browserNotifications', browserNotifications);
-            localStorage.setItem('defaultView', defaultView);
-
-            // Show success message
-            const messagesDiv = document.getElementById('preferencesMessages');
-            if (messagesDiv) {
-                messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Preferences saved successfully!</div>';
-                setTimeout(() => messagesDiv.innerHTML = '', 3000);
-            }
-
-            // Close modal
-            bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
-        }
-
-        function openChangePassword() {
-            const modal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
-            modal.show();
+        // Navbar handlers are centralized in assets/js/navbar-settings.js
+        if (window.NavbarSettings) {
+            window.openProfileSettings = window.NavbarSettings.openProfileSettings;
+            window.openChangePassword = window.NavbarSettings.openChangePassword;
+            window.openPreferences = window.NavbarSettings.openPreferences;
+            window.showHelp = window.NavbarSettings.showHelp;
+            window.savePreferences = window.NavbarSettings.savePreferences;
+            window.saveProfileSettings = window.NavbarSettings.saveProfileSettings;
         }
 
         // Document actions routed to the controller
@@ -1233,33 +1226,11 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
             const profileForm = document.getElementById('profileSettingsForm');
             if (profileForm) {
                 profileForm.addEventListener('submit', async function (e) {
-                    e.preventDefault();
-
-                    const firstName = document.getElementById('profileFirstName').value;
-                    const lastName = document.getElementById('profileLastName').value;
-                    const email = document.getElementById('profileEmail').value;
-                    const phone = document.getElementById('profilePhone').value;
-                    const darkMode = document.getElementById('darkModeToggle').checked;
-                    const messagesDiv = document.getElementById('profileSettingsMessages');
-
-                    if (!firstName || !lastName || !email) {
-                        if (messagesDiv) messagesDiv.innerHTML = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Please fill in all required fields.</div>';
-                        return;
+                    if (window.NavbarSettings?.saveProfileSettings) {
+                        await window.NavbarSettings.saveProfileSettings(e);
+                    } else {
+                        e.preventDefault();
                     }
-
-                    // Save dark mode preference
-                    localStorage.setItem('darkMode', darkMode);
-
-                    // Show success message
-                    if (messagesDiv) messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Profile updated successfully!</div>';
-
-                    // Apply theme
-                    document.body.classList.toggle('dark-theme', darkMode);
-
-                    // Close modal after a delay
-                    setTimeout(() => {
-                        bootstrap.Modal.getInstance(document.getElementById('profileSettingsModal')).hide();
-                    }, 1500);
                 });
             }
         });

@@ -15,22 +15,36 @@ let documentStats = { total: 0, pending: 0, approved: 0, inProgress: 0, underRev
 let pdfDoc = null;
 let currentPdfPage = 1;
 let totalPdfPages = 0;
+let currentConversationDocumentId = null;
+let currentReplyTargetId = null;
 
 // Document type display mapping
-function getDocumentTypeDisplay(docType) {
+function getDocumentTypeDisplay(type) {
     const typeMap = {
-        'proposal': 'Project Proposal',
-        'communication': 'Communication Letter',
-        'saf': 'Student Activity Fund',
-        'facility': 'Facility Request'
+            'saf': 'Student Activity Form',
+            'publication': 'Publication',
+            'proposal': 'Project Proposal',
+            'facility': 'Facility Request',
+        'communication': 'Communication',
+        'material': 'Material Request'
     };
     
-    return typeMap[docType] || docType || 'Document';
+    return typeMap[type] || type;
 }
 
 // Standardized placeholder for all documents
 function getDocumentPlaceholder(docType) {
     return '[Name / Position]';
+}
+
+function safeText(value, fallback = 'N/A') {
+    if (value === null || value === undefined || value === '') return fallback;
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 // Function to shorten office/step names for display
@@ -256,6 +270,13 @@ async function loadStudentDocuments() {
             calculateStatistics();
             updateStatisticsDisplay();
             applyCurrentFilters();
+            
+            // Set initial sort indicator
+            const initialSortHeader = document.querySelector(`[data-sort="${currentSortField}"]`);
+            if (initialSortHeader) {
+                initialSortHeader.classList.add(currentSortDirection);
+            }
+            
             hideLoadingState();
 
             if (allDocuments.length === 0) {
@@ -369,12 +390,41 @@ function animateNumber(element, targetNumber) {
 function renderCurrentPage() {
     const tbody = document.getElementById('documentsList');
     const paginationContainer = document.getElementById('paginationContainer');
+    const emptyState = document.getElementById('emptyState');
 
     tbody.innerHTML = '';
 
     if (filteredDocuments.length === 0) {
         paginationContainer.style.display = 'none';
+
+        // Show appropriate empty state message
+        if (allDocuments.length === 0) {
+            // No documents at all
+            showEmptyState();
+        } else {
+            // No results from search/filter
+            if (emptyState) {
+                emptyState.style.display = 'block';
+                emptyState.innerHTML = `
+                    <div class="text-center py-5">
+                        <div class="empty-state-icon mb-4">
+                            <i class="bi bi-search" style="font-size: 4rem; color: #cbd5e1;"></i>
+                        </div>
+                        <h4 class="text-dark mb-2">No matching documents found</h4>
+                        <p class="text-muted mb-4">Try adjusting your search terms or filters to find what you're looking for.</p>
+                        <button class="btn btn-primary" onclick="clearFilters()">
+                            <i class="bi bi-x-circle me-2"></i>Clear Filters
+                        </button>
+                    </div>
+                `;
+            }
+        }
         return;
+    }
+
+    // Hide empty state if showing results
+    if (emptyState) {
+        emptyState.style.display = 'none';
     }
 
     // Calculate pagination
@@ -393,7 +443,10 @@ function renderCurrentPage() {
 
         const statusBadge = getStatusBadgeClass(doc.status || doc.current_status);
         const locationBadge = getLocationBadgeClass(doc.current_location);
+        const docTypeBadge = getDocTypeBadgeClass(doc.doc_type);
         const docType = getDocumentTypeDisplay(doc.document_type || doc.doc_type);
+        const createdDate = doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'N/A';
+        const safeDocType = safeText(docType);
 
         row.innerHTML = `
             <td>
@@ -402,16 +455,23 @@ function renderCurrentPage() {
                         <i class="bi bi-file-earmark-text fs-4 text-primary"></i>
                     </div>
                     <div class="document-info">
-                        <div class="document-name fw-bold text-dark mb-1">${doc.title || doc.document_name}</div>
-                        <div class="document-meta text-muted small">
-                            <i class="bi bi-calendar3 me-1"></i>
-                            Created: ${new Date(doc.created_at).toLocaleDateString()}
+                        <div class="document-name fw-bold text-dark mb-1">${safeText(doc.title || doc.document_name)}</div>
+                        <div class="document-meta-row">
+                            <span class="meta-item">
+                                <i class="bi bi-folder2"></i>
+                                ${safeDocType}
+                            </span>
+                            <span class="meta-separator">•</span>
+                            <span class="meta-item">
+                                <i class="bi bi-calendar3"></i>
+                                Created: ${createdDate}
+                            </span>
                         </div>
                     </div>
                 </div>
             </td>
             <td>
-                <span class="badge bg-info bg-opacity-10 text-info border border-info">${docType}</span>
+                <span class="badge ${docTypeBadge}">${safeDocType}</span>
             </td>
             <td>
                 <span class="badge ${statusBadge}">${formatStatusDisplay(doc.status || doc.current_status)}</span>
@@ -637,10 +697,29 @@ function sortDocuments() {
         let aValue = a[currentSortField];
         let bValue = b[currentSortField];
 
+        // Handle field fallbacks
+        if (currentSortField === 'title') {
+            aValue = aValue || a.document_name;
+            bValue = bValue || b.document_name;
+        } else if (currentSortField === 'document_type') {
+            aValue = aValue || a.doc_type;
+            bValue = bValue || b.doc_type;
+        } else if (currentSortField === 'current_status') {
+            aValue = aValue || a.status;
+            bValue = bValue || b.status;
+        }
+
+        // Handle null/undefined values
+        if (aValue == null) aValue = '';
+        if (bValue == null) bValue = '';
+
         // Handle date fields
         if (currentSortField.includes('_at') || currentSortField.includes('date')) {
             aValue = new Date(aValue);
             bValue = new Date(bValue);
+            // Handle invalid dates
+            if (isNaN(aValue.getTime())) aValue = new Date(0);
+            if (isNaN(bValue.getTime())) bValue = new Date(0);
         }
 
         // Handle string comparisons
@@ -682,15 +761,15 @@ function applyCurrentFilters() {
     const activeFilter = document.querySelector('input[name="statusFilter"]:checked')?.id;
     if (activeFilter && activeFilter !== 'filterAll') {
         const statusMap = {
-            'filterPending': ['submitted', 'pending'],
-            'filterApproved': ['approved'],
+            'filterPending': ['submitted', 'pending', 'in progress', 'in_progress', 'under review', 'under_review'],
+            'filterApproved': ['approved', 'completed'],
             'filterRejected': ['rejected']
         };
         const filterStatuses = statusMap[activeFilter];
         if (filterStatuses) {
             documents = documents.filter(doc => {
                 const docStatus = (doc.status || doc.current_status || '').toLowerCase();
-                return filterStatuses.some(status => docStatus === status);
+                return filterStatuses.some(status => docStatus === status.toLowerCase());
             });
         }
     }
@@ -750,10 +829,24 @@ function clearFilters() {
         allFilter.nextElementSibling.classList.add('active');
     }
 
+    // Reset sorting to default (updated_at descending)
+    currentSortField = 'updated_at';
+    currentSortDirection = 'desc';
+
+    // Reset sort indicators
+    const allHeaders = document.querySelectorAll('.sortable');
+    allHeaders.forEach(header => {
+        header.classList.remove('asc', 'desc');
+    });
+    const defaultSortHeader = document.querySelector('[data-sort="updated_at"]');
+    if (defaultSortHeader) {
+        defaultSortHeader.classList.add('desc');
+    }
+
     // Reapply filters
     applyCurrentFilters();
 
-    showToast('Filters cleared', 'success');
+    showToast('Filters and sorting cleared', 'success');
 }
 
 // Get notes preview for table display
@@ -778,6 +871,167 @@ function getNotesPreview(notes) {
     }
 
     return `<span title="${title}">${preview}</span>`;
+}
+
+function formatConversationDate(value) {
+    if (!value) return '';
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return '';
+    return dt.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function clearReplyTarget() {
+    currentReplyTargetId = null;
+    const banner = document.getElementById('conversationReplyBanner');
+    const author = document.getElementById('conversationReplyAuthor');
+    if (author) author.textContent = '';
+    if (banner) banner.style.display = 'none';
+}
+
+function setReplyTarget(commentId, authorName) {
+    currentReplyTargetId = Number(commentId);
+    const banner = document.getElementById('conversationReplyBanner');
+    const author = document.getElementById('conversationReplyAuthor');
+    if (author) author.textContent = authorName || 'comment';
+    if (banner) banner.style.display = 'flex';
+
+    const input = document.getElementById('conversationInput');
+    if (input) input.focus();
+}
+
+function renderConversationThread(comments) {
+    const thread = document.getElementById('conversationThread');
+    if (!thread) return;
+
+    if (!Array.isArray(comments) || comments.length === 0) {
+        thread.innerHTML = '<div class="conversation-empty">No conversation yet. Start by posting a reply.</div>';
+        return;
+    }
+
+    const byParent = comments.reduce((acc, item) => {
+        const key = item.parent_id === null || item.parent_id === undefined ? 'root' : String(item.parent_id);
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(item);
+        return acc;
+    }, {});
+
+    const renderNodes = (parentKey, depth = 0) => {
+        const nodes = byParent[parentKey] || [];
+        return nodes.map((item) => {
+            const author = safeText(item.author_name || 'Unknown', 'Unknown');
+            const role = safeText(item.author_role || '', '');
+            const position = safeText(item.author_position || '', '');
+            const content = safeText(item.comment || '', '').replace(/\n/g, '<br>');
+            const createdAt = formatConversationDate(item.created_at);
+            const safeDepth = Math.min(depth, 4);
+
+            return `
+                <div class="conversation-item depth-${safeDepth}">
+                    <div class="conversation-meta">
+                        <strong>${author}</strong>
+                        <span>${role}${position ? ` • ${position}` : ''}</span>
+                    </div>
+                    <div class="conversation-content">${content}</div>
+                    <div class="conversation-footer">
+                        <small>${safeText(createdAt, '')}</small>
+                        <button type="button" class="btn btn-link btn-sm conversation-reply-btn" data-comment-id="${item.id}" data-author-name="${author}">Reply</button>
+                    </div>
+                    ${renderNodes(String(item.id), depth + 1)}
+                </div>
+            `;
+        }).join('');
+    };
+
+    thread.innerHTML = renderNodes('root');
+
+    thread.querySelectorAll('.conversation-reply-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const commentId = btn.getAttribute('data-comment-id');
+            const authorName = btn.getAttribute('data-author-name');
+            setReplyTarget(commentId, authorName);
+        });
+    });
+}
+
+async function loadConversationThread(docId) {
+    const thread = document.getElementById('conversationThread');
+    if (thread) {
+        thread.innerHTML = '<div class="conversation-empty">Loading conversation...</div>';
+    }
+
+    try {
+        const response = await fetch(BASE_URL + `api/documents.php?action=get_comments&id=${docId}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Failed to load conversation');
+        }
+
+        renderConversationThread(data.comments || []);
+    } catch (error) {
+        console.error('Error loading conversation thread:', error);
+        if (thread) {
+            thread.innerHTML = '<div class="conversation-empty">Unable to load conversation right now.</div>';
+        }
+    }
+}
+
+async function postConversationReply() {
+    if (!currentConversationDocumentId) {
+        showToast('No document selected for replying', 'error');
+        return;
+    }
+
+    const input = document.getElementById('conversationInput');
+    const sendBtn = document.getElementById('sendConversationBtn');
+    if (!input || !sendBtn) return;
+
+    const comment = input.value.trim();
+    if (!comment) {
+        showToast('Please enter a reply first', 'warning');
+        return;
+    }
+
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Posting...';
+
+    try {
+        const response = await fetch(BASE_URL + 'api/documents.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'add_comment',
+                document_id: currentConversationDocumentId,
+                comment: comment,
+                parent_id: currentReplyTargetId
+            })
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Failed to post reply');
+        }
+
+        input.value = '';
+        clearReplyTarget();
+        await loadConversationThread(currentConversationDocumentId);
+        showToast('Reply posted successfully', 'success');
+    } catch (error) {
+        console.error('Error posting conversation reply:', error);
+        showToast(error.message || 'Unable to post reply', 'error');
+    } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="bi bi-send me-1"></i>Reply';
+    }
 }
 
 // View document details with enhanced modal
@@ -807,13 +1061,24 @@ async function viewDetails(docId) {
 
         if (data.success && data.document) {
             const doc = data.document;
+            const docType = getDocumentTypeDisplay(doc.document_type || doc.doc_type || doc.type || 'unknown');
             console.log('Document loaded:', doc);
             console.log('Workflow history:', doc.workflow_history);
             
             // Store complete document for signature rendering
             window.currentDocument = doc;
             
-            modalTitle.innerHTML = `<i class="bi bi-file-earmark-text"></i><span>${doc.document_name || doc.title}</span>`;
+            modalTitle.innerHTML = `<i class="bi bi-file-earmark-text"></i><span>${safeText(doc.document_name || doc.title)}</span>`;
+
+            const modalMeta = document.getElementById('documentModalMeta');
+            if (modalMeta) {
+                modalMeta.innerHTML = `
+                    <span class="meta-item">
+                        <i class="bi bi-folder2"></i>
+                        ${safeText(docType)}
+                    </span>
+                `;
+            }
 
             // PDF Viewer Section
             let pdfHtml = '';
@@ -841,6 +1106,15 @@ async function viewDetails(docId) {
             let infoHtml = `
                 <div class="document-info-section">
                     <h6><i class="bi bi-info-circle"></i> Document Information</h6>
+                    <div class="info-item">
+                        <span class="info-label">Document Type:</span>
+                        <span class="info-value">
+                            <span class="meta-item">
+                                <i class="bi bi-folder2"></i>
+                                ${safeText(docType)}
+                            </span>
+                        </span>
+                    </div>
                     <div class="info-item">
                         <span class="info-label">Status:</span>
                         <span class="info-value"><span class="badge ${getStatusBadgeClass(doc.status)}">${formatStatusDisplay(doc.status)}</span></span>
@@ -934,6 +1208,28 @@ async function viewDetails(docId) {
             }
             timelineHtml += '</div>';
 
+            // Conversation Section (before approval timeline)
+            const conversationHtml = `
+                <div class="conversation-section">
+                    <h6><i class="bi bi-chat-left-text"></i> Conversation</h6>
+                    <div id="conversationThread" class="conversation-thread"></div>
+
+                    <div id="conversationReplyBanner" class="conversation-reply-banner" style="display:none;">
+                        <span>Replying to <strong id="conversationReplyAuthor"></strong></span>
+                        <button type="button" class="btn btn-link btn-sm p-0" id="cancelConversationReply">Cancel</button>
+                    </div>
+
+                    <div class="conversation-input-wrap">
+                        <textarea id="conversationInput" class="form-control" rows="3" placeholder="Write your reply..."></textarea>
+                        <div class="conversation-actions">
+                            <button type="button" class="btn btn-primary btn-sm" id="sendConversationBtn">
+                                <i class="bi bi-send me-1"></i>Reply
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
             // Assemble final modal content
             modalBody.innerHTML = `
                 <div class="row g-2">
@@ -945,10 +1241,36 @@ async function viewDetails(docId) {
                         ${systemHtml}
                         ${rejectionHtml}
                         ${notesHtml}
+                        ${conversationHtml}
                         ${timelineHtml}
                     </div>
                 </div>
             `;
+
+            currentConversationDocumentId = Number(doc.id);
+            currentReplyTargetId = null;
+
+            const sendConversationBtn = document.getElementById('sendConversationBtn');
+            if (sendConversationBtn) {
+                sendConversationBtn.addEventListener('click', postConversationReply);
+            }
+
+            const conversationInput = document.getElementById('conversationInput');
+            if (conversationInput) {
+                conversationInput.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        postConversationReply();
+                    }
+                });
+            }
+
+            const cancelConversationReply = document.getElementById('cancelConversationReply');
+            if (cancelConversationReply) {
+                cancelConversationReply.addEventListener('click', clearReplyTarget);
+            }
+
+            loadConversationThread(currentConversationDocumentId);
 
             // Show download button if PDF available and document is approved or rejected
             const downloadBtn = document.getElementById('downloadDocumentBtn');
@@ -1203,6 +1525,17 @@ function getLocationBadgeClass(location) {
     }
 }
 
+// Helper function to get document type badge class
+function getDocTypeBadgeClass(docType) {
+    switch (docType.toLowerCase()) {
+        case 'saf': return 'doctype-saf';
+        case 'proposal': return 'doctype-proposal';
+        case 'communication': return 'doctype-communication';
+        case 'material': return 'doctype-material';
+        default: return 'doctype-saf'; // default to saf
+    }
+}
+
 // Helper function to get status color class for timeline
 function getStatusColorClass(status) {
     switch (status.toLowerCase()) {
@@ -1425,6 +1758,15 @@ function savePreferences() {
 
     showToast('Preferences saved successfully', 'success');
     bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
+}
+
+if (window.NavbarSettings) {
+    window.openProfileSettings = window.NavbarSettings.openProfileSettings;
+    window.openChangePassword = window.NavbarSettings.openChangePassword;
+    window.openPreferences = window.NavbarSettings.openPreferences;
+    window.showHelp = window.NavbarSettings.showHelp;
+    window.savePreferences = window.NavbarSettings.savePreferences;
+    window.saveProfileSettings = window.NavbarSettings.saveProfileSettings;
 }
 
 // Enhanced functionality complete

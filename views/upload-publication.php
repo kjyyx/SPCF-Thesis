@@ -515,7 +515,7 @@ $pageTitle = 'Upload Publications';
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-          <a href="track-document.php" class="btn btn-primary">Track Documents</a>
+          <a href="<?php echo BASE_URL; ?>?page=track-document" class="btn btn-primary">Track Documents</a>
         </div>
       </div>
     </div>

@@ -5,10 +5,10 @@
 <!-- Navigation Bar -->
 <nav class="navbar navbar-expand-lg fixed-top">
     <div class="container-fluid">
-        <div class="navbar-brand">
+        <a href="<?php echo BASE_URL; ?>" class="navbar-brand">
             <i class="bi bi-building me-2"></i>
             Sign-um | <?php echo $pageTitle ?? 'Dashboard'; ?>
-        </div>
+        </a>
 
         <div class="navbar-nav ms-auto d-flex flex-row align-items-center">
             <!-- User Info -->
@@ -52,7 +52,7 @@
                                 <i class="bi bi-calendar-event me-2" aria-hidden="true"></i>Calendar</a></li>
                     <?php endif; ?>
                     <?php if ($currentUser['role'] === 'student' || $currentUser['role'] === 'admin'): ?>
-                        <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=create-document" title="Create a new document" role="menuitem">
+                        <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=notifications" title="Create a new document" role="menuitem">
                                 <i class="bi bi-file-plus me-2" aria-hidden="true"></i>Create Document</a></li>
                         <li role="none"><a class="dropdown-item" href="<?php echo BASE_URL; ?>?page=track-document" title="Track your documents" role="menuitem">
                                 <i class="bi bi-search me-2" aria-hidden="true"></i>Track Document</a></li>
@@ -101,4 +101,5 @@
     window.BASE_URL = "<?php echo BASE_URL; ?>";
 </script>
 
+<script src="<?php echo BASE_URL; ?>assets/js/navbar-settings.js"></script>
 <script src="<?php echo BASE_URL; ?>assets/js/global-notifications.js"></script>

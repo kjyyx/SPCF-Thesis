@@ -1680,3 +1680,17 @@
 2026-02-19 23:12:54 - PDF saved to: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc_SAF__Debugging__6997287182bb1.pdf
 2026-02-19 23:12:54 - DOCX cleaned up successfully
 2026-02-19 23:12:54 - Conversion successful
+2026-02-20 14:20:01 - Starting conversion for: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc_Spooky_Friday_the_13th_6997fd11e1dcb.docx
+2026-02-20 14:20:01 - API key found
+2026-02-20 14:20:01 - DOCX file exists, size: 156759
+2026-02-20 14:20:01 - CloudConvert client created
+2026-02-20 14:20:01 - Creating job
+2026-02-20 14:20:02 - Job created: 1d2da0e7-4e27-40ab-8ba1-7f1e57c67e9d
+2026-02-20 14:20:02 - Uploading file
+2026-02-20 14:20:03 - File uploaded
+2026-02-20 14:20:03 - Waiting for completion
+2026-02-20 14:20:04 - Job completed, status: finished
+2026-02-20 14:20:04 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/29d95d36-573e-4622-a0fe-a1d19e295e71/doc_Spooky_Friday_the_13th_6997fd11e1dcb.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260220%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260220T062006Z&X-Amz-Expires=86400&X-Amz-Signature=0c80007a0fd724ab3801e95b2f5a9415a614e7b3d6f93d782d42a3a4a41823d0&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22doc_Spooky_Friday_the_13th_6997fd11e1dcb.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-20 14:20:06 - PDF saved to: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc_Spooky_Friday_the_13th_6997fd11e1dcb.pdf
+2026-02-20 14:20:06 - DOCX cleaned up successfully
+2026-02-20 14:20:06 - Conversion successful

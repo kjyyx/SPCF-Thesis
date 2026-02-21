@@ -28,9 +28,10 @@ class CalendarApp {
         
         this.currentDate = currentDate;
         this.selectedDate = null;
-    this.events = events;
-    // Fixed palette for department colors (Bootstrap backgrounds)
-    this.COLOR_CLASSES = ['bg-primary','bg-success','bg-danger','bg-warning','bg-info','bg-secondary','bg-dark'];
+        this.events = events;
+        this.searchDebounceTimer = null;
+        // Fixed palette for department colors (Bootstrap backgrounds)
+        this.COLOR_CLASSES = ['bg-primary','bg-success','bg-danger','bg-warning','bg-info','bg-secondary','bg-dark'];
         
         this.COLOR_MAP_RGB = {
             'College of Arts and Social Sciences and Education': 'rgb(59, 130, 246)', // Blue
@@ -145,7 +146,12 @@ class CalendarApp {
         }
         
         // Search and filter controls
-        document.getElementById('eventSearch')?.addEventListener('input', () => this.applyFilters());
+        document.getElementById('eventSearch')?.addEventListener('input', () => {
+            if (this.searchDebounceTimer) {
+                clearTimeout(this.searchDebounceTimer);
+            }
+            this.searchDebounceTimer = setTimeout(() => this.applyFilters(), 180);
+        });
         document.getElementById('departmentFilter')?.addEventListener('change', () => this.applyFilters());
         document.getElementById('statusFilter')?.addEventListener('change', () => this.applyFilters());
         
@@ -310,8 +316,7 @@ class CalendarApp {
     }
     
     async loadEvents() {
-        const loadingEl = document.getElementById('calendarLoading');
-        if (loadingEl) loadingEl.style.display = 'block';
+        this.setCalendarLoading(true);
         
         try {
             const resp = await fetch(BASE_URL + 'api/events.php');
@@ -346,7 +351,22 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         } catch (e) {
             console.error('Error loading events', e);
         } finally {
-            if (loadingEl) loadingEl.style.display = 'none';
+            this.setCalendarLoading(false);
+        }
+    }
+
+    setCalendarLoading(isLoading) {
+        const loadingEl = document.getElementById('calendarLoading');
+        const container = document.querySelector('.calendar-container');
+
+        if (loadingEl) {
+            loadingEl.style.display = isLoading ? 'block' : 'none';
+            loadingEl.setAttribute('aria-hidden', isLoading ? 'false' : 'true');
+        }
+
+        if (container) {
+            container.classList.toggle('is-loading', isLoading);
+            container.setAttribute('aria-busy', isLoading ? 'true' : 'false');
         }
     }
 
@@ -704,6 +724,11 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         document.querySelectorAll('.view-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.view === view);
         });
+
+        const calendarContainer = document.querySelector('.calendar-container');
+        if (calendarContainer) {
+            calendarContainer.setAttribute('data-view', view);
+        }
         
         // Show/hide view containers
         document.querySelectorAll('.calendar-view').forEach(container => {

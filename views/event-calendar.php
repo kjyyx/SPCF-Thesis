@@ -72,6 +72,7 @@ $pendingCount = $stmt->fetchColumn();
     <title>Sign-um - Event Calendar</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/master-css.css"><!-- Master design system -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global.css"><!-- Global shared UI styles -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/event-calendar.css"><!-- Calendar-specific styles -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/toast.css">
@@ -98,7 +99,7 @@ $pendingCount = $stmt->fetchColumn();
     <!-- ADD: Include global notifications module -->
 </head>
 
-<body class="with-fixed-navbar">
+<body class="with-fixed-navbar event-calendar-page">
     <?php include ROOT_PATH . 'includes/navbar.php'; ?>
     <?php include ROOT_PATH . 'includes/notifications.php'; ?>
 

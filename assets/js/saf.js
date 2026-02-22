@@ -66,6 +66,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('btn-add-deduct').style.display = 'inline-flex';
   }
 
+  // Show approvals button for Accounting personnel
+  if (isAccounting) {
+    document.getElementById('btn-approvals').style.display = 'inline-flex';
+  }
+
   await initDataSdk();
 
   if (isStudent && currentUser.department) {
@@ -378,10 +383,9 @@ async function submitAllocation() {
 
   const deptId = document.getElementById('alloc-dept').value;
   const amount = document.getElementById('alloc-amount').value;
-  const academicYear = document.getElementById('alloc-academic-year').value;
   const notes = document.getElementById('alloc-notes').value;
 
-  if (!deptId || !amount || !academicYear) {
+  if (!deptId || !amount) {
     showToast('Please fill in all required fields.', 'warning');
     return;
   }
@@ -399,7 +403,6 @@ async function submitAllocation() {
         department_id: deptId,
         initial_amount: amount,
         used_amount: 0,
-        academic_year: academicYear,
         notes: notes
       })
     });
@@ -429,7 +432,6 @@ function openEditSafModal() {
 
   document.getElementById('edit-saf-id').value = safRecord.id;
   document.getElementById('edit-alloc-amount').value = safRecord.initial_amount;
-  document.getElementById('edit-academic-year').value = safRecord.academic_year;
 
   editModal.show();
 }
@@ -439,9 +441,8 @@ async function submitEditSaf() {
 
   const safId = document.getElementById('edit-saf-id').value;
   const amount = document.getElementById('edit-alloc-amount').value;
-  const academicYear = document.getElementById('edit-academic-year').value;
 
-  if (!safId || !amount || !academicYear) {
+  if (!safId || !amount) {
     showToast('Please fill in all required fields.', 'warning');
     return;
   }
@@ -457,8 +458,7 @@ async function submitEditSaf() {
       body: JSON.stringify({
         id: safId,
         type: 'saf',
-        initial_amount: amount,
-        academic_year: academicYear
+        initial_amount: amount
       })
     });
     const result = await response.json();

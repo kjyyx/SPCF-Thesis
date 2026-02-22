@@ -109,10 +109,13 @@ $pageTitle = 'Student Allocated Funds';
                 <i class="bi bi-calculator me-1"></i> Add/Deduct
             </button>
             <button class="btn btn-ghost rounded-pill bg-white border shadow-sm" id="btn-edit" onclick="openEditSafModal()" style="display:none;">
-                <i class="bi bi-pencil me-1"></i> Edit Info
+                <i class="bi bi-pencil me-1"></i> Initial Fund
             </button>
             <button class="btn btn-ghost rounded-pill bg-white border shadow-sm text-danger" id="btn-reset" data-bs-toggle="modal" data-bs-target="#resetModal" style="display:none;">
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+            </button>
+            <button class="btn btn-success rounded-pill shadow-sm" id="btn-approvals" onclick="window.location.href='<?php echo BASE_URL; ?>?page=notifications'" style="display:none;">
+                <i class="bi bi-check-circle me-1"></i> Approvals
             </button>
         </div>
     </div>
@@ -207,10 +210,6 @@ $pageTitle = 'Student Allocated Funds';
               <input type="number" step="0.01" min="0" class="form-control bg-light border-0 rounded-3 p-2 px-3 fw-bold text-success" id="alloc-amount" placeholder="0.00" required>
             </div>
             <div class="form-group mb-0">
-              <label class="form-label text-muted small fw-bold text-uppercase">Academic Year</label>
-              <input type="text" class="form-control bg-light border-0 rounded-3 p-2 px-3" id="alloc-academic-year" placeholder="e.g. 2023-2024" required>
-            </div>
-            <div class="form-group mb-0">
               <label class="form-label text-muted small fw-bold text-uppercase">Notes (Optional)</label>
               <textarea class="form-control bg-light border-0 rounded-3 p-2 px-3" id="alloc-notes" rows="2"></textarea>
             </div>
@@ -278,10 +277,6 @@ $pageTitle = 'Student Allocated Funds';
               <label class="form-label text-muted small fw-bold text-uppercase">Total Allocated (₱)</label>
               <input type="number" step="0.01" min="0" class="form-control bg-light border-0 rounded-3 p-2 px-3 fw-bold text-primary" id="edit-alloc-amount" required>
               <small class="text-muted text-xs mt-1 d-block">Warning: Adjusting this changes the base allocation for the entire department.</small>
-            </div>
-            <div class="form-group mb-0">
-              <label class="form-label text-muted small fw-bold text-uppercase">Academic Year</label>
-              <input type="text" class="form-control bg-light border-0 rounded-3 p-2 px-3" id="edit-academic-year" required>
             </div>
           </div>
           <div class="modal-footer border-top p-3 px-4">

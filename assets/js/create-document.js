@@ -110,7 +110,7 @@ let safBalances = []; // Array of SAF balances from API
  */
 const deptNameMap = {
     'ssc': 'Supreme Student Council',
-    'casse': 'College of Arts, Social Sciences, and Education',
+    'casse': 'College of Arts, Social Sciences and Education',
     'cob': 'College of Business',
     'ccis': 'College of Computing and Information Sciences',
     'coc': 'College of Criminology',

@@ -874,10 +874,10 @@ const DEPARTMENT_CODES = {
     'College of Business': 'COB',
     'College of Engineering': 'COE',
     'College of Criminology': 'COC',
-    'College of Arts, Social Sciences and Education': 'COA',
+    'College of Arts, Social Sciences and Education': 'CASSE',
     'College of Nursing': 'CON',
     'College of Hospitality and Tourism Management': 'CHTM',
-    'College of Computing and Information Sciences': 'COCS',
+    'College of Computing and Information Sciences': 'CCIS',
     'SPCF Miranda': 'MIRANDA',
     'Supreme Student Council (SSC)': 'SSC'
 };

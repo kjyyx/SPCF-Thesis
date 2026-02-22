@@ -397,19 +397,19 @@ function collectProposalData() {
 
     // Return complete proposal data object
     return {
-        date: document.getElementById('prop-date').value,
-        organizer: document.getElementById('prop-organizer').value,
-        department: document.getElementById('prop-department').value,
+        date: document.getElementById('prop-date')?.value || '',
+        organizer: document.getElementById('prop-organizer')?.value || '',
+        department: document.getElementById('prop-department')?.value || '',
         departmentFull: '',  // Will be set server-side
-        title: document.getElementById('prop-title').value,
-        lead: document.getElementById('prop-lead').value,
-        rationale: document.getElementById('prop-rationale').value,
-        objectives: (document.getElementById('prop-objectives').value || '').split('\n').map(s => s.trim()).filter(Boolean),
-        ilos: (document.getElementById('prop-ilos').value || '').split('\n').map(s => s.trim()).filter(Boolean),
-        budgetSource: document.getElementById('prop-budget-source').value,
-        venue: document.getElementById('prop-venue').value,
-        mechanics: document.getElementById('prop-mechanics').value,
-        scheduleSummary: document.getElementById('prop-schedule').value,
+        title: document.getElementById('prop-title')?.value || '',
+        lead: document.getElementById('prop-lead')?.value || '',
+        rationale: document.getElementById('prop-rationale')?.value || '',
+        objectives: (document.getElementById('prop-objectives')?.value || '').split('\n').map(s => s.trim()).filter(Boolean),
+        ilos: (document.getElementById('prop-ilos')?.value || '').split('\n').map(s => s.trim()).filter(Boolean),
+        budgetSource: document.getElementById('prop-budget-source')?.value || '',
+        venue: document.getElementById('prop-venue')?.value || '',
+        mechanics: document.getElementById('prop-mechanics')?.value || '',
+        scheduleSummary: document.getElementById('prop-schedule')?.value || '',
         earliestStartTime: earliestStartTime,
         program: programRows,
         budget: budgetRows
@@ -448,14 +448,14 @@ function collectSAFData() {
     const balSSC = categories.ssc ? funds.ssc.available - funds.ssc.requested : 0;
     const balCSC = categories.csc ? funds.csc.available - funds.csc.requested : 0;
 
-    const deptValue = document.getElementById('saf-dept').value;
+    const deptValue = document.getElementById('saf-dept')?.value || '';
     const deptFull = deptValue; // Already full name from hidden input
 
     return {
         department: deptFull, // Use full name for department field
-        title: document.getElementById('saf-title').value,
-        reqDate: document.getElementById('saf-date').value,
-        implDate: document.getElementById('saf-impl-date').value,
+        title: document.getElementById('saf-title')?.value || '',
+        reqDate: document.getElementById('saf-date')?.value || '',
+        implDate: document.getElementById('saf-impl-date')?.value || '',
         departmentFull: deptFull, // Also set departmentFull for consistency
         c1: cValues[0], c2: cValues[1],
         sscChecked: cValues[0], cscChecked: cValues[1],
@@ -509,40 +509,40 @@ function collectFacilityData() {
     }
 
     return {
-        department: document.getElementById('fac-dept').value,
-        eventName: document.getElementById('fac-event-name').value,
-        eventDate: document.getElementById('fac-event-date').value,
+        department: document.getElementById('fac-dept')?.value || '',
+        eventName: document.getElementById('fac-event-name')?.value || '',
+        eventDate: document.getElementById('fac-event-date')?.value || '',
         departmentFull: '',  // Set in API
-        cleanSetUpCommittee: document.getElementById('fac-cleanup-committee').value,
-        contactPerson: document.getElementById('fac-contact-person').value,
-        contactNumber: document.getElementById('fac-contact-number').value,
-        expectedAttendees: parseInt(document.getElementById('fac-attendees').value) || 0,
-        guestSpeaker: document.getElementById('fac-guest-speaker').value,
-        expectedPerformers: parseInt(document.getElementById('fac-performers').value) || 0,
-        parkingGatePlateNo: document.getElementById('fac-parking').value,
+        cleanSetUpCommittee: document.getElementById('fac-cleanup-committee')?.value || '',
+        contactPerson: document.getElementById('fac-contact-person')?.value || '',
+        contactNumber: document.getElementById('fac-contact-number')?.value || '',
+        expectedAttendees: parseInt(document.getElementById('fac-attendees')?.value) || 0,
+        guestSpeaker: document.getElementById('fac-guest-speaker')?.value || '',
+        expectedPerformers: parseInt(document.getElementById('fac-performers')?.value) || 0,
+        parkingGatePlateNo: document.getElementById('fac-parking')?.value || '',
         f1: facilities[0], f2: facilities[1], f3: facilities[2], f4: facilities[3], f5: facilities[4], f6: facilities[5], f7: facilities[6], f8: facilities[7], f9: facilities[8], f10: facilities[9], f11: facilities[10], f12: facilities[11], f13: facilities[12], f14: facilities[13], f15: facilities[14], f16: facilities[15], f17: facilities[16], f18: facilities[17], f19: facilities[18], f20: facilities[19], f21: facilities[20], f22: facilities[21], f23: facilities[22], f24: facilities[23],
         s1: specifies[0], s2: specifies[1], s3: specifies[2], s4: specifies[3], s5: specifies[4],
         e1: equipment[0], e2: equipment[1], e3: equipment[2], e4: equipment[3], e5: equipment[4], e6: equipment[5], e7: equipment[6], e8: equipment[7], e9: equipment[8], e10: equipment[9], e11: equipment[10],
         q1: quantities[0], q2: quantities[1], q3: quantities[2], q4: quantities[3], q5: quantities[4], q6: quantities[5], q7: quantities[6], q8: quantities[7], q9: quantities[8],
         o1: others[0], o2: others[1],
-        preEventDate: document.getElementById('fac-pre-event-date').value,
-        practiceDate: document.getElementById('fac-practice-date').value,
-        setupDate: document.getElementById('fac-setup-date').value,
-        cleanupDate: document.getElementById('fac-cleanup-date').value,
-        preEventStartTime: document.getElementById('fac-pre-event-start').value,
-        practiceStartTime: document.getElementById('fac-practice-start').value,
-        setupStartTime: document.getElementById('fac-setup-start').value,
-        cleanupStartTime: document.getElementById('fac-cleanup-start').value,
-        preEventEndTime: document.getElementById('fac-pre-event-end').value,
-        practiceEndTime: document.getElementById('fac-practice-end').value,
-        setupEndTime: document.getElementById('fac-setup-end').value,
-        cleanupEndTime: document.getElementById('fac-cleanup-end').value,
+        preEventDate: document.getElementById('fac-pre-event-date')?.value || '',
+        practiceDate: document.getElementById('fac-practice-date')?.value || '',
+        setupDate: document.getElementById('fac-setup-date')?.value || '',
+        cleanupDate: document.getElementById('fac-cleanup-date')?.value || '',
+        preEventStartTime: document.getElementById('fac-pre-event-start')?.value || '',
+        practiceStartTime: document.getElementById('fac-practice-start')?.value || '',
+        setupStartTime: document.getElementById('fac-setup-start')?.value || '',
+        cleanupStartTime: document.getElementById('fac-cleanup-start')?.value || '',
+        preEventEndTime: document.getElementById('fac-pre-event-end')?.value || '',
+        practiceEndTime: document.getElementById('fac-practice-end')?.value || '',
+        setupEndTime: document.getElementById('fac-setup-end')?.value || '',
+        cleanupEndTime: document.getElementById('fac-cleanup-end')?.value || '',
         departmentHead: '',  // Set in API
-        otherMattersSpecify: document.getElementById('fac-other-matters').value,
+        otherMattersSpecify: document.getElementById('fac-other-matters')?.value || '',
         receivingRequesteeName: window.currentUser?.firstName + ' ' + window.currentUser?.lastName,
         receivingDateFiled: new Date().toLocaleDateString(),
-        receivingEventName: document.getElementById('fac-event-name').value,
-        receivingEventDates: document.getElementById('fac-event-date').value
+        receivingEventName: document.getElementById('fac-event-name')?.value || '',
+        receivingEventDates: document.getElementById('fac-event-date')?.value || ''
     };
 }
 
@@ -580,13 +580,13 @@ function collectCommunicationData() {
     });
 
     return {
-        date: document.getElementById('comm-date').value,
-        department: document.getElementById('comm-department-select').value,
-        for: document.getElementById('comm-for').value,
+        date: document.getElementById('comm-date')?.value || '',
+        department: document.getElementById('comm-department-select')?.value || '',
+        for: document.getElementById('comm-for')?.value || '',
         notedList: notedList,
         approvedList: approvedList,
-        subject: document.getElementById('comm-subject').value,
-        body: document.getElementById('comm-body').value,
+        subject: document.getElementById('comm-subject')?.value || '',
+        body: document.getElementById('comm-body')?.value || '',
         from: (window.currentUser?.firstName + ' ' + window.currentUser?.lastName + ', ' + 
                window.currentUser?.position + ', ' + window.currentUser?.department) || '',
         from_title: (window.currentUser?.position + ', ' + window.currentUser?.department) || ''
@@ -1049,13 +1049,13 @@ document.addEventListener('DOMContentLoaded', () => {
  * Ensures document regeneration happens for dynamically added elements
  */
 document.addEventListener('input', function (e) {
-    if (e.target.closest('.editor-panel') || e.target.closest('.form-section')) {
+    if (e.target.closest('.editor-panel') || e.target.closest('.form-section') || e.target.closest('.document-form')) {
         scheduleGenerate();
     }
 });
 
 document.addEventListener('change', function (e) {
-    if (e.target.closest('.editor-panel') || e.target.closest('.form-section')) {
+    if (e.target.closest('.editor-panel') || e.target.closest('.form-section') || e.target.closest('.document-form')) {
         scheduleGenerate();
     }
 });

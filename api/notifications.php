@@ -87,9 +87,13 @@ try {
         exit;
     }
 
+    $debug = isset($_GET['debug']) ? filter_var($_GET['debug'], FILTER_VALIDATE_BOOLEAN) : false;
+    $debugLogs = [];
+
     try {
-        generateNotifications($db, $currentUser);
+        generateNotifications($db, $currentUser, $debug, $debugLogs);
     } catch (Exception $e) {
+        $debugLogs[] = 'Error generating notifications: ' . $e->getMessage();
         error_log('Error generating notifications: ' . $e->getMessage());
     }
 
@@ -161,7 +165,8 @@ try {
         'limit' => $limit,
         'offset' => $offset,
         'has_more' => ($offset + count($notifications)) < $filteredTotal,
-        'timestamp' => date('c')
+        'timestamp' => date('c'),
+        'debug_logs' => $debug ? $debugLogs : null
     ]);
 } catch (Exception $e) {
     error_log('Notifications API Error: ' . $e->getMessage());
@@ -173,14 +178,19 @@ try {
     ]);
 }
 
-function generateNotifications($db, $user)
+function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
 {
+    $debugLogs[] = "=== generateNotifications called for user {$user['id']} role {$user['role']} ===";
+
     try {
         $checkStmt = $db->prepare("SELECT COUNT(*) as count FROM notifications WHERE recipient_id = ? AND recipient_role = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)");
         $checkStmt->execute([$user['id'], $user['role']]);
         $recentCount = (int) $checkStmt->fetch(PDO::FETCH_ASSOC)['count'];
 
+        $debugLogs[] = "User {$user['id']} has $recentCount recent notifications";
+
         if ($recentCount > 50) {
+            $debugLogs[] = "Skipping notification generation due to $recentCount recent notifications (>50 limit)";
             return;
         }
 
@@ -311,96 +321,145 @@ function generateNotifications($db, $user)
         }
 
         if ($user['role'] === 'employee') {
-            // Pending documents requiring employee action
-            $stmt = $db->prepare("SELECT d.id, d.title
-                FROM documents d
-                JOIN document_steps ds ON d.id = ds.document_id
-                LEFT JOIN notifications n ON n.related_document_id = d.id
-                    AND n.recipient_id = ds.assigned_to_employee_id
-                    AND n.recipient_role = 'employee'
-                    AND n.created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
-                    AND n.reference_type = 'employee_document_pending'
-                WHERE ds.assigned_to_employee_id = ?
-                AND ds.status = 'pending'
-                AND d.status NOT IN ('approved', 'rejected', 'cancelled')
-                AND d.updated_at > ?
-                AND n.id IS NULL
-                ORDER BY d.updated_at DESC
-                LIMIT 10");
-            $stmt->execute([$user['id'], $oneDayAgo]);
+            $debugLogs[] = "=== Generating notifications for employee {$user['id']} ===";
 
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_type, is_read, created_at)
-                    VALUES (?, 'employee', 'document', ?, ?, ?, ?, 0, NOW())");
-                $insertStmt->execute([
-                    $user['id'],
-                    'Document Pending Review',
-                    "Document '{$row['title']}' requires your review",
-                    $row['id'],
-                    'employee_document_pending'
-                ]);
+            // Check if employee has any assigned pending steps
+            $checkAssigned = $db->prepare("SELECT COUNT(*) as count FROM document_steps WHERE assigned_to_employee_id = ? AND status = 'pending'");
+            $checkAssigned->execute([$user['id']]);
+            $assignedCount = (int) $checkAssigned->fetch(PDO::FETCH_ASSOC)['count'];
+            $debugLogs[] = "Employee {$user['id']} has $assignedCount assigned pending document steps";
+
+            // Check if employee has any assigned pending pubmat steps
+            $checkPubmatAssigned = $db->prepare("SELECT COUNT(*) as count FROM materials_steps WHERE assigned_to_employee_id = ? AND status = 'pending'");
+            $checkPubmatAssigned->execute([$user['id']]);
+            $pubmatAssignedCount = (int) $checkPubmatAssigned->fetch(PDO::FETCH_ASSOC)['count'];
+            $debugLogs[] = "Employee {$user['id']} has $pubmatAssignedCount assigned pending pubmat steps";
+
+            // Pending documents requiring employee action
+            try {
+                $stmt = $db->prepare("SELECT d.id, d.title
+                    FROM documents d
+                    JOIN document_steps ds ON d.id = ds.document_id
+                    LEFT JOIN notifications n ON n.related_document_id = d.id
+                        AND n.recipient_id = ds.assigned_to_employee_id
+                        AND n.recipient_role = 'employee'
+                        AND n.created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
+                        AND n.reference_type = 'employee_document_pending'
+                    WHERE ds.assigned_to_employee_id = ?
+                    AND ds.status = 'pending'
+                    AND d.status NOT IN ('approved', 'rejected', 'cancelled')
+                    AND d.updated_at > ?
+                    AND n.id IS NULL
+                    ORDER BY d.updated_at DESC
+                    LIMIT 10");
+                $stmt->execute([$user['id'], $oneDayAgo]);
+                $pendingDocs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $debugLogs[] = "Employee pending documents query returned " . count($pendingDocs) . " results";
+
+                $createdCount = 0;
+                while ($row = array_shift($pendingDocs)) {
+                    $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_type, is_read, created_at)
+                        VALUES (?, 'employee', 'document', ?, ?, ?, ?, 0, NOW())");
+                    $insertStmt->execute([
+                        $user['id'],
+                        'Document Pending Review',
+                        "Document '{$row['title']}' requires your review",
+                        $row['id'],
+                        'employee_document_pending'
+                    ]);
+                    $createdCount++;
+                    $debugLogs[] = "Created notification for employee document: {$row['title']}";
+                }
+                $debugLogs[] = "Created $createdCount document notifications for employee {$user['id']}";
+
+            } catch (Exception $e) {
+                $debugLogs[] = "Error generating employee document notifications: " . $e->getMessage();
             }
 
             // Pending pubmat approvals for employee
-            $stmt = $db->prepare("SELECT m.id, m.title
-                FROM materials m
-                JOIN materials_steps ms ON m.id = ms.material_id
-                LEFT JOIN notifications n ON n.reference_id = m.id
-                    AND n.recipient_id = ms.assigned_to_employee_id
-                    AND n.recipient_role = 'employee'
-                    AND n.created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
-                    AND n.reference_type = 'employee_material_pending'
-                WHERE ms.assigned_to_employee_id = ?
-                AND ms.status = 'pending'
-                AND m.status = 'pending'
-                AND m.uploaded_at > ?
-                AND n.id IS NULL
-                ORDER BY m.uploaded_at DESC
-                LIMIT 10");
-            $stmt->execute([$user['id'], $oneDayAgo]);
+            try {
+                $stmt = $db->prepare("SELECT m.id, m.title
+                    FROM materials m
+                    JOIN materials_steps ms ON m.id = ms.material_id
+                    LEFT JOIN notifications n ON n.reference_id = m.id
+                        AND n.recipient_id = ms.assigned_to_employee_id
+                        AND n.recipient_role = 'employee'
+                        AND n.created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
+                        AND n.reference_type = 'employee_material_pending'
+                    WHERE ms.assigned_to_employee_id = ?
+                    AND ms.status = 'pending'
+                    AND m.status = 'pending'
+                    AND m.uploaded_at > ?
+                    AND n.id IS NULL
+                    ORDER BY m.uploaded_at DESC
+                    LIMIT 10");
+                $stmt->execute([$user['id'], $oneDayAgo]);
+                $pendingMats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $debugLogs[] = "Employee pending pubmats query returned " . count($pendingMats) . " results";
 
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, reference_id, reference_type, is_read, created_at)
-                    VALUES (?, 'employee', 'document', ?, ?, ?, ?, 0, NOW())");
-                $insertStmt->execute([
-                    $user['id'],
-                    'Pubmat Pending Review',
-                    "Pubmat '{$row['title']}' requires your review",
-                    $row['id'],
-                    'employee_material_pending'
-                ]);
+                $createdCount = 0;
+                while ($row = array_shift($pendingMats)) {
+                    $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, reference_id, reference_type, is_read, created_at)
+                        VALUES (?, 'employee', 'document', ?, ?, ?, ?, 0, NOW())");
+                    $insertStmt->execute([
+                        $user['id'],
+                        'Pubmat Pending Review',
+                        "Pubmat '{$row['title']}' requires your review",
+                        $row['id'],
+                        'employee_material_pending'
+                    ]);
+                    $createdCount++;
+                    $debugLogs[] = "Created notification for employee pubmat: {$row['title']}";
+                }
+                $debugLogs[] = "Created $createdCount pubmat notifications for employee {$user['id']}";
+
+            } catch (Exception $e) {
+                $debugLogs[] = "Error generating employee pubmat notifications: " . $e->getMessage();
             }
 
             // Comments/replies on documents assigned to employee
-            $commentStmt = $db->prepare("SELECT DISTINCT dn.id as note_id, dn.document_id, dn.parent_note_id, d.title
-                FROM document_notes dn
-                JOIN documents d ON d.id = dn.document_id
-                JOIN document_steps ds ON ds.document_id = d.id
-                LEFT JOIN notifications n ON n.reference_id = CAST(dn.id AS CHAR)
-                    AND n.recipient_id = ?
-                    AND n.recipient_role = 'employee'
-                    AND n.reference_type IN ('document_comment', 'document_reply')
-                WHERE ds.assigned_to_employee_id = ?
-                AND dn.created_at > ?
-                AND NOT (dn.author_id = ? AND dn.author_role = 'employee')
-                AND n.id IS NULL
-                ORDER BY dn.created_at DESC
-                LIMIT 20");
-            $commentStmt->execute([$user['id'], $user['id'], $oneDayAgo, $user['id']]);
+            try {
+                $commentStmt = $db->prepare("SELECT DISTINCT dn.id as note_id, dn.document_id, dn.parent_note_id, d.title
+                    FROM document_notes dn
+                    JOIN documents d ON d.id = dn.document_id
+                    JOIN document_steps ds ON ds.document_id = d.id
+                    LEFT JOIN notifications n ON n.reference_id = CAST(dn.id AS CHAR)
+                        AND n.recipient_id = ?
+                        AND n.recipient_role = 'employee'
+                        AND n.reference_type IN ('document_comment', 'document_reply')
+                    WHERE ds.assigned_to_employee_id = ?
+                    AND dn.created_at > ?
+                    AND NOT (dn.author_id = ? AND dn.author_role = 'employee')
+                    AND n.id IS NULL
+                    ORDER BY dn.created_at DESC
+                    LIMIT 20");
+                $commentStmt->execute([$user['id'], $user['id'], $oneDayAgo, $user['id']]);
+                $comments = $commentStmt->fetchAll(PDO::FETCH_ASSOC);
+                $debugLogs[] = "Employee comments query returned " . count($comments) . " results";
 
-            while ($comment = $commentStmt->fetch(PDO::FETCH_ASSOC)) {
-                $isReply = !empty($comment['parent_note_id']);
-                $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_id, reference_type, is_read, created_at)
-                    VALUES (?, 'employee', 'document', ?, ?, ?, ?, ?, 0, NOW())");
-                $insertStmt->execute([
-                    $user['id'],
-                    $isReply ? 'New Reply' : 'New Comment',
-                    $isReply ? "New reply on assigned document '{$comment['title']}'" : "New comment on assigned document '{$comment['title']}'",
-                    $comment['document_id'],
-                    (string) $comment['note_id'],
-                    $isReply ? 'document_reply' : 'document_comment'
-                ]);
+                $createdCount = 0;
+                while ($comment = array_shift($comments)) {
+                    $isReply = !empty($comment['parent_note_id']);
+                    $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_id, reference_type, is_read, created_at)
+                        VALUES (?, 'employee', 'document', ?, ?, ?, ?, ?, 0, NOW())");
+                    $insertStmt->execute([
+                        $user['id'],
+                        $isReply ? 'New Reply' : 'New Comment',
+                        $isReply ? "New reply on assigned document '{$comment['title']}'" : "New comment on assigned document '{$comment['title']}'",
+                        $comment['document_id'],
+                        (string) $comment['note_id'],
+                        $isReply ? 'document_reply' : 'document_comment'
+                    ]);
+                    $createdCount++;
+                    $debugLogs[] = "Created notification for employee comment on: {$comment['title']}";
+                }
+                $debugLogs[] = "Created $createdCount comment notifications for employee {$user['id']}";
+
+            } catch (Exception $e) {
+                $debugLogs[] = "Error generating employee comment notifications: " . $e->getMessage();
             }
+
+            $debugLogs[] = "=== Finished generating notifications for employee {$user['id']} ===";
         }
 
         if ($user['role'] === 'admin') {
@@ -489,11 +548,12 @@ function generateNotifications($db, $user)
         }
 
         $db->commit();
+        $debugLogs[] = "Successfully committed notification generation for user {$user['id']}";
     } catch (Exception $e) {
         if ($db->inTransaction()) {
             $db->rollBack();
         }
-        error_log('Error in generateNotifications: ' . $e->getMessage());
+        $debugLogs[] = 'Error in generateNotifications: ' . $e->getMessage();
     }
 }
 

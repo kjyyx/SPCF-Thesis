@@ -115,6 +115,7 @@ async function fetchNotifications(showLoading = false) {
         url.searchParams.append('t', Date.now()); // Cache bust
         url.searchParams.append('include_read', '1');
         url.searchParams.append('limit', '50');
+        url.searchParams.append('debug', '1'); // Enable debug logging
         
         if (showLoading && qs('notificationsList')) {
             qs('notificationsList').innerHTML = `
@@ -156,6 +157,13 @@ async function fetchNotifications(showLoading = false) {
             notificationsCache = data.notifications || [];
             unreadCount = data.unread_count || 0;
             lastFetchTime = data.timestamp || new Date().toISOString();
+            
+            // Log debug information
+            if (data.debug_logs && data.debug_logs.length > 0) {
+                console.log('=== Notification Debug Logs ===');
+                data.debug_logs.forEach(log => console.log(log));
+                console.log('=== End Debug Logs ===');
+            }
             
             console.log('Notifications fetched:', {
                 unread: unreadCount,

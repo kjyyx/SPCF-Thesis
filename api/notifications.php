@@ -183,7 +183,7 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
     $debugLogs[] = "=== generateNotifications called for user {$user['id']} role {$user['role']} ===";
 
     try {
-        $checkStmt = $db->prepare("SELECT COUNT(*) as count FROM notifications WHERE recipient_id = ? AND recipient_role = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)");
+        $checkStmt = $db->prepare("SELECT COUNT(*) as count FROM notifications WHERE recipient_id = BINARY ? AND recipient_role = BINARY ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)");
         $checkStmt->execute([$user['id'], $user['role']]);
         $recentCount = (int) $checkStmt->fetch(PDO::FETCH_ASSOC)['count'];
 
@@ -333,13 +333,13 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
             }
 
             // Check if employee has any assigned pending steps
-            $checkAssigned = $db->prepare("SELECT COUNT(*) as count FROM document_steps WHERE assigned_to_employee_id COLLATE utf8mb4_unicode_ci = ? AND status COLLATE utf8mb4_unicode_ci = 'pending'");
+            $checkAssigned = $db->prepare("SELECT COUNT(*) as count FROM document_steps WHERE assigned_to_employee_id = BINARY ? AND status = BINARY 'pending'");
             $checkAssigned->execute([$user['id']]);
             $assignedCount = (int) $checkAssigned->fetch(PDO::FETCH_ASSOC)['count'];
             $debugLogs[] = "Employee {$user['id']} has $assignedCount assigned pending document steps";
 
             // Check if employee has any assigned pending pubmat steps
-            $checkPubmatAssigned = $db->prepare("SELECT COUNT(*) as count FROM materials_steps WHERE assigned_to_employee_id COLLATE utf8mb4_unicode_ci = ? AND status COLLATE utf8mb4_unicode_ci = 'pending'");
+            $checkPubmatAssigned = $db->prepare("SELECT COUNT(*) as count FROM materials_steps WHERE assigned_to_employee_id = BINARY ? AND status = BINARY 'pending'");
             $checkPubmatAssigned->execute([$user['id']]);
             $pubmatAssignedCount = (int) $checkPubmatAssigned->fetch(PDO::FETCH_ASSOC)['count'];
             $debugLogs[] = "Employee {$user['id']} has $pubmatAssignedCount assigned pending pubmat steps";
@@ -350,13 +350,13 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
                     FROM documents d
                     JOIN document_steps ds ON d.id = ds.document_id
                     LEFT JOIN notifications n ON n.related_document_id = d.id
-                        AND n.recipient_id COLLATE utf8mb4_unicode_ci = ds.assigned_to_employee_id COLLATE utf8mb4_unicode_ci
-                        AND n.recipient_role COLLATE utf8mb4_unicode_ci = ?
+                        AND n.recipient_id = ds.assigned_to_employee_id
+                        AND n.recipient_role = BINARY ?
                         AND n.created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
-                        AND n.reference_type COLLATE utf8mb4_unicode_ci = 'employee_document_pending'
-                    WHERE ds.assigned_to_employee_id COLLATE utf8mb4_unicode_ci = ?
-                    AND ds.status COLLATE utf8mb4_unicode_ci = 'pending'
-                    AND d.status COLLATE utf8mb4_unicode_ci NOT IN ('approved', 'rejected', 'cancelled')
+                        AND n.reference_type = BINARY 'employee_document_pending'
+                    WHERE ds.assigned_to_employee_id = BINARY ?
+                    AND ds.status = BINARY 'pending'
+                    AND d.status NOT IN (BINARY 'approved', BINARY 'rejected', BINARY 'cancelled')
                     AND d.updated_at > ?
                     AND n.id IS NULL
                     ORDER BY d.updated_at DESC
@@ -392,13 +392,13 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
                     FROM materials m
                     JOIN materials_steps ms ON m.id = ms.material_id
                     LEFT JOIN notifications n ON n.reference_id = m.id
-                        AND n.recipient_id COLLATE utf8mb4_unicode_ci = ms.assigned_to_employee_id COLLATE utf8mb4_unicode_ci
-                        AND n.recipient_role COLLATE utf8mb4_unicode_ci = ?
+                        AND n.recipient_id = ms.assigned_to_employee_id
+                        AND n.recipient_role = BINARY ?
                         AND n.created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
-                        AND n.reference_type COLLATE utf8mb4_unicode_ci = 'employee_material_pending'
-                    WHERE ms.assigned_to_employee_id COLLATE utf8mb4_unicode_ci = ?
-                    AND ms.status COLLATE utf8mb4_unicode_ci = 'pending'
-                    AND m.status COLLATE utf8mb4_unicode_ci = 'pending'
+                        AND n.reference_type = BINARY 'employee_material_pending'
+                    WHERE ms.assigned_to_employee_id = BINARY ?
+                    AND ms.status = BINARY 'pending'
+                    AND m.status = BINARY 'pending'
                     AND m.uploaded_at > ?
                     AND n.id IS NULL
                     ORDER BY m.uploaded_at DESC
@@ -435,12 +435,12 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
                     JOIN documents d ON d.id = dn.document_id
                     JOIN document_steps ds ON ds.document_id = d.id
                     LEFT JOIN notifications n ON n.reference_id = CAST(dn.id AS CHAR)
-                        AND n.recipient_id COLLATE utf8mb4_unicode_ci = ?
-                        AND n.recipient_role COLLATE utf8mb4_unicode_ci = ?
-                        AND n.reference_type COLLATE utf8mb4_unicode_ci IN ('document_comment', 'document_reply')
-                    WHERE ds.assigned_to_employee_id COLLATE utf8mb4_unicode_ci = ?
+                        AND n.recipient_id = ?
+                        AND n.recipient_role = BINARY ?
+                        AND n.reference_type IN (BINARY 'document_comment', BINARY 'document_reply')
+                    WHERE ds.assigned_to_employee_id = BINARY ?
                     AND dn.created_at > ?
-                    AND NOT (dn.author_id COLLATE utf8mb4_unicode_ci = ? AND dn.author_role COLLATE utf8mb4_unicode_ci = ?)
+                    AND NOT (dn.author_id = BINARY ? AND dn.author_role = BINARY ?)
                     AND n.id IS NULL
                     ORDER BY dn.created_at DESC
                     LIMIT 20");

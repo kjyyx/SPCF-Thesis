@@ -221,7 +221,7 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
                 ];
 
                 $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_type, is_read, created_at)
-                    VALUES (?, 'student', 'document', ?, ?, ?, ?, 0, NOW())");
+                    VALUES (?, BINARY 'student', BINARY 'document', ?, ?, ?, ?, 0, NOW())");
                 $insertStmt->execute([
                     $user['id'],
                     'Document Status Update',
@@ -249,7 +249,7 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
 
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_type, is_read, created_at)
-                    VALUES (?, 'student', 'document', ?, ?, ?, ?, 0, NOW())");
+                    VALUES (?, BINARY 'student', BINARY 'document', ?, ?, ?, BINARY 'document_pending_signature', 0, NOW())");
                 $insertStmt->execute([
                     $user['id'],
                     'Document Pending Signature',
@@ -278,7 +278,7 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
             while ($comment = $commentStmt->fetch(PDO::FETCH_ASSOC)) {
                 $isReply = !empty($comment['parent_note_id']);
                 $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_id, reference_type, is_read, created_at)
-                    VALUES (?, 'student', 'document', ?, ?, ?, ?, ?, 0, NOW())");
+                    VALUES (?, BINARY 'student', BINARY 'document', ?, ?, ?, ?, ?, 0, NOW())");
                 $insertStmt->execute([
                     $user['id'],
                     $isReply ? 'New Reply' : 'New Comment',
@@ -309,7 +309,7 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
 
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, reference_id, reference_type, is_read, created_at)
-                    VALUES (?, 'student', 'document', ?, ?, ?, ?, 0, NOW())");
+                    VALUES (?, BINARY 'student', BINARY 'document', ?, ?, ?, ?, 0, NOW())");
                 $insertStmt->execute([
                     $user['id'],
                     'Pubmat Status Update',
@@ -322,15 +322,6 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
 
         if ($user['role'] === 'employee') {
             $debugLogs[] = "=== Generating notifications for employee {$user['id']} ===";
-
-            // Test notification for employees
-            try {
-                $testStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, is_read, created_at) VALUES (?, ?, 'system', 'Test Notification', 'This is a test notification for employees', 0, NOW()) ON DUPLICATE KEY UPDATE created_at = NOW()");
-                $testStmt->execute([$user['id'], $user['role']]);
-                $debugLogs[] = "Created test notification for employee {$user['id']}";
-            } catch (Exception $e) {
-                $debugLogs[] = "Error creating test notification: " . $e->getMessage();
-            }
 
             // Check if employee has any assigned pending steps
             $checkAssigned = $db->prepare("SELECT COUNT(*) as count FROM document_steps WHERE assigned_to_employee_id = BINARY ? AND status = BINARY 'pending'");
@@ -368,7 +359,7 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
                 $createdCount = 0;
                 while ($row = array_shift($pendingDocs)) {
                     $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_type, is_read, created_at)
-                        VALUES (?, ?, 'document', ?, ?, ?, ?, 0, NOW())");
+                        VALUES (?, ?, BINARY 'document', ?, ?, ?, BINARY 'employee_document_pending', 0, NOW())");
                     $insertStmt->execute([
                         $user['id'],
                         $user['role'],
@@ -410,7 +401,7 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
                 $createdCount = 0;
                 while ($row = array_shift($pendingMats)) {
                     $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, reference_id, reference_type, is_read, created_at)
-                        VALUES (?, ?, 'document', ?, ?, ?, ?, 0, NOW())");
+                        VALUES (?, ?, BINARY 'document', ?, ?, ?, BINARY 'employee_material_pending', 0, NOW())");
                     $insertStmt->execute([
                         $user['id'],
                         $user['role'],
@@ -452,7 +443,7 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
                 while ($comment = array_shift($comments)) {
                     $isReply = !empty($comment['parent_note_id']);
                     $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_id, reference_type, is_read, created_at)
-                        VALUES (?, ?, 'document', ?, ?, ?, ?, ?, 0, NOW())");
+                        VALUES (?, ?, BINARY 'document', ?, ?, ?, ?, ?, 0, NOW())");
                     $insertStmt->execute([
                         $user['id'],
                         $user['role'],
@@ -477,18 +468,18 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
         if ($user['role'] === 'admin') {
             // Daily summary for pending documents
             $summaryKey = date('Y-m-d');
-            $existsStmt = $db->prepare("SELECT id FROM notifications WHERE recipient_id = ? AND recipient_role = 'admin' AND reference_type = 'admin_pending_summary' AND reference_id = ? LIMIT 1");
+            $existsStmt = $db->prepare("SELECT id FROM notifications WHERE recipient_id = BINARY ? AND recipient_role = BINARY 'admin' AND reference_type = BINARY 'admin_pending_summary' AND reference_id = BINARY ? LIMIT 1");
             $existsStmt->execute([$user['id'], $summaryKey]);
             $exists = $existsStmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$exists) {
-                $countStmt = $db->prepare("SELECT COUNT(*) as cnt FROM documents WHERE status IN ('submitted', 'in_review')");
+                $countStmt = $db->prepare("SELECT COUNT(*) as cnt FROM documents WHERE status IN (BINARY 'submitted', BINARY 'in_review')");
                 $countStmt->execute();
                 $pendingDocuments = (int) $countStmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
                 if ($pendingDocuments > 0) {
                     $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, reference_id, reference_type, is_read, created_at)
-                        VALUES (?, 'admin', 'system', ?, ?, ?, ?, 0, NOW())");
+                        VALUES (?, BINARY 'admin', BINARY 'system', ?, ?, ?, BINARY 'admin_pending_summary', 0, NOW())");
                     $insertStmt->execute([
                         $user['id'],
                         'Pending Documents Summary',
@@ -505,8 +496,8 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
             FROM events e
             LEFT JOIN notifications n ON n.related_event_id = e.id
                 AND n.recipient_id = ?
-                AND n.recipient_role = ?
-                AND n.reference_type = 'event_reminder'
+                AND n.recipient_role = BINARY ?
+                AND n.reference_type = BINARY 'event_reminder'
                 AND n.created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
             WHERE e.approved = 1
             AND CONCAT(e.event_date, ' ', COALESCE(e.event_time, '00:00:00')) BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 1 DAY)
@@ -517,7 +508,7 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
 
         while ($event = $eventStmt->fetch(PDO::FETCH_ASSOC)) {
             $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_event_id, reference_type, is_read, created_at)
-                VALUES (?, ?, 'event', ?, ?, ?, ?, 0, NOW())");
+                VALUES (?, ?, BINARY 'event', ?, ?, ?, BINARY 'event_reminder', 0, NOW())");
             $insertStmt->execute([
                 $user['id'],
                 $user['role'],
@@ -533,11 +524,11 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
             FROM events e
             LEFT JOIN notifications n ON n.related_event_id = e.id
                 AND n.recipient_id = e.created_by
-                AND n.recipient_role = e.created_by_role
-                AND n.reference_type IN ('event_status_approved', 'event_status_disapproved')
+                AND n.recipient_role = BINARY e.created_by_role
+                AND n.reference_type IN (BINARY 'event_status_approved', BINARY 'event_status_disapproved')
                 AND n.created_at > DATE_SUB(NOW(), INTERVAL 3 DAY)
-            WHERE e.created_by = ?
-            AND e.created_by_role = ?
+            WHERE e.created_by = BINARY ?
+            AND e.created_by_role = BINARY ?
             AND e.approved_at IS NOT NULL
             AND e.approved_at > ?
             AND n.id IS NULL
@@ -548,7 +539,7 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
         while ($event = $eventStatusStmt->fetch(PDO::FETCH_ASSOC)) {
             $approved = ((int) $event['approved'] === 1);
             $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_event_id, reference_type, is_read, created_at)
-                VALUES (?, ?, 'event', ?, ?, ?, ?, 0, NOW())");
+                VALUES (?, ?, BINARY 'event', ?, ?, ?, ?, 0, NOW())");
             $insertStmt->execute([
                 $user['id'],
                 $user['role'],

@@ -333,13 +333,13 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
             }
 
             // Check if employee has any assigned pending steps
-            $checkAssigned = $db->prepare("SELECT COUNT(*) as count FROM document_steps WHERE assigned_to_employee_id = ? AND status = 'pending'");
+            $checkAssigned = $db->prepare("SELECT COUNT(*) as count FROM document_steps WHERE assigned_to_employee_id COLLATE utf8mb4_unicode_ci = ? AND status COLLATE utf8mb4_unicode_ci = 'pending'");
             $checkAssigned->execute([$user['id']]);
             $assignedCount = (int) $checkAssigned->fetch(PDO::FETCH_ASSOC)['count'];
             $debugLogs[] = "Employee {$user['id']} has $assignedCount assigned pending document steps";
 
             // Check if employee has any assigned pending pubmat steps
-            $checkPubmatAssigned = $db->prepare("SELECT COUNT(*) as count FROM materials_steps WHERE assigned_to_employee_id = ? AND status = 'pending'");
+            $checkPubmatAssigned = $db->prepare("SELECT COUNT(*) as count FROM materials_steps WHERE assigned_to_employee_id COLLATE utf8mb4_unicode_ci = ? AND status COLLATE utf8mb4_unicode_ci = 'pending'");
             $checkPubmatAssigned->execute([$user['id']]);
             $pubmatAssignedCount = (int) $checkPubmatAssigned->fetch(PDO::FETCH_ASSOC)['count'];
             $debugLogs[] = "Employee {$user['id']} has $pubmatAssignedCount assigned pending pubmat steps";
@@ -350,18 +350,18 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
                     FROM documents d
                     JOIN document_steps ds ON d.id = ds.document_id
                     LEFT JOIN notifications n ON n.related_document_id = d.id
-                        AND n.recipient_id = ds.assigned_to_employee_id
-                        AND n.recipient_role = 'employee'
+                        AND n.recipient_id COLLATE utf8mb4_unicode_ci = ds.assigned_to_employee_id COLLATE utf8mb4_unicode_ci
+                        AND n.recipient_role COLLATE utf8mb4_unicode_ci = ?
                         AND n.created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
-                        AND n.reference_type = 'employee_document_pending'
-                    WHERE ds.assigned_to_employee_id = ?
-                    AND ds.status = 'pending'
-                    AND d.status NOT IN ('approved', 'rejected', 'cancelled')
+                        AND n.reference_type COLLATE utf8mb4_unicode_ci = 'employee_document_pending'
+                    WHERE ds.assigned_to_employee_id COLLATE utf8mb4_unicode_ci = ?
+                    AND ds.status COLLATE utf8mb4_unicode_ci = 'pending'
+                    AND d.status COLLATE utf8mb4_unicode_ci NOT IN ('approved', 'rejected', 'cancelled')
                     AND d.updated_at > ?
                     AND n.id IS NULL
                     ORDER BY d.updated_at DESC
                     LIMIT 10");
-                $stmt->execute([$user['id'], $oneDayAgo]);
+                $stmt->execute([$user['role'], $user['id'], $oneDayAgo]);
                 $pendingDocs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 $debugLogs[] = "Employee pending documents query returned " . count($pendingDocs) . " results";
 
@@ -392,18 +392,18 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
                     FROM materials m
                     JOIN materials_steps ms ON m.id = ms.material_id
                     LEFT JOIN notifications n ON n.reference_id = m.id
-                        AND n.recipient_id = ms.assigned_to_employee_id
-                        AND n.recipient_role = 'employee'
+                        AND n.recipient_id COLLATE utf8mb4_unicode_ci = ms.assigned_to_employee_id COLLATE utf8mb4_unicode_ci
+                        AND n.recipient_role COLLATE utf8mb4_unicode_ci = ?
                         AND n.created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
-                        AND n.reference_type = 'employee_material_pending'
-                    WHERE ms.assigned_to_employee_id = ?
-                    AND ms.status = 'pending'
-                    AND m.status = 'pending'
+                        AND n.reference_type COLLATE utf8mb4_unicode_ci = 'employee_material_pending'
+                    WHERE ms.assigned_to_employee_id COLLATE utf8mb4_unicode_ci = ?
+                    AND ms.status COLLATE utf8mb4_unicode_ci = 'pending'
+                    AND m.status COLLATE utf8mb4_unicode_ci = 'pending'
                     AND m.uploaded_at > ?
                     AND n.id IS NULL
                     ORDER BY m.uploaded_at DESC
                     LIMIT 10");
-                $stmt->execute([$user['id'], $oneDayAgo]);
+                $stmt->execute([$user['role'], $user['id'], $oneDayAgo]);
                 $pendingMats = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 $debugLogs[] = "Employee pending pubmats query returned " . count($pendingMats) . " results";
 
@@ -435,16 +435,16 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
                     JOIN documents d ON d.id = dn.document_id
                     JOIN document_steps ds ON ds.document_id = d.id
                     LEFT JOIN notifications n ON n.reference_id = CAST(dn.id AS CHAR)
-                        AND n.recipient_id = ?
-                        AND n.recipient_role = 'employee'
-                        AND n.reference_type IN ('document_comment', 'document_reply')
-                    WHERE ds.assigned_to_employee_id = ?
+                        AND n.recipient_id COLLATE utf8mb4_unicode_ci = ?
+                        AND n.recipient_role COLLATE utf8mb4_unicode_ci = ?
+                        AND n.reference_type COLLATE utf8mb4_unicode_ci IN ('document_comment', 'document_reply')
+                    WHERE ds.assigned_to_employee_id COLLATE utf8mb4_unicode_ci = ?
                     AND dn.created_at > ?
-                    AND NOT (dn.author_id = ? AND dn.author_role = 'employee')
+                    AND NOT (dn.author_id COLLATE utf8mb4_unicode_ci = ? AND dn.author_role COLLATE utf8mb4_unicode_ci = ?)
                     AND n.id IS NULL
                     ORDER BY dn.created_at DESC
                     LIMIT 20");
-                $commentStmt->execute([$user['id'], $user['id'], $oneDayAgo, $user['id']]);
+                $commentStmt->execute([$user['id'], $user['role'], $user['id'], $oneDayAgo, $user['id'], $user['role']]);
                 $comments = $commentStmt->fetchAll(PDO::FETCH_ASSOC);
                 $debugLogs[] = "Employee comments query returned " . count($comments) . " results";
 

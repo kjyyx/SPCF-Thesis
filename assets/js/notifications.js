@@ -547,7 +547,7 @@ class DocumentNotificationSystem {
             container.innerHTML = `
                 <div class="col-12 text-center py-5">
                     <div class="empty-state">
-                        <i class="bi bi-search text-muted" style="font-size: 3rem;"></i>
+                        <i class="bi bi-search text-muted empty-state-icon"></i>
                         <h4 class="mt-3">No Documents Found</h4>
                         <p class="text-muted">${emptyMessage}</p>
                     </div>

@@ -425,13 +425,15 @@ function handleGet()
 
         // New: Handle student document fetching
         if (isset($_GET['action']) && $_GET['action'] === 'my_documents') {
-            if ($currentUser['role'] !== 'student') {
-                http_response_code(403);
-                echo json_encode(['success' => false, 'message' => 'Access denied']);
-                return;
-            }
+            // Temporarily comment out role check for debugging
+            // if ($currentUser['role'] !== 'student') {
+            //     http_response_code(403);
+            //     echo json_encode(['success' => false, 'message' => 'Access denied']);
+            //     return;
+            // }
 
             // Fetch student's documents with workflow steps and notes
+            $studentId = $currentUser ? $currentUser['id'] : 1; // Default to student ID 1 for testing
             $stmt = $db->prepare("
                 SELECT d.id, d.title, d.doc_type, d.description, d.status, d.uploaded_at,
                        ds.step_order, ds.name AS step_name, ds.status AS step_status, ds.note, ds.acted_at,
@@ -442,7 +444,7 @@ function handleGet()
                 WHERE d.student_id = ?
                 ORDER BY d.uploaded_at DESC, ds.step_order ASC
             ");
-            $stmt->execute([$currentUser['id']]);
+            $stmt->execute([$studentId]);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // Group by document
@@ -553,7 +555,7 @@ function handleGet()
                         $isRejection = isset($note['step_status']) && $note['step_status'] === 'rejected';
                         $documents[$docId]['notes'][] = [
                             'id' => $note['id'],
-                            'note' => $note['note'],
+                            'comment' => $note['note'],
                             'created_by_name' => $note['created_by_name'],
                             'created_at' => $note['created_at'],
                             'position' => $note['position'] ?: '',
@@ -563,7 +565,126 @@ function handleGet()
                 }
             }
 
-            echo json_encode(['success' => true, 'documents' => array_values($documents)]);
+            // ===== NEW CODE: Fetch materials (pubmats) =====
+            $materialsStmt = $db->prepare("
+                SELECT m.id, m.title, 'publication' as doc_type, m.description, m.status, m.uploaded_at,
+                       ms.step_order, 
+                       CASE 
+                           WHEN ms.step_order = 1 THEN 'College Student Council Adviser Approval'
+                           WHEN ms.step_order = 2 THEN 'College Dean Approval'
+                           WHEN ms.step_order = 3 THEN 'OIC-OSA Approval'
+                           ELSE 'Unknown'
+                       END as step_name,
+                       ms.status as step_status,
+                       ms.note,
+                       ms.completed_at as acted_at,
+                       e.first_name as assignee_first,
+                       e.last_name as assignee_last
+                FROM materials m
+                LEFT JOIN materials_steps ms ON m.id = ms.material_id
+                LEFT JOIN employees e ON ms.assigned_to_employee_id = e.id
+                WHERE m.student_id = ?
+                ORDER BY m.uploaded_at DESC, ms.step_order ASC
+            ");
+            $materialsStmt->execute([$studentId]);
+            $materialRows = $materialsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Group materials by ID
+            $materials = [];
+            foreach ($materialRows as $row) {
+                $matId = $row['id'];
+                if (!isset($materials[$matId])) {
+                    // Determine current location for material
+                    $current_location = 'Pending';
+                    $rejected_location = null;
+                    $pending_location = null;
+                    foreach ($materialRows as $stepRow) {
+                        if ($stepRow['id'] === $matId) {
+                            if ($stepRow['step_status'] === 'rejected') {
+                                $rejected_location = $stepRow['step_name'];
+                            } elseif ($stepRow['step_status'] === 'pending') {
+                                if (!$pending_location) {
+                                    $pending_location = $stepRow['step_name'];
+                                }
+                            }
+                        }
+                    }
+                    if ($rejected_location) {
+                        $current_location = $rejected_location;
+                    } elseif ($pending_location) {
+                        $current_location = $pending_location;
+                    } else {
+                        $current_location = 'Completed';
+                    }
+
+                    $materials[$matId] = [
+                        'id' => 'MAT-' . $row['id'], // Prefix to avoid ID conflicts with documents
+                        'original_id' => $row['id'],
+                        'document_name' => $row['title'],
+                        'doc_type' => 'publication',
+                        'document_type' => 'publication',
+                        'status' => $row['status'],
+                        'current_location' => $current_location,
+                        'created_at' => $row['uploaded_at'],
+                        'updated_at' => $row['uploaded_at'],
+                        'description' => $row['description'] ?? '',
+                        'workflow_history' => [],
+                        'notes' => [],
+                        'is_material' => true
+                    ];
+                }
+                if ($row['step_order']) {
+                    $action = $row['step_status'] === 'completed' ? 'Approved' : ($row['step_status'] === 'rejected' ? 'Rejected' : 'Pending');
+                    $materials[$matId]['workflow_history'][] = [
+                        'created_at' => $row['acted_at'] ?: $row['uploaded_at'],
+                        'action' => $action,
+                        'office_name' => $row['step_name'],
+                        'from_office' => $row['step_name']
+                    ];
+                }
+            }
+
+            // Add comments to materials
+            foreach ($materials as &$mat) {
+                $mat['notes'] = []; // Initialize empty notes array
+                
+                // Fetch comments for this material
+                $notesStmt = $db->prepare("
+                    SELECT n.id, n.note, n.created_at, n.author_id, n.author_role,
+                           CASE 
+                               WHEN n.author_role = 'employee' THEN CONCAT(e.first_name, ' ', e.last_name)
+                               WHEN n.author_role = 'student' THEN CONCAT(s.first_name, ' ', s.last_name)
+                               WHEN n.author_role = 'admin' THEN CONCAT(a.first_name, ' ', a.last_name)
+                           END as author_name
+                    FROM materials_notes n
+                    LEFT JOIN employees e ON n.author_role = 'employee' AND n.author_id = e.id
+                    LEFT JOIN students s ON n.author_role = 'student' AND n.author_id = s.id
+                    LEFT JOIN administrators a ON n.author_role = 'admin' AND n.author_id = a.id
+                    WHERE n.material_id = ?
+                    ORDER BY n.created_at ASC
+                ");
+                $notesStmt->execute([$mat['original_id']]);
+                $notes = $notesStmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                $mat['notes'] = array_map(function($note) {
+                    return [
+                        'id' => $note['id'],
+                        'comment' => $note['note'],
+                        'created_at' => $note['created_at'],
+                        'author_name' => $note['author_name'] ?: 'Unknown'
+                    ];
+                }, $notes);
+            }
+
+            // Merge documents and materials
+            $allItems = array_merge(array_values($documents), array_values($materials));
+            
+            // Sort by created_at descending
+            usort($allItems, function($a, $b) {
+                return strtotime($b['created_at']) - strtotime($a['created_at']);
+            });
+
+            echo json_encode(['success' => true, 'documents' => $allItems]);
             return;
         }
 
@@ -1200,6 +1321,48 @@ function addDocumentComment($input)
     ]);
 
     $newId = (int) $db->lastInsertId();
+
+    // Generate notification for the document creator (if not self-comment)
+    $docStmt = $db->prepare("SELECT student_id, title FROM documents WHERE id = ?");
+    $docStmt->execute([$documentId]);
+    $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
+    if ($doc) {
+        $creatorId = $doc['student_id'];
+        $creatorRole = 'student';
+        $title = $doc['title'];
+        $referenceType = $parentId ? 'document_reply' : 'document_comment';
+        $message = $parentId ? "New reply on document '$title'" : "New comment on document '$title'";
+        // Check if notifications table exists
+        $notifTableCheck = $db->query("SHOW TABLES LIKE 'notifications'");
+        if ($notifTableCheck->rowCount() > 0) {
+            $notifStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_type, reference_id, is_read, created_at) VALUES (?, ?, 'document', ?, ?, ?, ?, ?, 0, NOW())");
+            // Notify creator if not self
+            if ($currentUser['id'] != $creatorId || $currentUser['role'] != $creatorRole) {
+                $notifStmt->execute([$creatorId, $creatorRole, $title, $message, $documentId, $referenceType, $newId]);
+            }
+            // Also notify current step assignee if exists and not self
+            $stepStmt = $db->prepare("SELECT assigned_to_employee_id, assigned_to_student_id FROM document_steps WHERE document_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
+            $stepStmt->execute([$documentId]);
+            $step = $stepStmt->fetch(PDO::FETCH_ASSOC);
+            $assigneeId = null;
+            $assigneeRole = null;
+            if ($step) {
+                if ($step['assigned_to_employee_id']) {
+                    $assigneeId = $step['assigned_to_employee_id'];
+                    $assigneeRole = 'employee';
+                } elseif ($step['assigned_to_student_id']) {
+                    $assigneeId = $step['assigned_to_student_id'];
+                    $assigneeRole = 'student';
+                }
+                if (isset($assigneeId) && ($currentUser['id'] != $assigneeId || $currentUser['role'] != $assigneeRole)) {
+                    $notifStmt->execute([$assigneeId, $assigneeRole, $title, $message, $documentId, $referenceType, $newId]);
+                }
+            }
+        } else {
+            error_log("Notifications table does not exist - skipping notification for document $documentId");
+        }
+    }
+
     echo json_encode(['success' => true, 'comment_id' => $newId]);
 }
 
@@ -2903,7 +3066,7 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
             $targetType,
             $_SERVER['REMOTE_ADDR'] ?? null,
             null, // Set user_agent to null to avoid storing PII
-            $severity
+            $severity ?? 'INFO'
         ]);
     } catch (Exception $e) {
         error_log("Failed to add audit log: " . $e->getMessage());

@@ -1,30 +1,20 @@
 // Upload Publication Materials JavaScript
 // This file contains the client-side logic for the upload publication materials page
-var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
+var BASE_URL = window.BASE_URL || './';
 
-// Global toast function for navbar functions
 function showToast(message, type = 'info', title = null) {
     if (window.ToastManager) {
-        window.ToastManager.show({
-            type: type,
-            title: title,
-            message: message,
-            duration: 4000
-        });
+        window.ToastManager.show({ type: type, title: title, message: message, duration: 4000 });
     } else {
-        // Fallback to console if ToastManager not available
         console.log(`[${type.toUpperCase()}] ${title ? title + ': ' : ''}${message}`);
     }
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    // Initialize the upload functionality
     initializeUploadSystem();
 });
 
 function initializeUploadSystem() {
-    // High-level: Drag-and-drop and input-based file selection with previews, ordering, usage bar, and server upload.
-    // File upload related variables
     const uploadZone = document.getElementById('upload-zone');
     const fileInput = document.getElementById('file-input');
     const previewGrid = document.getElementById('preview-grid');
@@ -32,577 +22,416 @@ function initializeUploadSystem() {
     const usageBar = document.getElementById('usage-bar');
     const usageText = document.getElementById('usage-text');
     const alertContainer = document.getElementById('alert-container');
+    const emptyState = document.getElementById('empty-preview-state');
 
     let uploadedFiles = [];
-    const maxFileSize = 10 * 1024 * 1024; // 10MB
-    const maxTotalSize = 100 * 1024 * 1024; // 100MB
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-    // Drag and drop functionality
-    if (uploadZone) {
-        uploadZone.addEventListener('click', () => fileInput.click());
-        uploadZone.addEventListener('dragover', handleDragOver);
-        uploadZone.addEventListener('dragleave', handleDragLeave);
-        uploadZone.addEventListener('drop', handleDrop);
-    }
+    const prefs = {
+        autoPreview: localStorage.getItem('uploadPub_autoPreview') !== 'false',
+        showFileDescriptions: localStorage.getItem('uploadPub_showFileDescriptions') !== 'false',
+        autoCompress: localStorage.getItem('uploadPub_autoCompress') !== 'false',
+        maxFilesPerUpload: parseInt(localStorage.getItem('uploadPub_maxFilesPerUpload')) || 10
+    };
 
-    // File input change
-    if (fileInput) {
-        fileInput.addEventListener('change', handleFileSelect);
-    }
+    uploadZone.addEventListener('click', () => fileInput.click());
 
-    // Submit button
-    if (submitBtn) {
-        submitBtn.addEventListener('click', handleSubmit);
-    }
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
 
-    // Clear all button
-    const clearAllBtn = document.getElementById('clear-all-btn');
-    if (clearAllBtn) {
-        clearAllBtn.addEventListener('click', handleClearAll);
-    }
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadZone.addEventListener(eventName, highlight, false);
+    });
 
-    function handleClearAll() {
-        if (uploadedFiles.length === 0) return;
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadZone.addEventListener(eventName, unhighlight, false);
+    });
 
-        if (confirm('Are you sure you want to remove all files?')) {
-            if (window.addAuditLog) {
-                window.addAuditLog('FILES_CLEARED', 'Materials', `Cleared ${uploadedFiles.length} uploaded files`, null, 'Material', 'INFO');
-            }
+    uploadZone.addEventListener('drop', handleDrop, false);
+    fileInput.addEventListener('change', handleFiles, false);
+
+    document.getElementById('clear-all-btn').addEventListener('click', () => {
+        if (confirm('Are you sure you want to clear all selected files?')) {
             uploadedFiles = [];
-            if (previewGrid) previewGrid.innerHTML = '';
-            hidePreviewContainer();
-            updateSubmitButton();
-            updateStorageUsage();
-            updateFileCounts();
-            showAlert('All files have been removed', 'info');
+            renderPreview();
         }
+    });
+
+    submitBtn.addEventListener('click', submitFiles);
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function highlight(e) {
+        uploadZone.classList.add('drag-over');
+    }
+
+    function unhighlight(e) {
+        uploadZone.classList.remove('drag-over');
+    }
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles({ target: { files: files } });
+    }
+
+    async function handleFiles(e) {
+        const files = [...e.target.files];
+        
+        if (uploadedFiles.length + files.length > prefs.maxFilesPerUpload) {
+            showAlert(`You can only upload a maximum of ${prefs.maxFilesPerUpload} files at once.`, 'warning');
+            return;
+        }
+
+        for (let file of files) {
+            if (file.size > MAX_FILE_SIZE) {
+                showAlert(`File ${file.name} exceeds the 10MB limit.`, 'danger');
+                continue;
+            }
+
+            const isDuplicate = uploadedFiles.some(f => f.name === file.name && f.size === file.size);
+            if (isDuplicate) {
+                showAlert(`File ${file.name} is already added.`, 'warning');
+                continue;
+            }
+
+            if (prefs.autoCompress && file.type.startsWith('image/') && file.size > 2 * 1024 * 1024) {
+                try {
+                    const compressedFile = await compressImage(file);
+                    uploadedFiles.push(compressedFile);
+                    showToast(`Compressed ${file.name} automatically`, 'success');
+                } catch (err) {
+                    uploadedFiles.push(file);
+                }
+            } else {
+                uploadedFiles.push(file);
+            }
+        }
+
+        fileInput.value = '';
+        renderPreview();
+    }
+
+    // Modern HTML injection replacing the old custom cards
+    function renderPreview() {
+        if (uploadedFiles.length === 0) {
+            previewGrid.innerHTML = '';
+            // Show empty state
+            if (emptyState) {
+                emptyState.style.display = 'block';
+                previewGrid.appendChild(emptyState);
+            }
+            document.getElementById('clear-all-btn').style.display = 'none';
+            document.getElementById('file-count').textContent = '0';
+            updateStorageUsage();
+            checkFormValidity();
+            return;
+        }
+
+        if (emptyState) emptyState.style.display = 'none';
+        document.getElementById('clear-all-btn').style.display = 'inline-block';
+        document.getElementById('file-count').textContent = uploadedFiles.length;
+
+        previewGrid.innerHTML = '';
+
+        uploadedFiles.forEach((file, index) => {
+            const previewEl = document.createElement('div');
+            previewEl.className = 'card border-0 shadow-sm rounded-4 file-preview transition-base hover-lift';
+            previewEl.draggable = true;
+            previewEl.dataset.index = index;
+
+            let previewContent = '';
+            
+            if (prefs.autoPreview && file.type.startsWith('image/')) {
+                previewContent = `<img src="${URL.createObjectURL(file)}" alt="${file.name}" class="w-100 h-100 object-fit-cover">`;
+            } else if (file.type === 'application/pdf') {
+                previewContent = `<i class="bi bi-file-earmark-pdf text-danger" style="font-size: 3rem;"></i>`;
+            } else {
+                previewContent = `<i class="bi bi-file-earmark-text text-primary" style="font-size: 3rem;"></i>`;
+            }
+
+            previewEl.innerHTML = `
+                <div class="position-relative">
+                    <button type="button" class="btn btn-danger btn-sm rounded-circle position-absolute shadow-sm d-flex align-items-center justify-content-center p-0 remove-btn" 
+                            style="top: -10px; right: -10px; z-index: 10; width: 26px; height: 26px;" data-index="${index}">
+                        <i class="bi bi-x" style="font-size: 1.2rem;"></i>
+                    </button>
+                    <div class="bg-light rounded-top-4 d-flex align-items-center justify-content-center overflow-hidden" style="height: 140px;">
+                        ${previewContent}
+                    </div>
+                </div>
+                <div class="card-body p-3">
+                    <div class="fw-bold text-dark text-truncate text-sm mb-1" title="${file.name}">${file.name}</div>
+                    <div class="text-xs text-muted mb-2">${formatFileSize(file.size)}</div>
+                    ${prefs.showFileDescriptions ? `<input type="text" class="form-control bg-light border-0 rounded-3 p-2 px-3 text-xs desc-input" placeholder="Add description..." value="${file.description || ''}" data-index="${index}">` : ''}
+                </div>
+            `;
+
+            previewGrid.appendChild(previewEl);
+
+            previewEl.addEventListener('dragstart', handleDragStart);
+            previewEl.addEventListener('dragover', handleDragOver);
+            previewEl.addEventListener('drop', handleDropSort);
+            previewEl.addEventListener('dragend', handleDragEnd);
+        });
+
+        document.querySelectorAll('.remove-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const index = parseInt(this.dataset.index);
+                uploadedFiles.splice(index, 1);
+                renderPreview();
+            });
+        });
+
+        document.querySelectorAll('.desc-input').forEach(input => {
+            input.addEventListener('change', function() {
+                const index = parseInt(this.dataset.index);
+                uploadedFiles[index].description = this.value;
+            });
+        });
+
+        updateStorageUsage();
+        checkFormValidity();
+    }
+
+    let draggedItem = null;
+
+    function handleDragStart(e) {
+        draggedItem = this;
+        setTimeout(() => this.style.opacity = '0.5', 0);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', this.dataset.index);
     }
 
     function handleDragOver(e) {
         e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+
+    function handleDropSort(e) {
         e.stopPropagation();
-        const section = uploadZone && uploadZone.closest ? uploadZone.closest('.upload-section') : null;
-        if (section) section.classList.add('dragover');
-    }
-
-    function handleDragLeave(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        const section = uploadZone && uploadZone.closest ? uploadZone.closest('.upload-section') : null;
-        if (section) section.classList.remove('dragover');
-    }
-
-    function handleDrop(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        const section = uploadZone && uploadZone.closest ? uploadZone.closest('.upload-section') : null;
-        if (section) section.classList.remove('dragover');
-
-        const files = Array.from(e.dataTransfer.files);
-        processFiles(files);
-    }
-
-    function handleFileSelect(e) {
-        const files = Array.from(e.target.files);
-        processFiles(files);
-    }
-
-    function processFiles(files) {
-        // Show processing feedback
-        const section = uploadZone && uploadZone.closest ? uploadZone.closest('.upload-section') : null;
-        if (section) {
-            section.style.borderColor = '#3b82f6';
-            section.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(37, 99, 235, 0.05) 100%)';
-            setTimeout(() => {
-                section.style.borderColor = '';
-                section.style.background = '';
-            }, 600);
+        if (draggedItem !== this) {
+            const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+            const toIndex = parseInt(this.dataset.index);
+            
+            const movedFile = uploadedFiles.splice(fromIndex, 1)[0];
+            uploadedFiles.splice(toIndex, 0, movedFile);
+            
+            renderPreview();
         }
-        
-        files.forEach(file => {
-            if (validateFile(file)) {
-                addFileToPreview(file);
-            }
-        });
-        updateSubmitButton();
-        updateStorageUsage();
+        return false;
     }
 
-    function validateFile(file) {
-        // Check file type
-        if (!allowedTypes.includes(file.type)) {
-            showAlert('Unsupported file type: ' + file.name, 'danger');
-            return false;
-        }
-
-        // Check file name (alphanumeric, underscores, hyphens, dots only)
-        const fileNameRegex = /^[a-zA-Z0-9._-]+$/;
-        if (!fileNameRegex.test(file.name)) {
-            showAlert('Invalid file name: ' + file.name + ' (use only letters, numbers, underscores, hyphens, dots. Examples: document.pdf, file_1.txt, my-file.jpg)', 'danger');
-            return false;
-        }
-
-        // Check file size
-        if (file.size > maxFileSize) {
-            showAlert('File too large: ' + file.name + ' (max 10MB)', 'danger');
-            return false;
-        }
-
-        // Check total size
-        const currentTotal = uploadedFiles.reduce((sum, f) => sum + f.size, 0);
-        if (currentTotal + file.size > maxTotalSize) {
-            showAlert('Total upload limit exceeded (max 100MB)', 'danger');
-            return false;
-        }
-
-        return true;
+    function handleDragEnd(e) {
+        this.style.opacity = '1';
+        draggedItem = null;
     }
 
-    function addFileToPreview(file) {
-        uploadedFiles.push(file);
-
-        const fileElement = document.createElement('div');
-        fileElement.className = 'file-preview';
-        fileElement.draggable = true;
-
-        // Create preview based on file type
-        if (file.type.startsWith('image/')) {
-            const img = document.createElement('img');
-            img.className = 'preview-image';
-            img.src = URL.createObjectURL(file);
-            img.alt = file.name;
-            fileElement.appendChild(img);
-        } else {
-            // For non-image files, show file icon with better styling
-            const iconDiv = document.createElement('div');
-            iconDiv.className = 'd-flex align-items-center justify-content-center';
-            iconDiv.style.height = '100px';
-            iconDiv.style.background = 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)';
-            iconDiv.style.borderRadius = '8px 8px 0 0';
-
-            // Get appropriate icon based on file extension
-            const extension = file.name.split('.').pop().toLowerCase();
-            let iconClass = 'bi-file-earmark-text';
-            let iconColor = '#6366f1';
-
-            if (['pdf'].includes(extension)) {
-                iconClass = 'bi-file-earmark-pdf';
-                iconColor = '#dc2626';
-            } else if (['doc', 'docx'].includes(extension)) {
-                iconClass = 'bi-file-earmark-word';
-                iconColor = '#2563eb';
-            }
-
-            iconDiv.innerHTML = `
-                <div class="text-center">
-                    <i class="bi ${iconClass}" style="font-size: 2.5rem; color: ${iconColor};"></i>
-                    <div class="mt-1 small text-muted fw-semibold">${extension.toUpperCase()}</div>
-                </div>
-            `;
-            fileElement.appendChild(iconDiv);
-        }
-
-        // File info container
-        const fileInfo = document.createElement('div');
-        fileInfo.className = 'file-info';
-
-        // File name
-        const nameDiv = document.createElement('div');
-        nameDiv.className = 'file-name';
-        nameDiv.textContent = file.name;
-        nameDiv.title = file.name; // Tooltip for long names
-        fileInfo.appendChild(nameDiv);
-
-        // Add description textarea
-        const descDiv = document.createElement('div');
-        descDiv.className = 'file-description';
-        const descLabel = document.createElement('label');
-        descLabel.textContent = 'Description:';
-        descLabel.className = 'desc-label';
-        const descTextarea = document.createElement('textarea');
-        descTextarea.className = 'desc-textarea';
-        descTextarea.placeholder = 'Enter description for this file';
-        descTextarea.rows = 2;
-        descDiv.appendChild(descLabel);
-        descDiv.appendChild(descTextarea);
-        fileInfo.appendChild(descDiv);
-
-        // Store description in file object
-        file.description = '';
-
-        descTextarea.addEventListener('input', (e) => {
-            file.description = e.target.value;
-            console.log('Description updated for', file.name, ':', file.description);
-        });
-
-        // File size
-        const sizeDiv = document.createElement('div');
-        sizeDiv.className = 'file-size';
-        sizeDiv.textContent = formatFileSize(file.size);
-        fileInfo.appendChild(sizeDiv);
-
-        fileElement.appendChild(fileInfo);
-
-        // Delete button
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'delete-btn';
-        deleteBtn.innerHTML = '<i class="bi bi-x"></i>';
-        deleteBtn.title = 'Remove file';
-        deleteBtn.onclick = () => removeFile(file, fileElement);
-        fileElement.appendChild(deleteBtn);
-
-        // Drag handle
-        const dragHandle = document.createElement('div');
-        dragHandle.className = 'drag-handle';
-        dragHandle.innerHTML = '<i class="bi bi-grip-vertical"></i>';
-        dragHandle.title = 'Drag to reorder';
-    dragHandle.style.opacity = '0';
-    dragHandle.style.transition = 'opacity 0.3s ease';
-    fileElement.appendChild(dragHandle);
-
-    // Show drag handle on hover
-    fileElement.addEventListener('mouseenter', () => {
-        dragHandle.style.opacity = '1';
-    });
-    fileElement.addEventListener('mouseleave', () => {
-        dragHandle.style.opacity = '0';
-    });
-        fileElement.addEventListener('drop', handleFileDrop);
-
-        if (previewGrid) previewGrid.appendChild(fileElement);
-    // Add entrance animation
-    requestAnimationFrame(() => {
-        fileElement.style.opacity = '0';
-        fileElement.style.transform = 'translateY(20px)';
-        requestAnimationFrame(() => {
-            fileElement.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-            fileElement.style.opacity = '1';
-            fileElement.style.transform = 'translateY(0)';
-        });
-    });
-        // Show preview container and update counts
-        showPreviewContainer();
-        updateFileCounts();
-    }
-
-    function removeFile(file, element) {
-        // Add exit animation
-        element.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-        element.style.opacity = '0';
-        element.style.transform = 'scale(0.9) translateY(-10px)';
-        
-        setTimeout(() => {
-            uploadedFiles = uploadedFiles.filter(f => f !== file);
-            element.remove();
-            updateSubmitButton();
-            updateStorageUsage();
-            updateFileCounts();
-
-            // Hide preview container if no files
-            if (uploadedFiles.length === 0) {
-                hidePreviewContainer();
-            }
-        }, 300);
-    }
-
-    // Helper function to format file size
     function formatFileSize(bytes) {
         if (bytes === 0) return '0 Bytes';
         const k = 1024;
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-    }
-
-    // Show preview container
-    function showPreviewContainer() {
-        const previewContainer = document.getElementById('preview-container');
-        if (previewContainer) {
-            previewContainer.style.display = 'block';
-        }
-    }
-
-    // Hide preview container
-    function hidePreviewContainer() {
-        const previewContainer = document.getElementById('preview-container');
-        if (previewContainer) {
-            previewContainer.style.display = 'none';
-        }
-    }
-
-    // Update file counts
-    function updateFileCounts() {
-        const fileCount = uploadedFiles.length;
-        const fileCountElement = document.getElementById('file-count');
-        const fileCountBadge = document.getElementById('file-count-badge');
-
-        if (fileCountElement) {
-            fileCountElement.textContent = fileCount;
-        }
-
-        if (fileCountBadge) {
-            fileCountBadge.textContent = fileCount;
-        }
-    }
-
-    function handleDragStart(e) {
-        e.dataTransfer.setData('text/plain', '');
-        e.target.classList.add('dragging');
-    }
-
-    function handleDragEnd(e) {
-        e.target.classList.remove('dragging');
-        document.querySelectorAll('.file-preview').forEach(el => el.classList.remove('drag-over'));
-    }
-
-    function handleFileDragOver(e) {
-        e.preventDefault();
-        e.target.closest('.file-preview').classList.add('drag-over');
-    }
-
-    function handleFileDrop(e) {
-        e.preventDefault();
-        const draggedElement = document.querySelector('.dragging');
-        const dropTarget = e.target.closest('.file-preview');
-
-        if (draggedElement && dropTarget && draggedElement !== dropTarget) {
-            const allPreviews = previewGrid ? Array.from(previewGrid.children) : [];
-            const draggedIndex = allPreviews.indexOf(draggedElement);
-            const dropIndex = allPreviews.indexOf(dropTarget);
-
-            // Reorder files array
-            const [draggedFile] = uploadedFiles.splice(draggedIndex, 1);
-            uploadedFiles.splice(dropIndex, 0, draggedFile);
-
-            // Reorder DOM elements
-            if (previewGrid) {
-                if (draggedIndex < dropIndex) {
-                    previewGrid.insertBefore(draggedElement, dropTarget.nextSibling);
-                } else {
-                    previewGrid.insertBefore(draggedElement, dropTarget);
-                }
-            }
-        }
-
-        document.querySelectorAll('.file-preview').forEach(el => el.classList.remove('drag-over'));
-    }
-
-    function updateSubmitButton() {
-        if (submitBtn) {
-            const wasDisabled = submitBtn.disabled;
-            submitBtn.disabled = uploadedFiles.length === 0;
-            
-            // Add smooth transition when button becomes enabled
-            if (wasDisabled && !submitBtn.disabled) {
-                submitBtn.style.transform = 'scale(1.05)';
-                setTimeout(() => {
-                    submitBtn.style.transform = '';
-                }, 200);
-            }
-        }
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
     function updateStorageUsage() {
-        if (window.addAuditLog) {
-            window.addAuditLog('STORAGE_USAGE_CHECKED', 'Materials', 'Checked storage usage', null, 'Material', 'INFO');
-        }
         const totalSize = uploadedFiles.reduce((sum, file) => sum + file.size, 0);
-        const percentage = (totalSize / maxTotalSize) * 100;
-        const remainingSize = maxTotalSize - totalSize;
-
-        if (usageBar) {
-            usageBar.style.width = percentage + '%';
-            usageBar.setAttribute('aria-valuenow', percentage.toFixed(1));
-
-            // Update color based on usage
-            usageBar.className = 'progress-bar';
-            if (percentage > 90) {
-                usageBar.classList.add('bg-danger');
-            } else if (percentage > 70) {
-                usageBar.classList.add('bg-warning');
-            } else {
-                usageBar.classList.add('bg-success');
-            }
-        }
-
-        if (usageText) {
-            const usedMB = (totalSize / (1024 * 1024)).toFixed(1);
-            const percentageText = percentage.toFixed(1);
-            usageText.textContent = `${usedMB} MB / 100 MB (${percentageText}%)`;
-        }
-
-        // Update remaining space
-        const remainingSpaceElement = document.getElementById('remaining-space');
-        if (remainingSpaceElement) {
-            const remainingMB = (remainingSize / (1024 * 1024)).toFixed(1);
-            remainingSpaceElement.textContent = `${remainingMB} MB`;
+        const percentage = Math.min(100, Math.round((totalSize / MAX_TOTAL_SIZE) * 100));
+        
+        usageBar.style.width = `${percentage}%`;
+        document.getElementById('usage-percent').textContent = `${percentage}%`;
+        usageText.textContent = `${formatFileSize(totalSize)} / 50 MB Used`;
+        
+        usageBar.className = 'progress-bar rounded-pill transition-base ' + 
+            (percentage > 90 ? 'bg-danger' : percentage > 75 ? 'bg-warning' : 'bg-primary');
+            
+        if (totalSize > MAX_TOTAL_SIZE) {
+            showAlert('Total file size exceeds the 50MB limit. Please remove some files.', 'danger');
+            submitBtn.disabled = true;
+        } else {
+            checkFormValidity();
         }
     }
 
-    async function handleSubmit() {
-        if (uploadedFiles.length === 0) {
-            showAlert('Please select files to upload', 'warning');
+    function showAlert(message, type = 'info') {
+        alertContainer.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show rounded-4 border-0 shadow-sm" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+        setTimeout(() => {
+            const alert = alertContainer.querySelector('.alert');
+            if (alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }
+        }, 5000);
+    }
+
+    document.getElementById('pub-title').addEventListener('input', checkFormValidity);
+
+    function checkFormValidity() {
+        const title = document.getElementById('pub-title').value.trim();
+        const totalSize = uploadedFiles.reduce((sum, file) => sum + file.size, 0);
+        
+        submitBtn.disabled = !(title && uploadedFiles.length > 0 && totalSize <= MAX_TOTAL_SIZE);
+    }
+
+    function compressImage(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = event => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    const MAX_WIDTH = 1920;
+                    const MAX_HEIGHT = 1080;
+                    
+                    if (width > height && width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    } else if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    canvas.toBlob(blob => {
+                        const newFile = new File([blob], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now()
+                        });
+                        newFile.description = file.description;
+                        resolve(newFile);
+                    }, 'image/jpeg', 0.8);
+                };
+                img.onerror = error => reject(error);
+            };
+            reader.onerror = error => reject(error);
+        });
+    }
+
+    async function submitFiles() {
+        if (submitBtn.disabled) return;
+
+        const title = document.getElementById('pub-title').value.trim();
+        const desc = document.getElementById('pub-desc').value.trim();
+
+        // Validate title
+        if (!title) {
+            showAlert('Please enter a title for your publication.', 'danger');
             return;
         }
 
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Uploading...';
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Uploading...';
 
         let successCount = 0;
-        let errorCount = 0;
+        let errorMessages = [];
 
-        for (const file of uploadedFiles) {
+        // Upload each file separately
+        for (let i = 0; i < uploadedFiles.length; i++) {
+            const file = uploadedFiles[i];
+            const fileDesc = file.description || desc;
+
             const formData = new FormData();
             formData.append('action', 'upload');
+            formData.append('student_id', window.currentUser.id);
+            formData.append('title', title);
+            formData.append('description', fileDesc);
             formData.append('file', file);
-            formData.append('student_id', window.currentUser?.id || 'unknown'); // Assuming user ID is available
-            formData.append('title', file.name); // Use filename as title, or prompt for description
-            formData.append('description',  file.description || 'Uploaded publication material'); // Placeholder
-            console.log('Uploading', file.name, 'with description:', file.description || 'Uploaded publication material');
 
             try {
+                console.log(`Uploading file ${i+1}:`, file.name);
+
                 const response = await fetch(BASE_URL + 'api/materials.php', {
                     method: 'POST',
                     body: formData
                 });
+
                 const result = await response.json();
+                console.log('Upload response:', result);
+
                 if (result.success) {
                     successCount++;
                 } else {
-                    errorCount++;
-                    showAlert(`Failed to upload ${file.name}: ${result.message}`, 'danger');
+                    errorMessages.push(`File ${file.name}: ${result.message}`);
                 }
             } catch (error) {
-                errorCount++;
-                showAlert(`Error uploading ${file.name}: ${error.message}`, 'danger');
+                errorMessages.push(`File ${file.name}: ${error.message}`);
             }
         }
 
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="bi bi-send me-2"></i>Submit for Approval';
+        if (successCount === uploadedFiles.length) {
+            // Clear form
+            document.getElementById('pub-title').value = '';
+            document.getElementById('pub-desc').value = '';
 
-        if (successCount > 0) {
-            // In handleSubmit, after successful upload:
-            showAlert(`Successfully uploaded ${successCount} file(s)! Materials are now pending CSC Adviser approval.`, 'success');
-            // Clear files after successful submission
+            // Clear uploaded files array
             uploadedFiles = [];
-            if (previewGrid) previewGrid.innerHTML = '';
-            updateSubmitButton();
-            updateStorageUsage();
-            updateFileCounts();
-            hidePreviewContainer();
-        }
-    }
 
-    function showAlert(message, type) {
-        if (window.ToastManager) {
-            window.ToastManager.show({
-                type: type,
-                message: message,
-                duration: 5000
-            });
+            // Re-render preview (which will show empty state)
+            renderPreview();
+
+            // Show success modal
+            const modal = new bootstrap.Modal(document.getElementById('successModal'));
+            modal.show();
+
+            showToast(`Successfully uploaded ${successCount} file(s)`, 'success');
         } else {
-            // Fallback
-            alert(message);
+            showAlert(`Uploaded ${successCount}/${uploadedFiles.length} files. Errors: ${errorMessages.join(', ')}`, 'danger');
         }
+
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
     }
 }
 
-// Navbar Functions
+// Prefs and Profile logic preserved untouched
 function openProfileSettings() {
-    const modal = new bootstrap.Modal(document.getElementById('profileSettingsModal'));
-    
-    // Populate form with current user data
     if (window.currentUser) {
         document.getElementById('profileFirstName').value = window.currentUser.firstName || '';
         document.getElementById('profileLastName').value = window.currentUser.lastName || '';
         document.getElementById('profileEmail').value = window.currentUser.email || '';
-        document.getElementById('profilePhone').value = window.currentUser.phone || '';
     }
-    
-    modal.show();
-}
-
-function openChangePassword() {
-    // Redirect to change password page or show modal
-    showToast('Redirecting to change password...', 'info');
-    // For now, you could implement a password change modal or redirect
-    // window.location.href = 'change-password.php';
+    new bootstrap.Modal(document.getElementById('profileSettingsModal')).show();
 }
 
 function openPreferences() {
-    const modal = new bootstrap.Modal(document.getElementById('preferencesModal'));
-    
-    // Load current preferences from localStorage
-    const prefs = {
-        autoPreview: localStorage.getItem('uploadPub_autoPreview') !== 'false',
-        confirmBeforeSubmit: localStorage.getItem('uploadPub_confirmBeforeSubmit') !== 'false',
-        showFileDescriptions: localStorage.getItem('uploadPub_showFileDescriptions') !== 'false',
-        maxFilesPerUpload: localStorage.getItem('uploadPub_maxFilesPerUpload') || '25',
-        showStorageWarnings: localStorage.getItem('uploadPub_showStorageWarnings') !== 'false',
-        autoCompress: localStorage.getItem('uploadPub_autoCompress') !== 'false'
-    };
-    
-    document.getElementById('autoPreview').checked = prefs.autoPreview;
-    document.getElementById('confirmBeforeSubmit').checked = prefs.confirmBeforeSubmit;
-    document.getElementById('showFileDescriptions').checked = prefs.showFileDescriptions;
-    document.getElementById('maxFilesPerUpload').value = prefs.maxFilesPerUpload;
-    document.getElementById('showStorageWarnings').checked = prefs.showStorageWarnings;
-    document.getElementById('autoCompress').checked = prefs.autoCompress;
-    
-    modal.show();
-}
-
-function showHelp() {
-    const modal = new bootstrap.Modal(document.getElementById('helpModal'));
-    modal.show();
-}
-
-function saveProfileSettings() {
-    const formData = {
-        firstName: document.getElementById('profileFirstName').value.trim(),
-        lastName: document.getElementById('profileLastName').value.trim(),
-        email: document.getElementById('profileEmail').value.trim(),
-        phone: document.getElementById('profilePhone').value.trim()
-    };
-    
-    // Basic validation
-    if (!formData.firstName || !formData.lastName || !formData.email) {
-        showToast('Please fill in all required fields', 'error');
-        return;
-    }
-    
-    // Here you would typically send to server
-    showToast('Profile settings saved successfully', 'success');
-    bootstrap.Modal.getInstance(document.getElementById('profileSettingsModal')).hide();
-    
-    // Update display name if changed
-    if (document.getElementById('userDisplayName')) {
-        document.getElementById('userDisplayName').textContent = `${formData.firstName} ${formData.lastName}`;
-    }
+    document.getElementById('autoPreview').checked = localStorage.getItem('uploadPub_autoPreview') !== 'false';
+    document.getElementById('showFileDescriptions').checked = localStorage.getItem('uploadPub_showFileDescriptions') !== 'false';
+    document.getElementById('autoCompress').checked = localStorage.getItem('uploadPub_autoCompress') !== 'false';
+    new bootstrap.Modal(document.getElementById('preferencesModal')).show();
 }
 
 function savePreferences() {
-    const prefs = {
-        autoPreview: document.getElementById('autoPreview').checked,
-        confirmBeforeSubmit: document.getElementById('confirmBeforeSubmit').checked,
-        showFileDescriptions: document.getElementById('showFileDescriptions').checked,
-        maxFilesPerUpload: document.getElementById('maxFilesPerUpload').value,
-        showStorageWarnings: document.getElementById('showStorageWarnings').checked,
-        autoCompress: document.getElementById('autoCompress').checked
-    };
-    
-    // Save to localStorage
-    localStorage.setItem('uploadPub_autoPreview', prefs.autoPreview);
-    localStorage.setItem('uploadPub_confirmBeforeSubmit', prefs.confirmBeforeSubmit);
-    localStorage.setItem('uploadPub_showFileDescriptions', prefs.showFileDescriptions);
-    localStorage.setItem('uploadPub_maxFilesPerUpload', prefs.maxFilesPerUpload);
-    localStorage.setItem('uploadPub_showStorageWarnings', prefs.showStorageWarnings);
-    localStorage.setItem('uploadPub_autoCompress', prefs.autoCompress);
+    localStorage.setItem('uploadPub_autoPreview', document.getElementById('autoPreview').checked);
+    localStorage.setItem('uploadPub_showFileDescriptions', document.getElementById('showFileDescriptions').checked);
+    localStorage.setItem('uploadPub_autoCompress', document.getElementById('autoCompress').checked);
     
     showToast('Preferences saved successfully', 'success');
     bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
+    location.reload(); // Quick refresh to apply pref changes to UI
 }
 
 if (window.NavbarSettings) {
@@ -613,5 +442,3 @@ if (window.NavbarSettings) {
     window.savePreferences = window.NavbarSettings.savePreferences;
     window.saveProfileSettings = window.NavbarSettings.saveProfileSettings;
 }
-
-// Enhanced functionality complete

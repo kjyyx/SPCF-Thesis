@@ -6,6 +6,7 @@ var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
 // - Storage is localStorage-only for now (calendarEvents); swap to API-backed data later.
 // - Guard DOM access; the calendar can render even if some elements are absent.
 // - Avoid changing DOM IDs/classes expected by the HTML templates.
+
 /**
  * Calendar Application integrated with University Event Management System
  * Employees can CRUD events, Students can only view
@@ -19,20 +20,18 @@ let events = {};
 let editingEventId = null;
 let currentUser = null; // Declare currentUser globally
 
-// Audit log system (now handled globally)
-
 class CalendarApp {
     constructor() {
         console.log('CalendarApp constructor called');
         console.log('Current user:', currentUser);
-        
+
         this.currentDate = currentDate;
         this.selectedDate = null;
         this.events = events;
         this.searchDebounceTimer = null;
         // Fixed palette for department colors (Bootstrap backgrounds)
-        this.COLOR_CLASSES = ['bg-primary','bg-success','bg-danger','bg-warning','bg-info','bg-secondary','bg-dark'];
-        
+        this.COLOR_CLASSES = ['bg-primary', 'bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'bg-secondary', 'bg-dark'];
+
         this.COLOR_MAP_RGB = {
             'College of Arts and Social Sciences and Education': 'rgb(59, 130, 246)', // Blue
             'College of Computing and Information Sciences': 'rgb(30, 41, 59)', // Blue and Black
@@ -46,29 +45,29 @@ class CalendarApp {
         };
         console.log('Initializing calendar...');
         this.init();
-    this.loadEvents();
+        this.loadEvents();
     }
-    
+
     init() {
         console.log('CalendarApp.init() called');
         console.log('DOM elements check:');
         console.log('- currentMonth:', document.getElementById('currentMonth'));
         console.log('- calendarDays:', document.getElementById('calendarDays'));
         console.log('- userDisplayName:', document.getElementById('userDisplayName'));
-        
+
         this.setupUIBasedOnRole();
         this.bindEvents();
         this.generateCalendar();
         this.updateEventStatistics();
-        
+
         console.log('CalendarApp.init() completed');
     }
-    
+
     setupUIBasedOnRole() {
         const studentInfoCompact = document.getElementById('studentInfoCompact');
         const employeeInfoCompact = document.getElementById('employeeInfoCompact');
         const addEventBtn = document.getElementById('addEventBtn');
-        const approvalsBtn = document.getElementById('approvalsBtn'); // Add Approvals button reference
+        const approvalsBtn = document.getElementById('approvalsBtn');
 
         // Hide all role-specific sections first
         if (studentInfoCompact) studentInfoCompact.style.display = 'none';
@@ -76,67 +75,64 @@ class CalendarApp {
         if (approvalsBtn) approvalsBtn.style.display = 'none'; // Hide by default
 
         if (currentUser.role === 'student') {
-            // Show student info section for all students
             if (studentInfoCompact) studentInfoCompact.style.display = 'flex';
-            // Show Approvals button only for SSC President
             if (approvalsBtn && currentUser.position === 'Supreme Student Council President') {
                 approvalsBtn.style.display = 'inline-flex';
             } else if (approvalsBtn) {
                 approvalsBtn.style.display = 'none';
             }
         } else if (currentUser.role === 'employee') {
-            // Show employee info section for employees
             if (employeeInfoCompact) employeeInfoCompact.style.display = 'flex';
-            // Only PPFO and EVP can add events
             if (addEventBtn && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)')) {
                 addEventBtn.style.display = 'inline-flex';
             }
         } else if (currentUser.role === 'admin') {
-            // Admins don't show either section but can add events
             if (addEventBtn) addEventBtn.style.display = 'inline-flex';
         }
 
         this.updateUserInfo();
     }
-    
+
     updateUserInfo() {
         const userDisplayName = document.getElementById('userDisplayName');
         const userRoleBadge = document.getElementById('userRoleBadge');
-        
+
         if (userDisplayName) {
             userDisplayName.textContent = `${currentUser.firstName} ${currentUser.lastName}`;
         }
-        
+
         if (userRoleBadge) {
             userRoleBadge.textContent = currentUser.role.toUpperCase();
             userRoleBadge.className = `badge ms-2 ${this.getRoleBadgeClass(currentUser.role)}`;
         }
     }
-    
+
     getRoleBadgeClass(role) {
         const classes = {
             'admin': 'bg-danger',
-            'employee': 'bg-primary', 
+            'employee': 'bg-primary',
             'student': 'bg-success'
         };
         return classes[role] || 'bg-secondary';
     }
-    
+
     bindEvents() {
         // Navigation controls
         document.getElementById('prevMonth')?.addEventListener('click', () => this.previousMonth());
         document.getElementById('nextMonth')?.addEventListener('click', () => this.nextMonth());
         document.getElementById('todayBtn')?.addEventListener('click', () => this.goToToday());
-        
-        // View controls
+
+        // View controls (FIXED: Added robust closest target fetching for click events)
         document.querySelectorAll('.view-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const view = (e.currentTarget || e.target).dataset.view;
+                const button = e.currentTarget;
+                if (!button) return;
+                const view = button.dataset.view;
                 this.switchView(view);
             });
         });
-        
-        // Event management (only for PPFO, EVP, and admins)
+
+        // Event management
         if (currentUser.role === 'admin' || (currentUser.role === 'employee' && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)'))) {
             document.getElementById('addEventBtn')?.addEventListener('click', () => this.openEventModal());
             document.getElementById('saveEventBtn')?.addEventListener('click', () => this.saveEvent());
@@ -144,7 +140,7 @@ class CalendarApp {
             document.getElementById('approveBtn')?.addEventListener('click', () => this.approveEvent());
             document.getElementById('disapproveBtn')?.addEventListener('click', () => this.disapproveEvent());
         }
-        
+
         // Search and filter controls
         document.getElementById('eventSearch')?.addEventListener('input', () => {
             if (this.searchDebounceTimer) {
@@ -154,67 +150,59 @@ class CalendarApp {
         });
         document.getElementById('departmentFilter')?.addEventListener('change', () => this.applyFilters());
         document.getElementById('statusFilter')?.addEventListener('change', () => this.applyFilters());
-        
+
         // Export button
         document.getElementById('exportEventsBtn')?.addEventListener('click', () => this.exportEvents());
-        
+
         // Keyboard navigation
         document.addEventListener('keydown', (e) => this.handleKeyboardNavigation(e));
-        
+
         // Event form submission
         document.getElementById('eventForm')?.addEventListener('submit', (e) => this.handleEventFormSubmit(e));
 
-        // Populate departments (units) into the eventDepartment select
+        // Populate departments
         this.populateDepartments();
     }
-    
+
     applyFilters() {
-        const searchTerm = document.getElementById('eventSearch')?.value.toLowerCase() || '';
-        const departmentFilter = document.getElementById('departmentFilter')?.value || '';
-        const statusFilter = document.getElementById('statusFilter')?.value || '';
-        
-        // Get current view and re-render with filters
         const activeView = document.querySelector('.view-btn.active')?.dataset.view || 'month';
         this.switchView(activeView);
     }
-    
+
     getFilteredEvents() {
         const searchTerm = document.getElementById('eventSearch')?.value.toLowerCase() || '';
         const departmentFilter = document.getElementById('departmentFilter')?.value || '';
         const statusFilter = document.getElementById('statusFilter')?.value || '';
-        
+
         const filteredEvents = {};
-        
+
         Object.keys(this.events).forEach(dateStr => {
             const dayEvents = this.events[dateStr].filter(event => {
-                // Search filter
-                const matchesSearch = !searchTerm || 
+                const matchesSearch = !searchTerm ||
                     event.title.toLowerCase().includes(searchTerm) ||
                     event.department.toLowerCase().includes(searchTerm);
-                
-                // Department filter
+
                 const matchesDepartment = !departmentFilter || event.department === departmentFilter;
-                
-                // Status filter
-                const matchesStatus = !statusFilter || 
+
+                const matchesStatus = !statusFilter ||
                     (statusFilter === 'approved' && event.isApproved) ||
                     (statusFilter === 'pending' && !event.isApproved);
-                
+
                 return matchesSearch && matchesDepartment && matchesStatus;
             });
-            
+
             if (dayEvents.length > 0) {
                 filteredEvents[dateStr] = dayEvents;
             }
         });
-        
+
         return filteredEvents;
     }
-    
+
     exportEvents() {
         const filteredEvents = this.getFilteredEvents();
         const events = [];
-        
+
         Object.keys(filteredEvents).forEach(dateStr => {
             filteredEvents[dateStr].forEach(event => {
                 events.push({
@@ -226,13 +214,12 @@ class CalendarApp {
                 });
             });
         });
-        
+
         if (events.length === 0) {
             this.showToast('No events to export', 'warning');
             return;
         }
-        
-        // Create CSV content
+
         const headers = ['Date', 'Time', 'Title', 'Department', 'Status'];
         const csvContent = [
             headers.join(','),
@@ -244,8 +231,7 @@ class CalendarApp {
                 event.status
             ].join(','))
         ].join('\n');
-        
-        // Download CSV
+
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
@@ -255,74 +241,47 @@ class CalendarApp {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         this.showToast(`Exported ${events.length} events to CSV`, 'success');
     }
-    
+
     handleKeyboardNavigation(e) {
-        // Only handle keyboard navigation when not in form inputs
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
             return;
         }
-        
+
         switch (e.key) {
             case 'ArrowLeft':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    this.previousMonth();
-                }
+                if (e.ctrlKey || e.metaKey) { e.preventDefault(); this.previousMonth(); }
                 break;
             case 'ArrowRight':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    this.nextMonth();
-                }
+                if (e.ctrlKey || e.metaKey) { e.preventDefault(); this.nextMonth(); }
                 break;
             case 'Home':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    this.goToToday();
-                }
+                if (e.ctrlKey || e.metaKey) { e.preventDefault(); this.goToToday(); }
                 break;
-            case 'm':
-            case 'M':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    this.switchView('month');
-                }
+            case 'm': case 'M':
+                if (e.ctrlKey || e.metaKey) { e.preventDefault(); this.switchView('month'); }
                 break;
-            case 'w':
-            case 'W':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    this.switchView('week');
-                }
+            case 'w': case 'W':
+                if (e.ctrlKey || e.metaKey) { e.preventDefault(); this.switchView('week'); }
                 break;
-            case 'l':
-            case 'L':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    this.switchView('list');
-                }
+            case 'l': case 'L':
+                if (e.ctrlKey || e.metaKey) { e.preventDefault(); this.switchView('list'); }
                 break;
-            case 'a':
-            case 'A':
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    this.switchView('agenda');
-                }
+            case 'a': case 'A':
+                if (e.ctrlKey || e.metaKey) { e.preventDefault(); this.switchView('agenda'); }
                 break;
         }
     }
-    
+
     async loadEvents() {
         this.setCalendarLoading(true);
-        
+
         try {
             const resp = await fetch(BASE_URL + 'api/events.php');
             const data = await resp.json();
             if (data && data.success) {
-                // Normalize into map keyed by date
                 const map = {};
                 (data.events || []).forEach(ev => {
                     const date = ev.event_date;
@@ -338,7 +297,7 @@ class CalendarApp {
                         isApproved: isApproved,
                         isPencilBooked: isPencilBooked,
                         color: isApproved ? this.getDepartmentColorRGB(ev.department || '') : 'rgb(148, 163, 184)',
-textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.department || '')) : 'white'
+                        textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.department || '')) : 'white'
                     });
                 });
                 this.events = map;
@@ -357,10 +316,17 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
 
     setCalendarLoading(isLoading) {
         const loadingEl = document.getElementById('calendarLoading');
-        const container = document.querySelector('.calendar-container');
+        // FIXED: Try specific container, fallback to any card-lg holding the calendar views
+        const container = document.querySelector('.calendar-container') || document.querySelector('.card-lg');
 
         if (loadingEl) {
-            loadingEl.style.display = isLoading ? 'block' : 'none';
+            if (isLoading) {
+                loadingEl.classList.remove('d-none');
+                loadingEl.style.display = 'block';
+            } else {
+                loadingEl.classList.add('d-none');
+                loadingEl.style.display = 'none';
+            }
             loadingEl.setAttribute('aria-hidden', isLoading ? 'false' : 'true');
         }
 
@@ -408,7 +374,6 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         this.renderDepartmentLegend(units);
     }
 
-    // Fetch approved documents from API and merge them into this.events keyed by date
     async _mergeApprovedEvents() {
         try {
             const resp = await fetch(BASE_URL + 'api/documents.php?action=approved_events');
@@ -416,18 +381,14 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
             if (!data || !data.success) return;
             const approved = data.events || [];
             approved.forEach(ev => {
-                // Normalize date to YYYY-MM-DD
                 let date = ev.event_date;
                 try {
                     const d = new Date(date);
                     if (!isNaN(d.getTime())) {
                         date = d.toISOString().split('T')[0];
                     }
-                } catch (e) {
-                    // leave as-is
-                }
+                } catch (e) { }
                 if (!this.events[date]) this.events[date] = [];
-                // Avoid duplicates by title
                 const exists = this.events[date].some(x => x.title === ev.title && x.department === ev.department);
                 if (!exists) {
                     this.events[date].push({
@@ -442,7 +403,6 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
                     });
                 }
             });
-            // Keep global cache in sync
             events = this.events;
         } catch (e) {
             console.error('Error fetching approved events', e);
@@ -451,10 +411,9 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
 
     renderDepartmentLegend(units) {
         const legend = document.getElementById('departmentLegend');
-        if (!legend) return; // optional UI element
+        if (!legend) return;
         legend.innerHTML = '';
 
-        // Group by type for clarity
         const byType = { office: [], college: [] };
         units.forEach(u => {
             if (!u) return;
@@ -487,8 +446,7 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         renderGroup('Offices', byType.office);
         renderGroup('Colleges', byType.college);
     }
-    
-    // Color utilities and mapping
+
     hashToColorIndex(name) {
         let h = 0;
         for (let i = 0; i < (name || '').length; i++) {
@@ -498,13 +456,11 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
     }
 
     getTextColorForBg(bgClass) {
-        const darkBg = new Set(['bg-primary','bg-success','bg-danger','bg-dark']);
+        const darkBg = new Set(['bg-primary', 'bg-success', 'bg-danger', 'bg-dark']);
         return darkBg.has(bgClass) ? 'text-white' : 'text-dark';
     }
 
-    // Department color mapping function
     getDepartmentColor(department) {
-        // Map known unit names to bootstrap color classes
         const colorMap = {
             'College of Arts and Social Sciences and Education': 'bg-primary',
             'College of Computing and Information Sciences': 'bg-secondary',
@@ -520,11 +476,11 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         if (department) return this.COLOR_CLASSES[this.hashToColorIndex(department)];
         return 'bg-primary';
     }
-    
+
     getDepartmentColorRGB(department) {
         return this.COLOR_MAP_RGB[department] || 'rgb(59, 130, 246)';
     }
-    
+
     getTextColorForRGB(rgb) {
         const match = rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
         if (!match) return 'black';
@@ -534,37 +490,29 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         const brightness = (r * 299 + g * 587 + b * 114) / 1000;
         return brightness > 128 ? 'black' : 'white';
     }
-    
+
     generateCalendar() {
         console.log('generateCalendar called');
         const year = this.currentDate.getFullYear();
         const month = this.currentDate.getMonth();
 
-        // Update month display
         const monthNames = ["January", "February", "March", "April", "May", "June",
             "July", "August", "September", "October", "November", "December"];
         const monthEl = document.getElementById('currentMonth');
         if (monthEl) monthEl.textContent = `${monthNames[month]} ${year}`;
-        console.log('Month display updated to:', `${monthNames[month]} ${year}`);
 
-        // Get first day of month and number of days
         const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const daysInPrevMonth = new Date(year, month, 0).getDate();
 
         const calendarDays = document.getElementById('calendarDays');
-        if (!calendarDays) {
-            console.error('calendarDays element not found!');
-            return;
-        }
-        
-        console.log('Generating calendar for', daysInMonth, 'days, first day:', firstDay);
+        if (!calendarDays) return;
+
         calendarDays.innerHTML = '';
 
         let dayCount = 0;
         const isStudent = currentUser && currentUser.role === 'student';
 
-        // Generate 6 weeks of calendar
         for (let week = 0; week < 6; week++) {
             for (let day = 0; day < 7; day++) {
                 const dayElement = document.createElement('div');
@@ -575,18 +523,15 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
                 let cellDate;
 
                 if (week === 0 && day < firstDay) {
-                    // Previous month days
                     dayNumber = daysInPrevMonth - firstDay + day + 1;
                     isCurrentMonth = false;
                     cellDate = new Date(year, month - 1, dayNumber);
                 } else if (dayCount >= daysInMonth) {
-                    // Next month days
                     dayNumber = dayCount - daysInMonth + 1;
                     isCurrentMonth = false;
                     cellDate = new Date(year, month + 1, dayNumber);
                     dayCount++;
                 } else {
-                    // Current month days
                     dayNumber = dayCount + 1;
                     cellDate = new Date(year, month, dayNumber);
                     dayCount++;
@@ -595,28 +540,21 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
                 const dateStr = cellDate.toISOString().split('T')[0];
                 dayElement.dataset.date = dateStr;
 
-                // Add classes
-                if (!isCurrentMonth) {
-                    dayElement.classList.add('other-month');
-                }
+                if (!isCurrentMonth) dayElement.classList.add('other-month');
+                if (this.isToday(cellDate)) dayElement.classList.add('today');
 
-                if (this.isToday(cellDate)) {
-                    dayElement.classList.add('today');
-                }
-
-                // Day number
                 const dayNumberEl = document.createElement('div');
                 dayNumberEl.className = 'day-number';
                 dayNumberEl.textContent = dayNumber;
                 dayElement.appendChild(dayNumberEl);
 
-                // Events for this day
                 const eventsContainer = document.createElement('div');
                 eventsContainer.className = 'day-events';
 
                 const filteredEvents = this.getFilteredEvents();
                 const dayEvents = filteredEvents[dateStr] || [];
-                dayEvents.slice(0, 3).forEach(event => {
+
+                dayEvents.forEach(event => {
                     const eventElement = document.createElement('div');
                     eventElement.className = 'event-item';
                     eventElement.style.backgroundColor = event.color;
@@ -624,31 +562,22 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
                     eventElement.dataset.eventId = event.id;
                     eventElement.dataset.date = dateStr;
                     eventElement.textContent = event.title;
-                    // Tooltip shows time and department when available
+
                     const timeStr = event.time ? `${event.time} - ` : '';
                     const deptStr = event.department ? ` (${event.department})` : '';
                     const statusStr = event.isPencilBooked ? ' [Pencil-booked]' : ' [Approved]';
                     eventElement.title = `${timeStr}${event.title}${deptStr}${statusStr}`;
-                    
-                    // Add click handler
+
                     eventElement.addEventListener('click', (e) => {
                         e.stopPropagation();
                         this.handleEventClick(event.id, dateStr);
                     });
-                    
+
                     eventsContainer.appendChild(eventElement);
                 });
 
-                if (dayEvents.length > 3) {
-                    const moreElement = document.createElement('div');
-                    moreElement.className = 'event-item bg-secondary';
-                    moreElement.textContent = `+${dayEvents.length - 3} more`;
-                    eventsContainer.appendChild(moreElement);
-                }
-
                 dayElement.appendChild(eventsContainer);
 
-                // Add day click handler for employees/admins
                 if (!isStudent) {
                     dayElement.addEventListener('click', () => {
                         this.selectedDate = cellDate;
@@ -660,11 +589,9 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
                 calendarDays.appendChild(dayElement);
             }
         }
-
-        console.log('Calendar generation completed');
         this.updateEventStatistics();
     }
-    
+
     updateEventStatistics() {
         const totalEvents = Object.values(this.events).reduce((total, dayEvents) => total + dayEvents.length, 0);
         const currentMonth = this.currentDate.getMonth();
@@ -673,7 +600,7 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         let thisMonthEvents = 0;
         let upcomingEvents = 0;
         let todayEvents = 0;
-        
+
         const todayStr = today.toISOString().split('T')[0];
 
         Object.keys(this.events).forEach(dateStr => {
@@ -689,21 +616,20 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
             }
         });
 
-    const totalEl = document.getElementById('totalEvents');
-    const upcomingEl = document.getElementById('upcomingEvents');
-    const todayEl = document.getElementById('todayEvents');
-    if (totalEl) totalEl.textContent = thisMonthEvents;
-    if (upcomingEl) upcomingEl.textContent = upcomingEvents;
-    if (todayEl) todayEl.textContent = todayEvents;
-        
-        // Update notification badge
+        const totalEl = document.getElementById('totalEvents');
+        const upcomingEl = document.getElementById('upcomingEvents');
+        const todayEl = document.getElementById('todayEvents');
+        if (totalEl) totalEl.textContent = thisMonthEvents;
+        if (upcomingEl) upcomingEl.textContent = upcomingEvents;
+        if (todayEl) todayEl.textContent = todayEvents;
+
         const notificationBadge = document.getElementById('notificationCount');
         if (notificationBadge) {
             notificationBadge.textContent = upcomingEvents;
             notificationBadge.style.display = upcomingEvents > 0 ? 'flex' : 'none';
         }
     }
-    
+
     previousMonth() {
         this.currentDate.setMonth(this.currentDate.getMonth() - 1);
         this.generateCalendar();
@@ -718,23 +644,31 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         this.currentDate = new Date();
         this.generateCalendar();
     }
-    
+
     switchView(view) {
-        // Update active button
+        // Update active button classes
         document.querySelectorAll('.view-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.view === view);
         });
 
-        const calendarContainer = document.querySelector('.calendar-container');
+        // FIXED: Safe calendar container check
+        const calendarContainer = document.querySelector('.calendar-container') || document.querySelector('.card-lg');
         if (calendarContainer) {
             calendarContainer.setAttribute('data-view', view);
         }
-        
-        // Show/hide view containers
+
+        // FIXED: Show/hide view containers (Handling Bootstrap's strictly enforced d-none)
         document.querySelectorAll('.calendar-view').forEach(container => {
-            container.classList.toggle('active', container.id === `${view}View`);
+            const isActive = container.id === `${view}View`;
+            container.classList.toggle('active', isActive);
+
+            if (isActive) {
+                container.classList.remove('d-none');
+            } else {
+                container.classList.add('d-none');
+            }
         });
-        
+
         if (view === 'month') {
             this.generateCalendar();
         } else if (view === 'week') {
@@ -745,93 +679,86 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
             this.renderListView();
         }
     }
-    
+
     renderListView() {
         const listContainer = document.getElementById('eventsList');
         if (!listContainer) return;
-        
+
         listContainer.innerHTML = '';
-        
-        // Get filtered events and sort by date
+
         const filteredEvents = this.getFilteredEvents();
         const allEvents = [];
         Object.keys(filteredEvents).forEach(dateStr => {
             filteredEvents[dateStr].forEach(event => {
-                allEvents.push({...event, date: dateStr});
+                allEvents.push({ ...event, date: dateStr });
             });
         });
-        
+
         allEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
-        
+
         allEvents.forEach(event => {
             const eventElement = this.createListEventElement(event);
             listContainer.appendChild(eventElement);
         });
-        
+
         if (allEvents.length === 0) {
             listContainer.innerHTML = '<div class="text-center text-muted p-4">No events found</div>';
         }
     }
-    
+
     renderWeekView() {
         const weekDaysHeader = document.getElementById('weekDaysHeader');
         const weekBody = document.getElementById('weekBody');
-        
+
         if (!weekDaysHeader || !weekBody) return;
-        
-        // Get the start of the current week (Sunday)
+
         const startOfWeek = new Date(this.currentDate);
         startOfWeek.setDate(this.currentDate.getDate() - this.currentDate.getDay());
-        
-        // Generate week days header
+
         weekDaysHeader.innerHTML = '';
         for (let i = 0; i < 7; i++) {
             const day = new Date(startOfWeek);
             day.setDate(startOfWeek.getDate() + i);
-            
+
             const dayHeader = document.createElement('div');
             dayHeader.className = 'week-day-header';
-            
+
             const dayName = day.toLocaleDateString('en-US', { weekday: 'short' });
             const dayNum = day.getDate();
             const isToday = this.isToday(day);
-            
+
             dayHeader.innerHTML = `
                 <div class="day-name">${dayName}</div>
                 <div class="day-number ${isToday ? 'today' : ''}">${dayNum}</div>
             `;
-            
             weekDaysHeader.appendChild(dayHeader);
         }
-        
-        // Generate time slots (8 AM to 8 PM)
+
         weekBody.innerHTML = '';
         const startHour = 8;
         const endHour = 20;
-        
+
         for (let hour = startHour; hour <= endHour; hour++) {
             const timeSlot = document.createElement('div');
             timeSlot.className = 'time-slot';
-            
+
             const timeLabel = document.createElement('div');
             timeLabel.className = 'time-label';
             timeLabel.textContent = `${hour > 12 ? hour - 12 : hour}${hour >= 12 ? 'PM' : 'AM'}`;
-            
+
             const timeSlots = document.createElement('div');
             timeSlots.className = 'time-slots-grid';
-            
-            // Create slots for each day
+
             for (let day = 0; day < 7; day++) {
                 const daySlot = document.createElement('div');
                 daySlot.className = 'week-day-column';
                 daySlot.dataset.hour = hour;
                 daySlot.dataset.day = day;
-                
-                // Check for events in this time slot
+
                 const slotDate = new Date(startOfWeek);
                 slotDate.setDate(startOfWeek.getDate() + day);
                 const dateStr = slotDate.toISOString().split('T')[0];
-                
+
                 const filteredEvents = this.getFilteredEvents();
                 if (filteredEvents[dateStr]) {
                     filteredEvents[dateStr].forEach(event => {
@@ -850,94 +777,87 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
                         }
                     });
                 }
-                
+
                 timeSlots.appendChild(daySlot);
             }
-            
+
             timeSlot.appendChild(timeLabel);
             timeSlot.appendChild(timeSlots);
             weekBody.appendChild(timeSlot);
         }
     }
-    
+
     renderAgendaView() {
         const agendaContainer = document.getElementById('agendaContainer');
         if (!agendaContainer) return;
-        
+
         agendaContainer.innerHTML = '';
-        
-        // Get filtered events and group by date
+
         const filteredEvents = this.getFilteredEvents();
         const eventsByDate = {};
         Object.keys(filteredEvents).forEach(dateStr => {
             filteredEvents[dateStr].forEach(event => {
-                if (!eventsByDate[dateStr]) {
-                    eventsByDate[dateStr] = [];
-                }
+                if (!eventsByDate[dateStr]) eventsByDate[dateStr] = [];
                 eventsByDate[dateStr].push(event);
             });
         });
-        
-        // Sort dates
+
         const sortedDates = Object.keys(eventsByDate).sort();
-        
+
         if (sortedDates.length === 0) {
             agendaContainer.innerHTML = '<div class="text-center text-muted p-4">No upcoming events</div>';
             return;
         }
-        
+
         sortedDates.forEach(dateStr => {
             const dateEvents = eventsByDate[dateStr];
             const dateDiv = document.createElement('div');
             dateDiv.className = 'agenda-date-group';
-            
+
             const dateHeader = document.createElement('div');
             dateHeader.className = 'agenda-date-header';
-            
+
             const eventDate = new Date(dateStr);
             const today = new Date();
             const tomorrow = new Date(today);
             tomorrow.setDate(today.getDate() + 1);
-            
+
             let dateLabel = eventDate.toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
             });
-            
+
             if (eventDate.toDateString() === today.toDateString()) {
                 dateLabel = 'Today - ' + dateLabel;
                 dateHeader.classList.add('today');
             } else if (eventDate.toDateString() === tomorrow.toDateString()) {
                 dateLabel = 'Tomorrow - ' + dateLabel;
             }
-            
+
             dateHeader.innerHTML = `<h5>${dateLabel}</h5><span class="event-count">${dateEvents.length} event${dateEvents.length !== 1 ? 's' : ''}</span>`;
-            
+
             const eventsList = document.createElement('div');
             eventsList.className = 'agenda-events-list';
-            
+
             dateEvents.sort((a, b) => a.time.localeCompare(b.time)).forEach(event => {
                 const eventElement = this.createAgendaEventElement(event, dateStr);
                 eventsList.appendChild(eventElement);
             });
-            
+
             dateDiv.appendChild(dateHeader);
             dateDiv.appendChild(eventsList);
             agendaContainer.appendChild(dateDiv);
         });
     }
-    
+
     createAgendaEventElement(event, dateStr) {
         const eventDiv = document.createElement('div');
         eventDiv.className = 'agenda-event-item';
         eventDiv.dataset.eventId = event.id;
         eventDiv.dataset.date = dateStr;
-        
+
         const deptBg = event.color;
         const deptText = event.textColor;
-        
+
         eventDiv.innerHTML = `
             <div class="agenda-event-time">
                 <i class="bi bi-clock"></i>
@@ -951,28 +871,25 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
                 </div>
             </div>
         `;
-        
+
         eventDiv.addEventListener('click', () => {
             this.handleEventClick(event.id, dateStr);
         });
-        
+
         return eventDiv;
     }
-    
+
     createListEventElement(event) {
         const eventDiv = document.createElement('div');
         eventDiv.className = 'event-list-item';
         eventDiv.dataset.eventId = event.id;
         eventDiv.dataset.date = event.date;
-        
+
         const eventDate = new Date(event.date);
         const formattedDate = eventDate.toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
-        
+
         const deptBg = event.color;
         const deptText = event.textColor;
         eventDiv.innerHTML = `
@@ -986,14 +903,14 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
                 <span class="badge" style="background-color: ${deptBg}; color: ${deptText}">${event.department || 'University'}</span>
             </div>
         `;
-        
+
         eventDiv.addEventListener('click', () => {
             this.handleEventClick(event.id, event.date);
         });
-        
+
         return eventDiv;
     }
-    
+
     handleEventClick(eventId, dateStr) {
         const canEdit = currentUser.role === 'admin' || (currentUser.role === 'employee' && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)'));
         if (currentUser.role === 'student' || !canEdit) {
@@ -1002,7 +919,7 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
             this.editEvent(eventId, dateStr);
         }
     }
-    
+
     openEventModal(selectedDate = null) {
         const canEdit = currentUser.role === 'admin' || (currentUser.role === 'employee' && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)'));
         if (currentUser && (currentUser.role === 'student' || !canEdit)) {
@@ -1028,7 +945,7 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
 
         modal.show();
     }
-    
+
     editEvent(eventId, dateStr) {
         if (currentUser && currentUser.role === 'student') {
             this.viewEventDetails(eventId, dateStr);
@@ -1044,7 +961,7 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         document.getElementById('eventDate').value = dateStr;
         document.getElementById('eventTime').value = event.time || '';
         document.getElementById('eventVenue').value = event.venue || '';
-        // Try to set the department; if option list hasn't loaded yet, populate then set
+
         const deptSelect = document.getElementById('eventDepartment');
         if (deptSelect) {
             const setValue = () => {
@@ -1052,12 +969,10 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
                 if (val && Array.from(deptSelect.options).some(o => o.value === val)) {
                     deptSelect.value = val;
                 } else {
-                    // Leave placeholder selected if unknown; user must choose before saving
                     deptSelect.value = '';
                 }
             };
             if (deptSelect.options.length <= 1) {
-                // Likely not yet populated; populate then set
                 this.populateDepartments().finally(setValue);
             } else {
                 setValue();
@@ -1065,7 +980,6 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         }
         document.getElementById('deleteBtn').style.display = 'inline-block';
 
-        // Show approve/disapprove buttons for authorized users (PPFO, EVP, admins)
         const canApprove = currentUser.role === 'admin' || (currentUser.role === 'employee' && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)'));
         document.getElementById('approveBtn').style.display = canApprove ? 'inline-block' : 'none';
         document.getElementById('disapproveBtn').style.display = canApprove ? 'inline-block' : 'none';
@@ -1073,17 +987,14 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         const modal = new bootstrap.Modal(document.getElementById('eventModal'));
         modal.show();
     }
-    
+
     viewEventDetails(eventId, dateStr) {
         const event = this.events[dateStr]?.find(e => e.id === eventId);
         if (!event) return;
 
         const eventDate = new Date(dateStr);
         const formattedDate = eventDate.toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
 
         document.getElementById('viewEventTitle').textContent = event.title;
@@ -1096,12 +1007,12 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         const modal = new bootstrap.Modal(document.getElementById('viewEventModal'));
         modal.show();
     }
-    
+
     handleEventFormSubmit(e) {
         e.preventDefault();
         this.saveEvent();
     }
-    
+
     saveEvent() {
         if (currentUser && currentUser.role === 'student') {
             return;
@@ -1113,7 +1024,6 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
         const venue = document.getElementById('eventVenue').value;
         const department = document.getElementById('eventDepartment').value;
 
-        // Validate required fields
         if (!title || !date) {
             this.showToast('Please provide a title and date for the event.', 'warning');
             return;
@@ -1123,13 +1033,8 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
             return;
         }
 
-        // Persist via API
         const payload = {
-            title,
-            venue,
-            event_date: date,
-            event_time: time || null,
-            department
+            title, venue, event_date: date, event_time: time || null, department
         };
 
         const isUpdate = Boolean(editingEventId);
@@ -1141,34 +1046,32 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         })
-        .then(r => r.json())
-        .then(res => {
-            if (res.success) {
-                window.addAuditLog(isUpdate ? 'EVENT_UPDATED' : 'EVENT_CREATED', 'Event Management', `${isUpdate ? 'Updated' : 'Created'} event: ${title}`, isUpdate ? editingEventId : res.id, 'Event');
-                // Refresh list
-                this.loadEvents();
-                const modal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
-                modal?.hide();
-                this.showToast(isUpdate ? 'Event updated successfully' : 'Event created successfully', 'success');
-            } else {
-                this.showToast(res.message || 'Failed to save event', 'error');
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            this.showToast('Server error saving event', 'error');
-        });
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    window.addAuditLog(isUpdate ? 'EVENT_UPDATED' : 'EVENT_CREATED', 'Event Management', `${isUpdate ? 'Updated' : 'Created'} event: ${title}`, isUpdate ? editingEventId : res.id, 'Event');
+                    this.loadEvents();
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
+                    modal?.hide();
+                    this.showToast(isUpdate ? 'Event updated successfully' : 'Event created successfully', 'success');
+                } else {
+                    this.showToast(res.message || 'Failed to save event', 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                this.showToast('Server error saving event', 'error');
+            });
     }
-    
+
     deleteEvent() {
         if (!editingEventId) return;
 
         const dateStr = document.getElementById('eventDate').value;
         const event = this.events[dateStr]?.find(e => e.id === editingEventId);
-        
+
         if (!event) return;
 
-        // Persist via API
         fetch(BASE_URL + `api/events.php?id=${encodeURIComponent(editingEventId)}`, { method: 'DELETE' })
             .then(r => r.json())
             .then(res => {
@@ -1184,7 +1087,7 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
             })
             .catch(err => { console.error(err); this.showToast('Server error deleting event', 'error'); });
     }
-    
+
     approveEvent() {
         if (!editingEventId) return;
 
@@ -1207,7 +1110,7 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
             })
             .catch(err => { console.error(err); this.showToast('Server error approving event', 'error'); });
     }
-    
+
     disapproveEvent() {
         if (!editingEventId) return;
 
@@ -1230,11 +1133,11 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
             })
             .catch(err => { console.error(err); this.showToast('Server error disapproving event', 'error'); });
     }
-    
+
     isToday(date) {
         return date.toDateString() === today.toDateString();
     }
-    
+
     showToast(message, type = 'info') {
         if (window.ToastManager) {
             window.ToastManager.show({
@@ -1243,23 +1146,28 @@ textColor: isApproved ? this.getTextColorForRGB(this.getDepartmentColorRGB(ev.de
                 duration: 3000
             });
         } else {
-            // Fallback
             alert(message);
         }
     }
 
     openPubmatApprovals() {
-        // Redirect to pubmat approvals interface (assuming a new page or modal)
-        window.location.href = BASE_URL + '?page=pubmat-approvals';
+        window.openPubmatApprovals = function() {
+            window.location.href = window.BASE_URL + '?page=pubmat-approvals';
+        }
     }
-}
+
+    openPubmatDisplay() {
+        window.openPubmatDisplay = function() {
+            window.location.href = window.BASE_URL + '?page=pubmat-display';
+        }
+    }
+    }
 
 function openChangePassword() {
     const modal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
     modal.show();
 }
 
-// Global password visibility toggle for inline onclick usage in the page
 function togglePasswordVisibility(fieldId) {
     try {
         const field = document.getElementById(fieldId);
@@ -1273,12 +1181,9 @@ function togglePasswordVisibility(fieldId) {
             field.type = 'password';
             if (icon) { icon.classList.remove('bi-eye-slash'); icon.classList.add('bi-eye'); }
         }
-    } catch (_) {
-        // no-op: keep UI resilient even if elements are missing
-    }
+    } catch (_) { }
 }
 
-// Handle change password form
 document.getElementById('changePasswordForm').addEventListener('submit', async function (e) {
     e.preventDefault();
 
@@ -1305,7 +1210,6 @@ document.getElementById('changePasswordForm').addEventListener('submit', async f
 
         if (resp.success) {
             window.addAuditLog('PASSWORD_CHANGED', 'Security', 'Password changed', currentUser?.id || null, 'User', 'INFO');
-            // Clear must_change_password flag on the client if present
             if (window.currentUser) {
                 window.currentUser.must_change_password = 0;
             }
@@ -1324,7 +1228,6 @@ document.getElementById('changePasswordForm').addEventListener('submit', async f
     }
 });
 
-// Utility functions from original script.js
 function logout() {
     if (currentUser) {
         window.addAuditLog('LOGOUT', 'Authentication', `User logged out: ${currentUser.firstName} ${currentUser.lastName}`);
@@ -1332,13 +1235,10 @@ function logout() {
 
     localStorage.removeItem('currentUser');
     currentUser = null;
-    
     window.location.href = BASE_URL + '?page=logout';
 }
 
-// Profile Settings Functions
 function openProfileSettings() {
-    // Populate form with current user data
     if (currentUser) {
         document.getElementById('profileFirstName').value = currentUser.first_name || '';
         document.getElementById('profileLastName').value = currentUser.last_name || '';
@@ -1347,28 +1247,26 @@ function openProfileSettings() {
         if (currentUser.role === 'student') {
             document.getElementById('profilePosition').value = 'Student';
         }
-        
-        // Load theme preference from localStorage
+
         const darkMode = localStorage.getItem('darkMode') === 'true';
         document.getElementById('darkModeToggle').checked = darkMode;
     }
-    
+
     const modal = new bootstrap.Modal(document.getElementById('profileSettingsModal'));
     modal.show();
 }
 
 function openPreferences() {
-    // Load preferences from localStorage
-    const emailNotifications = localStorage.getItem('emailNotifications') !== 'false'; // default true
-    const browserNotifications = localStorage.getItem('browserNotifications') !== 'false'; // default true
+    const emailNotifications = localStorage.getItem('emailNotifications') !== 'false';
+    const browserNotifications = localStorage.getItem('browserNotifications') !== 'false';
     const defaultView = localStorage.getItem('defaultView') || 'month';
     const timezone = localStorage.getItem('timezone') || 'Asia/Manila';
-    
+
     document.getElementById('emailNotifications').checked = emailNotifications;
     document.getElementById('browserNotifications').checked = browserNotifications;
     document.getElementById('defaultView').value = defaultView;
     document.getElementById('timezone').value = timezone;
-    
+
     const modal = new bootstrap.Modal(document.getElementById('preferencesModal'));
     modal.show();
 }
@@ -1383,14 +1281,12 @@ function savePreferences() {
     const browserNotifications = document.getElementById('browserNotifications').checked;
     const defaultView = document.getElementById('defaultView').value;
     const timezone = document.getElementById('timezone').value;
-    
-    // Save to localStorage
+
     localStorage.setItem('emailNotifications', emailNotifications);
     localStorage.setItem('browserNotifications', browserNotifications);
     localStorage.setItem('defaultView', defaultView);
     localStorage.setItem('timezone', timezone);
-    
-    // Show success message
+
     const messagesDiv = document.getElementById('preferencesMessages');
     if (messagesDiv) {
         messagesDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Preferences saved successfully!</div>';
@@ -1399,8 +1295,7 @@ function savePreferences() {
             bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
         }, 2000);
     }
-    
-    // Apply theme if changed
+
     applyTheme();
 }
 
@@ -1413,7 +1308,6 @@ if (window.NavbarSettings) {
     window.saveProfileSettings = window.NavbarSettings.saveProfileSettings;
 }
 
-// Handle profile settings form
 document.getElementById('profileSettingsForm').addEventListener('submit', async function (e) {
     e.preventDefault();
 
@@ -1428,44 +1322,41 @@ document.getElementById('profileSettingsForm').addEventListener('submit', async 
     const ok = (msg) => `<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>${msg}</div>`;
     const err = (msg) => `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>${msg}</div>`;
 
-    if (!firstName || !lastName || !email) { 
-        show(err('First name, last name, and email are required.')); 
-        return; 
+    if (!firstName || !lastName || !email) {
+        show(err('First name, last name, and email are required.'));
+        return;
     }
 
     try {
         const resp = await fetch(BASE_URL + 'api/users.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                action: 'update_profile', 
-                first_name: firstName, 
-                last_name: lastName, 
-                email: email, 
-                phone: phone 
+            body: JSON.stringify({
+                action: 'update_profile',
+                first_name: firstName,
+                last_name: lastName,
+                email: email,
+                phone: phone
             })
         }).then(r => r.json());
 
         if (resp.success) {
-            // Update local user data
             currentUser.first_name = firstName;
             currentUser.last_name = lastName;
             currentUser.email = email;
             currentUser.phone = phone;
-            
-            // Update display name in navbar
+
             const displayNameEl = document.getElementById('userDisplayName');
             if (displayNameEl) {
                 displayNameEl.textContent = `${firstName} ${lastName}`;
             }
-            
-            // Save theme preference
+
             localStorage.setItem('darkMode', darkMode);
             applyTheme();
-            
+
             window.addAuditLog('PROFILE_UPDATED', 'User Management', 'Profile information updated', currentUser.id, 'User', 'INFO');
             show(ok('Profile updated successfully!'));
-            
+
             setTimeout(() => {
                 bootstrap.Modal.getInstance(document.getElementById('profileSettingsModal')).hide();
                 show('');
@@ -1479,33 +1370,36 @@ document.getElementById('profileSettingsForm').addEventListener('submit', async 
     }
 });
 
-// Theme application function
 function applyTheme() {
     const darkMode = localStorage.getItem('darkMode') === 'true';
     document.body.classList.toggle('dark-theme', darkMode);
-    
-    // Update toggle state if modal is open
+
     const toggle = document.getElementById('darkModeToggle');
     if (toggle) toggle.checked = darkMode;
 }
 
-// Initialize the calendar app when the page loads
 document.addEventListener('DOMContentLoaded', function () {
     console.log('DOM loaded, checking for user data...');
     console.log('window.currentUser:', window.currentUser);
-    
-    // Use the user data passed from PHP
+
     if (window.currentUser) {
         currentUser = window.currentUser;
         console.log('User data found:', currentUser);
         console.log('Initializing CalendarApp...');
         new CalendarApp();
-        
-        // Apply saved theme
+
         applyTheme();
     } else {
         console.log('No user data found, redirecting to login...');
-        // If no user data, redirect to login
         window.location.href = BASE_URL + '?page=login';
     }
 });
+
+// Ensure global handlers for inline onclick usage
+window.openPubmatDisplay = function() {
+    window.location.href = window.BASE_URL + '?page=pubmat-display';
+}
+
+window.openPubmatApprovals = function() {
+    window.location.href = window.BASE_URL + '?page=pubmat-approvals';
+}

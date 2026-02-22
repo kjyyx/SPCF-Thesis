@@ -1694,3 +1694,31 @@
 2026-02-20 14:20:06 - PDF saved to: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc_Spooky_Friday_the_13th_6997fd11e1dcb.pdf
 2026-02-20 14:20:06 - DOCX cleaned up successfully
 2026-02-20 14:20:06 - Conversion successful
+2026-02-22 21:45:52 - Starting conversion for: C:\xampp\htdocs\SPCF-Thesis\includes/../uploads/doc_EmpowerED__Student_Leadership__699b08908e704.docx
+2026-02-22 21:45:52 - API key found
+2026-02-22 21:45:52 - DOCX file exists, size: 157202
+2026-02-22 21:45:52 - CloudConvert client created
+2026-02-22 21:45:52 - Creating job
+2026-02-22 21:45:56 - Job created: 1d6efd86-410d-4ef9-a2e5-de690a6a6da1
+2026-02-22 21:45:56 - Uploading file
+2026-02-22 21:45:58 - File uploaded
+2026-02-22 21:45:58 - Waiting for completion
+2026-02-22 21:45:59 - Job completed, status: finished
+2026-02-22 21:45:59 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/661a753e-e360-47df-a7ef-b1bd1d44140a/doc_EmpowerED__Student_Leadership__699b08908e704.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260222%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260222T134558Z&X-Amz-Expires=86400&X-Amz-Signature=f97ddeeafa1f7cf8282714c2143f03686000c6dfab293bed5cd7f25e80fd09d0&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22doc_EmpowerED__Student_Leadership__699b08908e704.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-22 21:46:00 - PDF saved to: C:\xampp\htdocs\SPCF-Thesis\includes/../uploads/doc_EmpowerED__Student_Leadership__699b08908e704.pdf
+2026-02-22 21:46:00 - DOCX cleaned up successfully
+2026-02-22 21:46:00 - Conversion successful
+2026-02-22 23:54:46 - Starting conversion for: C:\xampp\htdocs\SPCF-Thesis\includes/../uploads/doc_asdasdasd_699b26c674089.docx
+2026-02-22 23:54:46 - API key found
+2026-02-22 23:54:46 - DOCX file exists, size: 89290
+2026-02-22 23:54:46 - CloudConvert client created
+2026-02-22 23:54:46 - Creating job
+2026-02-22 23:54:49 - Job created: 2d506e47-59a8-4fdb-9d9a-22930f2cb4ec
+2026-02-22 23:54:49 - Uploading file
+2026-02-22 23:54:50 - File uploaded
+2026-02-22 23:54:50 - Waiting for completion
+2026-02-22 23:54:52 - Job completed, status: finished
+2026-02-22 23:54:52 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/eb09581a-30fd-429c-ad1b-82eba8066dac/doc_asdasdasd_699b26c674089.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260222%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260222T155451Z&X-Amz-Expires=86400&X-Amz-Signature=a196a65ac1615a6c59cb29a87e22865f72eeaf8510a908d7f48b22e2aac608e8&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22doc_asdasdasd_699b26c674089.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-22 23:54:54 - PDF saved to: C:\xampp\htdocs\SPCF-Thesis\includes/../uploads/doc_asdasdasd_699b26c674089.pdf
+2026-02-22 23:54:54 - DOCX cleaned up successfully
+2026-02-22 23:54:54 - Conversion successful

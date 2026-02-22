@@ -1,4 +1,4 @@
-/* Document Notification System Styles - Professional Version */
+﻿/* Document Notification System Styles - Professional Version */
 /* Enhanced with better organization, accessibility, and modern design patterns */
 /* 
  * IMPORTANT: This file extends global.css which provides the OneUI design foundation.
@@ -7,90 +7,153 @@
  */
 
 :root {
-    /* Color System */
-    --primary-color: #3b82f6;
-    --primary-hover: #2563eb;
-    --primary-dark: #1d4ed8;
-    --secondary-color: #64748b;
-    --success-color: #10b981;
-    --success-hover: #059669;
-    --danger-color: #ef4444;
-    --danger-hover: #dc2626;
-    --warning-color: #f59e0b;
-    --warning-hover: #d97706;
-    --info-color: #06b6d4;
-    --info-hover: #0891b2;
+    --primary-color: var(--brand-primary);
+    --primary-hover: var(--brand-primary-hover);
+    --primary-dark: var(--brand-primary-dark);
+    --secondary-color: var(--color-text-tertiary);
+    --success-color: var(--color-success);
+    --success-hover: var(--color-success-mid);
+    --danger-color: var(--color-danger);
+    --danger-hover: var(--color-danger-mid);
+    --warning-color: var(--color-warning);
+    --warning-hover: var(--color-warning-mid);
+    --info-color: var(--color-info);
+    --info-hover: var(--color-info-mid);
 
-    /* Neutral Colors */
-    --text-primary: #0f172a;
-    --text-secondary: #334155;
-    --text-tertiary: #64748b;
-    --text-muted: #94a3b8;
-    --text-light: #f1f5f9;
+    --text-primary: var(--color-text-primary);
+    --text-secondary: var(--color-text-secondary);
+    --text-tertiary: var(--color-text-tertiary);
+    --text-muted: var(--color-text-muted);
+    --text-light: var(--color-text-inverse);
 
-    /* Background Colors */
-    --bg-primary: #ffffff;
-    --bg-secondary: #f8fafc;
-    --bg-tertiary: #f1f5f9;
-    --bg-muted: #e2e8f0;
+    --bg-primary: var(--color-surface-raised);
+    --bg-secondary: var(--color-page-bg);
+    --bg-tertiary: var(--color-surface-muted);
+    --bg-muted: var(--color-surface-sunken);
 
-    /* Border Colors */
-    --border-color: rgba(226, 232, 240, 0.8);
-    --border-color-light: rgba(226, 232, 240, 0.6);
-    --border-color-dark: rgba(148, 163, 184, 0.5);
+    --border-color: var(--color-border-subtle);
+    --border-color-light: var(--color-border);
+    --border-color-dark: var(--color-border-strong);
 
-    /* Spacing */
-    --spacing-xs: 0.25rem;
-    --spacing-sm: 0.5rem;
-    --spacing-md: 1rem;
-    --spacing-lg: 1.5rem;
-    --spacing-xl: 2rem;
-    --spacing-2xl: 3rem;
+    --spacing-xs: var(--space-1);
+    --spacing-sm: var(--space-2);
+    --spacing-md: var(--space-4);
+    --spacing-lg: var(--space-6);
+    --spacing-xl: var(--space-8);
+    --spacing-2xl: var(--space-12);
 
-    /* Border Radius */
-    --border-radius-sm: 6px;
-    --border-radius: 8px;
-    --border-radius-md: 12px;
-    --border-radius-lg: 16px;
-    --border-radius-xl: 20px;
+    --border-radius-sm: var(--radius-md);
+    --border-radius: var(--radius-lg);
+    --border-radius-md: var(--radius-xl);
+    --border-radius-lg: var(--radius-2xl);
+    --border-radius-xl: var(--radius-3xl);
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --shadow-sm: var(--shadow-sm);
+    --shadow: var(--shadow-sm);
+    --shadow-md: var(--shadow-md);
+    --shadow-lg: var(--shadow-lg);
+    --shadow-xl: var(--shadow-xl);
 
-    /* Transitions */
-    --transition-fast: 150ms ease-in-out;
-    --transition-normal: 250ms ease-in-out;
-    --transition-slow: 350ms ease-in-out;
+    --transition-fast: var(--duration-150) var(--ease-out);
+    --transition-normal: var(--duration-250) var(--ease-out);
+    --transition-slow: var(--duration-300) var(--ease-smooth);
 
-    /* Typography */
-    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-size-xs: 0.75rem;
-    --font-size-sm: 0.875rem;
-    --font-size-base: 1rem;
-    --font-size-lg: 1.125rem;
-    --font-size-xl: 1.25rem;
-    --font-size-2xl: 1.5rem;
-    --font-size-3xl: 1.875rem;
+    --font-family: var(--font-sans);
+    --font-size-xs: var(--text-2xs);
+    --font-size-sm: var(--text-xs);
+    --font-size-base: var(--text-sm);
+    --font-size-lg: var(--text-base);
+    --font-size-xl: var(--text-lg);
+    --font-size-2xl: var(--text-2xl);
+    --font-size-3xl: var(--text-3xl);
 
-    /* Z-index layers */
-    --z-dropdown: 1000;
-    --z-sticky: 1020;
-    --z-fixed: 1030;
-    --z-modal-backdrop: 1040;
-    --z-modal: 1050;
-    --z-popover: 1060;
-    --z-tooltip: 1070;
-    --z-toast: 1080;
+    --z-dropdown: var(--z-dropdown);
+    --z-sticky: var(--z-sticky);
+    --z-fixed: var(--z-fixed);
+    --z-modal-backdrop: var(--z-modal-backdrop);
+    --z-modal: var(--z-modal);
+    --z-popover: var(--z-popover);
+    --z-tooltip: var(--z-tooltip);
+    --z-toast: var(--z-toast);
 }
 
 body {
     /* Extends global.css body styles */
     padding-top: 80px; /* Override for fixed navbar */
     line-height: 1.6;
+}
+
+/* ============================================================
+   Scoped redesign cleanup layer
+   ============================================================ */
+.notifications-redesign {
+    background: var(--color-page-bg);
+}
+
+.notifications-redesign .main-content {
+    max-width: var(--container-2xl);
+    margin: 0 auto;
+    padding: 0 var(--space-6) var(--space-8);
+}
+
+.notifications-redesign .ux-controls-row {
+    gap: var(--space-6);
+    align-items: flex-start;
+}
+
+.notifications-redesign .ux-stats-cluster { margin-right: 0; }
+
+.notifications-redesign .ux-search-cluster {
+    flex: 1;
+    max-width: 600px;
+}
+
+.notifications-redesign #emptyState,
+.notifications-redesign #documentView,
+.notifications-redesign #commentReplyBanner {
+    display: none;
+}
+
+.notifications-redesign .is-hidden { display: none !important; }
+
+.notifications-redesign .is-open {
+    display: block !important;
+    animation: fade-up var(--duration-150) var(--ease-out);
+}
+
+.notifications-redesign .full-document-dialog {
+    max-width: 90vw;
+    max-height: 90vh;
+}
+
+.notifications-redesign .full-document-content {
+    height: 85vh;
+}
+
+.notifications-redesign .full-document-body {
+    padding: 0;
+    height: calc(100% - 60px);
+    overflow: hidden;
+}
+
+.notifications-redesign .full-pdf-content {
+    overflow: auto;
+    height: calc(100% - 50px);
+    cursor: grab;
+}
+
+.notifications-redesign .full-pdf-container {
+    position: relative;
+    min-width: 100%;
+    min-height: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+.notifications-redesign .full-pdf-canvas {
+    max-width: none;
+    image-rendering: -webkit-optimize-contrast;
 }
 
 /* Loading States */
@@ -4172,122 +4235,11 @@ body {
     border-top: 1px solid rgba(226, 232, 240, 0.6);
 }
 
-/* Comments Container */
-.comments-container {
+/* Notes Container */
+.notes-container {
     display: flex;
     flex-direction: column;
     gap: 1rem;
-}
-
-.thread-comments-list {
-    max-height: 260px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding-right: 0.25rem;
-}
-
-.thread-empty-state {
-    font-size: 0.875rem;
-    color: #64748b;
-    background: #f8fafc;
-    border: 1px dashed rgba(148, 163, 184, 0.5);
-    border-radius: 10px;
-    padding: 0.75rem;
-    text-align: center;
-}
-
-.thread-comment-item {
-    border: 1px solid rgba(226, 232, 240, 0.9);
-    background: #ffffff;
-    border-radius: 10px;
-    padding: 0.65rem 0.75rem;
-}
-
-.thread-comment-item.depth-1,
-.thread-comment-item.depth-2,
-.thread-comment-item.depth-3,
-.thread-comment-item.depth-4 {
-    margin-left: 1rem;
-    border-left: 3px solid rgba(59, 130, 246, 0.25);
-}
-
-.thread-comment-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.25rem;
-}
-
-.thread-comment-author {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #1e293b;
-}
-
-.thread-comment-meta {
-    font-size: 0.75rem;
-    color: #64748b;
-}
-
-.thread-comment-body {
-    font-size: 0.88rem;
-    color: #334155;
-    line-height: 1.45;
-    margin-bottom: 0.4rem;
-    white-space: pre-wrap;
-}
-
-.thread-comment-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.thread-comment-time {
-    font-size: 0.74rem;
-    color: #94a3b8;
-}
-
-.reply-comment-btn {
-    border: none;
-    background: transparent;
-    color: #2563eb;
-    font-size: 0.78rem;
-    font-weight: 600;
-    padding: 0;
-}
-
-.reply-comment-btn:hover {
-    color: #1d4ed8;
-    text-decoration: underline;
-}
-
-.comment-reply-banner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    background: rgba(59, 130, 246, 0.08);
-    border: 1px solid rgba(59, 130, 246, 0.2);
-    border-radius: 10px;
-    padding: 0.5rem 0.65rem;
-}
-
-.reply-banner-text {
-    font-size: 0.8rem;
-    color: #1e40af;
-}
-
-.reply-cancel-btn {
-    border: none;
-    background: transparent;
-    color: #1e40af;
-    padding: 0;
-    line-height: 1;
 }
 
 .notes-input {
@@ -4316,9 +4268,7 @@ body {
 
 .notes-actions {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.75rem;
+    justify-content: flex-end;
 }
 
 .btn-notes.save {
@@ -4339,6 +4289,283 @@ body {
     background: linear-gradient(135deg, #059669 0%, #047857 100%);
     transform: translateY(-1px);
     box-shadow: 0 6px 20px rgba(16, 185, 129, 0.25);
+}
+
+/* ============================================================
+   COMMENTS CONTAINER & THREAD DESIGN
+   ============================================================ */
+
+.comments-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+}
+
+/* Thread comments list */
+.thread-comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 380px;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border, #e2e8f0) transparent;
+}
+
+.thread-comments-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.thread-comments-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.thread-comments-list::-webkit-scrollbar-thumb {
+    background: var(--color-border, #e2e8f0);
+    border-radius: 4px;
+}
+
+/* Empty state */
+.thread-empty-state {
+    padding: 1.5rem 1rem;
+    text-align: center;
+    color: var(--color-text-tertiary, #94a3b8);
+    font-size: 0.875rem;
+    background: var(--color-surface-sunken, #f4f4f4);
+    border-radius: 12px;
+    border: 1.5px dashed var(--color-border, #e2e8f0);
+    font-style: italic;
+}
+
+/* Individual comment item */
+.thread-comment-item {
+    background: var(--color-surface-raised, #ffffff);
+    border: 1px solid var(--color-border-subtle, #e9edf2);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    position: relative;
+}
+
+.thread-comment-item:hover {
+    border-color: var(--brand-primary, #1259C3);
+    box-shadow: 0 2px 10px rgba(18, 89, 195, 0.08);
+}
+
+/* Depth indentation for threads */
+.thread-comment-item.depth-1 {
+    margin-left: 1.25rem;
+    background: var(--color-surface-muted, #fafafa);
+    border-left: 3px solid var(--brand-primary, #1259C3);
+    border-radius: 0 12px 12px 0;
+}
+
+.thread-comment-item.depth-2 {
+    margin-left: 2.25rem;
+    background: var(--color-surface-sunken, #f4f4f4);
+    border-left: 3px solid var(--color-info, #0ea5e9);
+    border-radius: 0 12px 12px 0;
+}
+
+.thread-comment-item.depth-3 {
+    margin-left: 3.25rem;
+    background: #f0f6ff;
+    border-left: 3px solid var(--color-success, #10b981);
+    border-radius: 0 12px 12px 0;
+}
+
+.thread-comment-item.depth-4 {
+    margin-left: 4rem;
+    background: #f9f0ff;
+    border-left: 3px solid var(--color-warning, #f59e0b);
+    border-radius: 0 12px 12px 0;
+}
+
+/* Connector line from parent to depth reply */
+.thread-comment-item.depth-1::before,
+.thread-comment-item.depth-2::before,
+.thread-comment-item.depth-3::before,
+.thread-comment-item.depth-4::before {
+    content: '';
+    position: absolute;
+    left: -1.1rem;
+    top: 50%;
+    width: 0.9rem;
+    height: 1.5px;
+    background: var(--color-border, #e2e8f0);
+    transform: translateY(-50%);
+}
+
+/* Comment header: author + meta */
+.thread-comment-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.thread-comment-author {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--color-text-primary, #1a1d29);
+    letter-spacing: -0.01em;
+}
+
+.thread-comment-meta {
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary, #94a3b8);
+    font-weight: 400;
+}
+
+/* Comment body text */
+.thread-comment-body {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary, #475569);
+    line-height: 1.55;
+    margin-bottom: 0.5rem;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+/* Footer: timestamp + reply */
+.thread-comment-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.thread-comment-time {
+    font-size: 0.7rem;
+    color: var(--color-text-muted, #b0b8c8);
+    font-style: italic;
+}
+
+.reply-comment-btn {
+    background: none;
+    border: none;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--brand-primary, #1259C3);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    letter-spacing: 0.01em;
+}
+
+.reply-comment-btn:hover {
+    background: rgba(18, 89, 195, 0.09);
+    color: var(--brand-primary-hover, #0f4fa8);
+}
+
+/* Reply banner */
+.comment-reply-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.875rem;
+    background: rgba(18, 89, 195, 0.07);
+    border: 1px solid rgba(18, 89, 195, 0.18);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: var(--brand-primary, #1259C3);
+    font-weight: 500;
+    animation: fade-up 0.15s ease;
+}
+
+.reply-banner-text {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex: 1;
+}
+
+.reply-banner-text span {
+    font-weight: 700;
+    color: var(--brand-primary-hover, #0f4fa8);
+}
+
+.reply-cancel-btn {
+    background: none;
+    border: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    color: var(--brand-primary, #1259C3);
+    cursor: pointer;
+    transition: background 0.15s;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.reply-cancel-btn:hover {
+    background: rgba(18, 89, 195, 0.15);
+}
+
+/* Notes input refinement within comments-container */
+.comments-container .notes-input {
+    width: 100%;
+    padding: 0.7rem 0.875rem;
+    border: 1.5px solid var(--color-border, #e2e8f0);
+    border-radius: 10px;
+    background: var(--color-surface-raised, #ffffff);
+    color: var(--color-text-primary, #1a1d29);
+    font-size: 0.875rem;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: inherit;
+    line-height: 1.5;
+}
+
+.comments-container .notes-input:focus {
+    outline: none;
+    border-color: var(--brand-primary, #1259C3);
+    box-shadow: 0 0 0 3px rgba(18, 89, 195, 0.1);
+    background: #fff;
+}
+
+.comments-container .notes-input::placeholder {
+    color: var(--color-text-muted, #b0b8c8);
+    font-style: italic;
+}
+
+/* Notes actions row */
+.comments-container .notes-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+#notesSaveIndicator {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--color-text-muted, #b0b8c8);
+    transition: color 0.2s;
+}
+
+/* Post comment button */
+.comments-container .btn-notes.save {
+    padding: 0.6rem 1.1rem;
+    font-size: 0.875rem;
+    border-radius: 8px;
+    background: var(--brand-primary, #1259C3);
+    box-shadow: 0 2px 8px rgba(18, 89, 195, 0.15);
+}
+
+.comments-container .btn-notes.save:hover {
+    background: var(--brand-primary-hover, #0f4fa8);
+    box-shadow: 0 4px 16px rgba(18, 89, 195, 0.25);
+    transform: translateY(-1px);
 }
 
 /* Workflow Timeline */
@@ -4973,8 +5200,7 @@ body {
     display: none;
 }
 
-.document-view.read-only .notes-container,
-.document-view.read-only .comments-container {
+.document-view.read-only .notes-container {
     display: none;
 }
 

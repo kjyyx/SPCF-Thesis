@@ -19,6 +19,7 @@ $pageMap = [
     'upload-publication' => 'upload-publication.php',
     'notifications' => 'notifications.php',
     'pubmat-approvals' => 'pubmat-approvals.php',
+    'pubmat-display' => 'pubmat-display.php',
     '404' => '404.php',
 ];
 

@@ -106,20 +106,13 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     <meta name="description" content="Modern document notification and digital signature system">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
-    <!-- 
-        CSS Loading Order (Important):
-        1. global.css - OneUI foundation (navbar, buttons, forms, cards, modals, utilities)
-        2. event-calendar.css - Calendar-specific components (optional, for shared header styles)
-        3. notifications.css - Page-specific overrides and custom components
-        4. toast.css - Toast notification styles
-    -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/event-calendar.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/notifications.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/toast.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global-notifications.css"><!-- Global notifications styles -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
 
     <script>
         // Provide user data to JS (employee-only)

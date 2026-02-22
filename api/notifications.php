@@ -323,6 +323,15 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
         if ($user['role'] === 'employee') {
             $debugLogs[] = "=== Generating notifications for employee {$user['id']} ===";
 
+            // Test notification for employees
+            try {
+                $testStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, is_read, created_at) VALUES (?, ?, 'system', 'Test Notification', 'This is a test notification for employees', 0, NOW()) ON DUPLICATE KEY UPDATE created_at = NOW()");
+                $testStmt->execute([$user['id'], $user['role']]);
+                $debugLogs[] = "Created test notification for employee {$user['id']}";
+            } catch (Exception $e) {
+                $debugLogs[] = "Error creating test notification: " . $e->getMessage();
+            }
+
             // Check if employee has any assigned pending steps
             $checkAssigned = $db->prepare("SELECT COUNT(*) as count FROM document_steps WHERE assigned_to_employee_id = ? AND status = 'pending'");
             $checkAssigned->execute([$user['id']]);
@@ -359,9 +368,10 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
                 $createdCount = 0;
                 while ($row = array_shift($pendingDocs)) {
                     $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_type, is_read, created_at)
-                        VALUES (?, 'employee', 'document', ?, ?, ?, ?, 0, NOW())");
+                        VALUES (?, ?, 'document', ?, ?, ?, ?, 0, NOW())");
                     $insertStmt->execute([
                         $user['id'],
+                        $user['role'],
                         'Document Pending Review',
                         "Document '{$row['title']}' requires your review",
                         $row['id'],
@@ -400,9 +410,10 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
                 $createdCount = 0;
                 while ($row = array_shift($pendingMats)) {
                     $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, reference_id, reference_type, is_read, created_at)
-                        VALUES (?, 'employee', 'document', ?, ?, ?, ?, 0, NOW())");
+                        VALUES (?, ?, 'document', ?, ?, ?, ?, 0, NOW())");
                     $insertStmt->execute([
                         $user['id'],
+                        $user['role'],
                         'Pubmat Pending Review',
                         "Pubmat '{$row['title']}' requires your review",
                         $row['id'],
@@ -441,9 +452,10 @@ function generateNotifications($db, $user, $debug = false, &$debugLogs = [])
                 while ($comment = array_shift($comments)) {
                     $isReply = !empty($comment['parent_note_id']);
                     $insertStmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_id, reference_type, is_read, created_at)
-                        VALUES (?, 'employee', 'document', ?, ?, ?, ?, ?, 0, NOW())");
+                        VALUES (?, ?, 'document', ?, ?, ?, ?, ?, 0, NOW())");
                     $insertStmt->execute([
                         $user['id'],
+                        $user['role'],
                         $isReply ? 'New Reply' : 'New Comment',
                         $isReply ? "New reply on assigned document '{$comment['title']}'" : "New comment on assigned document '{$comment['title']}'",
                         $comment['document_id'],

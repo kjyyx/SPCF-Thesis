@@ -1,6 +1,6 @@
 // saf.js - Student Allocated Funds JavaScript
 var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
-// Departments data with mapping
+
 const DEPARTMENTS = [
   { id: 'casse', name: 'College of Arts, Social Sciences and Education', short: 'CASSE', db_id: 'casse' },
   { id: 'ccis', name: 'College of Computing and Information Sciences', short: 'CCIS', db_id: 'ccis' },
@@ -13,400 +13,436 @@ const DEPARTMENTS = [
   { id: 'ssc', name: 'Supreme Student Council (SSC)', short: 'SSC', db_id: 'ssc' }
 ];
 
-// Department mapping
 const deptMap = {};
 const deptNameToIdMap = {};
 DEPARTMENTS.forEach(dept => {
-  deptMap[dept.id] = dept;
+  deptMap[dept.db_id] = dept; // Key by db_id to match backend references
   deptNameToIdMap[dept.name] = dept.db_id;
 });
 
-// State
-let currentLevel = null;
+// Global state
 let currentDeptId = null;
 let allData = [];
 let isLoading = false;
-let editModal, resetModal, toastInstance;
+let editingTransactionId = null;
+let currentUser = window.currentUser || null;
 
-// Config
-const defaultConfig = {
-  system_title: 'Student Allocated Funds',
-  currency_symbol: '₱',
-  primary_color: '#667eea',
-  secondary_color: '#764ba2',
-  success_color: '#10b981',
-  danger_color: '#ef4444',
-  text_color: '#1f2937'
-};
+// Determine access level based on user role and position
+const isStudent = currentUser && currentUser.role === 'student';
+const isAccounting = currentUser && currentUser.role === 'employee' && currentUser.position && currentUser.position.toLowerCase().includes('accounting');
+const isOsa = currentUser && currentUser.role === 'employee' && currentUser.position && currentUser.position.toLowerCase().includes('osa');
+const isAdmin = currentUser && currentUser.role === 'admin';
+const canEditSaf = isAccounting || isAdmin;
 
-// Initialize Element SDK
-if (window.elementSdk) {
-  window.elementSdk.init({
-    defaultConfig,
-    onConfigChange: async (config) => {
-      const title = config.system_title || defaultConfig.system_title;
-      const titleElements = document.querySelectorAll('#login-title, #dashboard-title');
-      titleElements.forEach(el => el.textContent = title);
-    },
-    mapToCapabilities: (config) => ({
-      recolorables: [
-        {
-          get: () => config.primary_color || defaultConfig.primary_color,
-          set: (v) => { config.primary_color = v; window.elementSdk.setConfig({ primary_color: v }); }
-        },
-        {
-          get: () => config.secondary_color || defaultConfig.secondary_color,
-          set: (v) => { config.secondary_color = v; window.elementSdk.setConfig({ secondary_color: v }); }
-        },
-        {
-          get: () => config.success_color || defaultConfig.success_color,
-          set: (v) => { config.success_color = v; window.elementSdk.setConfig({ success_color: v }); }
-        },
-        {
-          get: () => config.danger_color || defaultConfig.danger_color,
-          set: (v) => { config.danger_color = v; window.elementSdk.setConfig({ danger_color: v }); }
-        },
-        {
-          get: () => config.text_color || defaultConfig.text_color,
-          set: (v) => { config.text_color = v; window.elementSdk.setConfig({ text_color: v }); }
-        }
-      ],
-      borderables: [],
-      fontEditable: undefined,
-      fontSizeable: undefined
-    }),
-    mapToEditPanelValues: (config) => new Map([
-      ['system_title', config.system_title || defaultConfig.system_title],
-      ['currency_symbol', config.currency_symbol || defaultConfig.currency_symbol]
-    ])
-  });
-}
+// Modals
+let allocateModal, transactionModal, addDeductModal, resetModal, editModal;
 
-// Initialize Bootstrap components
-document.addEventListener('DOMContentLoaded', function() {
-  editModal = new bootstrap.Modal(document.getElementById('editModal'));
+document.addEventListener('DOMContentLoaded', async () => {
+  allocateModal = new bootstrap.Modal(document.getElementById('allocateModal'));
+  transactionModal = new bootstrap.Modal(document.getElementById('transactionModal'));
+  addDeductModal = new bootstrap.Modal(document.getElementById('addDeductModal'));
   resetModal = new bootstrap.Modal(document.getElementById('resetModal'));
-  toastInstance = new bootstrap.Toast(document.getElementById('toast'));
+  editModal = new bootstrap.Modal(document.getElementById('editModal'));
 
-  // Set level and dept based on user
-  if (window.currentUser.role === 'student') {
-    currentLevel = 'level1';
-    const originalDept = window.currentUser.department;
-    currentDeptId = deptNameToIdMap[originalDept.trim()] || originalDept;
-  } else if (window.currentUser.role === 'employee') {
-    if (window.currentUser.position && window.currentUser.position.includes('Accounting')) {
-      currentLevel = 'level3';
-    } else if (window.currentUser.position && window.currentUser.position.includes('OSA')) {
-      currentLevel = 'level2';
-    }
+  const allocDeptSelect = document.getElementById('alloc-dept');
+  if (allocDeptSelect) {
+    DEPARTMENTS.forEach(dept => {
+      const option = document.createElement('option');
+      option.value = dept.db_id;
+      option.textContent = dept.name;
+      allocDeptSelect.appendChild(option);
+    });
   }
 
-  initDataSdk();
+  // Setup UI based on role
+  if (canEditSaf || isOsa) {
+    document.getElementById('sidebar').style.display = 'block';
+  }
 
-  // Show initial view
-  if (currentLevel === 'level1' && currentDeptId) {
-    showSingleDept(currentDeptId);
-  } else if (currentLevel === 'level2' || currentLevel === 'level3') {
-    showAllDepts();
+  if (canEditSaf) {
+    document.getElementById('btn-allocate').style.display = 'inline-flex';
+    document.getElementById('btn-edit').style.display = 'inline-flex';
+    document.getElementById('btn-reset').style.display = 'inline-flex';
+    document.getElementById('btn-add-deduct').style.display = 'inline-flex';
+  }
+
+  await initDataSdk();
+
+  if (isStudent && currentUser.department) {
+    const studentDeptId = deptNameToIdMap[currentUser.department];
+    if (studentDeptId) {
+      currentDeptId = studentDeptId;
+      document.getElementById('sidebar').style.display = 'none';
+      document.getElementById('main-content').className = 'col-lg-12';
+      renderDashboard(currentDeptId);
+    } else {
+      document.getElementById('current-dept-name').textContent = "Department not found or mapped incorrectly.";
+    }
+  } else if ((canEditSaf || isOsa) && DEPARTMENTS.length > 0) {
+    currentDeptId = DEPARTMENTS[0].db_id;
+    renderSidebar();
+    renderDashboard(currentDeptId);
   }
 });
 
-// Data handler - not needed since we use fetch
-// const dataHandler = {
-//   onDataChanged(data) {
-//     allData = data;
-//     renderCurrentView();
-//   }
-// };
+function showLoading() {
+  isLoading = true;
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) overlay.style.display = 'flex';
+}
 
-// Initialize Data SDK
+function hideLoading() {
+  isLoading = false;
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function showToast(message, type = 'info') {
+  if (window.ToastManager) {
+    window.ToastManager.show({ type: type, message: message });
+  } else {
+    alert(message); // Fallback
+  }
+}
+
+function formatCurrency(amount) {
+  return '₱' + parseFloat(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function safeText(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 async function initDataSdk() {
+  showLoading();
   try {
     const response = await fetch(BASE_URL + 'api/saf.php', {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       credentials: 'include'
     });
     const result = await response.json();
     if (result.success) {
-      allData = result.data;
-      renderCurrentView();
+      allData = result.data || [];
+      
+      // NEW: Calculate and show the Global Total for Employees
+      if (canEditSaf || isOsa) {
+          let globalTotal = 0;
+          allData.forEach(d => {
+              if (d.type === 'saf') {
+                  const initial = parseFloat(d.initial_amount) || 0;
+                  const used = parseFloat(d.used_amount) || 0;
+                  const balance = d.current_balance !== undefined ? parseFloat(d.current_balance) : (initial - used);
+                  globalTotal += balance;
+              }
+          });
+          const globalContainer = document.getElementById('global-saf-container');
+          const globalTotalEl = document.getElementById('global-total-saf');
+          if (globalContainer && globalTotalEl) {
+              globalContainer.classList.remove('d-none');
+              globalContainer.classList.add('d-inline-flex');
+              globalTotalEl.textContent = formatCurrency(globalTotal);
+          }
+      }
+
     } else {
-      console.error('SAF JS: Failed to load data:', result.message);
-      showToast('Failed to load SAF data', 'danger');
+      showToast('Failed to load data: ' + result.message, 'danger');
     }
   } catch (error) {
-    console.error('SAF JS: Error initializing data:', error);
-    showToast('Failed to initialize SAF data', 'danger');
+    console.error(error);
+    showToast('Failed to connect to the server', 'danger');
   }
+  hideLoading();
+  if (currentDeptId) renderDashboard(currentDeptId);
 }
 
-// Utility functions
-function getCurrencySymbol() {
-  return window.elementSdk?.config?.currency_symbol || defaultConfig.currency_symbol;
-}
+function renderSidebar() {
+  const container = document.getElementById('dept-list');
+  if (!container) return;
+  container.innerHTML = '';
 
-function formatCurrency(amount) {
-  return `${getCurrencySymbol()}${(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function showToast(message, type = 'success') {
-  const toast = document.getElementById('toast');
-  const toastMsg = document.getElementById('toast-message');
-  toastMsg.textContent = message;
-
-  toast.className = `toast align-items-center border-0 ${type === 'danger' ? 'bg-danger' : 'bg-success'} text-white`;
-  toastInstance.show();
-}
-
-function showLoading() {
-  document.getElementById('loading-overlay').style.display = 'flex';
-  isLoading = true;
-}
-
-function hideLoading() {
-  document.getElementById('loading-overlay').style.display = 'none';
-  isLoading = false;
-}
-
-// Logout function - redirect to system logout
-function logout() {
-  window.location.href = BASE_URL + '?page=logout';
-}
-
-function goBack() {
-  if (currentDeptId && (currentLevel === 'level2' || currentLevel === 'level3')) {
-    currentDeptId = null;
-    showAllDepts();
-  } else {
-    // Use browser back for proper history
-    if (window.history.length > 1) {
-      window.history.back();
-    } else {
-      window.location.href = BASE_URL + '?page=saf'; // Fallback
-    }
-  }
-}
-
-// Get department SAF data
-function getDeptSAF(deptId) {
-  const safRecord = allData.find(d => d.type === 'saf' && d.department_id === deptId);
-  return safRecord || { initial_amount: 0, used_amount: 0 };
-}
-
-function getDeptTransactions(deptId) {
-  return allData
-    .filter(d => d.type === 'transaction' && d.department_id === deptId)
-    .sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date));
-}
-
-// View functions
-function showAllDepts() {
-  document.getElementById('all-depts-view').style.display = 'block';
-  document.getElementById('single-dept-view').style.display = 'none';
-  renderDeptCards();
-}
-
-function showSingleDept(deptId) {
-  currentDeptId = deptId;
-  document.getElementById('all-depts-view').style.display = 'none';
-  document.getElementById('single-dept-view').style.display = 'block';
-
-  // Show/hide level 3 controls
-  document.getElementById('level3-controls').style.display = currentLevel === 'level3' ? 'block' : 'none';
-
-  renderDeptDetails(deptId);
-}
-
-// Render functions
-function renderCurrentView() {
-  if (currentDeptId) {
-    renderDeptDetails(currentDeptId);
-  } else if (currentLevel === 'level2' || currentLevel === 'level3') {
-    renderDeptCards();
-  }
-}
-
-function renderDeptCards() {
-  const container = document.getElementById('dept-cards');
-  let totalBalance = 0;
-
-  const cardsHtml = DEPARTMENTS.map(dept => {
-    const saf = getDeptSAF(dept.db_id);
-    const initial = saf.initial_amount || 0;
-    const used = saf.used_amount || 0;
-    const current = saf.current_balance || 0;
-    totalBalance += current;
-    const percentage = initial > 0 ? ((current / initial) * 100).toFixed(0) : 0;
-
-    return `
-      <div class="col-md-6 col-lg-4 col-xl-3">
-        <div class="card dept-card h-100" onclick="showSingleDept('${dept.db_id}')">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start mb-3">
-              <span class="badge bg-primary badge-dept">${dept.short}</span>
-              <small class="text-muted fw-semibold">${percentage}%</small>
-            </div>
-            <h6 class="card-title mb-3" style="min-height: 48px;">${dept.name}</h6>
-            <div class="mb-2">
-              <div class="d-flex justify-content-between text-sm mb-1">
-                <small class="text-muted">Initial</small>
-                <small class="text-primary fw-semibold">${formatCurrency(initial)}</small>
-              </div>
-              <div class="d-flex justify-content-between text-sm mb-1">
-                <small class="text-muted">Used</small>
-                <small class="text-danger fw-semibold">${formatCurrency(used)}</small>
-              </div>
-              <hr class="my-2">
-              <div class="d-flex justify-content-between">
-                <small class="fw-semibold">Balance</small>
-                <small class="text-success fw-bold">${formatCurrency(current)}</small>
-              </div>
-            </div>
-            <div class="progress progress-custom">
-              <div class="progress-bar bg-success" role="progressbar"
-                   style="width: ${Math.max(0, Math.min(100, percentage))}%"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  container.innerHTML = cardsHtml;
-  document.getElementById('total-saf').textContent = formatCurrency(totalBalance);
-}
-
-function renderDeptDetails(deptId) {
-  // Find department by db_id first
-  let dept = DEPARTMENTS.find(d => d.db_id === deptId);
-
-  // If department not found in predefined list, create a fallback
-  if (!dept) {
-    dept = {
-      id: deptId,
-      name: deptId, // Use deptId as name if not found
-      short: deptId.length > 10 ? deptId.substring(0, 10) + '...' : deptId
+  DEPARTMENTS.forEach(dept => {
+    const a = document.createElement('a');
+    a.href = '#';
+    const isActive = dept.db_id === currentDeptId;
+    
+    // OneUI Styling for Sidebar items
+    a.className = `list-group-item list-group-item-action border-0 rounded-3 mb-2 px-3 py-2 fw-medium ${isActive ? 'active bg-primary text-white shadow-sm' : 'text-dark bg-light'}`;
+    a.onclick = (e) => {
+      e.preventDefault();
+      currentDeptId = dept.db_id;
+      renderSidebar();
+      renderDashboard(dept.db_id);
     };
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'text-sm';
+    nameSpan.textContent = dept.short;
+
+    // Check if Department has SAF allocated
+    const safRecord = allData.find(d => d.type === 'saf' && d.department_id === dept.db_id);
+    if (safRecord) {
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-check-circle-fill text-success opacity-75 ms-2 float-end mt-1';
+        icon.style.fontSize = '0.75rem';
+        if (isActive) icon.classList.replace('text-success', 'text-white');
+        nameSpan.appendChild(icon);
+    }
+
+    a.appendChild(nameSpan);
+    container.appendChild(a);
+  });
+}
+
+function renderDashboard(deptId) {
+  const dept = deptMap[deptId];
+  if (!dept) return;
+
+  document.getElementById('current-dept-name').textContent = dept.name;
+  if (document.getElementById('reset-dept-name')) {
+    document.getElementById('reset-dept-name').textContent = dept.name;
   }
 
-  const saf = getDeptSAF(dept.id);
-  const transactions = getDeptTransactions(dept.id);
+  // Use the specific keys expected by the database (initial_amount, used_amount, etc.)
+  const safRecord = allData.find(d => d.type === 'saf' && d.department_id === deptId);
+  const transactions = allData.filter(d => d.type === 'transaction' && d.department_id === deptId);
 
-  const initial = saf.initial_amount || 0;
-  const used = saf.used_amount || 0;
-  const current = saf.current_balance || 0;
+  if (!safRecord) {
+    document.getElementById('total-allocated').textContent = '₱0.00';
+    document.getElementById('total-used').textContent = '₱0.00';
+    document.getElementById('remaining-balance').textContent = '₱0.00';
+    updateProgressBar(0, 0);
 
-  document.getElementById('dept-name').textContent = dept.name;
-  document.getElementById('initial-amount').textContent = formatCurrency(initial);
-  document.getElementById('used-amount').textContent = formatCurrency(used);
-  document.getElementById('current-amount').textContent = formatCurrency(current);
+    if (canEditSaf) {
+      document.getElementById('btn-edit').style.display = 'none';
+      document.getElementById('btn-reset').style.display = 'none';
+      document.getElementById('btn-add-deduct').style.display = 'none';
+      document.getElementById('btn-allocate').style.display = 'inline-flex';
+      document.getElementById('alloc-dept').value = deptId;
+    }
 
-  const listContainer = document.getElementById('transaction-list');
-
-  if (transactions.length === 0) {
-    listContainer.innerHTML = `
-      <div class="text-center py-5 text-muted">
-        <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
-        <p class="mt-3">No transactions yet</p>
-      </div>
-    `;
+    document.getElementById('transactions-list').innerHTML = `
+      <div class="text-center py-5 bg-white border border-dashed rounded-4">
+        <i class="bi bi-wallet2 text-muted mb-3 d-block" style="font-size: 3rem; opacity: 0.3;"></i>
+        <h6 class="text-dark fw-bold">No Funds Allocated</h6>
+        <p class="text-muted text-sm mb-0">This department has not been allocated any funds yet.</p>
+      </div>`;
     return;
   }
 
-  const transactionsHtml = transactions.map(t => {
-    const isDeduction = t.transaction_type === 'deduct';
-    const isSet = t.transaction_type === 'set';
-    const date = new Date(t.transaction_date);
-    const formattedDate = date.toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-    });
+  if (canEditSaf) {
+    document.getElementById('btn-allocate').style.display = 'none';
+    document.getElementById('btn-edit').style.display = 'inline-flex';
+    document.getElementById('btn-reset').style.display = 'inline-flex';
+    document.getElementById('btn-add-deduct').style.display = 'inline-flex';
+  }
 
-    let iconClass = 'bi-arrow-up-circle text-success';
-    let amountClass = 'text-success';
-    let prefix = '+';
+  const allocated = parseFloat(safRecord.initial_amount) || 0;
+  const used = parseFloat(safRecord.used_amount) || 0;
+  const balance = safRecord.current_balance !== undefined ? parseFloat(safRecord.current_balance) : (allocated - used);
 
-    if (isSet) {
-      iconClass = 'bi-pencil-square text-primary';
-      amountClass = 'text-primary';
-      prefix = '';
-    } else if (isDeduction) {
-      iconClass = 'bi-arrow-down-circle text-danger';
-      amountClass = 'text-danger';
-      prefix = '-';
-    }
+  document.getElementById('total-allocated').textContent = formatCurrency(allocated);
+  document.getElementById('total-used').textContent = formatCurrency(used);
+  document.getElementById('remaining-balance').textContent = formatCurrency(balance);
 
-    return `
-      <div class="list-group-item transaction-item border-0 border-bottom">
-        <div class="d-flex align-items-center">
-          <div class="me-3">
-            <i class="bi ${iconClass}" style="font-size: 1.5rem;"></i>
-          </div>
-          <div class="flex-grow-1">
-            <h6 class="mb-1">${t.transaction_description || 'No description'}</h6>
-            <small class="text-muted">${formattedDate}</small>
-          </div>
-          <div class="text-end">
-            <h6 class="mb-0 ${amountClass} fw-bold">${prefix}${formatCurrency(t.transaction_amount)}</h6>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  listContainer.innerHTML = transactionsHtml;
+  updateProgressBar(used, allocated);
+  renderTransactions(transactions);
 }
 
-// Modal functions
-function showEditModal(type) {
-  const titleEl = document.getElementById('modal-title');
-  const submitBtn = document.getElementById('modal-submit-btn');
+function updateProgressBar(used, allocated) {
+  const progressEl = document.getElementById('fund-progress');
+  const percentageEl = document.getElementById('fund-percentage');
+  
+  if (!progressEl || !percentageEl) return;
 
-  document.getElementById('edit-type').value = type;
-  document.getElementById('edit-amount').value = '';
-  document.getElementById('edit-description').value = '';
-
-  switch(type) {
-    case 'add':
-      titleEl.textContent = 'Add Funds';
-      submitBtn.textContent = 'Add Funds';
-      submitBtn.className = 'btn btn-success';
-      break;
-    case 'deduct':
-      titleEl.textContent = 'Deduct Funds';
-      submitBtn.textContent = 'Deduct Funds';
-      submitBtn.className = 'btn btn-danger';
-      break;
-    case 'set':
-      titleEl.textContent = 'Set Initial Amount';
-      submitBtn.textContent = 'Set Amount';
-      submitBtn.className = 'btn btn-primary';
-      break;
+  if (allocated <= 0) {
+    progressEl.style.width = '0%';
+    progressEl.className = 'progress-bar bg-secondary';
+    percentageEl.textContent = '0%';
+    return;
   }
+
+  const percentage = Math.min(100, Math.max(0, (used / allocated) * 100));
+  progressEl.style.width = percentage + '%';
+  percentageEl.textContent = percentage.toFixed(1) + '%';
+
+  progressEl.classList.remove('bg-success', 'bg-warning', 'bg-danger', 'bg-primary');
+  
+  if (percentage < 50) {
+    progressEl.classList.add('bg-success');
+  } else if (percentage < 85) {
+    progressEl.classList.add('bg-warning');
+  } else {
+    progressEl.classList.add('bg-danger');
+  }
+}
+
+function renderTransactions(records) {
+  const container = document.getElementById('transactions-list');
+  if (!container) return;
+
+  if (!records || records.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-5 bg-white border rounded-4">
+        <i class="bi bi-clock-history text-muted mb-3 d-block" style="font-size: 3rem; opacity: 0.3;"></i>
+        <h6 class="text-dark fw-bold">No Transaction History</h6>
+        <p class="text-muted text-sm mb-0">There are no recorded transactions for this department.</p>
+      </div>`;
+    return;
+  }
+
+  // Sort descending by date
+  records.sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date));
+
+  let html = '';
+  records.forEach(record => {
+    // Database mapping for transaction attributes
+    const type = record.transaction_type;
+    const amount = record.transaction_amount;
+    const date = record.transaction_date;
+    const desc = record.transaction_description;
+      
+    // Determine colors and prefixes based on transaction type
+    const isDeduction = type === 'expense' || type === 'deduct';
+    const amountColor = isDeduction ? 'text-danger' : 'text-success';
+    const amountPrefix = isDeduction ? '-' : '+';
+    
+    const iconClass = type === 'expense' ? 'bi-cart-dash' :
+                      type === 'allocation' || type === 'add' || type === 'set' ? 'bi-cash-coin' :
+                      type === 'deduct' ? 'bi-arrow-down-circle' : 'bi-plus-circle';
+                      
+    const iconBg = isDeduction ? 'bg-danger text-danger' : 'bg-success text-success';
+
+    let controlsHtml = '';
+    if (canEditSaf) {
+      controlsHtml = `
+        <div class="d-flex justify-content-end gap-2 mt-3 pt-3 border-top">
+          <button class="btn btn-light btn-sm rounded-pill px-3 fw-medium text-muted border shadow-sm" onclick="editTransaction(${record.id})">
+            <i class="bi bi-pencil me-1"></i> Edit
+          </button>
+          <button class="btn btn-light btn-sm rounded-pill px-3 fw-medium text-danger border shadow-sm" onclick="deleteTransaction(${record.id})">
+            <i class="bi bi-trash me-1"></i> Delete
+          </button>
+        </div>`;
+    }
+
+    const typeName = type === 'expense' ? 'Expense' :
+                     type === 'add' ? 'Allocation Added' :
+                     type === 'deduct' ? 'Funds Deducted' :
+                     type === 'set' ? 'Initial Allocation' : 'Transaction';
+
+    // OneUI Inspired Transaction Card
+    html += `
+    <div class="card border-0 shadow-sm rounded-4 mb-3">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="btn-icon sm rounded-circle ${iconBg} bg-opacity-10 border-0">
+                        <i class="bi ${iconClass}"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold text-dark">${typeName}</div>
+                        <div class="text-xs text-muted fw-medium">${formatDate(date)}</div>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <div class="fs-5 fw-bold ${amountColor}" style="letter-spacing:-0.5px;">${amountPrefix}${formatCurrency(amount)}</div>
+                    ${record.document_ref ? `<div class="text-xs text-muted mt-1"><i class="bi bi-file-earmark-text me-1"></i>Ref: ${safeText(record.document_ref)}</div>` : ''}
+                </div>
+            </div>
+            ${desc ? `<div class="bg-light p-3 rounded-3 text-sm text-dark mb-0">${safeText(desc)}</div>` : ''}
+            ${controlsHtml}
+        </div>
+    </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+// -----------------------------------------------------------------------------
+// API & Submit Actions (Mapped strictly to specific Database Keys)
+// -----------------------------------------------------------------------------
+
+async function submitAllocation() {
+  if (isLoading) return;
+
+  const deptId = document.getElementById('alloc-dept').value;
+  const amount = document.getElementById('alloc-amount').value;
+  const academicYear = document.getElementById('alloc-academic-year').value;
+  const notes = document.getElementById('alloc-notes').value;
+
+  if (!deptId || !amount || !academicYear) {
+    showToast('Please fill in all required fields.', 'warning');
+    return;
+  }
+
+  showLoading();
+  allocateModal.hide();
+
+  try {
+    const response = await fetch(BASE_URL + 'api/saf.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        type: 'saf',
+        department_id: deptId,
+        initial_amount: amount,
+        used_amount: 0,
+        academic_year: academicYear,
+        notes: notes
+      })
+    });
+    const result = await response.json();
+    
+    if (result.success) {
+      if (window.addAuditLog) {
+        window.addAuditLog('SAF_ALLOCATED', 'Financial Management', `Allocated ${formatCurrency(amount)} to ${deptId}`, result.id, 'SAF');
+      }
+      showToast('Funds allocated successfully', 'success');
+      currentDeptId = deptId;
+      document.getElementById('allocateForm').reset();
+      await initDataSdk();
+    } else {
+      showToast('Allocation failed: ' + result.message, 'danger');
+    }
+  } catch (error) {
+    console.error(error);
+    showToast('Operation failed.', 'danger');
+  }
+  hideLoading();
+}
+
+function openEditSafModal() {
+  const safRecord = allData.find(d => d.type === 'saf' && d.department_id === currentDeptId);
+  if (!safRecord) return;
+
+  document.getElementById('edit-saf-id').value = safRecord.id;
+  document.getElementById('edit-alloc-amount').value = safRecord.initial_amount;
+  document.getElementById('edit-academic-year').value = safRecord.academic_year;
 
   editModal.show();
 }
 
-function showDeleteConfirm() {
-  resetModal.show();
-}
+async function submitEditSaf() {
+  if (isLoading) return;
 
-function showResetConfirm() {
-  resetModal.show();
-}
+  const safId = document.getElementById('edit-saf-id').value;
+  const amount = document.getElementById('edit-alloc-amount').value;
+  const academicYear = document.getElementById('edit-academic-year').value;
 
-async function handleEditSubmit(e) {
-  e.preventDefault();
-  if (isLoading || !currentDeptId) return;
-
-  const type = document.getElementById('edit-type').value;
-  const amount = parseFloat(document.getElementById('edit-amount').value);
-  const description = document.getElementById('edit-description').value.trim();
-
-  if (isNaN(amount) || amount <= 0) {
-    showToast('Please enter a valid amount', 'danger');
+  if (!safId || !amount || !academicYear) {
+    showToast('Please fill in all required fields.', 'warning');
     return;
   }
 
@@ -414,82 +450,211 @@ async function handleEditSubmit(e) {
   editModal.hide();
 
   try {
-    // 1. SET INITIAL AMOUNT (Keep this as a PUT/POST to Balance, because it's an overwrite)
-    if (type === 'set') {
-        // Update the Balance Table directly
-        const response = await fetch(BASE_URL + 'api/saf.php', {
-            method: 'POST', // Using POST with type 'saf' to handle upsert (insert/update)
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'saf',
-                department_id: currentDeptId,
-                initial_amount: amount,
-                used_amount: 0 // Reset used amount on SET
-            })
-        });
-        const result = await response.json();
-        if (!result.success) throw new Error(result.message);
+    const response = await fetch(BASE_URL + 'api/saf.php', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        id: safId,
+        type: 'saf',
+        initial_amount: amount,
+        academic_year: academicYear
+      })
+    });
+    const result = await response.json();
 
-        // Optional: Log a transaction for the record (but don't let it trigger math)
-        await fetch(BASE_URL + 'api/saf.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'transaction',
-                department_id: currentDeptId,
-                transaction_type: 'set', // API will simply log this, not do math
-                transaction_amount: amount,
-                transaction_description: description || 'Initial amount set',
-                transaction_date: new Date().toISOString()
-            })
-        });
+    if (result.success) {
+      if (window.addAuditLog) {
+        window.addAuditLog('SAF_UPDATED', 'Financial Management', `Updated SAF allocation for ${currentDeptId}`, safId, 'SAF');
+      }
+      showToast('SAF information updated successfully', 'success');
+      await initDataSdk();
+    } else {
+      showToast('Update failed: ' + result.message, 'danger');
+    }
+  } catch (error) {
+    console.error(error);
+    showToast('Operation failed.', 'danger');
+  }
+  hideLoading();
+}
 
-        showToast('Initial amount set successfully');
-    } 
-    // 2. ADD or DEDUCT (Only send Transaction, let API handle the math)
-    else {
-        const transResponse = await fetch(BASE_URL + 'api/saf.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'transaction',
-                department_id: currentDeptId,
-                transaction_type: type, // 'add' or 'deduct'
-                transaction_amount: amount,
-                transaction_description: description || (type === 'add' ? 'Funds added' : 'Funds deducted'),
-                transaction_date: new Date().toISOString()
-            })
-        });
-        
-        const transResult = await transResponse.json();
-        if (!transResult.success) throw new Error(transResult.message || 'Transaction failed');
+async function submitAddDeduct() {
+  if (isLoading || !currentDeptId) return;
 
-        showToast(type === 'add' ? 'Funds added successfully' : 'Funds deducted successfully');
+  const type = document.querySelector('input[name="operationType"]:checked').value;
+  const amount = document.getElementById('ad-amount').value;
+  const desc = document.getElementById('ad-desc').value;
+
+  if (!amount || !desc) {
+    showToast('Please enter both amount and description.', 'warning');
+    return;
+  }
+
+  const safRecord = allData.find(d => d.type === 'saf' && d.department_id === currentDeptId);
+  if (!safRecord) {
+    showToast('Department has no SAF record. Allocate funds first.', 'danger');
+    return;
+  }
+
+  showLoading();
+  addDeductModal.hide();
+
+  try {
+    const transType = type === 'add' ? 'add' : 'deduct';
+    
+    // 1. Create transaction record
+    await fetch(BASE_URL + 'api/saf.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        type: 'transaction',
+        department_id: currentDeptId,
+        transaction_type: transType,
+        transaction_amount: amount,
+        transaction_description: desc,
+        transaction_date: new Date().toISOString()
+      })
+    });
+
+    // 2. Update SAF initial_amount directly to reflect adjustment
+    let newTotal = parseFloat(safRecord.initial_amount);
+    if (type === 'add') {
+      newTotal += parseFloat(amount);
+    } else {
+      newTotal -= parseFloat(amount);
     }
 
-    // Reload data
+    const updateResponse = await fetch(BASE_URL + 'api/saf.php', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        id: safRecord.id,
+        type: 'saf',
+        initial_amount: newTotal
+      })
+    });
+    
+    const updateResult = await updateResponse.json();
+
+    if (updateResult.success) {
+        if (window.addAuditLog) {
+            window.addAuditLog('SAF_ADJUSTED', 'Financial Management', `${type === 'add' ? 'Added' : 'Deducted'} ${formatCurrency(amount)} for ${currentDeptId}`, safRecord.id, 'SAF');
+        }
+        showToast(type === 'add' ? 'Funds added successfully' : 'Funds deducted successfully', 'success');
+        document.getElementById('addDeductForm').reset();
+    }
+
     await initDataSdk();
   } catch (error) {
     console.error(error);
-    showToast('Operation failed: ' + error.message, 'danger');
+    showToast('Operation failed.', 'danger');
   }
 
   hideLoading();
 }
 
-async function confirmDelete() {
-  if (isLoading || !currentDeptId) return;
+function editTransaction(id) {
+  const trans = allData.find(d => d.type === 'transaction' && parseInt(d.id) === parseInt(id));
+  if (!trans) return;
 
-  showLoading();
-  resetModal.hide();
+  editingTransactionId = id;
+  document.getElementById('trans-id').value = trans.id;
+  document.getElementById('trans-type').value = trans.transaction_type || 'expense';
+  document.getElementById('trans-amount').value = trans.transaction_amount;
+  document.getElementById('trans-doc-ref').value = trans.document_ref || '';
+  document.getElementById('trans-desc').value = trans.transaction_description || '';
 
-  try {
-    // Handle document deletion logic here
-    showToast('Document deleted successfully');
-  } catch (error) {
-    showToast('Delete failed. Please try again.', 'danger');
+  transactionModal.show();
+}
+
+async function submitTransaction() {
+  if (isLoading) return;
+
+  const id = document.getElementById('trans-id').value;
+  const type = document.getElementById('trans-type').value;
+  const amount = document.getElementById('trans-amount').value;
+  const docRef = document.getElementById('trans-doc-ref').value;
+  const desc = document.getElementById('trans-desc').value;
+
+  if (!amount || !desc) {
+    showToast('Amount and description are required', 'warning');
+    return;
   }
 
+  showLoading();
+  transactionModal.hide();
+
+  try {
+    const response = await fetch(BASE_URL + 'api/saf.php', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        id: id,
+        type: 'transaction',
+        transaction_type: type,
+        transaction_amount: amount,
+        document_ref: docRef,
+        transaction_description: desc
+      })
+    });
+    const result = await response.json();
+
+    if (result.success) {
+      if (window.addAuditLog) {
+        window.addAuditLog('TRANSACTION_UPDATED', 'Financial Management', `Updated transaction ID: ${id}`, id, 'Transaction');
+      }
+      showToast('Transaction updated successfully', 'success');
+      editingTransactionId = null;
+      document.getElementById('transactionForm').reset();
+      
+      await initDataSdk();
+    } else {
+      showToast('Update failed: ' + result.message, 'danger');
+    }
+  } catch (error) {
+    console.error(error);
+    showToast('Operation failed.', 'danger');
+  }
+  hideLoading();
+}
+
+async function deleteTransaction(id) {
+  if (!confirm('Are you sure you want to delete this transaction? This will affect the department balance.')) {
+    return;
+  }
+
+  if (isLoading) return;
+  showLoading();
+
+  try {
+    const response = await fetch(BASE_URL + 'api/saf.php', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        id: id,
+        type: 'transaction'
+      })
+    });
+    const result = await response.json();
+
+    if (result.success) {
+      if (window.addAuditLog) {
+        window.addAuditLog('TRANSACTION_DELETED', 'Financial Management', `Deleted transaction ID: ${id}`, id, 'Transaction');
+      }
+      showToast('Transaction deleted successfully', 'success');
+      await initDataSdk();
+    } else {
+      showToast('Delete failed: ' + result.message, 'danger');
+    }
+  } catch (error) {
+    console.error(error);
+    showToast('Operation failed.', 'danger');
+  }
   hideLoading();
 }
 
@@ -512,13 +677,19 @@ async function confirmReset() {
         })
       });
       const result = await response.json();
-      if (!result.success) throw new Error('Failed to reset SAF data');
+      
+      if (result.success) {
+        if (window.addAuditLog) {
+          window.addAuditLog('SAF_RESET', 'Financial Management', `Reset all SAF data for ${currentDeptId}`, safRecord.id, 'SAF', 'WARNING');
+        }
+        showToast('Department data has been reset', 'success');
+        await initDataSdk();
+      } else {
+        showToast('Reset failed: ' + result.message, 'danger');
+      }
     }
-
-    // Reload data
-    await initDataSdk();
-    showToast('SAF data reset successfully');
   } catch (error) {
+    console.error(error);
     showToast('Reset failed. Please try again.', 'danger');
   }
 

@@ -163,6 +163,13 @@ function selectDocumentType(type) {
         document.getElementById('saf-form').style.display = 'block';
         // Load SAF balances after showing form
         loadSAFBalances();
+        // SSC/CSC checkbox logic for Supreme Student Council President
+        if (window.currentUser && window.currentUser.position === 'Supreme Student Council President') {
+            const sscCheckbox = document.getElementById('saf-ssc');
+            const cscCheckbox = document.getElementById('saf-csc');
+            if (sscCheckbox) sscCheckbox.checked = true;
+            if (cscCheckbox) cscCheckbox.checked = false;
+        }
     }
     if (type === 'facility') document.getElementById('facility-form').style.display = 'block';
     if (type === 'communication') document.getElementById('communication-form').style.display = 'block';
@@ -1003,18 +1010,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (deptSelect && window.currentUser?.department) {
             deptSelect.value = window.currentUser.department;
             updateSAFAvail(window.currentUser.department);
-            
-            // Auto-check CSC for students, SSC for SSC members
-            if (window.currentUser?.role === 'student') {
+            // SSC/CSC checkbox logic for Supreme Student Council President
+            if (window.currentUser?.position === 'Supreme Student Council President') {
+                const sscCheckbox = document.getElementById('saf-ssc');
+                const cscCheckbox = document.getElementById('saf-csc');
+                if (sscCheckbox) sscCheckbox.checked = true;
+                if (cscCheckbox) cscCheckbox.checked = false;
+            } else if (window.currentUser?.role === 'student') {
+                // Default for other students: check CSC
                 const cscCheckbox = document.getElementById('saf-csc');
                 if (cscCheckbox) cscCheckbox.checked = true;
             }
-            if (window.currentUser?.position === 'Supreme Student Council President' || 
-                window.currentUser?.position?.includes('SSC')) {
-                const sscCheckbox = document.getElementById('saf-ssc');
-                if (sscCheckbox) sscCheckbox.checked = true;
-            }
-            
             // Update locks and regenerate after checkbox changes
             updateSAFLocks();
             scheduleGenerate();

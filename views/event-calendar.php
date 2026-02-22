@@ -39,7 +39,7 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
             $details,
             $targetId,
             $targetType,
-            $severity,
+            $severity ?? 'INFO',
             $_SERVER['REMOTE_ADDR'] ?? null,
             null, // Set user_agent to null to avoid storing PII
         ]);
@@ -72,13 +72,8 @@ $pendingCount = $stmt->fetchColumn();
     <title>Sign-um - Event Calendar</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/master-css.css"><!-- Master design system -->
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global.css"><!-- Global shared UI styles -->
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/event-calendar.css"><!-- Calendar-specific styles -->
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/toast.css">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global-notifications.css">
-    <!-- Global notifications styles -->
-
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/master-css.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/event-calendar.css">
     <script>
         // Pass user data to JavaScript
         window.currentUser = <?php
@@ -92,285 +87,208 @@ $pendingCount = $stmt->fetchColumn();
         ?>;
         window.isAdmin = <?php echo ($currentUser['role'] === 'admin') ? 'true' : 'false'; ?>;
         window.BASE_URL = "<?php echo BASE_URL; ?>";
-
-        // REMOVE: Duplicate loadNotifications function and interval (handled by global-notifications.js)
     </script>
-
-    <!-- ADD: Include global notifications module -->
 </head>
 
-<body class="with-fixed-navbar event-calendar-page">
+<body class="has-navbar">
     <?php include ROOT_PATH . 'includes/navbar.php'; ?>
     <?php include ROOT_PATH . 'includes/notifications.php'; ?>
 
-    <!-- Main Content -->
-    <div class="main-content">
+    <div class="container pt-4 pb-5">
+
         <?php if (isset($currentUser['must_change_password']) && (int) $currentUser['must_change_password'] === 1): ?>
-            <div class="container-fluid">
-                <div class="alert alert-warning alert-dismissible fade show mt-3" role="alert">
-                    <i class="bi bi-exclamation-triangle me-2"></i>
+            <div class="alert alert-warning mb-4" role="alert">
+                <i class="bi bi-exclamation-triangle"></i>
+                <div class="alert-content">
+                    <div class="alert-title">Security Notice</div>
                     Your account is using a temporary password. For your security, please change your password now.
-                    <button type="button" class="btn btn-sm btn-warning ms-2" onclick="openChangePassword()">
-                        <i class="bi bi-key me-1"></i>Change Password
-                    </button>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
+                <button type="button" class="btn btn-warning btn-sm" onclick="openChangePassword()">
+                    <i class="bi bi-key"></i> Change Password
+                </button>
             </div>
         <?php endif; ?>
-        <!-- Combined Compact Header -->
-        <div class="calendar-header-compact">
-            <div class="container-fluid">
-                <div class="header-compact-content">
-                    <!-- Left Side - Student Info and Employee Info -->
-                    <div class="header-left">
-                        <!-- Student Info Redesigned -->
-                        <?php if ($currentUser['role'] === 'student'): ?>
-                            <div class="student-info-compact" id="studentInfoCompact">
-                                <div class="student-badge">
-                                    <i class="bi bi-mortarboard me-2"></i>
-                                    <span>Student Dashboard</span>
-                                </div>
-                                <div class="student-actions-buttons">
-                                    <button class="action-compact-btn" onclick="openCreateDocumentModal()"
-                                        title="Create Document">
-                                        <i class="bi bi-file-plus"></i>
-                                        <span>Create</span>
-                                    </button>
-                                    <button class="action-compact-btn" onclick="openUploadPubmatModal()"
-                                        title="Submit Pubmat">
-                                        <i class="bi bi-file-earmark-text me-2"></i>
-                                        <span>Pubmat</span>
-                                    </button>
-                                    <button class="action-compact-btn" onclick="openTrackDocumentsModal()"
-                                        title="Track Documents">
-                                        <i class="bi bi-search"></i>
-                                        <span>Track</span>
-                                    </button>
-                                    <button class="action-compact-btn"
-                                        onclick="window.location.href='<?php echo BASE_URL; ?>?page=saf'"
-                                        title="Student Allocated Funds">
-                                        <i class="bi bi-cash-coin"></i>
-                                        <span>SAF</span>
-                                    </button>
-                                    <button class="action-compact-btn" onclick="openPendingApprovals()"
-                                        title="View Documents In Review">
-                                        <i class="bi bi-clipboard-check"></i>
-                                        <span>In review</span>
-                                    </button>
 
-                                    <?php if ($currentUser['position'] === 'Supreme Student Council President'): ?>
-                                        <button class="action-compact-btn" onclick="openPendingApprovals()" id="approvalsBtn"
-                                            title="View Pending Approvals">
-                                            <i class="bi bi-clipboard-check"></i>
-                                            <span>Approvals</span>
-                                        </button>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        <?php elseif ($currentUser['role'] === 'employee'): ?>
-                            <!-- Employee Info with Pending Approvals -->
-                            <div class="employee-info-compact" id="employeeInfoCompact">
-                                <div class="employee-badge">
-                                    <i class="bi bi-person-badge me-2"></i>
-                                    <span>Employee Dashboard</span>
-                                </div>
-                                <div class="employee-actions-buttons">
-                                    <button class="action-compact-btn" onclick="openPendingApprovals()"
-                                        title="View Pending Approvals">
-                                        <i class="bi bi-clipboard-check"></i>
-                                        <span>Approvals</span>
-                                    </button>
-                                    <?php if (stripos($currentUser['position'] ?? '', 'OSA') !== false): ?>
-                                        <button class="action-compact-btn"
-                                            onclick="window.location.href='<?php echo BASE_URL; ?>?page=saf'"
-                                            title="Student Allocated Funds">
-                                            <i class="bi bi-cash-coin"></i>
-                                            <span>SAF</span>
-                                        </button>
-                                    <?php endif; ?>
-                                    <?php if (in_array($currentUser['position'] ?? '', ['College Student Council Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'])): ?>
-                                        <button class="action-compact-btn" onclick="openPubmatApprovals()"
-                                            title="View pending pubmat approvals">
-                                            <i class="bi bi-file-earmark-text me-2"></i>
-                                            <span>Pubmat</span>
-                                        </button>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        <?php endif; ?>
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">
+                    <i class="bi bi-calendar-event text-primary me-2"></i> Document Calendar & Events
+                </h1>
+                <p class="page-subtitle">Track document deadlines, signing events, and important dates</p>
+            </div>
 
-                    </div>
+            <div class="page-actions">
+                <?php if ($currentUser['role'] === 'student'): ?>
+                    <span class="badge badge-success me-2"><i class="bi bi-mortarboard me-1"></i> Student</span>
+                    <button class="btn btn-ghost btn-sm" onclick="openCreateDocumentModal()" title="Create Document"><i
+                            class="bi bi-file-plus"></i> Create</button>
+                    <button class="btn btn-ghost btn-sm" onclick="openUploadPubmatModal()" title="Submit Pubmat"><i
+                            class="bi bi-file-earmark-text"></i> Pubmat</button>
+                    <button class="btn btn-ghost btn-sm" onclick="openTrackDocumentsModal()" title="Track Documents"><i
+                            class="bi bi-search"></i> Track</button>
+                    <button class="btn btn-ghost btn-sm" onclick="window.location.href='<?php echo BASE_URL; ?>?page=saf'"
+                        title="Student Allocated Funds"><i class="bi bi-cash-coin"></i> SAF</button>
+                    <button class="btn btn-ghost btn-sm" onclick="openPendingApprovals()"
+                        title="View Documents In Review"><i class="bi bi-clipboard-check"></i> In Review</button>
 
-                    <!-- Right Side - Compact Stats -->
-                    <div class="header-stats-compact">
-                        <div class="stat-item-compact">
-                            <span class="stat-number-compact" id="totalEvents">0</span>
-                            <span class="stat-label-compact">Total</span>
-                        </div>
-                        <div class="stat-item-compact">
-                            <span class="stat-number-compact" id="upcomingEvents">0</span>
-                            <span class="stat-label-compact">Upcoming</span>
-                        </div>
-                        <div class="stat-item-compact">
-                            <span class="stat-number-compact" id="todayEvents">0</span>
-                            <span class="stat-label-compact">Today</span>
-                        </div>
-                    </div>
-                </div>
+                    <?php if ($currentUser['position'] === 'Supreme Student Council President'): ?>
+                        <button class="btn btn-primary btn-sm ms-2" onclick="openPendingApprovals()" id="approvalsBtn"><i
+                                class="bi bi-clipboard-check"></i> Approvals</button>
+                    <?php endif; ?>
+
+                <?php elseif ($currentUser['role'] === 'employee'): ?>
+                    <span class="badge badge-primary me-2"><i class="bi bi-person-badge me-1"></i> Employee</span>
+                    <button class="btn btn-danger btn-sm" onclick="openPendingApprovals()"><i
+                            class="bi bi-clipboard-check"></i> Pending Approvals</button>
+
+                    <?php if (stripos($currentUser['position'] ?? '', 'OSA') !== false): ?>
+                        <button class="btn btn-ghost btn-sm"
+                            onclick="window.location.href='<?php echo BASE_URL; ?>?page=saf'"><i class="bi bi-cash-coin"></i>
+                            SAF</button>
+                    <?php endif; ?>
+
+                    <?php if (in_array($currentUser['position'] ?? '', ['College Student Council Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'])): ?>
+                        <button class="btn btn-ghost btn-sm" onclick="openPubmatApprovals()"><i
+                                class="bi bi-file-earmark-text"></i> Pubmats</button>
+                    <?php endif; ?>
+                    <?php if (($currentUser['position'] ?? '') === 'Physical Plant and Facilities Office (PPFO)'): ?>
+                        <button class="btn btn-info btn-sm" onclick="openPubmatDisplay()"><i class="bi bi-image"></i> Pubmat Display</button>
+                    <?php endif; ?>
+                <?php endif; ?>
             </div>
         </div>
 
-        <!-- Main Page Header -->
-        <div class="page-header-section">
-            <div class="container-fluid">
-                <div class="page-header-content">
-                    <h1 class="page-title">
-                        <i class="bi bi-calendar-event me-3"></i>
-                        Document Calendar & Events
-                    </h1>
-                    <p class="page-subtitle">Track document deadlines, signing events, and important dates</p>
-                </div>
-            </div>
-        </div>
+        <div class="row g-4 mb-4">
+            <div class="col-lg-8">
+                <div class="card h-full">
+                    <div class="card-body d-flex flex-column gap-3">
 
-        <!-- Calendar Controls -->
-        <div class="calendar-controls">
-            <div class="container-fluid">
-                <div class="controls-container">
-                    <div class="navigation-controls">
-                        <button class="btn btn-outline-primary" id="prevMonth">
-                            <i class="bi bi-chevron-left"></i>
-                        </button>
-                        <div class="current-month">
-                            <h3 id="currentMonth">Loading...</h3>
-                        </div>
-                        <button class="btn btn-outline-primary" id="nextMonth">
-                            <i class="bi bi-chevron-right"></i>
-                        </button>
-                        <button class="btn btn-outline-primary" id="todayBtn">
-                            <i class="bi bi-calendar-check me-1"></i>Today
-                        </button>
-                    </div>
-
-                    <div class="view-controls">
-                        <div class="btn-group" role="group">
-                            <button type="button" class="btn btn-outline-secondary active view-btn" data-view="month">
-                                <i class="bi bi-calendar-month me-1"></i>Month
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary view-btn" data-view="week">
-                                <i class="bi bi-calendar-week me-1"></i>Week
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary view-btn" data-view="agenda">
-                                <i class="bi bi-calendar-event me-1"></i>Agenda
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary view-btn" data-view="list">
-                                <i class="bi bi-list me-1"></i>List
-                            </button>
-                        </div>
-                        <?php if ($currentUser['role'] !== 'student'): ?>
-                            <button type="button" class="btn btn-primary ms-3" id="addEventBtn">
-                                <i class="bi bi-plus-circle me-1"></i>Add Event
-                            </button>
-                        <?php endif; ?>
-                        <button type="button" class="btn btn-outline-success ms-2" id="exportEventsBtn">
-                            <i class="bi bi-download me-1"></i>Export
-                        </button>
-                        <button type="button" class="btn btn-outline-info ms-2" onclick="showHelp()">
-                            <i class="bi bi-question-circle me-1"></i>Help
-                        </button>
-                    </div>
-
-                    <!-- Search and Filter Controls -->
-                    <div class="search-controls mt-3">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
-                                    <input type="text" class="form-control" id="eventSearch"
-                                        placeholder="Search events...">
-                                </div>
+                        <div class="d-flex justify-between items-center flex-wrap gap-3">
+                            <div class="d-flex items-center gap-2">
+                                <button class="btn btn-icon sm" id="prevMonth"><i
+                                        class="bi bi-chevron-left"></i></button>
+                                <h3 id="currentMonth" class="m-0 text-lg text-center" style="min-width: 160px;">
+                                    Loading...</h3>
+                                <button class="btn btn-icon sm" id="nextMonth"><i
+                                        class="bi bi-chevron-right"></i></button>
+                                <button class="btn btn-ghost btn-sm ms-2" id="todayBtn"><i
+                                        class="bi bi-calendar-check"></i> Today</button>
                             </div>
-                            <div class="col-md-3">
-                                <select class="form-select" id="departmentFilter">
+
+                            <div class="nav-tabs-glass">
+                                <button type="button" class="nav-tab active view-btn" data-view="month"><i
+                                        class="bi bi-calendar-month"></i> Month</button>
+                                <button type="button" class="nav-tab view-btn" data-view="week"><i
+                                        class="bi bi-calendar-week"></i> Week</button>
+                                <button type="button" class="nav-tab view-btn" data-view="agenda"><i
+                                        class="bi bi-list-task"></i> Agenda</button>
+                                <button type="button" class="nav-tab view-btn" data-view="list"><i
+                                        class="bi bi-list"></i> List</button>
+                            </div>
+                        </div>
+
+                        <div class="divider m-0"></div>
+
+                        <div class="d-flex flex-wrap gap-3 items-center">
+                            <div class="search-input-wrapper flex-1" style="min-width: 200px;">
+                                <i class="bi bi-search search-icon"></i>
+                                <input type="text" class="form-control sm" id="eventSearch"
+                                    placeholder="Search events...">
+                            </div>
+                            <div style="min-width: 180px;">
+                                <select class="form-select sm" id="departmentFilter">
                                     <option value="">All Departments</option>
                                 </select>
                             </div>
-                            <div class="col-md-3">
-                                <select class="form-select" id="statusFilter">
+                            <div style="min-width: 140px;">
+                                <select class="form-select sm" id="statusFilter">
                                     <option value="">All Status</option>
                                     <option value="approved">Approved</option>
                                     <option value="pending">Pending</option>
                                 </select>
                             </div>
                         </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="d-flex flex-column gap-3 h-full">
+                    <div class="d-flex gap-3 flex-1">
+                        <div class="stat-card info flex-1 p-3 flex-col justify-center text-center">
+                            <div class="stat-value text-xl" id="upcomingEvents">0</div>
+                            <div class="stat-label">Upcoming</div>
+                        </div>
+                        <div class="stat-card primary flex-1 p-3 flex-col justify-center text-center">
+                            <div class="stat-value text-xl" id="todayEvents">0</div>
+                            <div class="stat-label">Today</div>
+                        </div>
+                        <div class="stat-card flex-1 p-3 flex-col justify-center text-center">
+                            <div class="stat-value text-xl" id="totalEvents">0</div>
+                            <div class="stat-label">Total</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 justify-end">
+                        <button type="button" class="btn btn-ghost flex-1" id="exportEventsBtn">
+                            <i class="bi bi-download"></i> Export
+                        </button>
+                        <?php if ($currentUser['role'] !== 'student'): ?>
+                            <button type="button" class="btn btn-primary flex-2" id="addEventBtn">
+                                <i class="bi bi-plus-lg"></i> Add Event
+                            </button>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Calendar Grid -->
-        <div class="calendar-container">
-            <div class="container-fluid">
-                <!-- Loading Indicator -->
-                <div id="calendarLoading" class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading calendar...</span>
-                    </div>
-                    <p class="mt-2 text-muted">Loading events...</p>
-                </div>
-                <!-- Month View -->
-                <div id="monthView" class="calendar-view active">
-                    <div class="calendar-grid">
-                        <!-- Calendar Header -->
-                        <div class="calendar-header-row">
-                            <div class="calendar-day-header">Sun</div>
-                            <div class="calendar-day-header">Mon</div>
-                            <div class="calendar-day-header">Tue</div>
-                            <div class="calendar-day-header">Wed</div>
-                            <div class="calendar-day-header">Thu</div>
-                            <div class="calendar-day-header">Fri</div>
-                            <div class="calendar-day-header">Sat</div>
-                        </div>
-                        <!-- Calendar Days -->
-                        <div id="calendarDays" class="calendar-days">
-                            <!-- Days will be populated by JavaScript -->
-                        </div>
-                    </div>
-                </div>
+        <div class="card card-lg p-0 border-0 shadow-md">
+            <div id="calendarLoading" class="text-center py-5 d-none">
+                <div class="spinner spinner-lg mx-auto mb-3"></div>
+                <p class="text-muted">Loading events...</p>
+            </div>
 
-                <!-- Week View -->
-                <div id="weekView" class="calendar-view">
-                    <div class="week-grid">
-                        <div class="week-header">
-                            <div class="time-column">Time</div>
-                            <div class="week-days" id="weekDaysHeader">
-                                <!-- Week days will be populated -->
-                            </div>
-                        </div>
-                        <div class="week-body" id="weekBody">
-                            <!-- Week time slots will be populated -->
-                        </div>
+            <div id="monthView" class="calendar-view active">
+                <div class="su-calendar-grid">
+                    <div class="su-calendar-header">
+                        <div>Sun</div>
+                        <div>Mon</div>
+                        <div>Tue</div>
+                        <div>Wed</div>
+                        <div>Thu</div>
+                        <div>Fri</div>
+                        <div>Sat</div>
+                    </div>
+                    <div id="calendarDays" class="su-calendar-body">
                     </div>
                 </div>
+            </div>
 
-                <!-- Agenda View -->
-                <div id="agendaView" class="calendar-view">
-                    <div class="agenda-container" id="agendaContainer">
-                        <!-- Agenda content will be populated by JavaScript -->
+            <div id="weekView" class="calendar-view d-none p-4">
+                <div class="su-week-grid">
+                    <div class="su-week-header">
+                        <div class="time-col">Time</div>
+                        <div class="days-col" id="weekDaysHeader"></div>
+                    </div>
+                    <div class="su-week-body" id="weekBody">
                     </div>
                 </div>
+            </div>
 
-                <!-- List View -->
-                <div id="listView" class="calendar-view">
-                    <div class="events-list" id="eventsList">
-                        <!-- Events list will be populated -->
-                    </div>
+            <div id="agendaView" class="calendar-view d-none p-4">
+                <div id="agendaContainer" class="su-agenda-container">
+                </div>
+            </div>
+
+            <div id="listView" class="calendar-view d-none p-4">
+                <div id="eventsList" class="su-list-container">
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Event Modal -->
     <div class="modal fade" id="eventModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -379,28 +297,30 @@ $pendingCount = $stmt->fetchColumn();
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="eventForm">
-                        <div class="mb-3">
-                            <label for="eventTitle" class="form-label">Event Title</label>
+                    <form id="eventForm" class="d-flex flex-col gap-3">
+                        <div class="form-group mb-0">
+                            <label for="eventTitle" class="form-label">Event Title <span
+                                    class="required">*</span></label>
                             <input type="text" class="form-control" id="eventTitle" required>
                         </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <label for="eventDate" class="form-label">Date</label>
+                        <div class="row g-3">
+                            <div class="col-md-6 form-group mb-0">
+                                <label for="eventDate" class="form-label">Date <span class="required">*</span></label>
                                 <input type="date" class="form-control" id="eventDate" required>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-6 form-group mb-0">
                                 <label for="eventTime" class="form-label">Time</label>
                                 <input type="time" class="form-control" id="eventTime">
                             </div>
                         </div>
-                        <div class="mb-3">
+                        <div class="form-group mb-0">
                             <label for="eventVenue" class="form-label">Venue</label>
                             <input type="text" class="form-control" id="eventVenue">
                         </div>
-                        <div class="mb-3">
-                            <label for="eventDepartment" class="form-label">Department/College</label>
-                            <select class="form-control" id="eventDepartment" required>
+                        <div class="form-group mb-0">
+                            <label for="eventDepartment" class="form-label">Department/College <span
+                                    class="required">*</span></label>
+                            <select class="form-select" id="eventDepartment" required>
                                 <option value="">Select Department</option>
                                 <option value="College of Arts, Sciences and Education">College of Arts, Sciences and
                                     Education</option>
@@ -420,25 +340,19 @@ $pendingCount = $stmt->fetchColumn();
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" id="deleteBtn" style="display: none;">
-                        <i class="bi bi-trash me-1"></i>Delete
-                    </button>
-                    <button type="button" class="btn btn-success" id="approveBtn" style="display: none;">
-                        <i class="bi bi-check-circle me-1"></i>Approve
-                    </button>
-                    <button type="button" class="btn btn-warning" id="disapproveBtn" style="display: none;">
-                        <i class="bi bi-x-circle me-1"></i>Disapprove
-                    </button>
-                    <button type="button" class="btn btn-primary" id="saveEventBtn">
-                        <i class="bi bi-check-circle me-1"></i>Save Event
-                    </button>
+                    <button type="button" class="btn btn-ghost me-auto" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="deleteBtn" style="display: none;"><i
+                            class="bi bi-trash"></i></button>
+                    <button type="button" class="btn btn-warning" id="disapproveBtn"
+                        style="display: none;">Disapprove</button>
+                    <button type="button" class="btn btn-success" id="approveBtn"
+                        style="display: none;">Approve</button>
+                    <button type="button" class="btn btn-primary" id="saveEventBtn">Save Event</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- View Event Modal (Students) -->
     <div class="modal fade" id="viewEventModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -447,92 +361,82 @@ $pendingCount = $stmt->fetchColumn();
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="event-details">
-                        <div class="detail-group">
-                            <label class="detail-label">Event Title</label>
-                            <div class="detail-value" id="viewEventTitle">-</div>
+                    <div class="d-flex flex-col gap-4">
+                        <div>
+                            <label class="form-label text-muted mb-1">Event Title</label>
+                            <div class="fw-semibold text-base" id="viewEventTitle">-</div>
                         </div>
                         <div class="row">
-                            <div class="col-md-6">
-                                <div class="detail-group">
-                                    <label class="detail-label">Date</label>
-                                    <div class="detail-value" id="viewEventDate">-</div>
-                                </div>
+                            <div class="col-6">
+                                <label class="form-label text-muted mb-1">Date</label>
+                                <div class="fw-medium" id="viewEventDate">-</div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="detail-group">
-                                    <label class="detail-label">Time</label>
-                                    <div class="detail-value" id="viewEventTime">-</div>
-                                </div>
+                            <div class="col-6">
+                                <label class="form-label text-muted mb-1">Time</label>
+                                <div class="fw-medium" id="viewEventTime">-</div>
                             </div>
                         </div>
-                        <div class="detail-group">
-                            <label class="detail-label">Venue</label>
-                            <div class="detail-value" id="viewEventVenue">-</div>
+                        <div>
+                            <label class="form-label text-muted mb-1">Venue</label>
+                            <div class="fw-medium" id="viewEventVenue">-</div>
                         </div>
-                        <div class="detail-group">
-                            <label class="detail-label">Department/College</label>
-                            <div class="detail-value" id="viewEventDepartment">-</div>
+                        <div>
+                            <label class="form-label text-muted mb-1">Department/College</label>
+                            <div class="fw-medium" id="viewEventDepartment">-</div>
                         </div>
-                        <div class="detail-group">
-                            <label class="detail-label">Status</label>
-                            <div class="detail-value" id="viewEventStatus">-</div>
+                        <div>
+                            <label class="form-label text-muted mb-1">Status</label>
+                            <div id="viewEventStatus">-</div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Change Password Modal -->
     <div class="modal fade" id="changePasswordModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-key me-2"></i>Change Password
-                    </h5>
+                    <h5 class="modal-title">Change Password</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="changePasswordForm">
-                    <div class="modal-body">
+                    <div class="modal-body d-flex flex-col gap-3">
                         <div id="changePasswordMessages"></div>
-                        <div class="mb-3">
+                        <div class="form-group mb-0">
                             <label for="currentPassword" class="form-label">Current Password</label>
-                            <div class="password-wrapper">
+                            <div class="input-group">
                                 <input type="password" class="form-control" id="currentPassword" required>
-                                <button type="button" class="password-toggle"
-                                    onclick="togglePasswordVisibility('currentPassword')">
-                                    <i class="bi bi-eye" id="currentPasswordIcon"></i>
-                                </button>
+                                <button class="btn btn-ghost border" type="button"
+                                    onclick="togglePasswordVisibility('currentPassword')"><i class="bi bi-eye"
+                                        id="currentPasswordIcon"></i></button>
                             </div>
                         </div>
-                        <div class="mb-3">
+                        <div class="form-group mb-0">
                             <label for="newPassword" class="form-label">New Password</label>
-                            <div class="password-wrapper">
+                            <div class="input-group">
                                 <input type="password" class="form-control" id="newPassword" required>
-                                <button type="button" class="password-toggle"
-                                    onclick="togglePasswordVisibility('newPassword')">
-                                    <i class="bi bi-eye" id="newPasswordIcon"></i>
-                                </button>
+                                <button class="btn btn-ghost border" type="button"
+                                    onclick="togglePasswordVisibility('newPassword')"><i class="bi bi-eye"
+                                        id="newPasswordIcon"></i></button>
                             </div>
                         </div>
-                        <div class="mb-3">
+                        <div class="form-group mb-0">
                             <label for="confirmPassword" class="form-label">Confirm New Password</label>
-                            <div class="password-wrapper">
+                            <div class="input-group">
                                 <input type="password" class="form-control" id="confirmPassword" required>
-                                <button type="button" class="password-toggle"
-                                    onclick="togglePasswordVisibility('confirmPassword')">
-                                    <i class="bi bi-eye" id="confirmPasswordIcon"></i>
-                                </button>
+                                <button class="btn btn-ghost border" type="button"
+                                    onclick="togglePasswordVisibility('confirmPassword')"><i class="bi bi-eye"
+                                        id="confirmPasswordIcon"></i></button>
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">Update Password</button>
                     </div>
                 </form>
@@ -540,60 +444,50 @@ $pendingCount = $stmt->fetchColumn();
         </div>
     </div>
 
-    <!-- Profile Settings Modal -->
-    <div class="modal fade" id="profileSettingsModal" tabindex="-1" aria-labelledby="profileSettingsLabel"
-        aria-hidden="true">
+    <div class="modal fade" id="profileSettingsModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="profileSettingsLabel">
-                        <i class="bi bi-person-gear me-2"></i>Profile Settings
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title">Profile Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="profileSettingsForm">
-                    <div class="modal-body">
+                    <div class="modal-body d-flex flex-col gap-3">
                         <div id="profileSettingsMessages"></div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="profileFirstName" class="form-label">First Name</label>
-                                    <input type="text" class="form-control" id="profileFirstName" required>
-                                </div>
+                        <div class="row g-3">
+                            <div class="col-md-6 form-group mb-0">
+                                <label for="profileFirstName" class="form-label">First Name</label>
+                                <input type="text" class="form-control" id="profileFirstName" required>
                             </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="profileLastName" class="form-label">Last Name</label>
-                                    <input type="text" class="form-control" id="profileLastName" required>
-                                </div>
+                            <div class="col-md-6 form-group mb-0">
+                                <label for="profileLastName" class="form-label">Last Name</label>
+                                <input type="text" class="form-control" id="profileLastName" required>
                             </div>
                         </div>
-                        <div class="mb-3">
+                        <div class="form-group mb-0">
                             <label for="profileEmail" class="form-label">Email Address</label>
                             <input type="email" class="form-control" id="profileEmail" required>
                         </div>
-                        <div class="mb-3">
+                        <div class="form-group mb-0">
                             <label for="profilePhone" class="form-label">Phone Number</label>
                             <input type="tel" class="form-control" id="profilePhone">
                         </div>
                         <?php if ($currentUser['role'] === 'student'): ?>
-                            <div class="mb-3">
+                            <div class="form-group mb-0">
                                 <label for="profilePosition" class="form-label">Position/Role</label>
                                 <input type="text" class="form-control" id="profilePosition" readonly>
                             </div>
                         <?php endif; ?>
-                        <div class="mb-3">
-                            <label class="form-label">Theme Preference</label>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="darkModeToggle">
-                                <label class="form-check-label" for="darkModeToggle">
-                                    Enable Dark Mode
-                                </label>
-                            </div>
+
+                        <div class="divider"></div>
+
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" id="darkModeToggle">
+                            <label class="form-check-label fw-medium ms-2" for="darkModeToggle">Enable Dark Mode</label>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">Save Changes</button>
                     </div>
                 </form>
@@ -601,34 +495,31 @@ $pendingCount = $stmt->fetchColumn();
         </div>
     </div>
 
-    <!-- Preferences Modal -->
-    <div class="modal fade" id="preferencesModal" tabindex="-1" aria-labelledby="preferencesLabel" aria-hidden="true">
+    <div class="modal fade" id="preferencesModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="preferencesLabel">
-                        <i class="bi bi-sliders me-2"></i>Preferences
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title">Preferences</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body d-flex flex-col gap-4">
                     <div id="preferencesMessages"></div>
-                    <div class="mb-3">
-                        <label class="form-label">Notification Settings</label>
-                        <div class="form-check">
+
+                    <div>
+                        <label class="form-label text-muted mb-2">Notification Settings</label>
+                        <div class="form-check mb-2">
                             <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
-                            <label class="form-check-label" for="emailNotifications">
-                                Email notifications for events
-                            </label>
+                            <label class="form-check-label fw-medium ms-1" for="emailNotifications">Email notifications
+                                for events</label>
                         </div>
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="browserNotifications" checked>
-                            <label class="form-check-label" for="browserNotifications">
-                                Browser notifications
-                            </label>
+                            <label class="form-check-label fw-medium ms-1" for="browserNotifications">Browser
+                                notifications</label>
                         </div>
                     </div>
-                    <div class="mb-3">
+
+                    <div class="form-group mb-0">
                         <label for="defaultView" class="form-label">Default Calendar View</label>
                         <select class="form-select" id="defaultView">
                             <option value="month">Month</option>
@@ -636,7 +527,8 @@ $pendingCount = $stmt->fetchColumn();
                             <option value="list">List</option>
                         </select>
                     </div>
-                    <div class="mb-3">
+
+                    <div class="form-group mb-0">
                         <label for="timezone" class="form-label">Timezone</label>
                         <select class="form-select" id="timezone">
                             <option value="Asia/Manila">Asia/Manila (GMT+8)</option>
@@ -645,37 +537,34 @@ $pendingCount = $stmt->fetchColumn();
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" onclick="savePreferences()">Save Preferences</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Help & Support Modal -->
-    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpLabel" aria-hidden="true">
+    <div class="modal fade" id="helpModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="helpLabel">
-                        <i class="bi bi-question-circle me-2"></i>Help & Support
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title">Help & Support</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="accordion" id="helpAccordion">
-                        <div class="accordion-item">
+                        <div class="accordion-item border-0 mb-3 bg-transparent">
                             <h2 class="accordion-header">
-                                <button class="accordion-button" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#gettingStarted">
+                                <button class="accordion-button rounded-xl bg-surface-sunken" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#gettingStarted">
                                     Getting Started
                                 </button>
                             </h2>
                             <div id="gettingStarted" class="accordion-collapse collapse show"
                                 data-bs-parent="#helpAccordion">
-                                <div class="accordion-body">
+                                <div class="accordion-body px-4 py-3">
                                     <p>Welcome to Sign-um Document Portal! Here's how to get started:</p>
-                                    <ul>
+                                    <ul class="mb-0 text-muted">
                                         <li><strong>Students:</strong> View events, create documents, track progress
                                         </li>
                                         <li><strong>Employees:</strong> Manage events, approve documents</li>
@@ -684,65 +573,30 @@ $pendingCount = $stmt->fetchColumn();
                                 </div>
                             </div>
                         </div>
-                        <div class="accordion-item">
+                        <div class="accordion-item border-0 mb-3 bg-transparent">
                             <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#calendarFeatures">
+                                <button class="accordion-button collapsed rounded-xl bg-surface-sunken" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#calendarFeatures">
                                     Calendar Features
                                 </button>
                             </h2>
                             <div id="calendarFeatures" class="accordion-collapse collapse"
                                 data-bs-parent="#helpAccordion">
-                                <div class="accordion-body">
-                                    <h6>Views</h6>
-                                    <ul>
-                                        <li><strong>Month View:</strong> Traditional calendar grid</li>
-                                        <li><strong>Week View:</strong> Time-based weekly schedule</li>
-                                        <li><strong>List View:</strong> Chronological event list</li>
-                                        <li><strong>Agenda View:</strong> Grouped by date with details</li>
-                                    </ul>
-
-                                    <h6>Features</h6>
-                                    <ul>
-                                        <li><strong>Search:</strong> Find events by title or department</li>
-                                        <li><strong>Filter:</strong> Filter by department or approval status</li>
-                                        <li><strong>Export:</strong> Download events as CSV</li>
-                                        <li><strong>Navigation:</strong> Use arrow keys or buttons to navigate</li>
-                                    </ul>
-
-                                    <h6>Keyboard Shortcuts</h6>
-                                    <ul>
+                                <div class="accordion-body px-4 py-3 text-muted">
+                                    <h6 class="text-dark fw-bold mb-2">Keyboard Shortcuts</h6>
+                                    <ul class="mb-0">
                                         <li><kbd>Ctrl</kbd> + <kbd>←</kbd> / <kbd>→</kbd>: Previous/Next month</li>
                                         <li><kbd>Ctrl</kbd> + <kbd>Home</kbd>: Go to today</li>
                                         <li><kbd>Ctrl</kbd> + <kbd>M</kbd>: Month view</li>
                                         <li><kbd>Ctrl</kbd> + <kbd>W</kbd>: Week view</li>
-                                        <li><kbd>Ctrl</kbd> + <kbd>L</kbd>: List view</li>
-                                        <li><kbd>Ctrl</kbd> + <kbd>A</kbd>: Agenda view</li>
                                     </ul>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#contactSupport">
-                                    Contact Support
-                                </button>
-                            </h2>
-                            <div id="contactSupport" class="accordion-collapse collapse"
-                                data-bs-parent="#helpAccordion">
-                                <div class="accordion-body">
-                                    <p>For technical support, please contact:</p>
-                                    <p><strong>Email:</strong> support@signum.edu.ph</p>
-                                    <p><strong>Phone:</strong> (02) 123-4567</p>
-                                    <p><strong>Office Hours:</strong> Monday-Friday, 8:00 AM - 5:00 PM</p>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -752,30 +606,11 @@ $pendingCount = $stmt->fetchColumn();
     <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
     <script src="<?php echo BASE_URL; ?>assets/js/event-calendar.js"></script>
     <script>
-        // Function to navigate to pending approvals (notifications.php)
-        function openPendingApprovals() {
-            window.location.href = window.BASE_URL + '?page=notifications';
-        }
-
-        // Function to open pubmat approvals
-        function openPubmatApprovals() {
-            window.location.href = window.BASE_URL + '?page=pubmat-approvals';
-        }
-
-        // Function to navigate to create document page
-        function openCreateDocumentModal() {
-            window.location.href = window.BASE_URL + '?page=create-document';
-        }
-
-        // Function to navigate to upload pubmat page
-        function openUploadPubmatModal() {
-            window.location.href = window.BASE_URL + '?page=upload-publication';
-        }
-
-        // Function to navigate to track documents page
-        function openTrackDocumentsModal() {
-            window.location.href = window.BASE_URL + '?page=track-document';
-        }
+        function openPendingApprovals() { window.location.href = window.BASE_URL + '?page=notifications'; }
+        function openPubmatApprovals() { window.location.href = window.BASE_URL + '?page=pubmat-approvals'; }
+        function openCreateDocumentModal() { window.location.href = window.BASE_URL + '?page=create-document'; }
+        function openUploadPubmatModal() { window.location.href = window.BASE_URL + '?page=upload-publication'; }
+        function openTrackDocumentsModal() { window.location.href = window.BASE_URL + '?page=track-document'; }
     </script>
 </body>
 

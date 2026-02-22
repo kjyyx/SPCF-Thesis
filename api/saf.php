@@ -343,9 +343,9 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
             $details,
             $targetId,
             $targetType,
-            $_SERVER['REMOTE_ADDR'],
-            $_SERVER['HTTP_USER_AGENT'],
-            $severity
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            null, // Set user_agent to null to avoid storing PII
+            $severity ?? 'INFO'
         ]);
     } catch (Exception $e) {
         error_log("Audit log error: " . $e->getMessage());

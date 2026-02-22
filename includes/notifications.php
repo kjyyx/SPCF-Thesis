@@ -40,15 +40,15 @@
                 </div>
             </div>
             <div class="modal-footer d-flex justify-content-between">
-                <!-- <div>
+                <div>
                     <button type="button" class="btn btn-outline-danger btn-sm" onclick="NotificationFeatures.clearAll()" title="Clear all notifications">
                         <i class="bi bi-trash me-2"></i>Clear All
                     </button>
-                </div> -->
+                </div>
                 <div>
-                    <!-- <button type="button" class="btn btn-outline-primary btn-sm me-2" onclick="markAllAsRead()">
+                    <button type="button" class="btn btn-outline-primary btn-sm me-2" onclick="markAllAsRead()">
                         <i class="bi bi-check-all me-2"></i>Mark All Read
-                    </button> -->
+                    </button>
                     <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">
                         Close
                     </button>

@@ -12,6 +12,7 @@
     let isModalOpen = false;
     let notificationsCache = [];
     let unreadCount = 0;
+    let hasInitialFetchCompleted = false;
     let typeFilters = {
         document: true,
         event: true,
@@ -22,6 +23,16 @@
     const ICONS = {
         document: {
             pending_document: 'bi-file-earmark-text',
+            document_pending_signature: 'bi-pen text-warning',
+            document_status_approved: 'bi-check-circle-fill text-success',
+            document_status_rejected: 'bi-x-circle-fill text-danger',
+            document_status_in_review: 'bi-clock-history text-warning',
+            document_comment: 'bi-chat-left-text text-info',
+            document_reply: 'bi-reply-fill text-primary',
+            employee_document_pending: 'bi-file-earmark-lock text-warning',
+            employee_material_pending: 'bi-images text-warning',
+            material_status_approved: 'bi-check2-circle text-success',
+            material_status_rejected: 'bi-x-circle text-danger',
             doc_status_approved: 'bi-check-circle-fill text-success',
             doc_status_rejected: 'bi-x-circle-fill text-danger',
             doc_status_in_review: 'bi-clock-history text-warning',
@@ -31,6 +42,8 @@
         event: {
             event: 'bi-calendar-event',
             event_reminder: 'bi-calendar-check-fill',
+            event_status_approved: 'bi-calendar2-check text-success',
+            event_status_disapproved: 'bi-calendar2-x text-danger',
             default: 'bi-calendar'
         },
         system: {
@@ -100,6 +113,8 @@ async function fetchNotifications(showLoading = false) {
     try {
         const url = new URL(API, window.location.origin);
         url.searchParams.append('t', Date.now()); // Cache bust
+        url.searchParams.append('include_read', '1');
+        url.searchParams.append('limit', '50');
         
         if (showLoading && qs('notificationsList')) {
             qs('notificationsList').innerHTML = `
@@ -120,6 +135,12 @@ async function fetchNotifications(showLoading = false) {
                 'X-Requested-With': 'XMLHttpRequest'
             }
         });
+
+        if (response.status === 401) {
+            stopPolling();
+            updateBadge(0);
+            return;
+        }
         
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
@@ -146,11 +167,13 @@ async function fetchNotifications(showLoading = false) {
             // Update badge - ALWAYS update with current count
             updateBadge(unreadCount);
             
-            // Check for new notifications only if count increased
-            if (unreadCount > previousUnreadCount) {
+            // Check for new notifications only if count increased after initial fetch
+            if (hasInitialFetchCompleted && unreadCount > previousUnreadCount) {
                 const newCount = unreadCount - previousUnreadCount;
                 handleNewNotifications(newCount);
             }
+
+            hasInitialFetchCompleted = true;
             
             // Update modal if open
             if (isModalOpen) {
@@ -176,7 +199,7 @@ async function fetchNotifications(showLoading = false) {
 
     function handleNewNotifications(newCount) {
         // Show browser notification if permitted
-        if (Notification.permission === 'granted' && document.visibilityState === 'visible') {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.visibilityState === 'visible') {
             new Notification('New Notification' + (newCount > 1 ? 's' : ''), {
                 body: `You have ${newCount} new notification${newCount > 1 ? 's' : ''}`,
                 icon: BASE_URL + 'assets/images/notification-icon.png',
@@ -186,7 +209,7 @@ async function fetchNotifications(showLoading = false) {
         }
         
         // Animate bell
-        const bell = qs('notificationBell');
+        const bell = qs('notificationBell') || document.querySelector('.notification-bell');
         if (bell) {
             bell.classList.add('bell-ring');
             setTimeout(() => bell.classList.remove('bell-ring'), 1000);
@@ -368,9 +391,11 @@ async function fetchNotifications(showLoading = false) {
             
             let actionLink = '#';
             if (n.related_document_id) {
-                actionLink = `${BASE_URL}view-document.php?id=${n.related_document_id}`;
+                actionLink = `${BASE_URL}?page=track-document`;
             } else if (n.related_event_id) {
-                actionLink = `${BASE_URL}view-event.php?id=${n.related_event_id}`;
+                actionLink = `${BASE_URL}?page=calendar`;
+            } else if ((n.reference_type || '').includes('material_') || (n.reference_type || '').includes('employee_material')) {
+                actionLink = `${BASE_URL}?page=pubmat-approvals`;
             }
             
             return `
@@ -512,8 +537,8 @@ async function fetchNotifications(showLoading = false) {
             }, { once: true });
         }
         
-        // Refresh list
-        refreshNotificationsList();
+        // Refresh list from server
+        fetchNotifications(true);
         
         // Switch to fast polling
         startFastPolling();

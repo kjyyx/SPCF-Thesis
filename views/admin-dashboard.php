@@ -45,7 +45,7 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
             $targetType,
             $_SERVER['REMOTE_ADDR'] ?? null,
             null, // Set user_agent to null to avoid storing PII
-            $severity
+            $severity ?? 'INFO'
         ]);
     } catch (Exception $e) {
         error_log("Failed to add audit log: " . $e->getMessage());

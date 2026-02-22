@@ -1694,3 +1694,59 @@
 2026-02-20 14:20:06 - PDF saved to: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc_Spooky_Friday_the_13th_6997fd11e1dcb.pdf
 2026-02-20 14:20:06 - DOCX cleaned up successfully
 2026-02-20 14:20:06 - Conversion successful
+2026-02-22 12:43:48 - Starting conversion for: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc_Mental_Health_Awareness___Mind_699a89840b54b.docx
+2026-02-22 12:43:48 - API key found
+2026-02-22 12:43:48 - DOCX file exists, size: 2202751
+2026-02-22 12:43:48 - CloudConvert client created
+2026-02-22 12:43:48 - Creating job
+2026-02-22 12:43:48 - Job created: ccf293ed-1b9a-4464-94f9-23f556951bbd
+2026-02-22 12:43:48 - Uploading file
+2026-02-22 12:43:50 - File uploaded
+2026-02-22 12:43:50 - Waiting for completion
+2026-02-22 12:43:52 - Job completed, status: finished
+2026-02-22 12:43:52 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/a72973bb-f00f-4b07-8426-d3ac967498b4/doc_Mental_Health_Awareness___Mind_699a89840b54b.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260222%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260222T044354Z&X-Amz-Expires=86400&X-Amz-Signature=d467e1dd30709cde258a52a148011c3760d8747d3b5663d363aebb6927f97703&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22doc_Mental_Health_Awareness___Mind_699a89840b54b.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-22 12:43:53 - PDF saved to: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc_Mental_Health_Awareness___Mind_699a89840b54b.pdf
+2026-02-22 12:43:53 - DOCX cleaned up successfully
+2026-02-22 12:43:53 - Conversion successful
+2026-02-22 12:51:09 - Starting conversion for: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc_Mental_Health_Awareness___Mind_699a8b3ddd3b0.docx
+2026-02-22 12:51:09 - API key found
+2026-02-22 12:51:09 - DOCX file exists, size: 2202760
+2026-02-22 12:51:09 - CloudConvert client created
+2026-02-22 12:51:09 - Creating job
+2026-02-22 12:51:10 - Job created: 0d41f455-c8a9-4b5f-9858-519ebcd42582
+2026-02-22 12:51:10 - Uploading file
+2026-02-22 12:51:14 - File uploaded
+2026-02-22 12:51:14 - Waiting for completion
+2026-02-22 12:51:15 - Job completed, status: finished
+2026-02-22 12:51:15 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/3ba26bf0-aa27-48c7-90ba-90106145f966/doc_Mental_Health_Awareness___Mind_699a8b3ddd3b0.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260222%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260222T045117Z&X-Amz-Expires=86400&X-Amz-Signature=6b6d8938eb7c8041b922eb14c396dd10c8e0237a066d45cffccb7cc1779c3ffa&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22doc_Mental_Health_Awareness___Mind_699a8b3ddd3b0.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-22 12:51:17 - PDF saved to: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc_Mental_Health_Awareness___Mind_699a8b3ddd3b0.pdf
+2026-02-22 12:51:17 - DOCX cleaned up successfully
+2026-02-22 12:51:17 - Conversion successful
+2026-02-22 19:31:29 - Starting conversion for: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc__MOCK__Unity_Summit_2026__The__699ae9116ba30.docx
+2026-02-22 19:31:29 - API key found
+2026-02-22 19:31:29 - DOCX file exists, size: 89383
+2026-02-22 19:31:29 - CloudConvert client created
+2026-02-22 19:31:29 - Creating job
+2026-02-22 19:31:29 - Job created: e129c962-eb67-4fed-9f2f-a3b200063f0a
+2026-02-22 19:31:29 - Uploading file
+2026-02-22 19:31:31 - File uploaded
+2026-02-22 19:31:31 - Waiting for completion
+2026-02-22 19:31:32 - Job completed, status: finished
+2026-02-22 19:31:32 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/2b0ea9ad-3999-4993-8add-3bd7dae10776/doc__MOCK__Unity_Summit_2026__The__699ae9116ba30.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260222%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260222T113134Z&X-Amz-Expires=86400&X-Amz-Signature=0959d3e72c056cdd39ed56e5b98a3e63f869be56501304e2b52f855a199e5503&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22doc__MOCK__Unity_Summit_2026__The__699ae9116ba30.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-22 19:31:33 - PDF saved to: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc__MOCK__Unity_Summit_2026__The__699ae9116ba30.pdf
+2026-02-22 19:31:33 - DOCX cleaned up successfully
+2026-02-22 19:31:33 - Conversion successful
+2026-02-22 19:33:16 - Starting conversion for: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc_Excuse_Letter_for_Student_Lead_699ae97c438d3.docx
+2026-02-22 19:33:16 - API key found
+2026-02-22 19:33:16 - DOCX file exists, size: 270122
+2026-02-22 19:33:16 - CloudConvert client created
+2026-02-22 19:33:16 - Creating job
+2026-02-22 19:33:16 - Job created: 8d159d8b-a2b7-46d6-8ee9-fb84ff22b674
+2026-02-22 19:33:16 - Uploading file
+2026-02-22 19:33:17 - File uploaded
+2026-02-22 19:33:17 - Waiting for completion
+2026-02-22 19:33:19 - Job completed, status: finished
+2026-02-22 19:33:19 - Downloading PDF from: https://eu-central.storage.cloudconvert.com/tasks/13384fd3-4094-4869-9051-21226ff34e25/doc_Excuse_Letter_for_Student_Lead_699ae97c438d3.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=cloudconvert-production%2F20260222%2Ffra%2Fs3%2Faws4_request&X-Amz-Date=20260222T113320Z&X-Amz-Expires=86400&X-Amz-Signature=9bff09b97707238c8c63d804835a2fee6efe809c21fbd52b8abefd4e116b61bd&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D%22doc_Excuse_Letter_for_Student_Lead_699ae97c438d3.pdf%22&response-content-type=application%2Fpdf&x-id=GetObject
+2026-02-22 19:33:20 - PDF saved to: /home/u710690202/domains/spcf-signum.com/public_html/SPCF-Thesis/includes/../uploads/doc_Excuse_Letter_for_Student_Lead_699ae97c438d3.pdf
+2026-02-22 19:33:20 - DOCX cleaned up successfully
+2026-02-22 19:33:20 - Conversion successful

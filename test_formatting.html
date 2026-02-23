@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Document Formatting Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 10px; border: 1px solid #ddd; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; border: none; }
+        th, td { border: none; padding: 6px; }
+        thead tr { background: #f8f9fa; border-bottom: 1px solid #dee2e6; }
+        tbody tr { border-bottom: 1px solid #f1f3f4; }
+        .qty { text-align: center; width: 60px; }
+        .price { text-align: right; width: 100px; }
+        .total { text-align: right; width: 100px; font-weight: 600; }
+        ul { margin: 0; padding-left: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Document Formatting Test</h1>
+    
+    <div class='test-section'>
+        <h3>Objectives (Bulleted List)</h3>
+        <ul style='margin:0;padding-left:20px'>
+            <li>Objective 1</li>
+            <li>Objective 2</li>
+            <li>Objective 3</li>
+        </ul>
+    </div>
+    
+    <div class='test-section'>
+        <h3>Intended Learning Outcomes (Bulleted List)</h3>
+        <ul style='margin:0;padding-left:20px'>
+            <li>ILO 1</li>
+            <li>ILO 2</li>
+        </ul>
+    </div>
+    
+    <div class='test-section'>
+        <h3>Budget Requirements (Clean Table)</h3>
+        <table style='width:100%;border-collapse:collapse;margin-top:8px;border:none'>
+            <thead>
+                <tr style='background:#f8f9fa;border-bottom:1px solid #dee2e6'>
+                    <th style='border:none;padding:8px 6px;text-align:left;font-weight:600'>Item</th>
+                    <th style='border:none;padding:8px 6px;text-align:center;font-weight:600;width:60px'>Qty</th>
+                    <th style='border:none;padding:8px 6px;text-align:right;font-weight:600;width:100px'>Unit Price</th>
+                    <th style='border:none;padding:8px 6px;text-align:right;font-weight:600;width:100px'>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style='border-bottom:1px solid #f1f3f4'>
+                    <td style='border:none;padding:6px'>Item 1</td>
+                    <td style='border:none;padding:6px;text-align:center'>2</td>
+                    <td style='border:none;padding:6px;text-align:right'>?100.50</td>
+                    <td style='border:none;padding:6px;text-align:right;font-weight:600'>?201.00</td>
+                </tr>
+                <tr style='border-bottom:1px solid #f1f3f4'>
+                    <td style='border:none;padding:6px'>Item 2</td>
+                    <td style='border:none;padding:6px;text-align:center'>1</td>
+                    <td style='border:none;padding:6px;text-align:right'>?50.00</td>
+                    <td style='border:none;padding:6px;text-align:right;font-weight:600'>?50.00</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div class='test-section'>
+        <h3>Program Schedule (Clean Table)</h3>
+        <table style='width:100%;border-collapse:collapse;margin-top:8px;border:none'>
+            <thead>
+                <tr style='background:#f8f9fa;border-bottom:1px solid #dee2e6'>
+                    <th style='border:none;padding:8px 6px;text-align:left;font-weight:600;width:120px'>Start Time</th>
+                    <th style='border:none;padding:8px 6px;text-align:left;font-weight:600;width:120px'>End Time</th>
+                    <th style='border:none;padding:8px 6px;text-align:left;font-weight:600'>Activity</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style='border-bottom:1px solid #f1f3f4'>
+                    <td style='border:none;padding:6px'>9:00 AM</td>
+                    <td style='border:none;padding:6px'>10:00 AM</td>
+                    <td style='border:none;padding:6px'>Activity 1</td>
+                </tr>
+                <tr style='border-bottom:1px solid #f1f3f4'>
+                    <td style='border:none;padding:6px'>10:00 AM</td>
+                    <td style='border:none;padding:6px'>11:00 AM</td>
+                    <td style='border:none;padding:6px'>Activity 2</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

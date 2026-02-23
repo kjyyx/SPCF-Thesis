@@ -1,8 +1,8 @@
 <?php
 // IMMEDIATE DEBUG - FIRST LINE
-error_log("=== DOCUMENTS.PHP STARTED ===");
-error_log("Time: " . date('Y-m-d H:i:s'));
-error_log("Script: " . __FILE__);
+// error_log("=== DOCUMENTS.PHP STARTED ===");
+// error_log("Time: " . date('Y-m-d H:i:s'));
+// error_log("Script: " . __FILE__);
 
 /**
  * Documents API - Document Workflow Management
@@ -25,9 +25,9 @@ require_once ROOT_PATH . 'includes/database.php';
 require_once ROOT_PATH . 'vendor/autoload.php';
 
 // TEMPORARY DEBUGGING - Add at the very top
-error_log("=== DOCUMENTS.PHP REQUEST START ===");
-error_log("REQUEST_METHOD: " . $_SERVER['REQUEST_METHOD']);
-error_log("CONTENT_TYPE: " . ($_SERVER['CONTENT_TYPE'] ?? 'not set'));
+// error_log("=== DOCUMENTS.PHP REQUEST START ===");
+// error_log("REQUEST_METHOD: " . $_SERVER['REQUEST_METHOD']);
+// error_log("CONTENT_TYPE: " . ($_SERVER['CONTENT_TYPE'] ?? 'not set'));
 $rawInput = file_get_contents('php://input');
 error_log("Raw input length: " . strlen($rawInput));
 error_log("Raw input: " . substr($rawInput, 0, 500)); // First 500 chars only
@@ -40,7 +40,7 @@ error_log("Current memory usage: " . memory_get_usage(true) / 1024 / 1024 . " MB
 header('Content-Type: application/json');
 
 // Global exception handler for JSON responses
-set_exception_handler(function($e) {
+set_exception_handler(function ($e) {
     error_log("Uncaught exception in documents.php: " . $e->getMessage());
     error_log("Stack trace: " . $e->getTraceAsString());
     http_response_code(500);
@@ -53,7 +53,7 @@ set_exception_handler(function($e) {
 });
 
 // Global error handler
-set_error_handler(function($errno, $errstr, $errfile, $errline) {
+set_error_handler(function ($errno, $errstr, $errfile, $errline) {
     error_log("PHP Error in documents.php [$errno]: $errstr in $errfile on line $errline");
     http_response_code(500);
     echo json_encode([
@@ -65,7 +65,7 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 });
 
 // Shutdown function to catch fatal errors
-register_shutdown_function(function() {
+register_shutdown_function(function () {
     $error = error_get_last();
     if ($error !== null) {
         error_log("Fatal error in documents.php: " . print_r($error, true));
@@ -82,7 +82,7 @@ register_shutdown_function(function() {
 if (isset($_GET['test'])) {
     header('Content-Type: text/plain');
     echo "Testing document creation with minimal data...\n";
-    
+
     $testData = [
         'date' => '2024-01-01',
         'department' => 'College of Engineering',
@@ -96,16 +96,16 @@ if (isset($_GET['test'])) {
             ['name' => 'Test Approved', 'title' => 'Test Title']
         ]
     ];
-    
+
     echo "Test data: " . print_r($testData, true) . "\n";
     echo "JSON encoded: " . json_encode($testData) . "\n";
-    
+
     // Test template filling directly
     try {
         $templatePath = ROOT_PATH . 'assets/templates/Communication Letter/College of Engineering (Communication Letter).docx';
         echo "Template path: $templatePath\n";
         echo "Template exists: " . (file_exists($templatePath) ? 'YES' : 'NO') . "\n";
-        
+
         // Test fillDocxTemplate
         $result = fillDocxTemplate($templatePath, $testData);
         echo "fillDocxTemplate result: $result\n";
@@ -124,13 +124,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Add this function after existing includes/requires
+
+/**
+ * Format date string for template insertion
+ * Converts date strings to complete format like "February 23, 2026"
+ */
+function formatDateForTemplate($dateString)
+{
+    if (!$dateString)
+        return '';
+    try {
+        $date = new DateTime($dateString);
+        return $date->format('F j, Y'); // e.g., "February 23, 2026"
+    } catch (Exception $e) {
+        return $dateString;
+    }
+}
+
 function fillDocxTemplate($templatePath, $data)
 {
     // ADD THIS DEBUGGING CODE
     error_log("=== fillDocxTemplate START ===");
     error_log("Template path: " . $templatePath);
     error_log("Data keys: " . implode(', ', array_keys($data)));
-    
+
     // Log the structure of notedList and approvedList specifically
     if (isset($data['notedList'])) {
         error_log("notedList type: " . gettype($data['notedList']));
@@ -140,7 +157,7 @@ function fillDocxTemplate($templatePath, $data)
         error_log("approvedList type: " . gettype($data['approvedList']));
         error_log("approvedList content: " . print_r($data['approvedList'], true));
     }
-    
+
     if (!file_exists($templatePath)) {
         throw new Exception("Template file not found: $templatePath");
     }
@@ -198,6 +215,19 @@ function fillDocxTemplate($templatePath, $data)
                 $lines = [];
                 foreach ($value as $item) {
                     $lines[] = htmlspecialchars("{$item['start']} - {$item['end']}: {$item['act']}");
+                }
+                $value = implode("\n", $lines);
+            } elseif ($key === 'schedule') {
+                // Format schedule summaries as date/time list
+                $lines = [];
+                foreach ($value as $item) {
+                    if (!empty($item['date']) && !empty($item['time'])) {
+                        $lines[] = htmlspecialchars("{$item['date']} at {$item['time']}");
+                    } elseif (!empty($item['date'])) {
+                        $lines[] = htmlspecialchars($item['date']);
+                    } elseif (!empty($item['time'])) {
+                        $lines[] = htmlspecialchars($item['time']);
+                    }
                 }
                 $value = implode("\n", $lines);
             } elseif ($key === 'budget') {
@@ -334,6 +364,51 @@ if (!defined('DOC_TIMEOUT_DAYS')) {
 if (!defined('DOC_TIMEOUT_MODE')) {
     // 'reject' or 'delete' (soft-delete by setting documents.status = 'deleted')
     define('DOC_TIMEOUT_MODE', 'reject');
+}
+
+// Document timeout enforcement function
+function enforceTimeouts()
+{
+    global $db;
+
+    try {
+        // Identify stale documents
+        $sel = $db->prepare("
+            SELECT id FROM documents
+            WHERE status IN ('submitted', 'in_review')
+              AND DATEDIFF(NOW(), uploaded_at) >= ?
+        ");
+        $sel->execute([DOC_TIMEOUT_DAYS]);
+        $stale = $sel->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!$stale) {
+            return;
+        }
+
+        foreach ($stale as $docId) {
+            $db->beginTransaction();
+            try {
+                if (DOC_TIMEOUT_MODE === 'delete') {
+                    // Soft delete: mark as deleted
+                    $upd = $db->prepare("UPDATE documents SET status = 'deleted', updated_at = NOW() WHERE id = ? AND status IN ('submitted', 'in_review')");
+                    $upd->execute([$docId]);
+                } else {
+                    // Reject: mark pending steps and document as rejected
+                    $updSteps = $db->prepare("UPDATE document_steps SET status = 'rejected', acted_at = NOW(), note = CONCAT(COALESCE(note, ''), CASE WHEN COALESCE(note,'') <> '' THEN ' ' ELSE '' END, '[Auto-timeout after ', ?, ' days]') WHERE document_id = ? AND status = 'pending'");
+                    $updSteps->execute([DOC_TIMEOUT_DAYS, $docId]);
+                    $updDoc = $db->prepare("UPDATE documents SET status = 'rejected', updated_at = NOW() WHERE id = ?");
+                    $updDoc->execute([$docId]);
+                }
+
+                $db->commit();
+            } catch (Exception $e) {
+                $db->rollBack();
+                error_log("Failed to timeout document $docId: " . $e->getMessage());
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Error in enforceTimeouts: " . $e->getMessage());
+    }
 }
 
 // Initialize database connection
@@ -647,7 +722,7 @@ function handleGet()
             // Add comments to materials
             foreach ($materials as &$mat) {
                 $mat['notes'] = []; // Initialize empty notes array
-                
+
                 // Fetch comments for this material
                 $notesStmt = $db->prepare("
                     SELECT n.id, n.note, n.created_at, n.author_id, n.author_role,
@@ -665,8 +740,8 @@ function handleGet()
                 ");
                 $notesStmt->execute([$mat['original_id']]);
                 $notes = $notesStmt->fetchAll(PDO::FETCH_ASSOC);
-                
-                $mat['notes'] = array_map(function($note) {
+
+                $mat['notes'] = array_map(function ($note) {
                     return [
                         'id' => $note['id'],
                         'comment' => $note['note'],
@@ -678,9 +753,9 @@ function handleGet()
 
             // Merge documents and materials
             $allItems = array_merge(array_values($documents), array_values($materials));
-            
+
             // Sort by created_at descending
-            usort($allItems, function($a, $b) {
+            usort($allItems, function ($a, $b) {
                 return strtotime($b['created_at']) - strtotime($a['created_at']);
             });
 
@@ -760,6 +835,17 @@ function handleGet()
                 'updated_at' => $doc['uploaded_at'],
                 'description' => $doc['description'],
                 'file_path' => $doc['file_path'],
+
+                // Include schedule data for proposal documents
+                'schedule' => ($doc['doc_type'] === 'proposal') ? (
+                    (!empty($doc['schedule_summary'])) ?
+                        json_decode($doc['schedule_summary'], true) :
+                        ((!empty($doc['data'])) ?
+                            (json_decode($doc['data'], true)['schedule'] ?? []) :
+                            []
+                        )
+                ) : [],
+
                 'workflow_history' => array_map(function ($step) {
                     $timestamp = $step['acted_at'] ?: date('Y-m-d H:i:s');
                     return [
@@ -892,6 +978,35 @@ function handleGet()
                 'file_path' => $filePath
             ];
 
+            // Include schedule data for proposal documents
+            if ($doc['doc_type'] === 'proposal') {
+                $scheduleData = null;
+                if (!empty($doc['schedule_summary'])) {
+                    $scheduleData = json_decode($doc['schedule_summary'], true);
+                } elseif (!empty($doc['data'])) {
+                    $dataDecoded = json_decode($doc['data'], true);
+                    if ($dataDecoded && isset($dataDecoded['schedule'])) {
+                        $scheduleData = $dataDecoded['schedule'];
+                    }
+                }
+                if ($scheduleData && is_array($scheduleData)) {
+                    $payload['schedule'] = $scheduleData;
+                }
+            }
+
+            // Include additional proposal data if available
+            if ($doc['doc_type'] === 'proposal' && !empty($doc['data'])) {
+                $additionalData = json_decode($doc['data'], true);
+                if ($additionalData && is_array($additionalData)) {
+                    // Merge additional data but don't overwrite existing fields
+                    foreach ($additionalData as $key => $value) {
+                        if (!isset($payload[$key])) {
+                            $payload[$key] = $value;
+                        }
+                    }
+                }
+            }
+
             // Attach signature mappings if available (now per step) - using database column
 
             // Return as a plain object (notifications.js expects no wrapper)
@@ -902,7 +1017,7 @@ function handleGet()
         $userId = $currentUser['id'];
         $isEmployee = ($currentUser['role'] === 'employee');
         $isStudentCouncil = ($currentUser['role'] === 'student' && ($currentUser['position'] === 'Supreme Student Council President' || $currentUser['position'] === 'College Student Council President'));
-        
+
         if (!$isEmployee && !$isStudentCouncil) {
             // For regular students, show documents assigned to them with pending signatures
             $studentDocumentsQuery = "
@@ -1015,10 +1130,10 @@ function handleGet()
         $userId = $currentUser['id'];
         $isEmployee = ($currentUser['role'] === 'employee');
         $isStudentCouncil = ($currentUser['role'] === 'student' && ($currentUser['position'] === 'Supreme Student Council President' || $currentUser['position'] === 'College Student Council President'));
-        
+
         $assignmentCondition = $isEmployee ? "ds_employee.assigned_to_employee_id = ?" : "ds_employee.assigned_to_student_id = ?";
         $pendingCheckCondition = $isEmployee ? "ds_check.assigned_to_employee_id = ?" : "ds_check.assigned_to_student_id = ?";
-        
+
         $employeeQuery = "
             SELECT DISTINCT
                 d.id,
@@ -1596,7 +1711,7 @@ function createDocument($input)
         if ($docType === 'proposal') {
             $date = !empty($data['date']) ? $data['date'] : null;
             $venue = !empty($data['venue']) ? $data['venue'] : null;
-            $scheduleSummary = !empty($data['scheduleSummary']) ? $data['scheduleSummary'] : null;
+            $scheduleSummary = !empty($data['schedule']) ? json_encode($data['schedule']) : null;
             $earliestStartTime = !empty($data['earliestStartTime']) ? $data['earliestStartTime'] : null;
             $description = $data['rationale'] ?? '';
         } elseif ($docType === 'saf') {
@@ -1640,7 +1755,7 @@ function createDocument($input)
         } else {
             $title = $data['title'] ?? 'Untitled';
         }
-        
+
         $params = [
             $studentId,
             $docType,
@@ -1728,6 +1843,25 @@ function createDocument($input)
             // Add signatories to data
             $data = array_merge($data, $signatories);
 
+            // Format all date fields for complete display in templates
+            $dateFields = [
+                'date',
+                'reqDate',
+                'implDate',
+                'eventDate',
+                'preEventDate',
+                'practiceDate',
+                'setupDate',
+                'cleanupDate',
+                'receivingDateFiled'
+            ];
+
+            foreach ($dateFields as $field) {
+                if (isset($data[$field])) {
+                    $data[$field] = formatDateForTemplate($data[$field]);
+                }
+            }
+
             $templateMap = [
                 'College of Arts, Social Sciences and Education' => ROOT_PATH . 'assets/templates/Project Proposals/College of Arts, Social Sciences, and Education (Project Proposal).docx',
                 'College of Business' => ROOT_PATH . 'assets/templates/Project Proposals/College of Business (Project Proposal).docx',
@@ -1760,12 +1894,12 @@ function createDocument($input)
             error_log("Department: " . ($data['department'] ?? 'NOT SET'));
             error_log("notedList count: " . count($data['notedList'] ?? []));
             error_log("approvedList count: " . count($data['approvedList'] ?? []));
-            
+
             // Log the first noted person if exists
             if (!empty($data['notedList'])) {
                 error_log("First noted person: " . print_r($data['notedList'][0], true));
             }
-            
+
             // Map department to template file for communication letters
             $department = $data['department'] ?? '';
 
@@ -1820,6 +1954,25 @@ function createDocument($input)
             $data['for'] = $data['for'] ?? '';
             $data['from'] = $currentUser['first_name'] . ' ' . $currentUser['last_name'];
             $data['from_title'] = $currentUser['position'] . ', ' . $currentUser['department'];
+
+            // Format all date fields for complete display in templates
+            $dateFields = [
+                'date',
+                'reqDate',
+                'implDate',
+                'eventDate',
+                'preEventDate',
+                'practiceDate',
+                'setupDate',
+                'cleanupDate',
+                'receivingDateFiled'
+            ];
+
+            foreach ($dateFields as $field) {
+                if (isset($data[$field])) {
+                    $data[$field] = formatDateForTemplate($data[$field]);
+                }
+            }
 
             // Keep notedList and approvedList for block cloning
             // Clean up unused fields
@@ -1926,6 +2079,25 @@ function createDocument($input)
             $data = array_merge($data, $signatories);
             $data['reqByName'] = $currentUser['first_name'] . ' ' . $currentUser['last_name'];
 
+            // Format all date fields for complete display in templates
+            $dateFields = [
+                'date',
+                'reqDate',
+                'implDate',
+                'eventDate',
+                'preEventDate',
+                'practiceDate',
+                'setupDate',
+                'cleanupDate',
+                'receivingDateFiled'
+            ];
+
+            foreach ($dateFields as $field) {
+                if (isset($data[$field])) {
+                    $data[$field] = formatDateForTemplate($data[$field]);
+                }
+            }
+
             $templatePath = ROOT_PATH . 'assets/templates/SAF/SAF REQUEST.docx';
             if (file_exists($templatePath)) {
                 try {
@@ -1974,6 +2146,25 @@ function createDocument($input)
 
             // Add signatories to data
             $data = array_merge($data, $signatories);
+
+            // Format all date fields for complete display in templates
+            $dateFields = [
+                'date',
+                'reqDate',
+                'implDate',
+                'eventDate',
+                'preEventDate',
+                'practiceDate',
+                'setupDate',
+                'cleanupDate',
+                'receivingDateFiled'
+            ];
+
+            foreach ($dateFields as $field) {
+                if (isset($data[$field])) {
+                    $data[$field] = formatDateForTemplate($data[$field]);
+                }
+            }
 
             $templatePath = ROOT_PATH . 'assets/templates/Facility Request/FACILITY REQUEST.docx';
             if (file_exists($templatePath)) {
@@ -2338,11 +2529,11 @@ function signDocument($input, $files = null)
         $docStmt->execute([$documentId]);
         $docData = $docStmt->fetch(PDO::FETCH_ASSOC);
         $title = $docData['title'] ?? 'Untitled';
-        
+
         // Sanitize the title for safe filename usage
         $safeTitle = preg_replace('/[^A-Za-z0-9\-_]/', '_', $title);
         $safeTitle = substr($safeTitle, 0, 50); // Limit to 50 characters
-        
+
         $newFileName = $safeTitle . '_' . $documentId . '_' . time() . '.pdf';
         $newPath = $uploadDir . $newFileName;
         if (move_uploaded_file($files['signed_pdf']['tmp_name'], $newPath)) {
@@ -2431,7 +2622,7 @@ function signDocument($input, $files = null)
                 $existingTransStmt = $db->prepare("SELECT COUNT(*) as count FROM saf_transactions WHERE transaction_description LIKE ?");
                 $existingTransStmt->execute(["%Document ID: {$documentId}%"]);
                 $existingTrans = $existingTransStmt->fetch(PDO::FETCH_ASSOC);
-                
+
                 if ($existingTrans['count'] > 0) {
                     // Funds already deducted, skip
                     addAuditLog(
@@ -2469,7 +2660,7 @@ function signDocument($input, $files = null)
 
                     // Check available balances before deducting
                     $balanceCheckStmt = $db->prepare("SELECT initial_amount - used_amount as available FROM saf_balances WHERE department_id = ?");
-                    
+
                     // Check SSC balance if requesting SSC funds
                     if ($reqSSC > 0) {
                         $balanceCheckStmt->execute(['ssc']);
@@ -2478,7 +2669,7 @@ function signDocument($input, $files = null)
                             throw new Exception("Insufficient SSC SAF funds. Available: ₱" . ($sscBalance['available'] ?? 0) . ", Requested: ₱{$reqSSC}");
                         }
                     }
-                    
+
                     // Check CSC balance if requesting CSC funds
                     if ($reqCSC > 0 && $deptId) {
                         $balanceCheckStmt->execute([$deptId]);
@@ -2732,265 +2923,260 @@ function signDocument($input, $files = null)
             fastcgi_finish_request();  // Send response immediately if using FastCGI
         }
 
-        $docStmt = $db->prepare("SELECT doc_type, title, department, departmentFull, date, venue, earliest_start_time FROM documents WHERE id = ?");
+        $docStmt = $db->prepare("SELECT doc_type, title, department, departmentFull, date, venue, earliest_start_time, schedule_summary FROM documents WHERE id = ?");
         $docStmt->execute([$documentId]);
         $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
 
         if ($doc && $doc['doc_type'] === 'proposal') {
-            // Create event only if fully approved and it's a proposal
-            $eventTitle = $doc['title'];
-            $eventDate = $doc['date'];
-            $venue = $doc['venue'];
-            $eventTime = $doc['earliest_start_time'];
-            
-            if ($eventTitle && $eventDate) {
-                // Check if event already exists for this document to avoid duplicates
-                $stmt = $db->prepare("SELECT id FROM events WHERE title = ? AND event_date = ? LIMIT 1");
-                $stmt->execute([$eventTitle, $eventDate]);
-                $existingEvent = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                if (!$existingEvent) {
-                    // Prepare event data
-                    $eventData = [
-                        'title' => $eventTitle,
-                        'event_date' => $eventDate,
-                        'event_time' => $eventTime ?: null,
-                        'venue' => $venue ?: 'TBD',
-                        'department' => $doc['department'] ?: 'University',
-                        'description' => $venue ?: 'Event from approved project proposal',
-                        'approved' => 1  // Mark as approved since the proposal is fully approved
-                    ];
-                    
-                    // Use cURL to POST to api/events.php (adjust URL for production)
-                    $apiUrl = (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') === false) 
-                        ? 'https://spcf-signum.com/SPCF-Thesis/api/events.php'  // Replace with actual production URL
-                        : 'http://localhost/SPCF-Thesis/api/events.php';
-                    
-                    $ch = curl_init();
-                    curl_setopt($ch, CURLOPT_URL, $apiUrl);
-                    curl_setopt($ch, CURLOPT_POST, true);
-                    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($eventData));
-                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                        'Content-Type: application/json',
-                        'Cookie: ' . session_name() . '=' . session_id()  // Pass session for auth
-                    ]);
-                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                    curl_setopt($ch, CURLOPT_TIMEOUT, 10);  // 10-second timeout
-                    $response = curl_exec($ch);
-                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                    $curlError = curl_error($ch);
-                    curl_close($ch);
-                    
-                    if ($httpCode === 200) {
-                        error_log("Event created successfully for fully approved proposal: " . $eventTitle);
-                    } else {
-                        error_log("Failed to create event for proposal: " . $eventTitle . " - HTTP Code: " . $httpCode . " - Response: " . $response . " - cURL Error: " . $curlError);
+            // Create events from schedule summaries if available
+            $scheduleSummaries = json_decode($doc['schedule_summary'], true);
+            if ($scheduleSummaries && is_array($scheduleSummaries) && count($scheduleSummaries) > 0) {
+                // Create multiple events from schedule summaries
+                foreach ($scheduleSummaries as $summary) {
+                    if (!empty($summary['date'])) {
+                        $eventTitle = $doc['title'];
+                        $eventDate = $summary['date'];
+                        $eventTime = !empty($summary['time']) ? $summary['time'] : null;
+                        $venue = $doc['venue'];
+
+                        // Check if event already exists for this document and date to avoid duplicates
+                        $stmt = $db->prepare("SELECT id FROM events WHERE title = ? AND event_date = ? AND event_time = ? LIMIT 1");
+                        $stmt->execute([$eventTitle, $eventDate, $eventTime]);
+                        $existingEvent = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                        if (!$existingEvent) {
+                            // Prepare event data
+                            $eventData = [
+                                'title' => $eventTitle,
+                                'event_date' => $eventDate,
+                                'event_time' => $eventTime,
+                                'venue' => $venue ?: 'TBD',
+                                'department' => $doc['department'] ?: 'University',
+                                'description' => $venue ?: 'Event from approved project proposal',
+                                'approved' => 1  // Mark as approved since the proposal is fully approved
+                            ];
+
+                            // Use cURL to POST to api/events.php (adjust URL for production)
+                            $apiUrl = (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') === false)
+                                ? 'https://spcf-signum.com/SPCF-Thesis/api/events.php'  // Replace with actual production URL
+                                : 'http://localhost/SPCF-Thesis/api/events.php';
+
+                            $ch = curl_init();
+                            curl_setopt($ch, CURLOPT_URL, $apiUrl);
+                            curl_setopt($ch, CURLOPT_POST, true);
+                            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($eventData));
+                            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                                'Content-Type: application/json',
+                                'Cookie: ' . session_name() . '=' . session_id()  // Pass session for auth
+                            ]);
+                            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                            curl_setopt($ch, CURLOPT_TIMEOUT, 10);  // 10-second timeout
+                            $response = curl_exec($ch);
+                            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                            $curlError = curl_error($ch);
+                            curl_close($ch);
+
+                            if ($httpCode === 200) {
+                                error_log("Event created successfully for proposal: " . $eventTitle . " on " . $eventDate);
+                            } else {
+                                error_log("Failed to create event for proposal: " . $eventTitle . " - HTTP " . $httpCode . " - Response: " . $response . " - Error: " . $curlError);
+                            }
+                        }
                     }
-                } else {
-                    error_log("Event already exists for proposal: " . $eventTitle);
+                }
+            } else {
+                $eventDate = $doc['date'];
+                $venue = $doc['venue'];
+                $eventTime = $doc['earliest_start_time'];
+
+                if ($eventTitle && $eventDate) {
+                    // Check if event already exists for this document to avoid duplicates
+                    $stmt = $db->prepare("SELECT id FROM events WHERE title = ? AND event_date = ? LIMIT 1");
+                    $stmt->execute([$eventTitle, $eventDate]);
+                    $existingEvent = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                    if (!$existingEvent) {
+                        // Prepare event data
+                        $eventData = [
+                            'title' => $eventTitle,
+                            'event_date' => $eventDate,
+                            'event_time' => $eventTime ?: null,
+                            'venue' => $venue ?: 'TBD',
+                            'department' => $doc['department'] ?: 'University',
+                            'description' => $venue ?: 'Event from approved project proposal',
+                            'approved' => 1  // Mark as approved since the proposal is fully approved
+                        ];
+
+                        // Use cURL to POST to api/events.php (adjust URL for production)
+                        $apiUrl = (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') === false)
+                            ? 'https://spcf-signum.com/SPCF-Thesis/api/events.php'  // Replace with actual production URL
+                            : 'http://localhost/SPCF-Thesis/api/events.php';
+
+                        $ch = curl_init();
+                        curl_setopt($ch, CURLOPT_URL, $apiUrl);
+                        curl_setopt($ch, CURLOPT_POST, true);
+                        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($eventData));
+                        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                            'Content-Type: application/json',
+                            'Cookie: ' . session_name() . '=' . session_id()  // Pass session for auth
+                        ]);
+                        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                        curl_setopt($ch, CURLOPT_TIMEOUT, 10);  // 10-second timeout
+                        $response = curl_exec($ch);
+                        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                        $curlError = curl_error($ch);
+                        curl_close($ch);
+
+                        if ($httpCode === 200) {
+                            error_log("Event created successfully for fully approved proposal: " . $eventTitle);
+                        } else {
+                            error_log("Failed to create event for proposal: " . $eventTitle . " - HTTP Code: " . $httpCode . " - Response: " . $response . " - cURL Error: " . $curlError);
+                        }
+                    } else {
+                        error_log("Event already exists for proposal: " . $eventTitle);
+                    }
                 }
             }
         }
     }
-}
 
-function rejectDocument($input)
-{
-    global $db, $currentUser;
+    function rejectDocument($input)
+    {
+        global $db, $currentUser;
 
-    $documentId = $input['document_id'] ?? 0;
-    $stepId = $input['step_id'] ?? 0;
-    $reason = $input['reason'] ?? '';
+        $documentId = $input['document_id'] ?? 0;
+        $stepId = $input['step_id'] ?? 0;
+        $reason = $input['reason'] ?? '';
 
-    if (!$documentId || empty($reason)) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Document ID and rejection reason are required']);
-        return;
-    }
-
-    // If stepId not provided, infer a step assigned to this user (employee or student council president)
-    if (!$stepId) {
-        if ($currentUser['role'] === 'employee') {
-            // Prefer a pending step owned by this employee
-            $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
-            $q->execute([$documentId, $currentUser['id']]);
-            $row = $q->fetch(PDO::FETCH_ASSOC);
-            if (!$row) {
-                // Otherwise, allow any step assigned to this employee (any status)
-                $q2 = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? ORDER BY step_order ASC LIMIT 1");
-                $q2->execute([$documentId, $currentUser['id']]);
-                $row = $q2->fetch(PDO::FETCH_ASSOC);
-            }
-        } elseif ($currentUser['role'] === 'student' && ($currentUser['position'] === 'Supreme Student Council President' || $currentUser['position'] === 'College Student Council President')) {
-            // Prefer a pending step owned by this student
-            $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_student_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
-            $q->execute([$documentId, $currentUser['id']]);
-            $row = $q->fetch(PDO::FETCH_ASSOC);
-            if (!$row) {
-                // Otherwise, allow any step assigned to this student (any status)
-                $q2 = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_student_id = ? ORDER BY step_order ASC LIMIT 1");
-                $q2->execute([$documentId, $currentUser['id']]);
-                $row = $q2->fetch(PDO::FETCH_ASSOC);
-            }
-        } else {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'No step assigned to you for this document']);
+        if (!$documentId || empty($reason)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Document ID and rejection reason are required']);
             return;
         }
 
-        if (!$row) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'No step assigned to you for this document']);
-            return;
+        // If stepId not provided, infer a step assigned to this user (employee or student council president)
+        if (!$stepId) {
+            if ($currentUser['role'] === 'employee') {
+                // Prefer a pending step owned by this employee
+                $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
+                $q->execute([$documentId, $currentUser['id']]);
+                $row = $q->fetch(PDO::FETCH_ASSOC);
+                if (!$row) {
+                    // Otherwise, allow any step assigned to this employee (any status)
+                    $q2 = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_employee_id = ? ORDER BY step_order ASC LIMIT 1");
+                    $q2->execute([$documentId, $currentUser['id']]);
+                    $row = $q2->fetch(PDO::FETCH_ASSOC);
+                }
+            } elseif ($currentUser['role'] === 'student' && ($currentUser['position'] === 'Supreme Student Council President' || $currentUser['position'] === 'College Student Council President')) {
+                // Prefer a pending step owned by this student
+                $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_student_id = ? AND status = 'pending' ORDER BY step_order ASC LIMIT 1");
+                $q->execute([$documentId, $currentUser['id']]);
+                $row = $q->fetch(PDO::FETCH_ASSOC);
+                if (!$row) {
+                    // Otherwise, allow any step assigned to this student (any status)
+                    $q2 = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND assigned_to_student_id = ? ORDER BY step_order ASC LIMIT 1");
+                    $q2->execute([$documentId, $currentUser['id']]);
+                    $row = $q2->fetch(PDO::FETCH_ASSOC);
+                }
+            } else {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'No step assigned to you for this document']);
+                return;
+            }
+
+            if (!$row) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'No step assigned to you for this document']);
+                return;
+            }
+            $stepId = (int) $row['id'];
         }
-        $stepId = (int) $row['id'];
-    }
 
-    $db->beginTransaction();
+        $db->beginTransaction();
 
-    try {
-        // Update document signature to rejected
-        if ($currentUser['role'] === 'employee') {
-            $stmt = $db->prepare("
+        try {
+            // Update document signature to rejected
+            if ($currentUser['role'] === 'employee') {
+                $stmt = $db->prepare("
                 INSERT INTO document_signatures (document_id, step_id, employee_id, status, signed_at)
                 VALUES (?, ?, ?, 'rejected', NOW())
                 ON DUPLICATE KEY UPDATE
                 status = 'rejected', signed_at = NOW()
             ");
-            $stmt->execute([$documentId, $stepId, $currentUser['id']]);
-        } elseif ($currentUser['role'] === 'student') {
-            $stmt = $db->prepare("
+                $stmt->execute([$documentId, $stepId, $currentUser['id']]);
+            } elseif ($currentUser['role'] === 'student') {
+                $stmt = $db->prepare("
                 INSERT INTO document_signatures (document_id, step_id, student_id, status, signed_at)
                 VALUES (?, ?, ?, 'rejected', NOW())
                 ON DUPLICATE KEY UPDATE
                 status = 'rejected', signed_at = NOW()
             ");
-            $stmt->execute([$documentId, $stepId, $currentUser['id']]);
-        }
+                $stmt->execute([$documentId, $stepId, $currentUser['id']]);
+            }
 
-        // Update document step to rejected
-        if ($currentUser['role'] === 'employee') {
-            $stmt = $db->prepare("
+            // Update document step to rejected
+            if ($currentUser['role'] === 'employee') {
+                $stmt = $db->prepare("
                 UPDATE document_steps
                 SET status = 'rejected', acted_at = NOW(), note = ?
                 WHERE id = ? AND assigned_to_employee_id = ?
             ");
-            $stmt->execute([$reason, $stepId, $currentUser['id']]);
-        } elseif ($currentUser['role'] === 'student') {
-            $stmt = $db->prepare("
+                $stmt->execute([$reason, $stepId, $currentUser['id']]);
+            } elseif ($currentUser['role'] === 'student') {
+                $stmt = $db->prepare("
                 UPDATE document_steps
                 SET status = 'rejected', acted_at = NOW(), note = ?
                 WHERE id = ? AND assigned_to_student_id = ?
             ");
-            $stmt->execute([$reason, $stepId, $currentUser['id']]);
-        }
+                $stmt->execute([$reason, $stepId, $currentUser['id']]);
+            }
 
-        // Update document status to rejected
-        $stmt = $db->prepare("UPDATE documents SET status = 'rejected', updated_at = NOW() WHERE id = ?");
-        $stmt->execute([$documentId]);
+            // Update document status to rejected
+            $stmt = $db->prepare("UPDATE documents SET status = 'rejected', updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$documentId]);
 
-        // Archive the file for rejected documents to optimize storage
-        $docStmt = $db->prepare("SELECT file_path FROM documents WHERE id = ?");
-        $docStmt->execute([$documentId]);
-        $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
-        if ($doc && $doc['file_path']) {
-            $uploadDir = ROOT_PATH . 'uploads/';
-            $oldFilePath = $uploadDir . basename($doc['file_path']);
-            if (file_exists($oldFilePath)) {
-                $archiveDir = $uploadDir . 'archive/';
-                if (!is_dir($archiveDir)) {
-                    mkdir($archiveDir, 0755, true);
-                }
-                $archivedPath = $archiveDir . basename($oldFilePath) . '.rejected';
-                if (!rename($oldFilePath, $archivedPath)) {
-                    error_log("Failed to archive rejected file: $oldFilePath to $archivedPath");
+            // Archive the file for rejected documents to optimize storage
+            $docStmt = $db->prepare("SELECT file_path FROM documents WHERE id = ?");
+            $docStmt->execute([$documentId]);
+            $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
+            if ($doc && $doc['file_path']) {
+                $uploadDir = ROOT_PATH . 'uploads/';
+                $oldFilePath = $uploadDir . basename($doc['file_path']);
+                if (file_exists($oldFilePath)) {
+                    $archiveDir = $uploadDir . 'archive/';
+                    if (!is_dir($archiveDir)) {
+                        mkdir($archiveDir, 0755, true);
+                    }
+                    $archivedPath = $archiveDir . basename($oldFilePath) . '.rejected';
+                    if (!rename($oldFilePath, $archivedPath)) {
+                        error_log("Failed to archive rejected file: $oldFilePath to $archivedPath");
+                    }
                 }
             }
+
+            // Add audit log
+            addAuditLog(
+                'DOCUMENT_REJECTED',
+                'Document Management',
+                "Document rejected by {$currentUser['first_name']} {$currentUser['last_name']}: {$reason}",
+                $documentId,
+                'Document',
+                'WARNING'
+            );
+
+            $db->commit();
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Document rejected successfully',
+                'step_id' => $stepId
+            ]);
+
+        } catch (Exception $e) {
+            $db->rollBack();
+            throw $e;
         }
-
-        // Add audit log
-        addAuditLog(
-            'DOCUMENT_REJECTED',
-            'Document Management',
-            "Document rejected by {$currentUser['first_name']} {$currentUser['last_name']}: {$reason}",
-            $documentId,
-            'Document',
-            'WARNING'
-        );
-
-        $db->commit();
-
-        echo json_encode([
-            'success' => true,
-            'message' => 'Document rejected successfully',
-            'step_id' => $stepId
-        ]);
-
-    } catch (Exception $e) {
-        $db->rollBack();
-        throw $e;
     }
-}
-
-/**
- * Enforce timeouts on documents that have been pending beyond the configured threshold.
- * - If DOC_TIMEOUT_MODE = 'reject', mark document and pending steps as rejected.
- * - If DOC_TIMEOUT_MODE = 'delete', soft delete by setting documents.status = 'deleted'.
- */
-function enforceTimeouts()
-{
-    global $db;
-
-    try {
-        // Identify stale documents
-        $sel = $db->prepare("
-            SELECT id FROM documents
-            WHERE status IN ('submitted', 'in_review')
-              AND DATEDIFF(NOW(), uploaded_at) >= ?
-        ");
-        $sel->execute([DOC_TIMEOUT_DAYS]);
-        $stale = $sel->fetchAll(PDO::FETCH_COLUMN);
-
-        if (!$stale) {
-            return;
-        }
-
-        foreach ($stale as $docId) {
-            $db->beginTransaction();
-            try {
-                if (DOC_TIMEOUT_MODE === 'delete') {
-                    // Soft delete: mark as deleted
-                    $upd = $db->prepare("UPDATE documents SET status = 'deleted', updated_at = NOW() WHERE id = ? AND status IN ('submitted', 'in_review')");
-                    $upd->execute([$docId]);
-                } else {
-                    // Reject: mark pending steps and document as rejected
-                    $updSteps = $db->prepare("UPDATE document_steps SET status = 'rejected', acted_at = NOW(), note = CONCAT(COALESCE(note, ''), CASE WHEN COALESCE(note,'') <> '' THEN ' ' ELSE '' END, '[Auto-timeout after ', ?, ' days]') WHERE document_id = ? AND status = 'pending'");
-                    $updSteps->execute([DOC_TIMEOUT_DAYS, $docId]);
-
-                    $updDoc = $db->prepare("UPDATE documents SET status = 'rejected', updated_at = NOW() WHERE id = ? AND status IN ('submitted', 'in_review')");
-                    $updDoc->execute([$docId]);
-                }
-
-                // Audit log entry
-                @addAuditLog(
-                    'DOCUMENT_TIMEOUT',
-                    'Document Management',
-                    'Auto-timeout applied to document ID ' . $docId . ' after ' . DOC_TIMEOUT_DAYS . ' days (mode=' . DOC_TIMEOUT_MODE . ')',
-                    $docId,
-                    'Document',
-                    'WARNING'
-                );
-
-                $db->commit();
-            } catch (Exception $e) {
-                $db->rollBack();
-                error_log('enforceTimeouts failed for doc ' . $docId . ': ' . $e->getMessage());
-            }
-        }
-    } catch (Exception $e) {
-        error_log('enforceTimeouts error: ' . $e->getMessage());
-    }
-}
 
 function handlePut()
 {
@@ -3044,7 +3230,9 @@ function handleDelete()
         echo json_encode(['success' => false, 'message' => 'Failed to delete document']);
     }
 }
+}
 
+// Audit logging function
 function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO')
 {
     global $db, $currentUser;

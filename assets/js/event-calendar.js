@@ -116,6 +116,14 @@ class CalendarApp {
         return classes[role] || 'bg-secondary';
     }
 
+    formatTime12Hour(timeString) {
+        if (!timeString) return '';
+        const [hours, minutes] = timeString.split(':');
+        const hour12 = hours % 12 || 12;
+        const ampm = hours < 12 ? 'AM' : 'PM';
+        return `${hour12}:${minutes} ${ampm}`;
+    }
+
     bindEvents() {
         // Navigation controls
         document.getElementById('prevMonth')?.addEventListener('click', () => this.previousMonth());
@@ -291,7 +299,7 @@ class CalendarApp {
                     map[date].push({
                         id: String(ev.id),
                         title: ev.title,
-                        time: ev.event_time || '',
+                        time: this.formatTime12Hour(ev.event_time) || '',
                         department: ev.department || '',
                         venue: ev.venue || '',
                         isApproved: isApproved,
@@ -997,10 +1005,19 @@ class CalendarApp {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
 
+        // Format time to 12-hour if not already formatted
+        let formattedTime = event.time;
+        if (event.time && !event.time.includes('AM') && !event.time.includes('PM')) {
+            const [hours, minutes] = event.time.split(':');
+            const hour12 = hours % 12 || 12;
+            const ampm = hours < 12 ? 'AM' : 'PM';
+            formattedTime = `${hour12}:${minutes} ${ampm}`;
+        }
+
         document.getElementById('viewEventTitle').textContent = event.title;
         document.getElementById('viewEventVenue').textContent = event.venue || 'Not specified';
         document.getElementById('viewEventDate').textContent = formattedDate;
-        document.getElementById('viewEventTime').textContent = event.time;
+        document.getElementById('viewEventTime').textContent = formattedTime;
         document.getElementById('viewEventDepartment').textContent = event.department || 'University';
         document.getElementById('viewEventStatus').textContent = event.isApproved ? 'Approved Event' : 'Pencil-booked Event';
 

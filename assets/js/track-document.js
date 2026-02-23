@@ -307,7 +307,7 @@ function renderCurrentPage() {
     ${doc.is_material ? getMaterialNotesPreview(doc) : getNotesPreview(doc.notes || [])}
 </div></td>
             <td class="text-end">
-                <button class="btn btn-ghost btn-sm rounded-pill px-3 me-1" onclick="viewDetails('${doc.id}')">View</button>
+                <button class="btn btn-ghost btn-sm rounded-pill px-3 me-1" onclick="viewDetails('${doc.id}')"><i class="bi bi-eye"></i></button>
                 <button class="btn btn-ghost btn-icon sm rounded-pill" onclick="downloadDocument('${doc.id}')" title="Download"><i class="bi bi-download"></i></button>
             </td>
         `;
@@ -529,6 +529,46 @@ async function viewDetails(docId) {
                 </div>
             `;
 
+            // Schedule information for proposal documents
+            let scheduleHtml = '';
+            if ((doc.document_type === 'proposal' || doc.doc_type === 'proposal') && doc.schedule && Array.isArray(doc.schedule) && doc.schedule.length > 0) {
+                scheduleHtml = `
+                    <div class="card card-flat mb-3 shadow-none">
+                        <div class="card-header bg-transparent pb-2 border-bottom">
+                            <h6 class="m-0 fw-bold"><i class="bi bi-calendar-event text-warning me-2"></i>Event Schedule</h6>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="schedule-list">
+                                ${doc.schedule.map(item => `
+                                    <div class="schedule-item d-flex justify-content-between align-items-center py-2 border-bottom border-light">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <i class="bi bi-calendar-date text-primary"></i>
+                                            <span class="text-sm fw-medium">${new Date(item.date + 'T' + item.time).toLocaleDateString('en-US', {
+                                                weekday: 'long',
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric'
+                                            })}</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <i class="bi bi-clock text-info"></i>
+                                            <span class="text-sm text-muted">${new Date('1970-01-01T' + item.time).toLocaleTimeString('en-US', {
+                                                hour: 'numeric',
+                                                minute: '2-digit',
+                                                hour12: true
+                                            })}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div class="text-xs text-muted mt-2">
+                                <i class="bi bi-info-circle me-1"></i> These events will be created in the calendar when the document is approved.
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
             let systemHtml = '';
             if (doc.notes && doc.notes.find(n => n.comment.includes('Auto-timeout'))) {
                 const sysNote = doc.notes.find(n => n.comment.includes('Auto-timeout'));
@@ -547,19 +587,134 @@ async function viewDetails(docId) {
                 `;
             }
 
-            let timelineHtml = `<div class="card card-flat mb-3 shadow-none"><div class="card-header bg-transparent pb-0 border-0"><h6 class="m-0 fw-bold"><i class="bi bi-clock-history text-info me-2"></i>Timeline</h6></div><div class="card-body px-4"><div class="timeline">`;
+
+            // --- Improved Semantic Timeline Rendering ---
+            let timelineHtml = `
+    <div class="card card-flat mb-3 shadow-none">
+        <div class="card-header bg-transparent pb-0 border-0">
+            <h6 class="m-0 fw-bold"><i class="bi bi-clock-history text-info me-2"></i>Timeline</h6>
+        </div>
+        <div class="card-body px-4 pb-4">
+            <div class="timeline-container">
+`;
             if (doc.workflow_history && doc.workflow_history.length > 0) {
-                doc.workflow_history.forEach(item => {
+                // Find the current step: first pending/in_progress/in_review/under_review, or last approved if all approved
+                let currentStepIdx = -1;
+                for (let i = 0; i < doc.workflow_history.length; i++) {
+                    const status = (doc.workflow_history[i].status || '').toLowerCase();
+                    if (
+                        status === 'pending' || status === 'in_progress' ||
+                        status === 'in review' || status === 'in_review' ||
+                        status === 'under_review' || status === 'under review'
+                    ) {
+                        currentStepIdx = i;
+                        break;
+                    }
+                    if (status === 'rejected') {
+                        currentStepIdx = i; // If rejected, mark as current for red pulse
+                        break;
+                    }
+                }
+                if (currentStepIdx === -1) {
+                    // All approved/completed
+                    for (let i = doc.workflow_history.length - 1; i >= 0; i--) {
+                        const status = (doc.workflow_history[i].status || '').toLowerCase();
+                        if (status === 'approved' || status === 'completed') {
+                            currentStepIdx = i;
+                            break;
+                        }
+                    }
+                }
+
+                doc.workflow_history.forEach((item, index) => {
+                    const isLast = index === doc.workflow_history.length - 1;
+                    const status = (item.status || '').toLowerCase();
+                    let stepClass = '';
+                    let markerClass = '';
+                    let textClass = '';
+                    let icon = '';
+                    let pulse = '';
+
+                    if (status === 'rejected') {
+                        stepClass = 'timeline-step-rejected';
+                        markerClass = 'bg-danger';
+                        textClass = 'text-danger fw-semibold';
+                        icon = 'bi-x-circle-fill';
+                        pulse = (index === currentStepIdx) ? 'timeline-marker-pulse-red' : '';
+                    } else if (index < currentStepIdx) {
+                        // Approved steps before current
+                        stepClass = 'timeline-step-approved';
+                        markerClass = 'bg-success';
+                        textClass = 'text-success fw-semibold';
+                        icon = 'bi-check-circle-fill';
+                    } else if (index === currentStepIdx) {
+                        // Current step (pending/in review/under review)
+                        if (
+                            status === 'pending' || status === 'in_progress' ||
+                            status === 'in review' || status === 'in_review' ||
+                            status === 'under_review' || status === 'under review'
+                        ) {
+                            stepClass = 'timeline-step-current';
+                            markerClass = 'bg-primary';
+                            textClass = 'text-primary fw-semibold';
+                            icon = 'bi-hourglass-split';
+                            pulse = 'timeline-marker-pulse-blue';
+                        } else if (status === 'approved' || status === 'completed') {
+                            stepClass = 'timeline-step-approved';
+                            markerClass = 'bg-success';
+                            textClass = 'text-success fw-semibold';
+                            icon = 'bi-check-circle-fill';
+                        } else {
+                            // fallback
+                            stepClass = 'timeline-step-default';
+                            markerClass = 'bg-secondary';
+                            textClass = 'text-muted';
+                            icon = 'bi-circle';
+                        }
+                    } else {
+                        // Pending steps after current
+                        stepClass = 'timeline-step-pending';
+                        markerClass = 'bg-secondary';
+                        textClass = 'text-muted';
+                        icon = 'bi-circle';
+                    }
+
                     timelineHtml += `
-                        <div class="timeline-item pb-3 position-relative">
-                            <div class="timeline-marker position-absolute rounded-full border border-2 border-white bg-primary shadow-xs" style="left: -23px; top: 3px; width: 12px; height: 12px;"></div>
-                            <div class="bg-surface-raised border rounded-lg p-2 shadow-xs">
-                                <div class="text-2xs text-muted fw-semibold mb-1">${new Date(item.created_at).toLocaleDateString()}</div>
-                                <div class="text-xs fw-semibold text-dark">${item.action} • ${shortenOfficeName(item.office_name || item.from_office)}</div>
+                        <div class="timeline-item ${isLast ? 'last' : ''} ${stepClass}">
+                            <div class="timeline-marker ${markerClass} ${pulse}">
+                                <i class="bi ${icon}"></i>
+                            </div>
+                            <div class="timeline-content bg-surface-raised border rounded-lg p-3 shadow-xs">
+                                <div class="d-flex justify-content-between align-items-start mb-1">
+                                    <div>
+                                        <div class="text-sm fw-semibold ${textClass}">
+                                            ${item.action || 'Status Update'}
+                                        </div>
+                                        <div class="text-2xs ${textClass === 'text-muted' ? 'text-muted' : textClass}">
+                                            ${shortenOfficeName(item.office_name || item.from_office || 'Unknown office')}
+                                        </div>
+                                    </div>
+                                    <div class="text-2xs text-muted">
+                                        ${new Date(item.created_at).toLocaleDateString()} 
+                                        ${new Date(item.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                    </div>
+                                </div>
+                                ${item.note || item.comment ? `
+                                    <div class="text-xs mt-2 pt-2 border-top">
+                                        ${safeText(item.note || item.comment)}
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                     `;
                 });
+            } else {
+                timelineHtml += `
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-clock-history fs-3 opacity-50"></i>
+                        <p class="mt-2 mb-0">No timeline events recorded yet</p>
+                    </div>
+                `;
             }
             timelineHtml += `</div></div></div>`;
 
@@ -587,7 +742,7 @@ async function viewDetails(docId) {
             modalBody.innerHTML = `
                 <div class="row g-3">
                     <div class="col-lg-7">${pdfHtml}</div>
-                    <div class="col-lg-5">${infoHtml}${systemHtml}${rejectionHtml}${conversationHtml}${timelineHtml}</div>
+                    <div class="col-lg-5">${infoHtml}${scheduleHtml}${systemHtml}${rejectionHtml}${conversationHtml}${timelineHtml}</div>
                 </div>
             `;
 
@@ -1285,6 +1440,7 @@ function formatDate(dateString) {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        hour12: true
     });
 }

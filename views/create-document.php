@@ -212,17 +212,33 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
 
               <div class="form-group mb-4">
                 <label class="form-label text-muted text-xs uppercase"><i class="bi bi-clock-history me-1"></i> Schedule
-                  (Summary)</label>
-                <textarea id="prop-schedule" class="form-control" rows="2"
-                  placeholder="Overall schedule summary"></textarea>
+                  Summary <span class="text-danger">*</span></label>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <small class="text-muted">Add event dates and times (each will create a calendar event when approved)</small>
+                  <button class="btn btn-outline-primary btn-sm rounded-pill" onclick="addScheduleSummary()">
+                    <i class="bi bi-plus-lg"></i> Add Date & Time
+                  </button>
+                </div>
+                <div id="schedule-summary-rows">
+                  <div class="schedule-summary-row mb-2">
+                    <div class="row g-3 align-items-center">
+                      <div class="col-md-5"><input type="date" class="form-control sm schedule-date" required></div>
+                      <div class="col-md-5"><input type="time" class="form-control sm schedule-time" required></div>
+                      <div class="col-md-2"><button class="btn btn-danger btn-icon sm" onclick="removeScheduleRow(this)"><i class="bi bi-x-lg"></i></button></div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div class="divider"></div>
 
               <div class="mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                  <label class="form-label text-muted text-xs uppercase m-0"><i class="bi bi-card-checklist me-1"></i>
-                    Program Schedule</label>
+                  <div>
+                    <label class="form-label text-muted text-xs uppercase m-0"><i class="bi bi-card-checklist me-1"></i>
+                      Program Schedule</label>
+                    <small class="text-muted d-block">Documentation only - does not affect calendar events</small>
+                  </div>
                   <button class="btn btn-outline-primary btn-sm rounded-pill" onclick="addProgramRowProp()">
                     <i class="bi bi-plus-lg"></i> Add Activity
                   </button>

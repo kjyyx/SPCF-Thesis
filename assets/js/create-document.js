@@ -395,6 +395,14 @@ function collectProposalData() {
         }
     }
 
+    // Collect schedule summary data
+    const schedule = [];
+    document.querySelectorAll('#schedule-summary-rows .schedule-summary-row').forEach(row => {
+        const date = row.querySelector('.schedule-date')?.value || '';
+        const time = row.querySelector('.schedule-time')?.value || '';
+        if (date || time) schedule.push({ date, time });
+    });
+
     // Return complete proposal data object
     return {
         date: document.getElementById('prop-date')?.value || '',
@@ -409,7 +417,7 @@ function collectProposalData() {
         budgetSource: document.getElementById('prop-budget-source')?.value || '',
         venue: document.getElementById('prop-venue')?.value || '',
         mechanics: document.getElementById('prop-mechanics')?.value || '',
-        scheduleSummary: document.getElementById('prop-schedule')?.value || '',
+        schedule: schedule,
         earliestStartTime: earliestStartTime,
         program: programRows,
         budget: budgetRows
@@ -611,23 +619,23 @@ function generateProposalHTML(d) {
 
     // Generate objectives list with HTML escaping for security
     const objectivesHtml = (d.objectives && d.objectives.length) ?
-        `<ol>${d.objectives.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ol>` :
+        `<ul style="margin:0;padding-left:20px">${d.objectives.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ul>` :
         '<div class="text-muted">No objectives provided</div>';
 
     // Generate Intended Learning Outcomes list
     const ilosHtml = (d.ilos && d.ilos.length) ?
-        `<ol>${d.ilos.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ol>` :
+        `<ul style="margin:0;padding-left:20px">${d.ilos.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ul>` :
         '<div class="text-muted">No ILOs provided</div>';
 
     const budgetHtml = (d.budget && d.budget.length) ?
-        `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #ddd;padding:6px">Item</th><th style="border:1px solid #ddd;padding:6px">Qty</th><th style="border:1px solid #ddd;padding:6px">Unit Price</th><th style="border:1px solid #ddd;padding:6px">Total</th></tr></thead><tbody>${d.budget.map(b => `<tr><td style="border:1px solid #ddd;padding:6px">${escapeHtml(b.name)}</td><td style="border:1px solid #ddd;padding:6px;text-align:right">${b.qty}</td><td style="border:1px solid #ddd;padding:6px;text-align:right">₱${b.price.toFixed(2)}</td><td style="border:1px solid #ddd;padding:6px;text-align:right">₱${b.total.toFixed(2)}</td></tr>`).join('')}</tbody></table>` :
+        `<table style="width:100%;border-collapse:collapse;margin-top:8px;border:none"><thead><tr style="background:#f8f9fa;border-bottom:1px solid #dee2e6"><th style="border:none;padding:8px 6px;text-align:left;font-weight:600">Item</th><th style="border:none;padding:8px 6px;text-align:center;font-weight:600;width:60px">Qty</th><th style="border:none;padding:8px 6px;text-align:right;font-weight:600;width:100px">Unit Price</th><th style="border:none;padding:8px 6px;text-align:right;font-weight:600;width:100px">Total</th></tr></thead><tbody>${d.budget.map(b => `<tr style="border-bottom:1px solid #f1f3f4"><td style="border:none;padding:6px">${escapeHtml(b.name)}</td><td style="border:none;padding:6px;text-align:center">${b.qty}</td><td style="border:none;padding:6px;text-align:right">₱${b.price.toFixed(2)}</td><td style="border:none;padding:6px;text-align:right;font-weight:600">₱${b.total.toFixed(2)}</td></tr>`).join('')}</tbody></table>` :
         '<div class="text-muted">No budget items</div>';
 
     const programHtml = (d.program && d.program.length) ?
-        `<table style="width:100%;border-collapse:collapse;margin-top:8px"><thead><tr style="background:#f8f9fa"><th style="border:1px solid #ddd;padding:6px">Start</th><th style="border:1px solid #ddd;padding:6px">End</th><th style="border:1px solid #ddd;padding:6px">Activity</th></tr></thead><tbody>${d.program.map(p => `<tr><td style="border:1px solid #ddd;padding:6px">${escapeHtml(p.start)}</td><td style="border:1px solid #ddd;padding:6px">${escapeHtml(p.end)}</td><td style="border:1px solid #ddd;padding:6px">${escapeHtml(p.act)}</td></tr>`).join('')}</tbody></table>` :
+        `<table style="width:100%;border-collapse:collapse;margin-top:8px;border:none"><thead><tr style="background:#f8f9fa;border-bottom:1px solid #dee2e6"><th style="border:none;padding:8px 6px;text-align:left;font-weight:600;width:120px">Start Time</th><th style="border:none;padding:8px 6px;text-align:left;font-weight:600;width:120px">End Time</th><th style="border:none;padding:8px 6px;text-align:left;font-weight:600">Activity</th></tr></thead><tbody>${d.program.map(p => `<tr style="border-bottom:1px solid #f1f3f4"><td style="border:none;padding:6px">${escapeHtml(p.start)}</td><td style="border:none;padding:6px">${escapeHtml(p.end)}</td><td style="border:none;padding:6px">${escapeHtml(p.act)}</td></tr>`).join('')}</tbody></table>` :
         '<div class="text-muted">No program schedule</div>';
 
-    return `<div class="paper-page">${header}<div><strong>Title:</strong> ${escapeHtml(d.title || '[Project Title]')}</div><div style="margin-top:6px"><strong>Date:</strong> ${formatDate(d.date)}</div><div style="margin-top:6px"><strong>Organizer:</strong> ${escapeHtml(d.organizer || '')}</div><div style="margin-top:6px"><strong>Lead Facilitator:</strong> ${escapeHtml(d.lead || '')}</div><div style="margin-top:6px"><strong>Department:</strong> ${escapeHtml(d.department || '')}</div><div style="margin-top:12px"><strong>Rationale:</strong><div style="margin-top:6px">${(d.rationale || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Objectives:</strong>${objectivesHtml}</div><div style="margin-top:12px"><strong>Intended Learning Outcomes:</strong>${ilosHtml}</div><div style="margin-top:12px"><strong>Source of Budget:</strong> ${escapeHtml(d.budgetSource || '')}</div><div style="margin-top:12px"><strong>Venue:</strong> ${escapeHtml(d.venue || '')}</div><div style="margin-top:12px"><strong>Mechanics:</strong><div style="margin-top:6px">${(d.mechanics || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Schedule (summary):</strong><div style="margin-top:6px">${(d.scheduleSummary || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Program Schedule:</strong>${programHtml}</div><div style="margin-top:12px"><strong>Budget Requirements:</strong>${budgetHtml}</div></div>`;
+    return `<div class="paper-page">${header}<div><strong>Project Organizer:</strong> ${escapeHtml(d.organizer || '')}</div><div style="margin-top:6px"><strong>Support:</strong> ${escapeHtml(d.departmentFull || d.department || '')}</div><div style="margin-top:6px"><strong>Project Title:</strong> ${escapeHtml(d.title || '[Project Title]')}</div><div style="margin-top:6px"><strong>Lead Facilitator:</strong> ${escapeHtml(d.lead || '')}</div><div style="margin-top:12px"><strong>Rationale:</strong><div style="margin-top:6px">${(d.rationale || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Objectives:</strong>${objectivesHtml}</div><div style="margin-top:12px"><strong>Intended Learning Outcomes:</strong>${ilosHtml}</div><div style="margin-top:12px"><strong>Budget Requirements:</strong>${budgetHtml}</div><div style="margin-top:12px"><strong>Source of Budget:</strong> ${escapeHtml(d.budgetSource || '')}</div><div style="margin-top:12px"><strong>Mechanics:</strong><div style="margin-top:6px">${(d.mechanics || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Schedule:</strong><div style="margin-top:6px">${(d.schedule && d.schedule.length) ? `<ul style="margin:0;padding-left:20px">${d.schedule.map(s => `<li>${escapeHtml(s.date)}${s.time ? ` at ${escapeHtml(s.time)}` : ''}</li>`).join('')}</ul>` : '<em>No schedule provided</em>'}</div></div><div style="margin-top:12px"><strong>Program Activities:</strong>${programHtml}</div><div style="margin-top:12px"><strong>Venue:</strong> ${escapeHtml(d.venue || '')}</div></div>`;
 }
 
 function generateSAFHTML(d) {
@@ -797,6 +805,32 @@ function calcBudgetTotalsProp() {
         grand += total;
     });
     document.getElementById('grand-total-prop').textContent = `₱${grand.toFixed(2)}`;
+}
+
+/**
+ * Add a new schedule summary row
+ */
+function addScheduleSummary() {
+    const container = document.getElementById('schedule-summary-rows');
+    const div = document.createElement('div');
+    div.className = 'schedule-summary-row mb-2';
+    div.innerHTML = `
+        <div class="row g-3 align-items-center">
+            <div class="col-md-5"><input type="date" class="form-control sm schedule-date" required></div>
+            <div class="col-md-5"><input type="time" class="form-control sm schedule-time" required></div>
+            <div class="col-md-2"><button class="btn btn-danger btn-icon sm" onclick="removeScheduleRow(this)"><i class="bi bi-x-lg"></i></button></div>
+        </div>
+    `;
+    container.appendChild(div);
+    scheduleGenerate();
+}
+
+/**
+ * Remove a schedule summary row
+ */
+function removeScheduleRow(btn) {
+    btn.closest('.schedule-summary-row').remove();
+    scheduleGenerate();
 }
 
 function setupBudgetProp() {
@@ -1215,6 +1249,11 @@ async function submitDocument() {
             validationErrors.push('Lead Facilitator is required');
             highlightField(currentMappings.lead, 'Lead Facilitator is required');
             if (!firstErrorField) firstErrorField = currentMappings.lead;
+        }
+        if (!data.schedule || !Array.isArray(data.schedule) || data.schedule.length === 0) {
+            validationErrors.push('At least one schedule entry is required');
+            highlightField('schedule-summary-rows', 'At least one schedule entry is required');
+            if (!firstErrorField) firstErrorField = 'schedule-summary-rows';
         }
     } else if (currentType === 'saf') {
         if (!data.title || data.title.trim() === '') {

@@ -60,7 +60,6 @@ class ToastManager {
         }
         if (!this.container) {
             // As a last resort, avoid crashing
-            console.warn('ToastManager: container not available, falling back to alert');
             if (message) alert(`${title || this.getDefaultTitle(type)}: ${message}`);
             return null;
         }
@@ -147,7 +146,6 @@ class ToastManager {
             }
             toast = new bootstrap.Toast(toastEl);
         } catch (e) {
-            console.warn('ToastManager: Bootstrap Toast init failed, fallback to timeout removal', e);
             setTimeout(() => toastEl.remove(), duration);
             return null;
         }
@@ -220,9 +218,9 @@ window.addAuditLog = async function(action, category, details, targetId = null, 
         });
         const result = await response.json();
         if (!result.success) {
-            console.error('Failed to log audit entry:', result.message);
+            // Audit log failed silently
         }
     } catch (e) {
-        console.error('Audit log error:', e);
+        // Audit log error silently ignored
     }
 };

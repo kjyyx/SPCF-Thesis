@@ -1,7 +1,5 @@
 // Login page JavaScript for University Event Management System
 
-console.log('user-login.js loaded');
-
 var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
 
 function detectLoginType(userId) {
@@ -21,7 +19,6 @@ function detectLoginType(userId) {
 function generateQRCode(containerId, secret, userId = 'User') {
     const container = document.getElementById(containerId);
     if (!container) {
-        console.error('QR Code container not found:', containerId);
         return;
     }
     
@@ -30,8 +27,6 @@ function generateQRCode(containerId, secret, userId = 'User') {
     
     // Create OTP URL
     const otpUrl = `otpauth://totp/Sign-um:${userId}?secret=${secret}&issuer=Sign-um&algorithm=SHA1&digits=6&period=30`;
-    
-    console.log('Generating QR for URL:', otpUrl);
     
     // Create wrapper
     const wrapper = document.createElement('div');
@@ -84,19 +79,14 @@ function generateQRCode(containerId, secret, userId = 'User') {
         
         if (attempt >= providers.length) {
             // All providers failed, show manual entry
-            console.error('All QR code providers failed');
             showManualEntry();
             return;
         }
-        
-        console.log(`Trying ${providers[attempt].name}...`);
         
         const img = new Image();
         img.crossOrigin = 'anonymous';
         
         img.onload = function() {
-            console.log(`${providers[attempt].name} QR code loaded successfully`);
-            
             // Clear loading
             container.innerHTML = '';
             
@@ -124,7 +114,6 @@ function generateQRCode(containerId, secret, userId = 'User') {
         };
         
         img.onerror = function() {
-            console.log(`${providers[attempt].name} failed, trying next...`);
             tryQRCodeProvider(attempt + 1);
         };
         
@@ -450,29 +439,19 @@ function attachLoginSubmitHandler() {
                 body: JSON.stringify(requestData)
             });
 
-            console.log('Response status:', response.status);
-            console.log('Response headers:', response.headers);
-
             const responseText = await response.text();
-            console.log('Raw response text:', responseText);
 
             let data;
             try {
                 data = JSON.parse(responseText);
-                console.log('Parsed response data:', data);
             } catch (parseError) {
-                console.error('JSON parse error:', parseError);
                 throw new Error('Invalid JSON response from server');
             }
 
             if (data.success) {
-                console.log('Login successful, checking 2FA requirements...');
 
                 // Handle 2FA setup requirement
                 if (data.requires_2fa_setup) {
-                    console.log('Setting up 2FA with secret:', data.secret);
-                    console.log('For user:', data.user_id);
-                    
                     // Use the simplified QR generator
                     generateQRCode('qrCodeContainer', data.secret, data.user_id);
                     
@@ -488,7 +467,6 @@ function attachLoginSubmitHandler() {
                     const setupModal = new bootstrap.Modal(document.getElementById('2faSetupModal'));
                     setupModal.show();
                 } else if (data.requires_2fa) {
-                    console.log('Requires 2FA verification');
                     window.tempUserId = data.user_id;
 
                     // Show 2FA verification modal
@@ -500,7 +478,6 @@ function attachLoginSubmitHandler() {
                         document.getElementById('2faCode').focus();
                     }, { once: true });
                 } else {
-                    console.log('Normal login, redirecting to:', data.redirect);
                     // Redirect as usual
                     window.location.href = data.redirect;
                 }
@@ -514,12 +491,6 @@ function attachLoginSubmitHandler() {
                 }
             }
         } catch (error) {
-            console.error('Login fetch error:', error);
-            console.error('Error details:', {
-                message: error.message,
-                stack: error.stack,
-                name: error.name
-            });
             showLoginError('Server error: ' + error.message + '. Check console for details.');
         } finally {
             loginContainer.classList.remove('loading');
@@ -558,7 +529,6 @@ function disableFormForCooldown() {
 
 // Forgot Password Modal Functions
 function openForgotPassword() {
-    console.log('openForgotPassword called');
     const modal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'));
     modal.show();
 }
@@ -675,7 +645,6 @@ function resendMfaCode() {
         }
     })
     .catch(error => {
-        console.error('Resend error:', error);
         showForgotPasswordError('Failed to resend code. Please try again.');
         btn.innerHTML = originalText;
         btn.disabled = false;
@@ -686,12 +655,10 @@ function resendMfaCode() {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async function () {
-    console.log('DOMContentLoaded fired');
 
     // Load QRCode library if not already loaded
     try {
         await loadQRCode();
-        console.log('QRCode is ready:', typeof QRCode, QRCode);
 
         // Test QR code generation
         const testContainer = document.createElement('div');
@@ -703,15 +670,15 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         QRCode.toCanvas(testCanvas, 'test', { width: 100 }, function (error) {
             if (error) {
-                console.error('Test QR generation failed:', error);
+                // Test QR generation failed
             } else {
-                console.log('Test QR code generation successful');
+                // Test QR code generation successful
             }
             // Always clean up
             setTimeout(() => testContainer.remove(), 100);
         });
     } catch (error) {
-        console.error('Failed to load QRCode library:', error);
+        // Failed to load QRCode library
     }
 
     // Check for 2FA requirements from PHP
@@ -720,22 +687,15 @@ document.addEventListener('DOMContentLoaded', async function () {
     const twoFactorSecret = document.getElementById('twoFactorSecret')?.value;
     const twoFactorUserId = document.getElementById('twoFactorUserId')?.value;
 
-    console.log('2FA flags:', { requires2fa, requires2faSetup, twoFactorSecret: twoFactorSecret ? 'present' : 'missing', twoFactorUserId });
-
     if (requires2faSetup && twoFactorSecret && twoFactorUserId) {
-        console.log('Starting QR code generation for 2FA setup');
         // Generate QR code for 2FA setup
         const qrUrl = `otpauth://totp/Sign-um:User?secret=${twoFactorSecret}&issuer=Sign-um`;
-        console.log('Generating QR code with URL:', qrUrl);
         try {
-            console.log('Checking QRCode availability:', typeof QRCode, QRCode?.toCanvas);
             if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
                 const container = document.getElementById('qrCodeContainer');
-                console.log('Container element:', container);
                 if (container) {
                     // Clear any existing content
                     container.innerHTML = '';
-                    console.log('Attempting to generate QR code with URL:', qrUrl);
 
                     // Create a canvas element for the QR code
                     const canvas = document.createElement('canvas');
@@ -745,24 +705,19 @@ document.addEventListener('DOMContentLoaded', async function () {
 
                     QRCode.toCanvas(canvas, qrUrl, { width: 160, errorCorrectionLevel: 'M' }, function (error) {
                         if (error) {
-                            console.error('QRCode.toCanvas callback error:', error);
                             // Fallback to Google Charts API
-                            console.log('Trying Google Charts API as fallback...');
                             const img = document.createElement('img');
                             img.src = `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;
                             img.onload = () => {
-                                console.log('Google Charts QR code loaded successfully');
                                 container.innerHTML = '';
                                 container.appendChild(img);
                                 // Always show text backup
                                 addTextBackup(container, twoFactorSecret);
                             };
                             img.onerror = () => {
-                                console.error('Google Charts API also failed');
                                 throw new Error('All QR code generation methods failed');
                             };
                         } else {
-                            console.log('QR code generated successfully');
                             // Always show text backup below the visual QR
                             addTextBackup(container, twoFactorSecret);
                         }
@@ -772,17 +727,15 @@ document.addEventListener('DOMContentLoaded', async function () {
                 }
             } else {
                 // Fallback to Google Charts API directly
-                console.log('QRCode library not available, using Google Charts API');
                 const container = document.getElementById('qrCodeContainer');
                 if (container) {
                     container.innerHTML = '';
                     const img = document.createElement('img');
                     img.src = `https://chart.googleapis.com/chart?chs=180x180&cht=qr&chl=${encodeURIComponent(qrUrl)}&choe=UTF-8`;
                     img.onload = () => {
-                        console.log('Google Charts QR code loaded successfully');
+                        // Google Charts QR code loaded successfully
                     };
                     img.onerror = () => {
-                        console.error('Google Charts API failed');
                         throw new Error('Google Charts API failed');
                     };
                     container.appendChild(img);
@@ -791,7 +744,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                 }
             }
         } catch (error) {
-            console.error('QR Code generation failed:', error);
             // Fallback: Show secret key as text
             const container = document.getElementById('qrCodeContainer');
             if (container) {
@@ -844,13 +796,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     const forgotForm = document.getElementById('forgotPasswordForm');
     if (forgotForm) {
         forgotForm.addEventListener('submit', async function (e) {
-            console.log('forgotPasswordForm submit event fired');
             e.preventDefault();
-            console.log('preventDefault called');
 
             const userId = document.getElementById('forgotUserId').value.trim();
             hideForgotPasswordError();
-            console.log('userId:', userId);
 
             if (!userId) {
                 showForgotPasswordError('Please enter your User ID.');
@@ -858,15 +807,12 @@ document.addEventListener('DOMContentLoaded', async function () {
             }
 
             try {
-                console.log('Sending fetch request');
                 const response = await fetch(BASE_URL + 'api/auth.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'forgot_password', userId })
                 });
-                console.log('Response received:', response);
                 const data = await response.json();
-                console.log('Data:', data);
 
                 if (data.success) {
                     // Show masked contact info
@@ -882,13 +828,11 @@ document.addEventListener('DOMContentLoaded', async function () {
                     showForgotPasswordError(data.message || 'User not found.');
                 }
             } catch (error) {
-                console.error('Error:', error);
                 showForgotPasswordError('Server error. Please try again.');
             }
         });
-        console.log('forgotPasswordForm event listener attached');
     } else {
-        console.log('forgotPasswordForm not found in DOMContentLoaded');
+        // forgotPasswordForm not found
     }
 
     // Attach MFA verification form listener
@@ -932,7 +876,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                     showMfaError(data.message || 'Invalid verification code.');
                 }
             } catch (error) {
-                console.error('Verification error:', error);
                 showMfaError('Server error. Please try again.');
             } finally {
                 // Re-enable form
@@ -942,7 +885,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                 }
             }
         });
-        console.log('mfaVerificationForm event listener attached');
     }
 
     // Attach 2FA verification modal button
@@ -983,7 +925,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                     errorDiv.classList.remove('d-none');
                 }
             } catch (error) {
-                console.error('2FA verification error:', error);
                 const errorDiv = document.getElementById('2faVerifyError');
                 const errorMsg = document.getElementById('2faVerifyErrorMessage');
                 errorMsg.textContent = 'Server error. Please try again.';
@@ -1038,7 +979,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                     errorDiv.classList.remove('d-none');
                 }
             } catch (error) {
-                console.error('2FA setup error:', error);
                 const errorDiv = document.getElementById('2faSetupError');
                 const errorMsg = document.getElementById('2faSetupErrorMessage');
                 errorMsg.textContent = 'Server error. Please try again.';
@@ -1110,7 +1050,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                 document.getElementById('resetPasswordError').classList.remove('d-none');
             }
         });
-        console.log('resetPasswordForm event listener attached');
     }
 
     // Add event listeners for modal close events to reset form state

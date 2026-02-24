@@ -1833,7 +1833,7 @@ class DocumentNotificationSystem {
             this.renderPage().then(() => {
                 this.updateZoomIndicator();
                 // Re-render overlays (signature targets and blurs)
-                try { this.renderSignatureOverlay(this.currentDocument); } catch (e) { console.warn('renderSignatureOverlay error', e); }
+                try { this.renderSignatureOverlay(this.currentDocument); } catch (e) { /* renderSignatureOverlay error */ }
             });
         });
     }
@@ -2017,7 +2017,7 @@ renderCompletedSignatures(doc, container, canvas = null) {
                 initialMap = typeof doc.signature_map === 'string' ? 
                     JSON.parse(doc.signature_map) : doc.signature_map;
             } catch (e) {
-                console.warn('Invalid signature_map, using defaults', e);
+                // Invalid signature_map, using defaults
             }
         }
 
@@ -2417,7 +2417,6 @@ renderCompletedSignatures(doc, container, canvas = null) {
         };
         
         this.currentSignatureMap = this.linkedSignatureMaps.accounting;
-        console.log('Linked SAF signature maps updated:', this.linkedSignatureMaps);
     }
 
     // When signature is drawn, show it in BOTH SAF targets
@@ -2499,7 +2498,6 @@ renderCompletedSignatures(doc, container, canvas = null) {
         try {
             map = (typeof map === 'string') ? JSON.parse(map) : map;
         } catch (e) {
-            console.warn('Invalid doc.signature_map JSON', e);
             map = null;
         }
 
@@ -2754,81 +2752,37 @@ renderCompletedSignatures(doc, container, canvas = null) {
 // Add this new helper method for computing pixel rects in any container
 computeSignaturePixelRectForContainer(map, canvas, container) {
     if (!canvas) {
-        console.log('DEBUG: No canvas provided');
         return null;
     }
     
-    console.log('DEBUG ===== computeSignaturePixelRectForContainer START =====');
-    console.log('DEBUG map:', JSON.stringify(map, null, 2));
-    console.log('DEBUG canvas element:', canvas);
-    console.log('DEBUG container element:', container);
-    
     const canvasRect = canvas.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
-    
-    console.log('DEBUG canvasRect:', {
-        left: canvasRect.left,
-        top: canvasRect.top,
-        right: canvasRect.right,
-        bottom: canvasRect.bottom,
-        width: canvasRect.width,
-        height: canvasRect.height
-    });
-    
-    console.log('DEBUG containerRect:', {
-        left: containerRect.left,
-        top: containerRect.top,
-        right: containerRect.right,
-        bottom: containerRect.bottom,
-        width: containerRect.width,
-        height: containerRect.height
-    });
 
     // Helper to normalize a value that might be percent (0..1) or absolute px (>1)
     const norm = (v, axisSize, canvasAttrSize, axisName) => {
         if (v == null) {
-            console.log(`DEBUG norm: ${axisName} value is null, returning 0`);
             return 0;
         }
         if (v <= 1) {
             const result = v * axisSize;
-            console.log(`DEBUG norm: ${axisName} is percent ${v} -> ${result}px (axisSize: ${axisSize})`);
             return result;
         }
         const ratio = canvasAttrSize && axisSize ? (axisSize / canvasAttrSize) : 1;
         const result = v * ratio;
-        console.log(`DEBUG norm: ${axisName} is absolute ${v}px with ratio ${ratio} -> ${result}px (canvasAttrSize: ${canvasAttrSize}, axisSize: ${axisSize})`);
         return result;
     };
 
     const canvasAttrWidth = canvas.width || canvasRect.width;
     const canvasAttrHeight = canvas.height || canvasRect.height;
     
-    console.log('DEBUG canvas attributes:', {
-        width: canvasAttrWidth,
-        height: canvasAttrHeight
-    });
-
     const xRaw = map.x_pct ?? map.x_px ?? 0;
     const yRaw = map.y_pct ?? map.y_px ?? 0;
     const wRaw = map.w_pct ?? map.w_px ?? 0;
     const hRaw = map.h_pct ?? map.h_px ?? 0;
-    
-    console.log('DEBUG raw values:', {
-        xRaw,
-        yRaw,
-        wRaw,
-        hRaw
-    });
 
     // Calculate position relative to canvas
     const canvasLeftOffset = canvasRect.left - containerRect.left;
     const canvasTopOffset = canvasRect.top - containerRect.top;
-    
-    console.log('DEBUG offsets:', {
-        canvasLeftOffset,
-        canvasTopOffset
-    });
     
     const normX = norm(xRaw, canvasRect.width, canvasAttrWidth, 'x');
     const normY = norm(yRaw, canvasRect.height, canvasAttrHeight, 'y');
@@ -2840,41 +2794,23 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
     const width = Math.max(1, normW);
     const height = Math.max(1, normH);
     
-    console.log('DEBUG final calculated values:', {
-        left,
-        top,
-        width,
-        height
-    });
-    
     // For modal, account for any transform/offset
     const isModal = container.id === 'fullPdfContainer';
-    console.log('DEBUG isModal:', isModal);
     
     if (isModal) {
         // Get the container's transform if any (for drag functionality)
         const transform = container.style.transform;
-        console.log('DEBUG container transform:', transform);
         
         if (transform && transform.includes('translate')) {
             const matches = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
-            console.log('DEBUG transform matches:', matches);
             
             if (matches) {
                 const offsetX = parseFloat(matches[1]);
                 const offsetY = parseFloat(matches[2]);
-                console.log('DEBUG transform offsets:', { offsetX, offsetY });
                 
                 // Adjust for the drag offset
                 const adjustedLeft = left - offsetX;
                 const adjustedTop = top - offsetY;
-                
-                console.log('DEBUG adjusted values:', {
-                    adjustedLeft,
-                    adjustedTop
-                });
-                
-                console.log('DEBUG ===== computeSignaturePixelRectForContainer END (with transform) =====');
                 
                 return {
                     left: adjustedLeft,
@@ -2887,8 +2823,6 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
             }
         }
     }
-    
-    console.log('DEBUG ===== computeSignaturePixelRectForContainer END (no transform) =====');
     
     return { left, top, width, height, canvasRect, containerRect };
 }
@@ -3075,9 +3009,7 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
         const saveBtn = document.getElementById('sigSaveBtn');
         if (clearBtn) clearBtn.onclick = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); };
         if (saveBtn) saveBtn.onclick = () => {
-            console.log('Use Signature clicked, setting signatureImage');
             this.signatureImage = canvas.toDataURL('image/png');
-            console.log('signatureImage set:', !!this.signatureImage);
             this.updateSignatureOverlayImage();
             this.showToast({ type: 'success', title: 'Signature Saved', message: 'Signature ready to apply.' });
             // Update button state after signature is set
@@ -3102,7 +3034,6 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
     // FIXED: Proper coordinate calculation for SAF dual signing
     async applySignatureToPdf() {
         if (!this.signatureImage) {
-            console.error('No signature image available');
             return null;
         }
 
@@ -3203,7 +3134,6 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
             return new Blob([modifiedPdfBytes], { type: 'application/pdf' });
 
         } catch (error) {
-            console.error('Error in applySignatureToPdf:', error);
             this.showToast({
                 type: 'error',
                 title: 'Signature Error',
@@ -3230,10 +3160,6 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
             const fields = form.getFields();
             const fieldNames = fields.map(field => field.getName());
 
-            console.log('Available PDF form fields:', fieldNames);
-            console.log('SAF data to fill:', data);
-            console.log('Current document data:', this.currentDocument.data);
-
             // Fill date fields - only if they exist in the PDF
             const dateFields = ['reqDate', 'dNoteDate', 'hNoteDate', 'recDate', 'appDate', 'releaseDate'];
             dateFields.forEach(field => {
@@ -3248,10 +3174,9 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
                             day: 'numeric'
                         });
                         textField.setText(formattedDate);
-                        console.log(`Filled date field ${field} with formatted value: ${formattedDate} (original: ${data[field]})`);
                     }
                 } catch (fieldError) {
-                    console.warn(`Could not fill date field ${field}:`, fieldError.message);
+                    // Could not fill date field
                 }
             });
 
@@ -3262,10 +3187,9 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
                     if (fieldNames.includes(field) && data[field]) {
                         const textField = form.getTextField(field);
                         textField.setText(data[field]);
-                        console.log(`Filled signatory ${field} with value: ${data[field]}`);
                     }
                 } catch (fieldError) {
-                    console.warn(`Could not fill signatory ${field}:`, fieldError.message);
+                    // Could not fill signatory field
                 }
             });
 
@@ -3275,7 +3199,6 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
                 try {
                     if (fieldNames.includes(field)) {
                         const isChecked = data[field] && data[field] !== '';
-                        console.log(`Processing checkbox ${field}, data value: "${data[field]}", should be checked: ${isChecked}`);
 
                         // Try checkbox field first
                         try {
@@ -3285,17 +3208,14 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
                             } else {
                                 checkBox.uncheck();
                             }
-                            console.log(`Set checkbox ${field} to ${isChecked ? 'checked' : 'unchecked'}`);
                         } catch (checkboxError) {
                             // If checkbox field doesn't exist, try text field
-                            console.warn(`Checkbox field ${field} not found, trying text field:`, checkboxError.message);
                             const textField = form.getTextField(field);
                             textField.setText(isChecked ? '✓' : '');
-                            console.log(`Filled text field ${field} with value: ${isChecked ? '✓' : ''}`);
                         }
                     }
                 } catch (fieldError) {
-                    console.warn(`Could not fill checkbox ${field}:`, fieldError.message);
+                    // Could not fill checkbox field
                 }
             });
 
@@ -3307,7 +3227,6 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
             this.pdfDoc = await pdfjsLib.getDocument({data: this.filledPdfBytes}).promise;
             this.totalPages = this.pdfDoc.numPages;
         } catch (error) {
-            console.error('Error filling SAF form fields:', error);
             // Continue with original PDF if filling fails
         }
     }
@@ -3447,7 +3366,6 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
                         throw new Error(result.message || 'Failed to sign document');
                     }
                 } catch (error) {
-                    console.error('Error signing document:', error);
                     this.showToast({
                         type: 'error',
                         title: 'Error',
@@ -3508,7 +3426,6 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
                 throw new Error(result.message || 'Failed to reject document');
             }
         } catch (error) {
-            console.error('Error rejecting document:', error);
             this.showToast({
                 type: 'error',
                 title: 'Error',
@@ -3646,7 +3563,7 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
         if (window.ToastManager) {
             window.ToastManager.show(options);
         } else {
-            console.log(`[${options.type.toUpperCase()}] ${options.title ? options.title + ': ' : ''}${options.message}`);
+            // Fallback if ToastManager not available
         }
     }
 
@@ -3728,7 +3645,6 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
             await this.renderFullPage();
             this.updateFullControls();
         } catch (error) {
-            console.error('Error loading full PDF:', error);
             this.showToast({ type: 'error', title: 'Error', message: 'Failed to load document for full view.' });
         }
     }
@@ -3764,7 +3680,7 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
             // Update canvas position after rendering
             this.updateCanvasPosition();
         } catch (error) {
-            console.error('Error rendering full page:', error);
+            // Error rendering full page silently ignored
         }
     }
 

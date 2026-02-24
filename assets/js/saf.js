@@ -104,7 +104,7 @@ function showToast(message, type = 'info') {
   if (window.ToastManager) {
     window.ToastManager.show({ type: type, message: message });
   } else {
-    console.log(`[${type.toUpperCase()}] ${message}`);
+    // Fallback if ToastManager not available
   }
 }
 
@@ -161,7 +161,6 @@ async function initDataSdk() {
       showToast('Failed to load data: ' + result.message, 'danger');
     }
   } catch (error) {
-    console.error(error);
     showToast('Failed to connect to the server', 'danger');
   }
   hideLoading();
@@ -420,7 +419,6 @@ async function submitAllocation() {
       showToast('Allocation failed: ' + result.message, 'danger');
     }
   } catch (error) {
-    console.error(error);
     showToast('Operation failed.', 'danger');
   }
   hideLoading();
@@ -473,7 +471,6 @@ async function submitEditSaf() {
       showToast('Update failed: ' + result.message, 'danger');
     }
   } catch (error) {
-    console.error(error);
     showToast('Operation failed.', 'danger');
   }
   hideLoading();
@@ -549,7 +546,6 @@ async function submitAddDeduct() {
 
     await initDataSdk();
   } catch (error) {
-    console.error(error);
     showToast('Operation failed.', 'danger');
   }
 
@@ -616,7 +612,6 @@ async function submitTransaction() {
       showToast('Update failed: ' + result.message, 'danger');
     }
   } catch (error) {
-    console.error(error);
     showToast('Operation failed.', 'danger');
   }
   hideLoading();
@@ -652,7 +647,6 @@ async function deleteTransaction(id) {
       showToast('Delete failed: ' + result.message, 'danger');
     }
   } catch (error) {
-    console.error(error);
     showToast('Operation failed.', 'danger');
   }
   hideLoading();
@@ -689,7 +683,6 @@ async function confirmReset() {
       }
     }
   } catch (error) {
-    console.error(error);
     showToast('Reset failed. Please try again.', 'danger');
   }
 

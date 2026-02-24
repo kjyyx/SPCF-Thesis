@@ -542,14 +542,6 @@ function collectCommunicationData() {
     // Create the title in "Position, Department" format
     const from_title = position && department ? `${position}, ${department}` : (position || department || '');
 
-    // Debug log
-    console.log('Collecting Communication Data:', {
-        from_name,
-        from_title,
-        position,
-        department
-    });
-
     return {
         date: document.getElementById('comm-date')?.value || '',
         department: document.getElementById('comm-department-select')?.value || '',
@@ -692,14 +684,6 @@ function generateCommunicationHTML(d) {
         const department = window.currentUser.department || '';
         from_title = position && department ? `${position}, ${department}` : (position || department || '');
     }
-    
-    // Debug log to check values
-    console.log('Communication Data:', {
-        from_name: from_name,
-        from_title: from_title,
-        d_from_title: d.from_title,
-        currentUser: window.currentUser
-    });
 
     return `<div class="paper-page">${header}<div style="margin-top:2rem">
         <div>Date: ${formatDate(d.date)}</div>

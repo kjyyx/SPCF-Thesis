@@ -22,9 +22,6 @@ let currentUser = null; // Declare currentUser globally
 
 class CalendarApp {
     constructor() {
-        console.log('CalendarApp constructor called');
-        console.log('Current user:', currentUser);
-
         this.currentDate = currentDate;
         this.selectedDate = null;
         this.events = events;
@@ -43,18 +40,11 @@ class CalendarApp {
             'SPCF Miranda': 'rgb(127, 29, 29)', // Maroon
             'Supreme Student Council': 'rgb(249, 115, 22)' // Orange
         };
-        console.log('Initializing calendar...');
         this.init();
         this.loadEvents();
     }
 
     init() {
-        console.log('CalendarApp.init() called');
-        console.log('DOM elements check:');
-        console.log('- currentMonth:', document.getElementById('currentMonth'));
-        console.log('- calendarDays:', document.getElementById('calendarDays'));
-        console.log('- userDisplayName:', document.getElementById('userDisplayName'));
-
         // Load persisted state
         const savedDate = localStorage.getItem('calendar_currentDate');
         const savedView = localStorage.getItem('calendar_currentView');
@@ -71,8 +61,6 @@ class CalendarApp {
         if (savedView && ['month', 'week', 'agenda', 'list'].includes(savedView)) {
             this.switchView(savedView);
         }
-
-        console.log('CalendarApp.init() completed');
     }
 
     setupUIBasedOnRole() {
@@ -330,10 +318,10 @@ class CalendarApp {
                 this.generateCalendar();
                 this.updateEventStatistics();
             } else {
-                console.error('Failed to load events', data);
+                // Failed to load events silently
             }
         } catch (e) {
-            console.error('Error loading events', e);
+            // Error loading events silently ignored
         } finally {
             this.setCalendarLoading(false);
         }
@@ -426,7 +414,7 @@ class CalendarApp {
             });
             events = this.events;
         } catch (e) {
-            console.error('Error fetching approved events', e);
+            // Error fetching approved events silently ignored
         }
     }
 
@@ -513,7 +501,6 @@ class CalendarApp {
     }
 
     generateCalendar() {
-        console.log('generateCalendar called');
         const year = this.currentDate.getFullYear();
         const month = this.currentDate.getMonth();
 
@@ -985,7 +972,7 @@ class CalendarApp {
                     this.showToast(res.message || 'Delete failed', 'error');
                 }
             })
-            .catch(err => { console.error(err); this.showToast('Server error deleting event', 'error'); });
+            .catch(err => { this.showToast('Server error deleting event', 'error'); });
     }
 
     approveEvent() {
@@ -1008,7 +995,7 @@ class CalendarApp {
                     this.showToast(res.message || 'Approval failed', 'error');
                 }
             })
-            .catch(err => { console.error(err); this.showToast('Server error approving event', 'error'); });
+            .catch(err => { this.showToast('Server error approving event', 'error'); });
     }
 
     disapproveEvent() {
@@ -1031,7 +1018,7 @@ class CalendarApp {
                     this.showToast(res.message || 'Disapproval failed', 'error');
                 }
             })
-            .catch(err => { console.error(err); this.showToast('Server error disapproving event', 'error'); });
+            .catch(err => { this.showToast('Server error disapproving event', 'error'); });
     }
 
     isToday(date) {
@@ -1265,7 +1252,6 @@ document.getElementById('profileSettingsForm').addEventListener('submit', async 
             show(err(resp.message || 'Failed to update profile.'));
         }
     } catch (error) {
-        console.error('Profile update error:', error);
         show(err('An error occurred while updating your profile.'));
     }
 });
@@ -1279,18 +1265,12 @@ function applyTheme() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('DOM loaded, checking for user data...');
-    console.log('window.currentUser:', window.currentUser);
-
     if (window.currentUser) {
         currentUser = window.currentUser;
-        console.log('User data found:', currentUser);
-        console.log('Initializing CalendarApp...');
         new CalendarApp();
 
         applyTheme();
     } else {
-        console.log('No user data found, redirecting to login...');
         window.location.href = BASE_URL + 'login';
     }
 });

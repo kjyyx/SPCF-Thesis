@@ -119,7 +119,7 @@ $twoFactorUserId = '';
                 <!-- Footer note -->
                 <div class="info-panel-footer">
                     <i class="bi bi-buildings-fill fs-5"></i>
-                    <span>St. Paul College Foundation, Inc. &mdash; Official Document Portal</span>
+                    <span>Systems Plus College Foundation &mdash; Official Document Portal</span>
                 </div>
 
             </aside>

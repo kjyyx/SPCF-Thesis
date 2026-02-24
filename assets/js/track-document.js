@@ -80,7 +80,7 @@ function showToast(message, type = 'info', title = null) {
     if (window.ToastManager) {
         window.ToastManager.show({ type: type, title: title, message: message, duration: 4000 });
     } else {
-        console.log(`[${type.toUpperCase()}] ${title ? title + ': ' : ''}${message}`);
+        // Toast: message
     }
 }
 
@@ -166,15 +166,11 @@ async function loadStudentDocuments() {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' }
         });
-        console.log('API Response status:', response.status);
-        console.log('API Response ok:', response.ok);
         if (!response.ok) {
             const errorText = await response.text();
-            console.log('API Error response:', errorText);
             throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
         const data = await response.json();
-        console.log('API Response data:', data);
 
         if (data.success) {
             allDocuments = data.documents || [];
@@ -188,7 +184,6 @@ async function loadStudentDocuments() {
             showEmptyState();
         }
     } catch (error) {
-        console.error('Error loading documents:', error);
         hideLoadingState();
         showToast('Failed to load documents: ' + error.message, 'error');
         showEmptyState();
@@ -783,9 +778,7 @@ async function viewDetails(docId) {
 }
 
 async function viewMaterialDetails(materialId) {
-    console.log('viewMaterialDetails called with materialId:', materialId);
     currentMaterialId = normalizeMaterialId(materialId) || materialId;
-    console.log('currentMaterialId set to:', currentMaterialId);
     
     const modal = new bootstrap.Modal(document.getElementById('materialModal'));
     const modalTitle = document.getElementById('materialModalTitle');
@@ -817,8 +810,6 @@ async function viewMaterialDetails(materialId) {
                 // Use the API endpoint for serving images (more secure)
                 fileUrl = BASE_URL + `api/materials.php?action=serve_image&id=${materialId}`;
                 
-                // Debug log
-                console.log('Using API endpoint for file access:', fileUrl);
             }
             
             if (isImage) {
@@ -947,8 +938,6 @@ async function viewMaterialDetails(materialId) {
             currentMaterialId = materialId;  // Set again to be sure
             currentMaterialReplyTarget = null;
             
-            console.log('Setting up comment functionality with materialId:', currentMaterialId);
-            
             document.getElementById('sendMaterialCommentBtn')?.addEventListener('click', postMaterialComment);
             document.getElementById('cancelMaterialReply')?.addEventListener('click', clearMaterialReplyTarget);
             
@@ -965,7 +954,6 @@ async function viewMaterialDetails(materialId) {
             modal.show();
         }
     } catch (error) {
-        console.error('Error loading material:', error);
         modalBody.innerHTML = `<div class="alert alert-danger">Failed to load material details.</div>`;
         modal.show();
     }
@@ -1014,7 +1002,7 @@ async function loadMaterialComments(materialId) {
             renderMaterialComments(data.comments || []);
         }
     } catch (error) {
-        console.error('Error loading comments:', error);
+        // Error loading comments
     }
 }
 
@@ -1058,20 +1046,16 @@ function renderMaterialComments(comments) {
 }
 
 async function postMaterialComment() {
-    console.log('postMaterialComment called');
-    console.log('currentMaterialId:', currentMaterialId);
 
     const materialId = normalizeMaterialId(currentMaterialId);
 
     if (!materialId) {
-        console.error('No material selected - invalid currentMaterialId:', currentMaterialId);
         showToast('No material selected', 'error');
         return;
     }
     
     const input = document.getElementById('materialCommentInput');
     if (!input) {
-        console.error('Comment input not found');
         return;
     }
 
@@ -1088,8 +1072,6 @@ async function postMaterialComment() {
         parent_id: currentMaterialReplyTarget || null
     };
     
-    console.log('Posting material comment payload:', JSON.stringify(payload, null, 2));
-    
     try {
         const response = await fetch(BASE_URL + 'api/materials.php', {
             method: 'POST',
@@ -1098,7 +1080,6 @@ async function postMaterialComment() {
         });
         
         const data = await response.json();
-        console.log('Material comment response:', data);
         
         if (data.success) {
             input.value = '';
@@ -1109,7 +1090,6 @@ async function postMaterialComment() {
             showToast('Failed to post comment: ' + (data.message || 'Unknown error'), 'error');
         }
     } catch (error) {
-        console.error('Error posting comment:', error);
         showToast('Error posting comment: ' + error.message, 'error');
     }
 }
@@ -1144,7 +1124,6 @@ function downloadMaterial(materialId, filePath, title) {
 async function loadMaterialComments(materialId) {
     const normalizedId = normalizeMaterialId(materialId);
     if (!normalizedId) {
-        console.error('Invalid material ID for comments:', materialId);
         renderMaterialComments([]);
         return;
     }
@@ -1157,7 +1136,7 @@ async function loadMaterialComments(materialId) {
             renderMaterialComments(data.comments || []);
         }
     } catch (error) {
-        console.error('Error loading comments:', error);
+        // Error loading comments silently ignored
     }
 }
 
@@ -1235,7 +1214,7 @@ async function renderPdfPage(pageNum) {
             renderCompletedSignatures(window.currentDocument, pdfViewer);
         }
     } catch (error) {
-        console.error('Error rendering PDF:', error);
+        // Error rendering PDF silently ignored
     }
 }
 

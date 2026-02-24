@@ -7,15 +7,6 @@ let threadComments = [];
 let replyTarget = null;
 let currentMaterial = null;
 
-// Add a function to check the current state
-function debugState() {
-    console.log('=== DEBUG STATE ===');
-    console.log('currentMaterialId:', currentMaterialId);
-    console.log('currentAction:', currentAction);
-    console.log('replyTarget:', replyTarget);
-    console.log('currentMaterial:', currentMaterial);
-}
-
 function normalizeMaterialId(id) {
     if (id == null) return null;
 
@@ -102,7 +93,6 @@ async function loadMaterials() {
             showError('Failed to load materials: ' + result.message);
         }
     } catch (error) {
-        console.error('Error loading materials:', error);
         showError('Error loading materials: ' + error.message);
     }
 }
@@ -190,9 +180,7 @@ function displayMaterials(materials) {
 }
 
 function viewMaterial(id) {
-    console.log('viewMaterial called with id:', id);
     currentMaterialId = normalizeMaterialId(id) || id;
-    console.log('currentMaterialId set to:', currentMaterialId);
     
     // Show loading state
     const viewer = document.getElementById('materialViewer');
@@ -213,7 +201,6 @@ function viewMaterial(id) {
             if (data.success && data.material) {
                 const material = data.material;
                 currentMaterial = material;
-                console.log('Material loaded, currentMaterialId still:', currentMaterialId);
                 
                 const modalTitle = document.getElementById('viewModalTitle');
                 modalTitle.innerHTML = `<i class="bi bi-eye text-primary me-2"></i> ${escapeHtml(material.title)}`;
@@ -507,8 +494,6 @@ async function loadThreadComments(materialId) {
 }
 
 async function postComment() {
-    console.log('postComment called');
-    console.log('currentMaterialId before check:', currentMaterialId);
     
     const materialId = normalizeMaterialId(currentMaterialId);
     if (!materialId) {
@@ -537,7 +522,6 @@ async function postComment() {
         parent_id: replyTarget ? replyTarget.id : null
     };
     
-    console.log('Posting comment payload:', JSON.stringify(payload, null, 2));
 
     const saveIndicator = document.getElementById('notesSaveIndicator');
 
@@ -551,7 +535,7 @@ async function postComment() {
         });
 
         const result = await response.json();
-        console.log('Comment response:', result);
+
 
         if (result.success) {
             input.value = '';

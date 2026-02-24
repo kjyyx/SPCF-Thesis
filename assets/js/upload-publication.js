@@ -6,7 +6,7 @@ function showToast(message, type = 'info', title = null) {
     if (window.ToastManager) {
         window.ToastManager.show({ type: type, title: title, message: message, duration: 4000 });
     } else {
-        console.log(`[${type.toUpperCase()}] ${title ? title + ': ' : ''}${message}`);
+        // Toast: message
     }
 }
 
@@ -362,7 +362,6 @@ function initializeUploadSystem() {
             formData.append('file', file);
 
             try {
-                console.log(`Uploading file ${i+1}:`, file.name);
 
                 const response = await fetch(BASE_URL + 'api/materials.php', {
                     method: 'POST',
@@ -370,7 +369,6 @@ function initializeUploadSystem() {
                 });
 
                 const result = await response.json();
-                console.log('Upload response:', result);
 
                 if (result.success) {
                     successCount++;

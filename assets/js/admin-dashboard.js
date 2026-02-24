@@ -283,12 +283,9 @@ async function loadAuditLogs(page = 1, category = null, severity = null, search 
             ...(endDate && { end_date: endDate })
         });
 
-        console.log('Fetching audit logs with params:', params.toString());
         const data = await apiFetch(`${AUDIT_API}?${params}`);
-        console.log('Audit API response:', data);
         if (data.success) {
             const tbody = document.getElementById('auditTableBody');
-            console.log('auditTableBody element:', tbody);
             tbody.innerHTML = '';
 
             // Render each audit log entry
@@ -300,7 +297,6 @@ async function loadAuditLogs(page = 1, category = null, severity = null, search 
             auditLogs = data.logs; // Store for details modal
             totalAuditPages = data.totalPages;
             updateAuditPagination();
-            console.log('Audit logs loaded successfully, count:', data.logs.length);
         } else {
             console.error('Failed to load audit logs', data.message);
             showToast('Failed to load audit logs: ' + (data.message || 'Unknown error'), 'error');
@@ -427,17 +423,13 @@ function updateMaterialsPagination() {
  * Performs authentication checks, loads initial data, and sets up the UI
  */
 document.addEventListener('DOMContentLoaded', async function () {
-    console.log('Admin Dashboard loaded');
-    console.log('window.currentUser:', window.currentUser);
 
     // Use the user data passed from PHP backend
     if (window.currentUser) {
         currentUser = window.currentUser;
-        console.log('Admin user:', currentUser);
 
         // Security check: Ensure user has admin role
         if (currentUser.role !== 'admin') {
-            console.log('User is not an admin, redirecting...');
             window.location.href = BASE_URL + 'calendar';
             return;
         }
@@ -476,7 +468,6 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
 
     } else {
-        console.log('No user data, redirecting to login...');
         window.location.href = BASE_URL + 'login';
     }
 });
@@ -1822,7 +1813,6 @@ function loadAuditLogTable() {
 
 /** Build a <tr> for an audit log entry. */
 function createAuditLogRow(entry) {
-    console.log('Creating audit log row for entry:', entry);
     const row = document.createElement('tr');
 
     const severityClass = {
@@ -1978,7 +1968,6 @@ async function loadSystemSettings() {
     try {
         // This would load settings from the server
         // For now, we'll use default values that are already set in the HTML
-        console.log('Loading system settings...');
     } catch (error) {
         console.error('Failed to load system settings:', error);
     }

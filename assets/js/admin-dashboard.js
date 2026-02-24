@@ -438,7 +438,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         // Security check: Ensure user has admin role
         if (currentUser.role !== 'admin') {
             console.log('User is not an admin, redirecting...');
-            window.location.href = BASE_URL + '?page=calendar';
+            window.location.href = BASE_URL + 'calendar';
             return;
         }
 
@@ -446,6 +446,14 @@ document.addEventListener('DOMContentLoaded', async function () {
         const adminUserName = document.getElementById('adminUserName');
         if (adminUserName) {
             adminUserName.textContent = `${currentUser.firstName} ${currentUser.lastName}`;
+        }
+
+        // Load persisted state
+        const savedTab = localStorage.getItem('admin_currentTab');
+        if (savedTab) {
+            // Switch to saved tab
+            const tabBtn = document.querySelector(`[data-tab="${savedTab}"]`);
+            if (tabBtn) tabBtn.click();
         }
 
         // Initialize dashboard
@@ -469,7 +477,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     } else {
         console.log('No user data, redirecting to login...');
-        window.location.href = BASE_URL + '?page=login';
+        window.location.href = BASE_URL + 'login';
     }
 });
 
@@ -2748,7 +2756,7 @@ function getSeverityColor(severity) {
 
 // Navigation functions (required by UI)
 function goToCalendar() {
-    window.location.href = BASE_URL + '?page=calendar';
+    window.location.href = BASE_URL + 'calendar';
 }
 
 function logout() {
@@ -2759,7 +2767,7 @@ function logout() {
     } catch (e) {
         console.error('Logout audit error:', e);
     }
-    window.location.href = BASE_URL + '?page=logout';
+    window.location.href = BASE_URL + 'logout';
 }
 
 // End of file
@@ -2833,6 +2841,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (targetPane) {
                 targetPane.style.animation = 'fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
             }
+            // Save current tab
+            const tabName = this.getAttribute('data-bs-target').replace('#', '');
+            localStorage.setItem('admin_currentTab', tabName);
         });
     });
     

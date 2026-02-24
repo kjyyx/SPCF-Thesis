@@ -19,6 +19,11 @@
    ============================================================ */
 
 /* ============================================================
+   FONT IMPORTS
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Rethink+Sans:ital,wght@0,400..800;1,400..800&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+/* ============================================================
    1. DESIGN TOKENS
    ============================================================ */
 :root {
@@ -95,11 +100,11 @@
     --color-text-label:       #3a3a3a;
 
     /* ── Typography ───────────────────────────────────────── */
-    /* Pretendard is the closest free match to SamsungOne.
-       Falls back to Inter → system sans.                    */
-    --font-sans: 'Pretendard', 'Inter', -apple-system, BlinkMacSystemFont,
+    /* Rethink Sans for main text, Space Mono for code.
+       Falls back to system fonts.                        */
+    --font-sans: 'Rethink Sans', -apple-system, BlinkMacSystemFont,
                  'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-mono: 'Space Mono', 'Fira Code', monospace;
 
     /* OneUI 7 type scale */
     --text-2xs:  0.75rem;     /* 12px — small/helper      */
@@ -369,10 +374,32 @@ code {
 }
 
 .navbar-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
     font-weight: var(--font-bold);
     font-size: var(--text-base);
     color: var(--color-text-primary) !important;
     letter-spacing: var(--tracking-tight);
+    line-height: 1;
+}
+
+.navbar-brand img {
+    display: block;
+    flex-shrink: 0;
+    height: 60px;
+    width: auto;
+    margin-right: 0;
+}
+
+.navbar-brand-divider {
+    color: var(--color-text-tertiary);
+    font-weight: var(--font-medium);
+}
+
+.navbar-brand-title {
+    line-height: 1;
+    white-space: nowrap;
 }
 
 /* User Info Pill */

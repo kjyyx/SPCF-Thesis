@@ -84,6 +84,7 @@ function selectDocumentType(type) {
 
     // Save to localStorage for persistence
     localStorage.setItem('selectedDocumentType', type);
+    localStorage.setItem('createDoc_currentPage', currentPage);
 
     // Map document types to display names
     const map = {
@@ -1008,10 +1009,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load persisted document type on page load
     let typeSelected = false;
     const persistedType = localStorage.getItem('selectedDocumentType');
+    const persistedPage = localStorage.getItem('createDoc_currentPage');
+    
     if (persistedType && ['proposal', 'saf', 'facility', 'communication'].includes(persistedType)) {
         selectDocumentType(persistedType);
         typeSelected = true;
     }
+    
+    if (persistedPage) currentPage = parseInt(persistedPage);
 
     // Set up live preview for all form inputs
     document.querySelectorAll('input, textarea, select').forEach(el => {

@@ -88,6 +88,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (window.currentUser && document.getElementById('userDisplayName')) {
         document.getElementById('userDisplayName').textContent = `${window.currentUser.firstName} ${window.currentUser.lastName}`;
     }
+    loadPreferences();
     initializeEventListeners();
     loadStudentDocuments();
     if (window.addAuditLog) {
@@ -1419,9 +1420,32 @@ function savePreferences() {
     localStorage.setItem('trackDoc_emailNotifications', document.getElementById('emailNotifications').checked);
     localStorage.setItem('trackDoc_autoRefresh', document.getElementById('autoRefresh').checked);
     localStorage.setItem('trackDoc_itemsPerPage', document.getElementById('itemsPerPagePref').value);
+    localStorage.setItem('trackDoc_currentPage', currentPage);
+    localStorage.setItem('trackDoc_currentSortField', currentSortField);
+    localStorage.setItem('trackDoc_currentSortDirection', currentSortDirection);
     itemsPerPage = parseInt(document.getElementById('itemsPerPagePref').value);
     renderCurrentPage();
     bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
+}
+
+function loadPreferences() {
+    const emailNotifs = localStorage.getItem('trackDoc_emailNotifications');
+    const autoRefresh = localStorage.getItem('trackDoc_autoRefresh');
+    const savedItemsPerPage = localStorage.getItem('trackDoc_itemsPerPage');
+    const savedCurrentPage = localStorage.getItem('trackDoc_currentPage');
+    const savedSortField = localStorage.getItem('trackDoc_currentSortField');
+    const savedSortDirection = localStorage.getItem('trackDoc_currentSortDirection');
+
+    if (emailNotifs !== null) document.getElementById('emailNotifications').checked = emailNotifs === 'true';
+    if (autoRefresh !== null) document.getElementById('autoRefresh').checked = autoRefresh === 'true';
+    if (savedItemsPerPage) {
+        itemsPerPage = parseInt(savedItemsPerPage);
+        document.getElementById('itemsPerPagePref').value = savedItemsPerPage;
+        document.getElementById('itemsPerPage').value = savedItemsPerPage;
+    }
+    if (savedCurrentPage) currentPage = parseInt(savedCurrentPage);
+    if (savedSortField) currentSortField = savedSortField;
+    if (savedSortDirection) currentSortDirection = savedSortDirection;
 }
 function showHelp() { new bootstrap.Modal(document.getElementById('helpModal')).show(); }
 

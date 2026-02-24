@@ -9,14 +9,14 @@ $auth = new Auth();
 $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 if (!$currentUser) {
     logoutUser();
-    header('Location: ' . BASE_URL . '?page=login');
+    header('Location: ' . BASE_URL . 'login');
     exit();
 }
 
 // Restrict to specific approver positions
 $allowedPositions = ['College Student Council Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'];
 if ($currentUser['role'] !== 'employee' || !in_array($currentUser['position'] ?? '', $allowedPositions)) {
-    header('Location: ' . BASE_URL . '?page=user-login');
+    header('Location: ' . BASE_URL . 'user-login');
     exit();
 }
 
@@ -55,6 +55,7 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 addAuditLog('PUBMAT_APPROVALS_VIEWED', 'Approval Management', 'Viewed pubmat approvals page', $currentUser['id'], 'User', 'INFO');
 
 $pageTitle = 'Pubmat Approvals';
+$currentPage = 'pubmat-approvals';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -62,7 +63,9 @@ $pageTitle = 'Pubmat Approvals';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>assets/images/Sign-UM logo ico.png">
     <title>Sign-um - Pubmat Approvals</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">

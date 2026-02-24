@@ -270,52 +270,6 @@ body {
 
 
 
-/* Navigation Styles - Extends global.css */
-/* Additional page-specific navbar customizations */
-.navbar {
-    padding: 1.25rem 1.5rem;
-    border-radius: 0 0 28px 28px;
-}
-
-/* Navbar brand - Additional customization */
-.navbar-brand {
-    font-size: 1.4rem;
-}
-
-/* User info and notification bell - Extends global.css */
-.user-info {
-    border-radius: 28px;
-    font-size: 0.875rem;
-}
-
-.notification-bell {
-    width: 48px;
-    height: 48px;
-    font-size: 1.2rem;
-}
-
-/* Dropdown and button styles - Extends global.css */
-.btn-outline-light {
-    border-radius: 28px;
-}
-
-.dropdown-menu {
-    border-radius: 12px;
-    padding: 0.5rem;
-}
-
-.dropdown-item {
-    padding: 0.625rem 0.875rem;
-    margin-bottom: 0.125rem;
-}
-
-.dropdown-item.text-danger:hover {
-    background: #fee2e2;
-    color: #dc2626;
-}
-
-/* Password toggle, main content, animations - Inherited from global.css */
-
 /* ====================================== */
 /* DOCUMENT NOTIFICATIONS SPECIFIC STYLES */
 /* Base styles inherited from global.css */

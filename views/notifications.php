@@ -9,7 +9,7 @@ $auth = new Auth();
 $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 if (!$currentUser) {
     logoutUser();
-    header('Location: ' . BASE_URL . '?page=login');
+    header('Location: ' . BASE_URL . 'login');
     exit();
 }
 
@@ -101,18 +101,18 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>assets/images/Sign-UM logo ico.png">
     <title>Sign-um - Document Notifications</title>
     <meta name="description" content="Modern document notification and digital signature system">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/master-css.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/event-calendar.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/notifications.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/toast.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global-notifications.css"><!-- Global notifications styles -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
 
     <script>
         // Provide user data to JS (employee-only)
@@ -134,6 +134,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     <?php
     // Set page title for navbar
     $pageTitle = 'Document Notifications';
+    $currentPage = 'notifications';
     include ROOT_PATH . 'includes/navbar.php';
     include ROOT_PATH . 'includes/notifications.php';
     ?>

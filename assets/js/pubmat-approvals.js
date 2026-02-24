@@ -607,27 +607,27 @@ function formatDate(dateString) {
 
 function showSuccess(message) {
     if (window.ToastManager) {
-        window.ToastManager.show({ 
-            type: 'success', 
-            title: 'Success', 
-            message: message, 
-            duration: 4000 
+        window.ToastManager.show({
+            type: 'success',
+            title: 'Success',
+            message: message,
+            duration: 4000
         });
     } else {
-        alert('Success: ' + message);
+        console.log('Success:', message);
     }
 }
 
 function showError(message) {
     if (window.ToastManager) {
-        window.ToastManager.show({ 
-            type: 'error', 
-            title: 'Error', 
-            message: message, 
-            duration: 4000 
+        window.ToastManager.show({
+            type: 'error',
+            title: 'Error',
+            message: message,
+            duration: 4000
         });
     } else {
-        alert('Error: ' + message);
+        console.error('Error:', message);
     }
 }
 

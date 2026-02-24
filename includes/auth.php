@@ -27,11 +27,11 @@ class Auth {
             if ($stmt->rowCount() == 1) {
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                // Verify password - FIXED: Use password_verify
+                // Verify password using modern hashing
                 $passwordVerified = password_verify($password, $user['password']);
 
                 if ($passwordVerified) {
-                    // Return user data without password
+                    // Return user data without password for safety
                     $mustChange = isset($user['must_change_password']) ? (int)$user['must_change_password'] : 0;
                     unset($user['password']);
                     $user['role'] = $loginType;
@@ -65,7 +65,7 @@ class Auth {
             if ($role === 'student') {
                 $query = "SELECT id, first_name, last_name, email, department, position, phone, must_change_password FROM " . $table . " WHERE id = :id";
             } else {
-                $query = "SELECT id, first_name, last_name, email, office, position, phone, must_change_password FROM " . $table . " WHERE id = :id";
+                $query = "SELECT id, first_name, last_name, email, office as department, position, phone, must_change_password FROM " . $table . " WHERE id = :id";
             }
 
             $stmt = $this->conn->prepare($query);
@@ -86,11 +86,9 @@ class Auth {
     }
 }
 
-
 // Global helper function for API files
-function getUser($userId, $role) {
+function getUserHelper($userId, $role) {
     $auth = new Auth();
     return $auth->getUser($userId, $role);
 }
-
 ?>

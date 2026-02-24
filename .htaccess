@@ -1,13 +1,60 @@
-RewriteEngine On
+# ==========================================
+# 1. SECURITY & ACCESS CONTROL
+# ==========================================
+# Disable directory browsing
+Options -Indexes
 
-# Handle API routes first
+# Block browser access to sensitive files
+<FilesMatch "\.(env|json|lock|git|ini|log)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# ==========================================
+# 2. HTTPS ENFORCEMENT
+# ==========================================
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# ==========================================
+# 3. BROWSER CACHING (Performance)
+# ==========================================
+<IfModule mod_expires.c>
+    ExpiresActive On
+    # Cache Images and Fonts for 1 Year
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    # Cache CSS and JS for 1 Month
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
+
+<IfModule mod_headers.c>
+    # Static assets cache control
+    <FilesMatch "\.(jpeg|png|svg|css|js|woff2)$">
+        Header set Cache-Control "public, max-age=2592000, immutable"
+    </FilesMatch>
+    # Prevent caching of dynamic PHP/HTML to always show fresh data
+    <FilesMatch "\.(php|html)$">
+        Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+    </FilesMatch>
+</IfModule>
+
+# ==========================================
+# 4. ROUTING & FRONT CONTROLLER
+# ==========================================
+# Let physical assets and vendor files load normally
+RewriteCond %{REQUEST_URI} ^/(assets|uploads|vendor)/
+RewriteRule ^ - [L]
+
+# Handle API routes
 RewriteRule ^api/(.*)$ api/$1 [L,QSA]
 
-# Rewrite pretty URLs to index.php?page=page
+# Send everything else to index.php (Pretty URLs)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^([^/]+)$ index.php?page=$1 [L,QSA]
-
-# Handle assets, uploads, etc.
-RewriteCond %{REQUEST_URI} ^/(assets|uploads|vendor)/
-RewriteRule ^ - [L]

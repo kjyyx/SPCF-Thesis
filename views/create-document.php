@@ -10,19 +10,19 @@ $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 
 if (!$currentUser) {
   logoutUser();
-  header('Location: ' . BASE_URL . '?page=login');
+  header('Location: ' . BASE_URL . 'login');
   exit();
 }
 
 // Restrict Accounting employees to only SAF access
 if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
-  header('Location: ' . BASE_URL . '?page=saf');
+  header('Location: ' . BASE_URL . 'saf');
   exit();
 }
 
 // Restrict to students only
 if ($currentUser['role'] !== 'student') {
-  header('Location: ' . BASE_URL . '?page=login&error=access_denied');
+  header('Location: ' . BASE_URL . 'login&error=access_denied');
   exit();
 }
 
@@ -62,7 +62,9 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>assets/images/Sign-UM logo ico.png">
   <title>Sign-um - Document Creator</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
@@ -86,6 +88,7 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
 <body class="has-navbar">
   <?php
   $pageTitle = 'Document Creator';
+  $currentPage = 'create-document';
   include ROOT_PATH . 'includes/navbar.php';
   include ROOT_PATH . 'includes/notifications.php';
   ?>

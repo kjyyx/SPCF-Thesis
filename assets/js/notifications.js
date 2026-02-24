@@ -96,10 +96,20 @@ class DocumentNotificationSystem {
                         this.currentUser.position === 'College Student Council President'));
 
             if (!userHasAccess) {
-                console.error('Access denied: Invalid user role or position');
                 window.location.href = BASE_URL + '?page=login&error=access_denied';
                 return;
             }
+
+            // Load persisted state
+            const savedPage = localStorage.getItem('notifications_currentPage');
+            const savedLimit = localStorage.getItem('notifications_limit');
+            const savedSort = localStorage.getItem('notifications_sortOption');
+            const savedGroup = localStorage.getItem('notifications_groupBy');
+            
+            if (savedPage) this.currentPage = parseInt(savedPage);
+            if (savedLimit) this.limit = parseInt(savedLimit);
+            if (savedSort) this.sortOption = savedSort;
+            if (savedGroup) this.groupBy = savedGroup;
 
             this.setupLoadingState();
             await this.loadDocuments();
@@ -118,7 +128,6 @@ class DocumentNotificationSystem {
             this.setupPeriodicRefresh();
 
         } catch (error) {
-            console.error('Failed to initialize DocumentNotificationSystem:', error);
             this.showToast({
                 type: 'error',
                 title: 'Initialization Error',
@@ -213,7 +222,6 @@ class DocumentNotificationSystem {
             }
             return false;
         } catch (error) {
-            console.error('Error checking pending signatures:', error);
             return false;
         }
     }
@@ -274,11 +282,9 @@ class DocumentNotificationSystem {
                 this.pendingDocuments = this.documents.filter(doc => !doc.user_action_completed);
                 this.completedDocuments = this.documents.filter(doc => doc.user_action_completed);
             } else {
-                console.error('Failed to load documents:', data.message);
                 this.showToast({ type: 'error', title: 'Error', message: 'Failed to load documents' });
             }
         } catch (error) {
-            console.error('Error loading documents:', error);
             this.showToast({ type: 'error', title: 'Error', message: 'Error loading documents' });
         }
     }
@@ -356,7 +362,6 @@ class DocumentNotificationSystem {
                 }
             }
         } catch (error) {
-            console.warn('Failed to refresh documents:', error);
             // Don't show error toast for background refresh
         }
     }
@@ -495,6 +500,8 @@ class DocumentNotificationSystem {
         this.isApplyingFilters = true;
         
         try {
+            localStorage.setItem('notifications_sortOption', this.sortOption);
+            localStorage.setItem('notifications_groupBy', this.groupBy);
             let filtered = [];
 
             // Apply status filter
@@ -1278,7 +1285,6 @@ class DocumentNotificationSystem {
             this.currentDocument = fullDoc;
             this.renderDocumentDetail(fullDoc);
         } catch (error) {
-            console.error('Error loading document:', error);
             // Fallback to skeleton if API fails
             this.renderDocumentDetail(this.currentDocument);
             this.showToast({ type: 'warning', title: 'Offline', message: 'Showing cached details.' });
@@ -1464,13 +1470,11 @@ class DocumentNotificationSystem {
 
     // Update visibility of approval buttons based on current user and document workflow
     updateApprovalButtonsVisibility(doc) {
-        console.log('updateApprovalButtonsVisibility called, signatureImage:', this.signatureImage);
         const signBtn = document.querySelector('.action-btn-full.success');
         const rejectBtn = document.querySelector('.action-btn-full.danger');
         const signaturePadToggle = document.getElementById('signaturePadToggle');
         const signatureStatusContainer = document.getElementById('signatureStatusContainer');
 
-        console.log('signBtn found:', !!signBtn);
         if (!signBtn || !rejectBtn || !signaturePadToggle || !signatureStatusContainer) return;
 
         // Check if this is a completed document (read-only history)
@@ -1484,19 +1488,15 @@ class DocumentNotificationSystem {
 
         // Find the pending step
         const pendingStep = doc.workflow?.find(step => step.status === 'pending');
-        console.log('pendingStep:', pendingStep);
 
         // Check user role and assignment
         const currentUser = this.currentUser;
-        console.log('currentUser:', currentUser);
 
         // Special case: allow student creator to submit their own document
         const isStudentCreator = currentUser.role === 'student' && doc.student && doc.student.id === currentUser.id;
-        console.log('isStudentCreator:', isStudentCreator);
 
         if (!pendingStep && !isStudentCreator) {
             // No pending steps and not student creator, hide all approval UI
-            console.log('No pending step and not student creator, hiding buttons');
             signBtn.style.display = 'none';
             rejectBtn.style.display = 'none';
             signaturePadToggle.style.display = 'none';
@@ -1505,9 +1505,7 @@ class DocumentNotificationSystem {
         }
 
         const isAssigned = this.isUserAssignedToStep(currentUser, pendingStep) || isStudentCreator;
-        console.log('isAssigned:', isAssigned);
         const isStudentView = currentUser.role === 'student' && (currentUser.position !== 'SSC President' || doc.student?.id === currentUser.id);
-        console.log('isStudentView:', isStudentView);
 
         if (isAssigned) {
             if (isStudentView) {
@@ -1530,7 +1528,6 @@ class DocumentNotificationSystem {
 
             // Disable the sign/submit button if no signature is set
             if (!this.signatureImage) {
-                console.log('Disabling sign button, no signature');
                 signBtn.disabled = true;
                 signBtn.title = 'Please add your signature first using the signature pad.';
             } else {
@@ -1573,7 +1570,6 @@ class DocumentNotificationSystem {
                         this.threadComments = Array.isArray(data.comments) ? data.comments : [];
                         this.renderThreadComments();
                     } catch (error) {
-                        console.error('Error loading thread comments:', error);
                         this.threadComments = [];
                         this.renderThreadComments();
                     }
@@ -1699,7 +1695,6 @@ class DocumentNotificationSystem {
                             }, 1500);
                         }
                     } catch (error) {
-                        console.error('Error posting comment:', error);
                         if (saveIndicator) {
                             saveIndicator.textContent = 'Error';
                             saveIndicator.style.color = '#ef4444';
@@ -1738,7 +1733,6 @@ class DocumentNotificationSystem {
             this.fitToWidth();
             this.updateZoomIndicator();
         } catch (error) {
-            console.error('Error loading PDF:', error);
             this.showToast({
                 type: 'error',
                 title: 'PDF Error',
@@ -1803,6 +1797,7 @@ class DocumentNotificationSystem {
         pageNum = parseInt(pageNum);
         if (pageNum >= 1 && pageNum <= this.totalPages) {
             this.currentPage = pageNum;
+            localStorage.setItem('notifications_currentPage', this.currentPage);
             this.renderPage().then(() => {
                 // Re-render signature overlays when page changes
                 if (this.currentDocument) {
@@ -1920,7 +1915,6 @@ renderCompletedSignatures(doc, container, canvas = null) {
                     : doc.signature_map;
             }
         } catch (e) {
-            console.warn('Failed to parse signature map', e);
             return;
         }
 
@@ -3652,7 +3646,7 @@ computeSignaturePixelRectForContainer(map, canvas, container) {
         if (window.ToastManager) {
             window.ToastManager.show(options);
         } else {
-            alert(`${options.title}: ${options.message}`);
+            console.log(`[${options.type.toUpperCase()}] ${options.title ? options.title + ': ' : ''}${options.message}`);
         }
     }
 

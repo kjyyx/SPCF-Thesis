@@ -11,7 +11,7 @@ $isPpfo = $currentUser
     && ($currentUser['position'] ?? '') === 'Physical Plant and Facilities Office (PPFO)';
 
 if (!$isPpfo) {
-    header('Location: ' . BASE_URL . '?page=login');
+    header('Location: ' . BASE_URL . 'login');
     exit();
 }
 
@@ -19,13 +19,16 @@ if (!$isPpfo) {
 // For simplicity, let JS handle the fetch to keep it dynamic.
 
 $pageTitle = 'Approved Pubmat Display';
+$currentPage = 'pubmat-display';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>assets/images/Sign-UM logo ico.png">
     <title>Sign-um - Pubmat Display</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">

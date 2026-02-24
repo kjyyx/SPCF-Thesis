@@ -10,7 +10,7 @@ $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 
 if (!$currentUser) {
     logoutUser();
-    header('Location: ' . BASE_URL . '?page=login');
+    header('Location: ' . BASE_URL . 'login');
     exit();
 }
 
@@ -53,6 +53,7 @@ addAuditLog('EVENT_CALENDAR_VIEWED', 'Event Management', 'Viewed event calendar'
 
 // Set page title for navbar
 $pageTitle = 'University Calendar';
+$currentPage = 'calendar';
 
 // Check for pending signatures
 require_once ROOT_PATH . 'includes/database.php';
@@ -68,7 +69,9 @@ $pendingCount = $stmt->fetchColumn();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>assets/images/Sign-UM logo ico.png">
     <title>Sign-um - Event Calendar</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
@@ -126,7 +129,7 @@ $pendingCount = $stmt->fetchColumn();
                             class="bi bi-file-earmark-text"></i> Pubmat</button>
                     <button class="btn btn-ghost btn-sm" onclick="openTrackDocumentsModal()" title="Track Documents"><i
                             class="bi bi-search"></i> Track</button>
-                    <button class="btn btn-ghost btn-sm" onclick="window.location.href='<?php echo BASE_URL; ?>?page=saf'"
+                    <button class="btn btn-ghost btn-sm" onclick="window.location.href='<?php echo BASE_URL; ?>saf'"
                         title="Student Allocated Funds"><i class="bi bi-cash-coin"></i> SAF</button>
                     <button class="btn btn-ghost btn-sm" onclick="openPendingApprovals()"
                         title="View Documents In Review"><i class="bi bi-clipboard-check"></i> In Review</button>
@@ -143,7 +146,7 @@ $pendingCount = $stmt->fetchColumn();
 
                     <?php if (stripos($currentUser['position'] ?? '', 'OSA') !== false): ?>
                         <button class="btn btn-ghost btn-sm"
-                            onclick="window.location.href='<?php echo BASE_URL; ?>?page=saf'"><i class="bi bi-cash-coin"></i>
+                            onclick="window.location.href='<?php echo BASE_URL; ?>saf'"><i class="bi bi-cash-coin"></i>
                             SAF</button>
                     <?php endif; ?>
 
@@ -171,19 +174,13 @@ $pendingCount = $stmt->fetchColumn();
                                     Loading...</h3>
                                 <button class="btn btn-icon sm" id="nextMonth"><i
                                         class="bi bi-chevron-right"></i></button>
-                                <button class="btn btn-ghost btn-sm ms-2" id="todayBtn"><i
-                                        class="bi bi-calendar-check"></i> Today</button>
                             </div>
 
                             <div class="nav-tabs-glass">
                                 <button type="button" class="nav-tab active view-btn" data-view="month"><i
                                         class="bi bi-calendar-month"></i> Month</button>
-                                <button type="button" class="nav-tab view-btn" data-view="week"><i
-                                        class="bi bi-calendar-week"></i> Week</button>
                                 <button type="button" class="nav-tab view-btn" data-view="agenda"><i
-                                        class="bi bi-list-task"></i> Agenda</button>
-                                <button type="button" class="nav-tab view-btn" data-view="list"><i
-                                        class="bi bi-list"></i> List</button>
+                                        class="bi bi-calendar-event"></i> Agenda</button>
                             </div>
                         </div>
 
@@ -266,24 +263,8 @@ $pendingCount = $stmt->fetchColumn();
                 </div>
             </div>
 
-            <div id="weekView" class="calendar-view d-none p-4">
-                <div class="su-week-grid">
-                    <div class="su-week-header">
-                        <div class="time-col">Time</div>
-                        <div class="days-col" id="weekDaysHeader"></div>
-                    </div>
-                    <div class="su-week-body" id="weekBody">
-                    </div>
-                </div>
-            </div>
-
             <div id="agendaView" class="calendar-view d-none p-4">
                 <div id="agendaContainer" class="su-agenda-container">
-                </div>
-            </div>
-
-            <div id="listView" class="calendar-view d-none p-4">
-                <div id="eventsList" class="su-list-container">
                 </div>
             </div>
         </div>
@@ -606,11 +587,11 @@ $pendingCount = $stmt->fetchColumn();
     <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
     <script src="<?php echo BASE_URL; ?>assets/js/event-calendar.js"></script>
     <script>
-        function openPendingApprovals() { window.location.href = window.BASE_URL + '?page=notifications'; }
-        function openPubmatApprovals() { window.location.href = window.BASE_URL + '?page=pubmat-approvals'; }
-        function openCreateDocumentModal() { window.location.href = window.BASE_URL + '?page=create-document'; }
-        function openUploadPubmatModal() { window.location.href = window.BASE_URL + '?page=upload-publication'; }
-        function openTrackDocumentsModal() { window.location.href = window.BASE_URL + '?page=track-document'; }
+        function openPendingApprovals() { window.location.href = window.BASE_URL + 'notifications'; }
+        function openPubmatApprovals() { window.location.href = window.BASE_URL + 'pubmat-approvals'; }
+        function openCreateDocumentModal() { window.location.href = window.BASE_URL + 'create-document'; }
+        function openUploadPubmatModal() { window.location.href = window.BASE_URL + 'upload-publication'; }
+        function openTrackDocumentsModal() { window.location.href = window.BASE_URL + 'track-document'; }
     </script>
 </body>
 

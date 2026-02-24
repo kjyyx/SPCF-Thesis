@@ -1,5 +1,5 @@
 /**
- * Real-time Notification System
+ * Real-time Notification System (Optimized for Cross-Tab Sync)
  */
 (function() {
     const BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
@@ -84,6 +84,14 @@
         window.addEventListener('offline', () => {
             stopPolling();
         });
+
+        // ✨ NEW: Cross-Tab Sync Listener ✨
+        // If another tab triggers a read/delete action, instantly fetch the new state here.
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'spcf_notif_sync') {
+                fetchNotifications(false);
+            }
+        });
         
         // Setup event listeners
         setupEventListeners();
@@ -97,116 +105,95 @@
                 showNotificationsModal();
             }
         });
-        
-        // Filter buttons
-        // document.querySelectorAll('[data-notification-filter]').forEach(btn => {
-        //     btn.addEventListener('click', function() {
-        //         const filter = this.dataset.notificationFilter;
-        //         typeFilters[filter] = !typeFilters[filter];
-        //         this.classList.toggle('active', typeFilters[filter]);
-        //         refreshNotificationsList();
-        //     });
-        // });
     }
 
-async function fetchNotifications(showLoading = false) {
-    try {
-        const url = new URL(API, window.location.origin);
-        url.searchParams.append('t', Date.now()); // Cache bust
-        url.searchParams.append('include_read', '1');
-        url.searchParams.append('limit', '50');
-        url.searchParams.append('debug', '1'); // Enable debug logging
-        
-        if (showLoading && qs('notificationsList')) {
-            qs('notificationsList').innerHTML = `
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+    async function fetchNotifications(showLoading = false) {
+        try {
+            const url = new URL(API, window.location.origin);
+            url.searchParams.append('t', Date.now()); // Cache bust
+            url.searchParams.append('include_read', '1');
+            url.searchParams.append('limit', '50');
+            url.searchParams.append('debug', '1'); 
+            
+            if (showLoading && qs('notificationsList')) {
+                qs('notificationsList').innerHTML = `
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading notifications...</p>
                     </div>
-                    <p class="mt-2 text-muted">Loading notifications...</p>
-                </div>
-            `;
-        }
-        
-        const response = await fetch(url, {
-            method: 'GET',
-            credentials: 'same-origin',
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        });
-
-        if (response.status === 401) {
-            stopPolling();
-            updateBadge(0);
-            return;
-        }
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            // Store previous state for comparison
-            const previousUnreadCount = unreadCount;
-            
-            // Update cache with new data
-            notificationsCache = data.notifications || [];
-            unreadCount = data.unread_count || 0;
-            lastFetchTime = data.timestamp || new Date().toISOString();
-            
-            // Log debug information
-            if (data.debug_logs && data.debug_logs.length > 0) {
-                console.log('=== Notification Debug Logs ===');
-                data.debug_logs.forEach(log => console.log(log));
-                console.log('=== End Debug Logs ===');
+                `;
             }
             
-            console.log('Notifications fetched:', {
-                unread: unreadCount,
-                previous: previousUnreadCount,
-                total: data.total_count,
-                count: notificationsCache.length
-            });
-            
-            // Update badge - ALWAYS update with current count
-            updateBadge(unreadCount);
-            
-            // Check for new notifications only if count increased after initial fetch
-            if (hasInitialFetchCompleted && unreadCount > previousUnreadCount) {
-                const newCount = unreadCount - previousUnreadCount;
-                handleNewNotifications(newCount);
-            }
-
-            hasInitialFetchCompleted = true;
-            
-            // Update modal if open
-            if (isModalOpen) {
-                refreshNotificationsList();
-            }
-            
-            // Trigger custom event
-            window.dispatchEvent(new CustomEvent('notificationsUpdated', {
-                detail: { 
-                    count: unreadCount, 
-                    notifications: notificationsCache,
-                    timestamp: lastFetchTime
+            const response = await fetch(url, {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
-            }));
-        }
-    } catch (error) {
-        console.error('Notification fetch error:', error);
-        if (showLoading && window.ToastManager) {
-            window.ToastManager.error('Failed to load notifications', 'Error');
+            });
+
+            if (response.status === 401) {
+                stopPolling();
+                updateBadge(0);
+                return;
+            }
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                const previousUnreadCount = unreadCount;
+                
+                notificationsCache = data.notifications || [];
+                unreadCount = data.unread_count || 0;
+                lastFetchTime = data.timestamp || new Date().toISOString();
+                
+                updateBadge(unreadCount);
+                
+                if (hasInitialFetchCompleted && unreadCount > previousUnreadCount) {
+                    const newCount = unreadCount - previousUnreadCount;
+                    handleNewNotifications(newCount);
+                }
+
+                hasInitialFetchCompleted = true;
+                
+                // ✨ FIX: Always refresh the list in the background so it is ready immediately ✨
+                refreshNotificationsList();
+                
+                window.dispatchEvent(new CustomEvent('notificationsUpdated', {
+                    detail: { 
+                        count: unreadCount, 
+                        notifications: notificationsCache,
+                        timestamp: lastFetchTime
+                    }
+                }));
+            }
+        } catch (error) {
+            if (showLoading && window.ToastManager) {
+                window.ToastManager.error('Failed to load notifications', 'Error');
+            }
         }
     }
-}
 
     function handleNewNotifications(newCount) {
-        // Show browser notification if permitted
+        // ✨ NEW: Cross-Tab Spam Prevention ✨
+        const now = Date.now();
+        const lastAnnounced = localStorage.getItem('spcf_last_notif_time');
+
+        // If another tab announced a notification in the last 10 seconds, stay silent here.
+        if (lastAnnounced && (now - parseInt(lastAnnounced)) < 10000) {
+            return; 
+        }
+
+        // Claim the announcement for this tab
+        localStorage.setItem('spcf_last_notif_time', now.toString());
+
         if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.visibilityState === 'visible') {
             new Notification('New Notification' + (newCount > 1 ? 's' : ''), {
                 body: `You have ${newCount} new notification${newCount > 1 ? 's' : ''}`,
@@ -216,22 +203,17 @@ async function fetchNotifications(showLoading = false) {
             });
         }
         
-        // Animate bell
         const bell = qs('notificationBell') || document.querySelector('.notification-bell');
         if (bell) {
             bell.classList.add('bell-ring');
             setTimeout(() => bell.classList.remove('bell-ring'), 1000);
         }
         
-        // Show toast notification
         if (window.ToastManager) {
             window.ToastManager.info(
                 `You have ${newCount} new notification${newCount > 1 ? 's' : ''}`,
                 'New Notification',
-                { 
-                    duration: 5000,
-                    position: 'top-right'
-                }
+                { duration: 5000, position: 'top-right' }
             );
         }
     }
@@ -250,22 +232,10 @@ async function fetchNotifications(showLoading = false) {
         }
     }
 
-    // function updateFilterCounts(typeCounts) {
-    //     document.querySelectorAll('[data-notification-filter]').forEach(btn => {
-    //         const filter = btn.dataset.notificationFilter;
-    //         const count = typeCounts[filter] || 0;
-    //         const badge = btn.querySelector('.filter-badge');
-    //         
-    //         if (badge) {
-    //             if (count > 0) {
-    //                 badge.textContent = count;
-    //                 badge.style.display = 'inline';
-    //             } else {
-    //                 badge.style.display = 'none';
-    //             }
-    //         }
-    //     });
-    // }
+    // Helper to notify other tabs to sync
+    function triggerCrossTabSync() {
+        localStorage.setItem('spcf_notif_sync', Date.now().toString());
+    }
 
     async function markAsRead(notificationId) {
         try {
@@ -279,49 +249,31 @@ async function fetchNotifications(showLoading = false) {
             const data = await response.json();
             
             if (data.success) {
-                // Update local cache
                 const notification = notificationsCache.find(n => n.id == notificationId);
                 if (notification) {
                     notification.is_read = 1;
                 }
                 
-                // Recalculate unread count
                 unreadCount = notificationsCache.filter(n => !n.is_read).length;
                 updateBadge(unreadCount);
                 
-                // Update UI
                 const item = document.querySelector(`[data-notification-id="${notificationId}"]`);
                 if (item) {
                     item.classList.remove('notification-unread');
                     item.classList.add('notification-read');
-                    
-                    // Remove mark read button
                     const markReadBtn = item.querySelector('.mark-read-btn');
                     if (markReadBtn) markReadBtn.remove();
                 }
                 
-                // Show success toast
-                if (window.ToastManager) {
-                    window.ToastManager.success('Notification marked as read', 'Success');
-                }
+                triggerCrossTabSync(); // Update other tabs
             }
         } catch (error) {
-            console.error('Error marking as read:', error);
-            if (window.ToastManager) {
-                window.ToastManager.error('Failed to mark as read', 'Error');
-            }
         }
     }
 
     async function markAllAsRead() {
         const unreadIds = notificationsCache.filter(n => !n.is_read).map(n => n.id);
-        
-        if (unreadIds.length === 0) {
-            if (window.ToastManager) {
-                window.ToastManager.info('No unread notifications', 'Info');
-            }
-            return;
-        }
+        if (unreadIds.length === 0) return;
 
         try {
             const response = await fetch(API, {
@@ -334,29 +286,20 @@ async function fetchNotifications(showLoading = false) {
             const data = await response.json();
             
             if (data.success) {
-                // Update local cache
                 notificationsCache.forEach(n => n.is_read = 1);
                 unreadCount = 0;
                 updateBadge(0);
                 
-                // Update UI
                 document.querySelectorAll('.notification-item').forEach(item => {
                     item.classList.remove('notification-unread');
                     item.classList.add('notification-read');
-                    
                     const markReadBtn = item.querySelector('.mark-read-btn');
                     if (markReadBtn) markReadBtn.remove();
                 });
                 
-                if (window.ToastManager) {
-                    window.ToastManager.success('All notifications marked as read', 'Success');
-                }
+                triggerCrossTabSync(); // Update other tabs
             }
         } catch (error) {
-            console.error('Error marking all as read:', error);
-            if (window.ToastManager) {
-                window.ToastManager.error('Failed to mark all as read', 'Error');
-            }
         }
     }
 
@@ -369,11 +312,11 @@ async function fetchNotifications(showLoading = false) {
         } else if (ICONS[type] && ICONS[type].default) {
             return ICONS[type].default;
         }
-        
         return 'bi-bell';
     }
 
     function buildNotificationsHTML() {
+
         const filteredNotifications = notificationsCache.filter(n => typeFilters[n.type] !== false);
         
         if (filteredNotifications.length === 0) {
@@ -382,11 +325,6 @@ async function fetchNotifications(showLoading = false) {
                     <i class="bi bi-bell-slash" style="font-size: 4rem; color: #cbd5e1;"></i>
                     <h5 class="mt-3">No notifications</h5>
                     <p class="text-muted mb-0">You're all caught up!</p>
-                    <!-- <div class="mt-3">
-                        <button class="btn btn-sm btn-outline-primary" onclick="NotificationFeatures.exportNotifications()">
-                            <i class="bi bi-download me-2"></i>Export History
-                        </button>
-                    </div> -->
                 </div>
             `;
         }
@@ -440,20 +378,6 @@ async function fetchNotifications(showLoading = false) {
                         <small class="text-muted timestamp" title="${formatFullDate(date)}">
                             <i class="bi bi-clock me-1"></i>${timeStr}
                         </small>
-                        <!-- <div>
-                            ${!n.is_read ? `
-                                <button class="btn btn-sm btn-link mark-read-btn p-0 me-2" 
-                                        onclick="event.stopPropagation(); window.markNotificationRead(${n.id})">
-                                    <i class="bi bi-check-circle me-1"></i>Mark read
-                                </button>
-                            ` : ''}
-                            ${actionLink !== '#' ? `
-                                <a href="${actionLink}" class="btn btn-sm btn-link p-0" 
-                                   onclick="event.stopPropagation()">
-                                    <i class="bi bi-box-arrow-up-right me-1"></i>View
-                                </a>
-                            ` : ''}
-                        </div> -->
                     </div>
                 </div>
             `;
@@ -462,24 +386,22 @@ async function fetchNotifications(showLoading = false) {
 
     function refreshNotificationsList() {
         const list = qs('notificationsList');
+
+        if (!list) {
+            return;
+        }
+
         if (!list) return;
         
-        // Store scroll position
         const scrollPos = list.scrollTop;
-        
         list.innerHTML = buildNotificationsHTML();
-        
-        // Restore scroll position
         list.scrollTop = scrollPos;
-        
-        // Add click handlers
         setupNotificationClickHandlers();
     }
 
     function setupNotificationClickHandlers() {
         document.querySelectorAll('.notification-item').forEach(item => {
             item.addEventListener('click', function(e) {
-                // Don't trigger if clicking on a button or link
                 if (e.target.closest('button') || e.target.closest('a')) return;
                 
                 const id = this.dataset.notificationId;
@@ -487,7 +409,6 @@ async function fetchNotifications(showLoading = false) {
                     markAsRead(id);
                 }
                 
-                // Navigate to related content if available
                 const link = this.querySelector('a[href]');
                 if (link && link.href !== '#') {
                     window.location.href = link.href;
@@ -534,21 +455,17 @@ async function fetchNotifications(showLoading = false) {
         
         isModalOpen = true;
         
-        // Create modal if using Bootstrap
         if (window.bootstrap) {
             const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
             modal.show();
             
             modalEl.addEventListener('hidden.bs.modal', () => {
                 isModalOpen = false;
-                startPolling(); // Switch back to normal polling
+                startPolling();
             }, { once: true });
         }
         
-        // Refresh list from server
         fetchNotifications(true);
-        
-        // Switch to fast polling
         startFastPolling();
     }
 
@@ -577,75 +494,54 @@ async function fetchNotifications(showLoading = false) {
     window.markAllAsRead = markAllAsRead;
     window.markAsRead = markAsRead;
 
-    // New features object
     const NotificationFeatures = {
-        // Archive notification
         async archiveNotification(notificationId) {
             try {
                 const response = await fetch(API, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        action: 'archive', 
-                        notification_id: notificationId 
-                    }),
+                    body: JSON.stringify({ action: 'archive', notification_id: notificationId }),
                     credentials: 'same-origin'
                 });
                 
                 const data = await response.json();
-                
                 if (data.success) {
-                    // Remove from cache and UI
                     notificationsCache = notificationsCache.filter(n => n.id != notificationId);
                     unreadCount = notificationsCache.filter(n => !n.is_read).length;
                     updateBadge(unreadCount);
                     refreshNotificationsList();
-                    
-                    if (window.ToastManager) {
-                        window.ToastManager.success('Notification archived', 'Success');
-                    }
+                    triggerCrossTabSync(); // Update other tabs
                 }
             } catch (error) {
-                console.error('Error archiving notification:', error);
+                // Error archiving notification
             }
         },
 
-        // Delete notification
         async deleteNotification(notificationId) {
             if (!confirm('Are you sure you want to delete this notification?')) return;
-            
             try {
                 const response = await fetch(API, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        action: 'delete', 
-                        notification_id: notificationId 
-                    }),
+                    body: JSON.stringify({ action: 'delete', notification_id: notificationId }),
                     credentials: 'same-origin'
                 });
                 
                 const data = await response.json();
-                
                 if (data.success) {
                     notificationsCache = notificationsCache.filter(n => n.id != notificationId);
                     unreadCount = notificationsCache.filter(n => !n.is_read).length;
                     updateBadge(unreadCount);
                     refreshNotificationsList();
-                    
-                    if (window.ToastManager) {
-                        window.ToastManager.success('Notification deleted', 'Success');
-                    }
+                    triggerCrossTabSync(); // Update other tabs
                 }
             } catch (error) {
-                console.error('Error deleting notification:', error);
+                // Error deleting notification
             }
         },
 
-        // Clear all notifications
         async clearAll() {
             if (!confirm('Delete all notifications? This cannot be undone.')) return;
-            
             try {
                 const response = await fetch(API, {
                     method: 'POST',
@@ -655,270 +551,21 @@ async function fetchNotifications(showLoading = false) {
                 });
                 
                 const data = await response.json();
-                
                 if (data.success) {
                     notificationsCache = [];
                     unreadCount = 0;
                     updateBadge(0);
                     refreshNotificationsList();
-                    
-                    if (window.ToastManager) {
-                        window.ToastManager.success('All notifications cleared', 'Success');
-                    }
+                    triggerCrossTabSync(); // Update other tabs
                 }
             } catch (error) {
-                console.error('Error clearing notifications:', error);
-            }
-        },
-
-        // Get notification statistics
-        // async getStats() {
-        //     try {
-        //         const response = await fetch(API + '?stats=true', {
-        //             method: 'GET',
-        //             credentials: 'same-origin'
-        //         });
-        //         
-        //         const data = await response.json();
-        //         
-        //         if (data.success) {
-        //             this.showStatsModal(data.stats);
-        //         }
-        //     } catch (error) {
-        //         console.error('Error getting stats:', error);
-        //     }
-        // },
-
-        // Show statistics modal
-        // showStatsModal(stats) {
-        //     // Create and show a modal with notification statistics
-        //     const modalHtml = `
-        //         <div class="modal fade" id="statsModal" tabindex="-1">
-        //             <div class="modal-dialog">
-        //                 <div class="modal-content">
-        //                     <div class="modal-header">
-        //                         <h5 class="modal-title">Notification Statistics</h5>
-        //                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        //                     </div>
-        //                     <div class="modal-body">
-        //                         <div class="stats-grid">
-        //                             <div class="stat-item">
-        //                                 <div class="stat-value">${stats.total}</div>
-        //                                 <div class="stat-label">Total Notifications</div>
-        //                             </div>
-        //                             <div class="stat-item">
-        //                                 <div class="stat-value">${stats.unread}</div>
-        //                                 <div class="stat-label">Unread</div>
-        //                             </div>
-        //                             <div class="stat-item">
-        //                                 <div class="stat-value">${stats.byType.document || 0}</div>
-        //                                 <div class="stat-label">Documents</div>
-        //                             </div>
-        //                             <div class="stat-item">
-        //                                 <div class="stat-value">${stats.byType.event || 0}</div>
-        //                                 <div class="stat-label">Events</div>
-        //                             </div>
-        //                             <div class="stat-item">
-        //                                 <div class="stat-value">${stats.byType.system || 0}</div>
-        //                                 <div class="stat-label">System</div>
-        //                             </div>
-        //                             <div class="stat-item">
-        //                                 <div class="stat-value">${stats.last7Days}</div>
-        //                                 <div class="stat-label">Last 7 Days</div>
-        //                             </div>
-        //                         </div>
-        //                     </div>
-        //                 </div>
-        //             </div>
-        //         </div>
-        //     `;
-        //     
-        //     document.body.insertAdjacentHTML('beforeend', modalHtml);
-        //     const modal = new bootstrap.Modal(document.getElementById('statsModal'));
-        //     modal.show();
-        //     
-        //     document.getElementById('statsModal').addEventListener('hidden.bs.modal', function() {
-        //         this.remove();
-        //     });
-        // },
-
-        // Export notifications
-        async exportNotifications() {
-            try {
-                const response = await fetch(API + '?export=true', {
-                    method: 'GET',
-                    credentials: 'same-origin'
-                });
-                
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `notifications-${new Date().toISOString().split('T')[0]}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-                
-                if (window.ToastManager) {
-                    window.ToastManager.success('Notifications exported', 'Success');
-                }
-            } catch (error) {
-                console.error('Error exporting notifications:', error);
+                // Error clearing notifications
             }
         }
     };
 
-    // Add to window object
     window.NotificationFeatures = NotificationFeatures;
 
-    // Add preferences modal
-    // function showPreferencesModal() {
-    //     const modalHtml = `
-    //         <div class="modal fade" id="preferencesModal" tabindex="-1">
-    //             <div class="modal-dialog">
-    //                 <div class="modal-content">
-    //                 <div class="modal-header">
-    //                     <h5 class="modal-title">
-    //                         <i class="bi bi-gear me-2"></i>Notification Preferences
-    //                     </h5>
-    //                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-    //                 </div>
-    //                 <div class="modal-body">
-    //                     <form id="notificationPrefsForm">
-    //                         <div class="mb-3">
-    //                             <label class="form-label fw-bold">Notification Channels</label>
-    //                             <div class="form-check mb-2">
-    //                                 <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
-    //                                 <label class="form-check-label" for="emailNotifications">
-    //                                     <i class="bi bi-envelope me-2"></i>Email Notifications
-    //                                 </label>
-    //                             </div>
-    //                             <div class="form-check mb-2">
-    //                                 <input class="form-check-input" type="checkbox" id="browserNotifications" checked>
-    //                                 <label class="form-check-label" for="browserNotifications">
-    //                                     <i class="bi bi-browser-chrome me-2"></i>Browser Notifications
-    //                                 </label>
-    //                             </div>
-    //                         </div>
-    //                         
-    //                         <div class="mb-3">
-    //                             <label class="form-label fw-bold">Notification Types</label>
-    //                             <div class="form-check mb-2">
-    //                                 <input class="form-check-input" type="checkbox" id="documentUpdates" checked>
-    //                                 <label class="form-check-label" for="documentUpdates">
-    //                                     <i class="bi bi-file-text me-2"></i>Document Updates
-    //                                 </label>
-    //                             </div>
-    //                             <div class="form-check mb-2">
-    //                                 <input class="form-check-input" type="checkbox" id="eventReminders" checked>
-    //                                 <label class="form-check-label" for="eventReminders">
-    //                                     <i class="bi bi-calendar me-2"></i>Event Reminders
-    //                                 </label>
-    //                             </div>
-    //                             <div class="form-check mb-2">
-    //                                 <input class="form-check-input" type="checkbox" id="systemAlerts" checked>
-    //                                 <label class="form-check-label" for="systemAlerts">
-    //                                     <i class="bi bi-shield me-2"></i>System Alerts
-    //                                 </label>
-    //                             </div>
-    //                         </div>
-    //                         
-    //                         <div class="mb-3">
-    //                             <label class="form-label fw-bold">Quiet Hours</label>
-    //                             <div class="row">
-    //                                 <div class="col-6">
-    //                                     <label class="form-label small">Start Time</label>
-    //                                     <input type="time" class="form-control" id="quietStart" value="22:00">
-    //                                 </div>
-    //                                 <div class="col-6">
-    //                                     <label class="form-label small">End Time</label>
-    //                                     <input type="time" class="form-control" id="quietEnd" value="07:00">
-    //                                 </div>
-    //                             </div>
-    //                             <small class="text-muted">No notifications during quiet hours</small>
-    //                         </div>
-    //                     </form>
-    //                 </div>
-    //                 <div class="modal-footer">
-    //                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-    //                     <button type="button" class="btn btn-primary" onclick="savePreferences()">Save Preferences</button>
-    //                 </div>
-    //             </div>
-    //         </div>
-    //     </div>
-    // `;
-    //     
-    //     document.body.insertAdjacentHTML('beforeend', modalHtml);
-    //     
-    //     // Load current preferences
-    //     fetch(API, {
-    //         method: 'POST',
-    //         headers: { 'Content-Type': 'application/json' },
-    //         body: JSON.stringify({ action: 'get_preferences' }),
-    //         credentials: 'same-origin'
-    //     })
-    //     .then(res => res.json())
-    //     .then(data => {
-    //         if (data.success && data.preferences) {
-    //             document.getElementById('emailNotifications').checked = data.preferences.email_notifications;
-    //             document.getElementById('browserNotifications').checked = data.preferences.browser_notifications;
-    //             document.getElementById('documentUpdates').checked = data.preferences.document_updates;
-    //             document.getElementById('eventReminders').checked = data.preferences.event_reminders;
-    //             document.getElementById('systemAlerts').checked = data.preferences.system_alerts;
-    //             document.getElementById('quietStart').value = data.preferences.quiet_hours_start;
-    //             document.getElementById('quietEnd').value = data.preferences.quiet_hours_end;
-    //         }
-    //     });
-    //     
-    //     const modal = new bootstrap.Modal(document.getElementById('preferencesModal'));
-    //     modal.show();
-    //     
-    //     document.getElementById('preferencesModal').addEventListener('hidden.bs.modal', function() {
-    //         this.remove();
-    //     });
-    // }
-
-    // Save preferences function
-    // window.savePreferences = async function() {
-    //     const preferences = {
-    //         email_notifications: document.getElementById('emailNotifications').checked,
-    //         browser_notifications: document.getElementById('browserNotifications').checked,
-    //         document_updates: document.getElementById('documentUpdates').checked,
-    //         event_reminders: document.getElementById('eventReminders').checked,
-    //         system_alerts: document.getElementById('systemAlerts').checked,
-    //         quiet_hours_start: document.getElementById('quietStart').value,
-    //         quiet_hours_end: document.getElementById('quietEnd').value
-    //     };
-    //     
-    //     try {
-    //         const response = await fetch(API, {
-    //             method: 'POST',
-    //             headers: { 'Content-Type': 'application/json' },
-    //             body: JSON.stringify({ 
-    //                 action: 'save_preferences', 
-    //                 preferences: preferences 
-    //             }),
-    //             credentials: 'same-origin'
-    //         });
-    //         
-    //         const data = await response.json();
-    //         
-    //         if (data.success) {
-    //             bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
-    //             if (window.ToastManager) {
-    //                 window.ToastManager.success('Preferences saved', 'Success');
-    //             }
-    //         }
-    //     } catch (error) {
-    //         console.error('Error saving preferences:', error);
-    //     }
-    // };
-
-    // Add to window object
-    // window.showPreferencesModal = showPreferencesModal;
-
-    // Initialize
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {

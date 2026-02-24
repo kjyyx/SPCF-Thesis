@@ -55,10 +55,22 @@ class CalendarApp {
         console.log('- calendarDays:', document.getElementById('calendarDays'));
         console.log('- userDisplayName:', document.getElementById('userDisplayName'));
 
+        // Load persisted state
+        const savedDate = localStorage.getItem('calendar_currentDate');
+        const savedView = localStorage.getItem('calendar_currentView');
+        
+        if (savedDate) {
+            currentDate = new Date(savedDate);
+        }
+
         this.setupUIBasedOnRole();
         this.bindEvents();
         this.generateCalendar();
         this.updateEventStatistics();
+        
+        if (savedView && ['month', 'week', 'agenda', 'list'].includes(savedView)) {
+            this.switchView(savedView);
+        }
 
         console.log('CalendarApp.init() completed');
     }
@@ -275,7 +287,7 @@ class CalendarApp {
                 if (e.ctrlKey || e.metaKey) { e.preventDefault(); this.switchView('week'); }
                 break;
             case 'l': case 'L':
-                if (e.ctrlKey || e.metaKey) { e.preventDefault(); this.switchView('list'); }
+                if (e.ctrlKey || e.metaKey) { e.preventDefault(); this.switchView('agenda'); }
                 break;
             case 'a': case 'A':
                 if (e.ctrlKey || e.metaKey) { e.preventDefault(); this.switchView('agenda'); }
@@ -644,6 +656,8 @@ class CalendarApp {
             notificationBadge.textContent = upcomingEvents;
             notificationBadge.style.display = upcomingEvents > 0 ? 'flex' : 'none';
         }
+
+        localStorage.setItem('calendar_currentDate', this.currentDate.toISOString());
     }
 
     previousMonth() {
@@ -662,6 +676,8 @@ class CalendarApp {
     }
 
     switchView(view) {
+        localStorage.setItem('calendar_currentView', view);
+
         // Update active button classes
         document.querySelectorAll('.view-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.view === view);
@@ -687,124 +703,8 @@ class CalendarApp {
 
         if (view === 'month') {
             this.generateCalendar();
-        } else if (view === 'week') {
-            this.renderWeekView();
         } else if (view === 'agenda') {
             this.renderAgendaView();
-        } else if (view === 'list') {
-            this.renderListView();
-        }
-    }
-
-    renderListView() {
-        const listContainer = document.getElementById('eventsList');
-        if (!listContainer) return;
-
-        listContainer.innerHTML = '';
-
-        const filteredEvents = this.getFilteredEvents();
-        const allEvents = [];
-        Object.keys(filteredEvents).forEach(dateStr => {
-            filteredEvents[dateStr].forEach(event => {
-                allEvents.push({ ...event, date: dateStr });
-            });
-        });
-
-        allEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        allEvents.forEach(event => {
-            const eventElement = this.createListEventElement(event);
-            listContainer.appendChild(eventElement);
-        });
-
-        if (allEvents.length === 0) {
-            listContainer.innerHTML = '<div class="text-center text-muted p-4">No events found</div>';
-        }
-    }
-
-    renderWeekView() {
-        const weekDaysHeader = document.getElementById('weekDaysHeader');
-        const weekBody = document.getElementById('weekBody');
-
-        if (!weekDaysHeader || !weekBody) return;
-
-        const startOfWeek = new Date(this.currentDate);
-        startOfWeek.setDate(this.currentDate.getDate() - this.currentDate.getDay());
-
-        weekDaysHeader.innerHTML = '';
-        for (let i = 0; i < 7; i++) {
-            const day = new Date(startOfWeek);
-            day.setDate(startOfWeek.getDate() + i);
-
-            const dayHeader = document.createElement('div');
-            dayHeader.className = 'week-day-header';
-
-            const dayName = day.toLocaleDateString('en-US', { weekday: 'short' });
-            const dayNum = day.getDate();
-            const isToday = this.isToday(day);
-
-            dayHeader.innerHTML = `
-                <div class="day-name">${dayName}</div>
-                <div class="day-number ${isToday ? 'today' : ''}">${dayNum}</div>
-            `;
-            weekDaysHeader.appendChild(dayHeader);
-        }
-
-        weekBody.innerHTML = '';
-        const startHour = 8;
-        const endHour = 20;
-
-        for (let hour = startHour; hour <= endHour; hour++) {
-            const timeSlot = document.createElement('div');
-            timeSlot.className = 'time-slot';
-
-            const timeLabel = document.createElement('div');
-            timeLabel.className = 'time-label';
-            timeLabel.textContent = `${hour > 12 ? hour - 12 : hour}${hour >= 12 ? 'PM' : 'AM'}`;
-
-            const timeSlots = document.createElement('div');
-            timeSlots.className = 'time-slots-grid';
-
-            for (let day = 0; day < 7; day++) {
-                const daySlot = document.createElement('div');
-                daySlot.className = 'week-day-column';
-                daySlot.dataset.hour = hour;
-                daySlot.dataset.day = day;
-
-                const slotDate = new Date(startOfWeek);
-                slotDate.setDate(startOfWeek.getDate() + day);
-                
-                // Format date consistently as YYYY-MM-DD
-                const year = slotDate.getFullYear();
-                const month = String(slotDate.getMonth() + 1).padStart(2, '0');
-                const dayNum = String(slotDate.getDate()).padStart(2, '0');
-                const dateStr = `${year}-${month}-${dayNum}`;
-
-                const filteredEvents = this.getFilteredEvents();
-                if (filteredEvents[dateStr]) {
-                    filteredEvents[dateStr].forEach(event => {
-                        const eventHour = parseInt(event.time.split(':')[0]);
-                        if (eventHour === hour) {
-                            const eventElement = document.createElement('div');
-                            eventElement.className = 'week-event-item';
-                            eventElement.style.backgroundColor = event.color;
-                            eventElement.style.color = event.textColor;
-                            eventElement.textContent = event.title;
-                            eventElement.title = `${event.title} - ${event.time}`;
-                            eventElement.addEventListener('click', () => {
-                                this.handleEventClick(event.id, dateStr);
-                            });
-                            daySlot.appendChild(eventElement);
-                        }
-                    });
-                }
-
-                timeSlots.appendChild(daySlot);
-            }
-
-            timeSlot.appendChild(timeLabel);
-            timeSlot.appendChild(timeSlots);
-            weekBody.appendChild(timeSlot);
         }
     }
 
@@ -896,39 +796,6 @@ class CalendarApp {
 
         eventDiv.addEventListener('click', () => {
             this.handleEventClick(event.id, dateStr);
-        });
-
-        return eventDiv;
-    }
-
-    createListEventElement(event) {
-        const eventDiv = document.createElement('div');
-        eventDiv.className = 'event-list-item';
-        eventDiv.dataset.eventId = event.id;
-        eventDiv.dataset.date = event.date;
-
-        const [year, month, day] = event.date.split('-').map(num => parseInt(num));
-        const eventDate = new Date(year, month - 1, day);
-        const formattedDate = eventDate.toLocaleDateString('en-US', {
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-        });
-
-        const deptBg = event.color;
-        const deptText = event.textColor;
-        eventDiv.innerHTML = `
-            <div class="event-list-header">
-                <h5 class="event-list-title">${event.title}</h5>
-                <span class="event-list-date">${formattedDate} at ${event.time}</span>
-            </div>
-            <div class="event-list-meta">
-                <span><i class="bi bi-tag"></i> Event</span>
-                <span class="ms-2"><i class="bi bi-building"></i></span>
-                <span class="badge" style="background-color: ${deptBg}; color: ${deptText}">${event.department || 'University'}</span>
-            </div>
-        `;
-
-        eventDiv.addEventListener('click', () => {
-            this.handleEventClick(event.id, event.date);
         });
 
         return eventDiv;
@@ -1185,16 +1052,16 @@ class CalendarApp {
 
     openPubmatApprovals() {
         window.openPubmatApprovals = function() {
-            window.location.href = window.BASE_URL + '?page=pubmat-approvals';
+            window.location.href = window.BASE_URL + 'pubmat-approvals';
         }
     }
 
     openPubmatDisplay() {
         window.openPubmatDisplay = function() {
-            window.location.href = window.BASE_URL + '?page=pubmat-display';
+            window.location.href = window.BASE_URL + 'pubmat-display';
         }
     }
-}
+};
 
 function openChangePassword() {
     const modal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
@@ -1268,7 +1135,7 @@ function logout() {
 
     localStorage.removeItem('currentUser');
     currentUser = null;
-    window.location.href = BASE_URL + '?page=logout';
+    window.location.href = BASE_URL + 'logout';
 }
 
 function openProfileSettings() {
@@ -1424,15 +1291,15 @@ document.addEventListener('DOMContentLoaded', function () {
         applyTheme();
     } else {
         console.log('No user data found, redirecting to login...');
-        window.location.href = BASE_URL + '?page=login';
+        window.location.href = BASE_URL + 'login';
     }
 });
 
 // Ensure global handlers for inline onclick usage
 window.openPubmatDisplay = function() {
-    window.location.href = window.BASE_URL + '?page=pubmat-display';
+    window.location.href = window.BASE_URL + 'pubmat-display';
 }
 
 window.openPubmatApprovals = function() {
-    window.location.href = window.BASE_URL + '?page=pubmat-approvals';
+    window.location.href = window.BASE_URL + 'pubmat-approvals';
 }

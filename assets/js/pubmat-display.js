@@ -194,7 +194,7 @@ function showError(message) {
             duration: 4000
         });
     } else {
-        alert('Error: ' + message);
+        console.error('Error:', message);
     }
 }
 

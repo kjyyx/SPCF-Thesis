@@ -1,11 +1,27 @@
 <?php
 // includes/session.php - Session management
+
+// 1. SECURE SESSION SETTINGS (Must be set before session_start)
+// Force sessions to use cookies only (no session IDs in URLs)
+ini_set('session.use_only_cookies', 1);
+ini_set('session.use_strict_mode', 1);
+
+// Configure cookie parameters dynamically for local vs production
+$isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443);
+session_set_cookie_params([
+    'lifetime' => 86400, // 24 hours
+    'path' => '/',
+    'domain' => $_SERVER['HTTP_HOST'],
+    'secure' => $isSecure, // True on Hostinger (HTTPS), False on Localhost (HTTP)
+    'httponly' => true,    // PREVENTS JavaScript from stealing the session cookie (Critical for XSS)
+    'samesite' => 'Lax'    // Helps protect against Cross-Site Request Forgery (CSRF)
+]);
+
 session_start();
 
 function isLoggedIn()
 {
-    $loggedIn = isset($_SESSION['user_id']) && isset($_SESSION['user_role']);
-    return $loggedIn;
+    return isset($_SESSION['user_id']) && isset($_SESSION['user_role']);
 }
 
 function getCurrentUser()
@@ -33,7 +49,6 @@ function redirectTo404()
 function requireAuth()
 {
     if (!isLoggedIn()) {
-        // Return JSON for API calls, redirect for web pages
         $requestUri = $_SERVER['REQUEST_URI'] ?? '';
         if (strpos($requestUri, '/api/') !== false) {
             http_response_code(401);
@@ -55,6 +70,9 @@ function requireRole($allowedRoles)
 
 function loginUser($userData)
 {
+    // CRITICAL FIX: Regenerate session ID to prevent Session Fixation attacks
+    session_regenerate_id(true);
+
     $_SESSION['user_id'] = $userData['id'];
     $_SESSION['user_role'] = $userData['role'];
     $_SESSION['first_name'] = $userData['first_name'];

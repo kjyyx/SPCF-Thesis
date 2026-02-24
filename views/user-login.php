@@ -58,62 +58,80 @@ $twoFactorUserId = '';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>assets/images/Sign-UM logo ico.png">
     <title>Sign-um - Login</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/master-css.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/user-login.css">
     <script src="<?php echo BASE_URL; ?>assets/js/user-login.js"></script>
     <!-- Add this after your other CSS links -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.css">
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <!-- OR use this more reliable library -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script></div>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 </head>
 
 <body>
     <main class="login-wrapper" role="main">
         <div class="login-layout">
             <aside class="login-info-panel" aria-label="About Sign-um">
-                <div class="info-badge">
-                    <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
-                    About the System
-                </div>
 
-                <h1 class="info-title">Sign-um Document Portal</h1>
-                <p class="info-description">
-                    A centralized platform for managing document creation, routing, approval, and tracking across SPCF.
-                </p>
-
-                <div class="info-section">
-                    <h2>Purpose</h2>
-                    <p>
-                        Streamline document workflows, improve accountability, and provide clear status visibility
-                        for students, employees, and administrators.
+                <!-- Top badge + headline -->
+                <div>
+                    <div class="info-badge mb-3">
+                        <i class="bi bi-stars" aria-hidden="true"></i>
+                        SPCF &mdash; Sign-um Portal
+                    </div>
+                    <h1 class="info-title mb-3">Smarter Document Workflows</h1>
+                    <p class="info-description">
+                        Sign-um digitizes every step of SPCF's document lifecycle&mdash;from creation and routing
+                        to multi-level approval and real-time tracking&mdash;all in one secure portal.
                     </p>
                 </div>
 
-                <div class="info-section">
-                    <h2>Key Features</h2>
-                    <ul class="info-features">
-                        <li><i class="bi bi-check2-circle" aria-hidden="true"></i>Role-based access and secure authentication</li>
-                        <li><i class="bi bi-check2-circle" aria-hidden="true"></i>Digital document approvals and signature workflow</li>
-                        <li><i class="bi bi-check2-circle" aria-hidden="true"></i>Real-time tracking of document progress</li>
-                        <li><i class="bi bi-check2-circle" aria-hidden="true"></i>Publication material submission and review flow</li>
-                        <li><i class="bi bi-check2-circle" aria-hidden="true"></i>Audit-ready activity logs and notifications</li>
-                    </ul>
+                <!-- Feature cards 2×2 grid -->
+                <div class="info-features-grid">
+                    <div class="info-feature-card">
+                        <div class="info-feature-icon"><i class="bi bi-file-earmark-check-fill"></i></div>
+                        <p class="info-feature-title">Smart Routing</p>
+                        <p class="info-feature-desc">Documents flow automatically through the correct approval chain.</p>
+                    </div>
+                    <div class="info-feature-card">
+                        <div class="info-feature-icon"><i class="bi bi-pen-fill"></i></div>
+                        <p class="info-feature-title">E-Signatures</p>
+                        <p class="info-feature-desc">Authorised signatories sign digitally with full audit trail.</p>
+                    </div>
+                    <div class="info-feature-card">
+                        <div class="info-feature-icon"><i class="bi bi-bar-chart-line-fill"></i></div>
+                        <p class="info-feature-title">Live Tracking</p>
+                        <p class="info-feature-desc">See exactly where your document sits in the workflow.</p>
+                    </div>
+                    <div class="info-feature-card">
+                        <div class="info-feature-icon"><i class="bi bi-shield-lock-fill"></i></div>
+                        <p class="info-feature-title">2FA Security</p>
+                        <p class="info-feature-desc">TOTP two-factor authentication keeps accounts protected.</p>
+                    </div>
                 </div>
+
+                <!-- Footer note -->
+                <div class="info-panel-footer">
+                    <i class="bi bi-buildings-fill fs-5"></i>
+                    <span>St. Paul College Foundation, Inc. &mdash; Official Document Portal</span>
+                </div>
+
             </aside>
 
             <div class="login-container" role="dialog" aria-labelledby="login-title">
                 <!-- Login Header -->
                 <div class="login-header">
                     <div class="login-icon" aria-hidden="true">
-                        <i class="bi bi-calendar-event"></i>
+                        <i class="bi bi-file-earmark-lock2-fill"></i>
                     </div>
-                    <h2 id="login-title">Sign-um Document Portal</h2>
-                    <p>Event Management System</p>
+                    <h2 id="login-title">Sign-um Portal</h2>
+                    <p>Sign in to access your document workspace</p>
                 </div>
 
                 <!-- Login Body -->

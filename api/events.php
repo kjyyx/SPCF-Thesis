@@ -33,7 +33,14 @@ try {
     // Only employees/admins can modify events
     $role = $_SESSION['user_role'] ?? null;
     $userId = $_SESSION['user_id'] ?? null;
-    $currentUser = getUser($userId, $role);
+
+    if (!$userId || !$role) {
+        echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+        exit();
+    }
+
+    $auth = new Auth();
+    $currentUser = $auth->getUser($userId, $role);
 
     switch ($method) {
         case 'GET':

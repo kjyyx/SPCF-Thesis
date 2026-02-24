@@ -9,13 +9,13 @@ $currentUser = getCurrentUser();
 
 if (!$currentUser) {
     logoutUser();
-    header('Location: ' . BASE_URL . '?page=login');
+    header('Location: ' . BASE_URL . 'login');
     exit();
 }
 
 // Restrict to students and admins only (employees cannot access)
 if ($currentUser['role'] !== 'student' && $currentUser['role'] !== 'admin') {
-    header('Location: ' . BASE_URL . '?page=login&error=access_denied');
+    header('Location: ' . BASE_URL . 'login&error=access_denied');
     exit();
 }
 
@@ -27,6 +27,7 @@ if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '
 
 // Set page title for navbar
 $pageTitle = 'Track Documents';
+$currentPage = 'track-document';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,7 +35,9 @@ $pageTitle = 'Track Documents';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>assets/images/Sign-UM logo ico.png">
     <title>Sign-um - Document Tracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
@@ -68,7 +71,7 @@ $pageTitle = 'Track Documents';
                 <button class="btn btn-ghost rounded-pill" onclick="history.back()" title="Go Back">
                     <i class="bi bi-arrow-left"></i> Back
                 </button>
-                <button class="btn btn-primary rounded-pill shadow-primary" onclick="window.location.href='<?php echo BASE_URL; ?>?page=notifications'">
+                <button class="btn btn-primary rounded-pill shadow-primary" onclick="window.location.href='<?php echo BASE_URL; ?>notifications'">
                     <i class="bi bi-file-plus me-2"></i> New Document
                 </button>
                 <button class="btn btn-ghost rounded-pill" onclick="refreshDocuments()">
@@ -193,7 +196,7 @@ $pageTitle = 'Track Documents';
                 </div>
                 <h5 class="text-dark fw-bold">No Documents Found</h5>
                 <p class="text-muted text-sm mb-4">You haven't submitted any documents yet or no items match your search.</p>
-                <button class="btn btn-primary rounded-pill" onclick="window.location.href='<?php echo BASE_URL; ?>?page=create-document'">
+                <button class="btn btn-primary rounded-pill" onclick="window.location.href='<?php echo BASE_URL; ?>create-document'">
                     <i class="bi bi-file-plus me-2"></i> Create Document
                 </button>
             </div>

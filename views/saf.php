@@ -10,7 +10,7 @@ $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 
 if (!$currentUser) {
   logoutUser();
-  header('Location: ' . BASE_URL . '?page=login');
+  header('Location: ' . BASE_URL . 'login');
   exit();
 }
 
@@ -21,7 +21,7 @@ $hasAccess = $currentUser['role'] === 'student' ||
       stripos($currentUser['position'], 'OSA') !== false));
 
 if (!$hasAccess) {
-  header('Location: ' . BASE_URL . '?page=login&error=access_denied');
+  header('Location: ' . BASE_URL . 'login&error=access_denied');
   exit();
 }
 
@@ -55,6 +55,7 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 addAuditLog('SAF_VIEWED', 'Financial Management', 'Viewed Student Allocated Funds page', null, 'Page', 'INFO');
 
 $pageTitle = 'Student Allocated Funds';
+$currentPage = 'saf';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -62,7 +63,9 @@ $pageTitle = 'Student Allocated Funds';
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>assets/images/Sign-UM logo ico.png">
   <title>Sign-um - SAF Management</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
@@ -114,7 +117,7 @@ $pageTitle = 'Student Allocated Funds';
             <button class="btn btn-ghost rounded-pill bg-white border shadow-sm text-danger" id="btn-reset" data-bs-toggle="modal" data-bs-target="#resetModal" style="display:none;">
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
             </button>
-            <button class="btn btn-success rounded-pill shadow-sm" id="btn-approvals" onclick="window.location.href='<?php echo BASE_URL; ?>?page=notifications'" style="display:none;">
+            <button class="btn btn-success rounded-pill shadow-sm" id="btn-approvals" onclick="window.location.href='<?php echo BASE_URL; ?>notifications'" style="display:none;">
                 <i class="bi bi-check-circle me-1"></i> Approvals
             </button>
         </div>

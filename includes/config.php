@@ -20,7 +20,8 @@ define('DB_NAME', $_ENV['DB_NAME']);
 
 // Application settings
 define('BASE_URL', rtrim($_ENV['BASE_URL'], '/') . '/');
-define('ROOT_PATH', __DIR__ . '/../');
+// Use realpath for cleaner absolute paths without trailing dots/slashes
+define('ROOT_PATH', realpath(__DIR__ . '/../') . '/');
 define('SITE_NAME', $_ENV['SITE_NAME'] ?? 'Sign-um');
 
 // Environment
@@ -31,9 +32,12 @@ if (ENVIRONMENT === 'development') {
     error_reporting(E_ALL);
     ini_set('display_errors', 1);
 } else {
-    error_reporting(0);
+    // Hide errors from the UI, but log them for debugging!
+    error_reporting(E_ALL);
     ini_set('display_errors', 0);
+    ini_set('log_errors', 1);
+    ini_set('error_log', ROOT_PATH . 'php-error.log');
 }
 
-// Timezone
-date_default_timezone_set('Asia/Kuala_Lumpur');
+// Timezone (Updated to ensure accurate local time for timestamps)
+date_default_timezone_set('Asia/Manila');

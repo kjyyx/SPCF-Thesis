@@ -10,19 +10,19 @@ $currentUser = $auth->getUser($_SESSION['user_id'], $_SESSION['user_role']);
 
 if (!$currentUser) {
     logoutUser();
-    header('Location: ' . BASE_URL . '?page=login');
+    header('Location: ' . BASE_URL . 'login');
     exit();
 }
 
 // Restrict Accounting employees to only SAF access
 if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
-    header('Location: ' . BASE_URL . '?page=saf');
+    header('Location: ' . BASE_URL . 'saf');
     exit();
 }
 
 if ($currentUser['role'] !== 'admin') {
     logoutUser();
-    header('Location: ' . BASE_URL . '?page=login');
+    header('Location: ' . BASE_URL . 'login');
     exit();
 }
 
@@ -55,6 +55,8 @@ function addAuditLog($action, $category, $details, $targetId = null, $targetType
 
 // Log page view
 addAuditLog('ADMIN_DASHBOARD_VIEWED', 'User Management', 'Viewed admin dashboard', $currentUser['id'], 'User', 'INFO');
+$pageTitle = 'Admin Dashboard';
+$currentPage = 'dashboard';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -62,7 +64,9 @@ addAuditLog('ADMIN_DASHBOARD_VIEWED', 'User Management', 'Viewed admin dashboard
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/jpeg" href="<?php echo BASE_URL; ?>assets/images/sign-um-favicon.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>assets/images/Sign-UM logo ico.png">
     <title>Sign-um - Admin Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
@@ -149,7 +153,7 @@ addAuditLog('ADMIN_DASHBOARD_VIEWED', 'User Management', 'Viewed admin dashboard
                 <!-- Notifications -->
                 <div class="notification-bell me-3" id="notificationBell" onclick="showNotifications()">
                     <i class="bi bi-bell"></i>
-                    <span class="notification-badge" id="notificationCount">3</span>
+                    <span class="notification-badge" id="notificationCount" style="display: none;">0</span>
                 </div>
 
                 <!-- Settings Dropdown -->

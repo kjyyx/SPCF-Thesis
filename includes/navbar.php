@@ -5,8 +5,9 @@
 <nav class="navbar navbar-expand-lg fixed-top">
     <div class="container-fluid">
         <a href="<?php echo BASE_URL; ?>" class="navbar-brand">
-            <i class="bi bi-building me-2 text-primary"></i>
-            Sign-um | <span class="text-muted fw-normal ms-1"><?php echo $pageTitle ?? 'Dashboard'; ?></span>
+            <img src="<?php echo BASE_URL; ?>assets/images/Sign-UM logo.png" alt="Sign-um Logo">
+            <span class="navbar-brand-divider" aria-hidden="true">|</span>
+            <span class="navbar-brand-title text-muted fw-normal"><?php echo $pageTitle ?? 'Dashboard'; ?></span>
         </a>
 
         <div class="navbar-nav ms-auto d-flex flex-row align-items-center">
@@ -24,7 +25,7 @@
             <div class="notification-bell me-3" onclick="showNotifications()" role="button" tabindex="0"
                 aria-label="Show notifications" title="View notifications">
                 <i class="bi bi-bell" aria-hidden="true"></i>
-                <span class="notification-badge" id="notificationCount" aria-label="Number of notifications">0</span>
+                <span class="notification-badge" id="notificationCount" aria-label="Number of notifications" style="display: none;">0</span>
             </div>
 
             <div class="dropdown me-3">
@@ -43,40 +44,48 @@
                     <li role="none"><a class="dropdown-item rounded-3" href="#" onclick="showHelp()" title="Get help and support" role="menuitem">
                             <i class="bi bi-question-circle me-2" aria-hidden="true"></i>Help & Support</a></li>
                     <li role="none"><hr class="dropdown-divider"></li>
-                    <?php if (!($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false)): ?>
-                        <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>?page=calendar" title="View university calendar" role="menuitem">
+                    <?php if (!($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) && $currentPage !== 'calendar'): ?>
+                        <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>calendar" title="View university calendar" role="menuitem">
                                 <i class="bi bi-calendar-event me-2" aria-hidden="true"></i>Calendar</a></li>
                     <?php endif; ?>
                     <?php if ($currentUser['role'] === 'student' || $currentUser['role'] === 'admin'): ?>
-                        <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>?page=notifications" title="Create a new document" role="menuitem">
+                        <?php if ($currentPage !== 'create-document'): ?>
+                        <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>create-document" title="Create a new document" role="menuitem">
                                 <i class="bi bi-file-plus me-2" aria-hidden="true"></i>Create Document</a></li>
-                        <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>?page=track-document" title="Track your documents" role="menuitem">
+                        <?php endif; ?>
+                        <?php if ($currentPage !== 'track-document'): ?>
+                        <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>track-document" title="Track your documents" role="menuitem">
                                 <i class="bi bi-search me-2" aria-hidden="true"></i>Track Document</a></li>
-                        <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>?page=upload-publication" title="Upload publication materials" role="menuitem">
+                        <?php endif; ?>
+                        <?php if ($currentPage !== 'upload-publication'): ?>
+                        <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>upload-publication" title="Upload publication materials" role="menuitem">
                                 <i class="bi bi-cloud-upload me-2" aria-hidden="true"></i>Upload Publication</a></li>
+                        <?php endif; ?>
                     <?php endif; ?>
-                    <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>?page=notifications" title="View notifications" role="menuitem">
+                    <?php if ($currentPage !== 'notifications'): ?>
+                    <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>notifications" title="View notifications" role="menuitem">
                             <i class="bi bi-bell me-2" aria-hidden="true"></i>Notifications</a></li>
+                    <?php endif; ?>
                     <?php if ($currentUser['role'] === 'student' || $currentUser['role'] === 'admin'): ?>
-                        <?php if (!($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false)): ?>
-                            <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>?page=saf" title="Student Allocated Funds" role="menuitem">
+                        <?php if (!($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) && $currentPage !== 'saf'): ?>
+                            <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>saf" title="Student Allocated Funds" role="menuitem">
                                     <i class="bi bi-cash-coin me-2" aria-hidden="true"></i>SAF</a></li>
                         <?php endif; ?>
                     <?php endif; ?>
-                    <?php if ($currentUser['role'] === 'employee' && in_array($currentUser['position'] ?? '', ['College Student Council Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'])): ?>
-                        <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>?page=pubmat-approvals" title="Review public material approvals" role="menuitem">
+                    <?php if ($currentUser['role'] === 'employee' && in_array($currentUser['position'] ?? '', ['College Student Council Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)']) && $currentPage !== 'pubmat-approvals'): ?>
+                        <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>pubmat-approvals" title="Review public material approvals" role="menuitem">
                                 <i class="bi bi-file-earmark-text me-2" aria-hidden="true"></i>Pubmat Approvals</a></li>
                     <?php endif; ?>
-                    <?php if ($currentUser['position'] === 'Physical Plant and Facilities Office (PPFO)'): ?>
-                        <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>?page=pubmat-display" title="View approved pubmats slideshow" role="menuitem">
+                    <?php if ($currentUser['position'] === 'Physical Plant and Facilities Office (PPFO)' && $currentPage !== 'pubmat-display'): ?>
+                        <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>pubmat-display" title="View approved pubmats slideshow" role="menuitem">
                                 <i class="bi bi-images me-2" aria-hidden="true"></i>Pubmat Display</a></li>
                     <?php endif; ?>
-                    <?php if ($currentUser['role'] === 'admin'): ?>
-                        <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>?page=dashboard" title="Access admin dashboard" role="menuitem">
+                    <?php if ($currentUser['role'] === 'admin' && $currentPage !== 'dashboard'): ?>
+                        <li role="none"><a class="dropdown-item rounded-3" href="<?php echo BASE_URL; ?>dashboard" title="Access admin dashboard" role="menuitem">
                                 <i class="bi bi-shield-check me-2" aria-hidden="true"></i>Admin Dashboard</a></li>
                     <?php endif; ?>
                     <li role="none"><hr class="dropdown-divider"></li>
-                    <li role="none"><a class="dropdown-item rounded-3 text-danger" href="<?php echo BASE_URL; ?>?page=logout" title="Sign out of your account" role="menuitem">
+                    <li role="none"><a class="dropdown-item rounded-3 text-danger" href="<?php echo BASE_URL; ?>logout" title="Sign out of your account" role="menuitem">
                             <i class="bi bi-box-arrow-right me-2" aria-hidden="true"></i>Logout</a></li>
                 </ul>
             </div>

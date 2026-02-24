@@ -38,11 +38,9 @@ const canEditSaf = isAccounting || isAdmin;
 let allocateModal, transactionModal, addDeductModal, resetModal, editModal;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  allocateModal = new bootstrap.Modal(document.getElementById('allocateModal'));
-  transactionModal = new bootstrap.Modal(document.getElementById('transactionModal'));
-  addDeductModal = new bootstrap.Modal(document.getElementById('addDeductModal'));
-  resetModal = new bootstrap.Modal(document.getElementById('resetModal'));
-  editModal = new bootstrap.Modal(document.getElementById('editModal'));
+  // Load persisted state
+  const savedDept = localStorage.getItem('saf_currentDept');
+  if (savedDept) currentDeptId = savedDept;
 
   const allocDeptSelect = document.getElementById('alloc-dept');
   if (allocDeptSelect) {
@@ -106,7 +104,7 @@ function showToast(message, type = 'info') {
   if (window.ToastManager) {
     window.ToastManager.show({ type: type, message: message });
   } else {
-    alert(message); // Fallback
+    console.log(`[${type.toUpperCase()}] ${message}`);
   }
 }
 
@@ -209,6 +207,8 @@ function renderSidebar() {
 }
 
 function renderDashboard(deptId) {
+  localStorage.setItem('saf_currentDept', deptId);
+
   const dept = deptMap[deptId];
   if (!dept) return;
 

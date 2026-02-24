@@ -292,11 +292,16 @@ class CalendarApp {
             if (data && data.success) {
                 const map = {};
                 (data.events || []).forEach(ev => {
-                    const date = ev.event_date;
-                    if (!map[date]) map[date] = [];
+                    // FIX: Use the date string directly as it comes from the API (YYYY-MM-DD)
+                    // This avoids any timezone conversion issues
+                    const dateStr = ev.event_date;
+                    
+                    if (!map[dateStr]) map[dateStr] = [];
+                    
                     const isApproved = ev.approved == 1;
                     const isPencilBooked = !isApproved;
-                    map[date].push({
+                    
+                    map[dateStr].push({
                         id: String(ev.id),
                         title: ev.title,
                         time: this.formatTime12Hour(ev.event_time) || '',
@@ -389,17 +394,13 @@ class CalendarApp {
             if (!data || !data.success) return;
             const approved = data.events || [];
             approved.forEach(ev => {
-                let date = ev.event_date;
-                try {
-                    const d = new Date(date);
-                    if (!isNaN(d.getTime())) {
-                        date = d.toISOString().split('T')[0];
-                    }
-                } catch (e) { }
-                if (!this.events[date]) this.events[date] = [];
-                const exists = this.events[date].some(x => x.title === ev.title && x.department === ev.department);
+                // FIX: Use the date string directly as it comes from the API
+                const dateStr = ev.event_date;
+                
+                if (!this.events[dateStr]) this.events[dateStr] = [];
+                const exists = this.events[dateStr].some(x => x.title === ev.title && x.department === ev.department);
                 if (!exists) {
-                    this.events[date].push({
+                    this.events[dateStr].push({
                         id: String(ev.id),
                         title: ev.title,
                         time: '',
@@ -545,7 +546,12 @@ class CalendarApp {
                     dayCount++;
                 }
 
-                const dateStr = cellDate.toISOString().split('T')[0];
+                // Format date as YYYY-MM-DD consistently
+                const yearStr = cellDate.getFullYear();
+                const monthStr = String(cellDate.getMonth() + 1).padStart(2, '0');
+                const dayStr = String(dayNumber).padStart(2, '0');
+                const dateStr = `${yearStr}-${monthStr}-${dayStr}`;
+                
                 dayElement.dataset.date = dateStr;
 
                 if (!isCurrentMonth) dayElement.classList.add('other-month');
@@ -612,8 +618,10 @@ class CalendarApp {
         const todayStr = today.toISOString().split('T')[0];
 
         Object.keys(this.events).forEach(dateStr => {
-            const eventDate = new Date(dateStr);
-            if (eventDate.getMonth() === currentMonth && eventDate.getFullYear() === currentYear) {
+            const [year, month, day] = dateStr.split('-').map(num => parseInt(num));
+            const eventDate = new Date(year, month - 1, day); // month is 0-indexed in JS
+            
+            if (month - 1 === currentMonth && year === currentYear) {
                 thisMonthEvents += this.events[dateStr].length;
             }
             if (eventDate >= today) {
@@ -765,7 +773,12 @@ class CalendarApp {
 
                 const slotDate = new Date(startOfWeek);
                 slotDate.setDate(startOfWeek.getDate() + day);
-                const dateStr = slotDate.toISOString().split('T')[0];
+                
+                // Format date consistently as YYYY-MM-DD
+                const year = slotDate.getFullYear();
+                const month = String(slotDate.getMonth() + 1).padStart(2, '0');
+                const dayNum = String(slotDate.getDate()).padStart(2, '0');
+                const dateStr = `${year}-${month}-${dayNum}`;
 
                 const filteredEvents = this.getFilteredEvents();
                 if (filteredEvents[dateStr]) {
@@ -825,7 +838,8 @@ class CalendarApp {
             const dateHeader = document.createElement('div');
             dateHeader.className = 'agenda-date-header';
 
-            const eventDate = new Date(dateStr);
+            const [year, month, day] = dateStr.split('-').map(num => parseInt(num));
+            const eventDate = new Date(year, month - 1, day);
             const today = new Date();
             const tomorrow = new Date(today);
             tomorrow.setDate(today.getDate() + 1);
@@ -893,7 +907,8 @@ class CalendarApp {
         eventDiv.dataset.eventId = event.id;
         eventDiv.dataset.date = event.date;
 
-        const eventDate = new Date(event.date);
+        const [year, month, day] = event.date.split('-').map(num => parseInt(num));
+        const eventDate = new Date(year, month - 1, day);
         const formattedDate = eventDate.toLocaleDateString('en-US', {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
@@ -1000,7 +1015,8 @@ class CalendarApp {
         const event = this.events[dateStr]?.find(e => e.id === eventId);
         if (!event) return;
 
-        const eventDate = new Date(dateStr);
+        const [year, month, day] = dateStr.split('-').map(num => parseInt(num));
+        const eventDate = new Date(year, month - 1, day);
         const formattedDate = eventDate.toLocaleDateString('en-US', {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
@@ -1178,7 +1194,7 @@ class CalendarApp {
             window.location.href = window.BASE_URL + '?page=pubmat-display';
         }
     }
-    }
+}
 
 function openChangePassword() {
     const modal = new bootstrap.Modal(document.getElementById('changePasswordModal'));

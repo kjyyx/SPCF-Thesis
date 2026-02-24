@@ -9,64 +9,6 @@
  * @author SPCF Thesis Development Team
  * @version 1.0.0
  * @since 2024
- *
- * @description
- * This JavaScript file handles all client-side document creation operations, including:
- * - Multi-format document generation (Project Proposals, SAF Forms, Facility Requests, Communication Letters)
- * - Real-time live preview with automatic updates
- * - Multi-page document pagination and navigation
- * - Form data collection and validation
- * - Professional HTML generation with proper formatting
- * - Print-ready document output
- *
- * @architecture
- * The code is organized into logical sections:
- * 1. Global State Variables & Configuration
- * 2. Document Type Selection & Management
- * 3. Document Generation & Preview System
- * 4. Data Collection & Processing
- * 5. HTML Generation Templates
- * 6. Utility Functions & Helpers
- * 7. Form-Specific Helpers (Budget, Program, SAF, Communication)
- * 8. Event Handling & Initialization
- *
- * @dependencies
- * - Bootstrap (UI components and styling)
- * - ToastManager (notification system for audit logging)
- * - PHP Backend (for audit logging via window.addAuditLog)
- * - Browser DOM API (for form manipulation and preview rendering)
- *
- * @security
- * - All data processing is client-side only
- * - No sensitive data is transmitted or stored
- * - Input validation prevents XSS through HTML escaping
- * - DOM access is guarded to prevent runtime errors
- *
- * @document-types
- * - proposal: Project Proposal with budget, program schedule, and objectives
- * - saf: Student Activities Fund release form with category-based funding
- * - facility: Facility reservation request with date and purpose
- * - communication: Official communication letter with signature blocks
- *
- * @features
- * - Live preview updates on form changes
- * - Multi-page document support with navigation
- * - Professional document formatting
- * - Form validation and error handling
- * - Print functionality for final output
- * - Audit logging integration
- *
- * @notes
- * - Public function names referenced by HTML must remain unchanged
- * - This script is client-side only; no network calls except audit logging
- * - Prefer non-destructive refactors: do not change DOM IDs/classes the HTML relies on
- * - Guard DOM access where possible to avoid runtime errors if sections are not present
- * - All document generation uses sanitized HTML to prevent XSS attacks
- *
- * @example
- * // File is automatically loaded by create-document.php
- * // Document type selection triggers automatic preview generation
- * selectDocumentType('proposal'); // Switches to proposal form and preview
  */
 
 // === Global State Variables & Configuration ===
@@ -587,6 +529,26 @@ function collectCommunicationData() {
         }
     });
 
+    // Get current user data for the "From" section
+    const currentUser = window.currentUser || {};
+    const fullName = currentUser.firstName && currentUser.lastName ? 
+        `${currentUser.firstName} ${currentUser.lastName}` : '';
+    const position = currentUser.position || '';
+    const department = currentUser.department || '';
+    
+    // Construct from fields - ensure from_title is properly formatted
+    const from_name = fullName || '';
+    // Create the title in "Position, Department" format
+    const from_title = position && department ? `${position}, ${department}` : (position || department || '');
+
+    // Debug log
+    console.log('Collecting Communication Data:', {
+        from_name,
+        from_title,
+        position,
+        department
+    });
+
     return {
         date: document.getElementById('comm-date')?.value || '',
         department: document.getElementById('comm-department-select')?.value || '',
@@ -595,9 +557,8 @@ function collectCommunicationData() {
         approvedList: approvedList,
         subject: document.getElementById('comm-subject')?.value || '',
         body: document.getElementById('comm-body')?.value || '',
-        from: (window.currentUser?.firstName + ' ' + window.currentUser?.lastName + ', ' + 
-               window.currentUser?.position + ', ' + window.currentUser?.department) || '',
-        from_title: (window.currentUser?.position + ', ' + window.currentUser?.department) || ''
+        from_name: from_name,
+        from_title: from_title
     };
 }
 
@@ -704,6 +665,12 @@ function generateFacilityHTML(d) {
     return `<div class="paper-page">${header}<div><strong>Event Name:</strong> ${escapeHtml(d.eventName || '')}</div><div style="margin-top:6px"><strong>Event Date:</strong> ${formatDate(d.eventDate)}</div><div style="margin-top:6px"><strong>Department:</strong> ${escapeHtml(d.departmentFull || d.department || '')}</div><div style="margin-top:6px"><strong>Clean and Set-up Committee:</strong> ${escapeHtml(d.cleanSetUpCommittee || '')}</div><div style="margin-top:6px"><strong>Contact Person:</strong> ${escapeHtml(d.contactPerson || '')}</div><div style="margin-top:6px"><strong>Contact Number:</strong> ${escapeHtml(d.contactNumber || '')}</div><div style="margin-top:6px"><strong>Expected Attendees:</strong> ${d.expectedAttendees || 0}</div><div style="margin-top:6px"><strong>Guest/Speaker:</strong> ${escapeHtml(d.guestSpeaker || '')}</div><div style="margin-top:6px"><strong>Expected Performers:</strong> ${d.expectedPerformers || 0}</div><div style="margin-top:6px"><strong>Parking Gate/Plate No.:</strong> ${escapeHtml(d.parkingGatePlateNo || '')}</div><div style="margin-top:12px"><strong>Facilities:</strong>${facilitiesHtml}</div><div style="margin-top:12px"><strong>Equipment & Staffing:</strong>${equipmentHtml}</div>${timelineHtml}<div style="margin-top:12px"><strong>Other Matters:</strong> ${escapeHtml(d.otherMattersSpecify || '')}</div>${signaturesHtml}</div>`;
 }
 
+/**
+ * Generate HTML for Communication Letter document
+ * Creates a formal communication letter with recipient, sender, and approval lists
+ * @param {Object} d - Communication data object from collectCommunicationData()
+ * @returns {string} Complete HTML string for the communication letter
+ */
 function generateCommunicationHTML(d) {
     function renderPeople(list) {
         if (!list || !list.length) return '<div class="comm-indent"><em>—</em></div>';
@@ -712,11 +679,37 @@ function generateCommunicationHTML(d) {
 
     const header = `<div style="text-align:center;margin-bottom:1rem;"><div style="font-weight:800;font-size:1.2rem">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700;font-size:1.1rem">Communication Letter</div></div>`;
     const bodyHtml = (d.body || '').replace(/\n/g, '<br>') || '&nbsp;';
-    const creatorName = window.currentUser?.firstName + ' ' + window.currentUser?.lastName;
-    const creatorPosition = window.currentUser?.position || 'CSC Position';
-    const creatorDepartment = window.currentUser?.department || 'Department';
+    
+    // Get the values from the data object with proper fallbacks
+    const from_name = d.from_name || (window.currentUser?.firstName + ' ' + window.currentUser?.lastName) || '';
+    
+    // CRITICAL FIX: Ensure from_title is properly formatted
+    // If d.from_title exists, use it; otherwise construct from position and department
+    let from_title = d.from_title;
+    if (!from_title && window.currentUser) {
+        const position = window.currentUser.position || '';
+        const department = window.currentUser.department || '';
+        from_title = position && department ? `${position}, ${department}` : (position || department || '');
+    }
+    
+    // Debug log to check values
+    console.log('Communication Data:', {
+        from_name: from_name,
+        from_title: from_title,
+        d_from_title: d.from_title,
+        currentUser: window.currentUser
+    });
 
-    return `<div class="paper-page">${header}<div style="margin-top:2rem"><div>Date: ${formatDate(d.date)}</div><div style="margin-top:1rem">For: ${escapeHtml(d.for || '')}</div><div style="margin-top:1rem">From: <strong>${escapeHtml(creatorName)}</strong><br><em>${escapeHtml(creatorPosition)}, ${escapeHtml(creatorDepartment)}</em></div><div style="margin-top:1rem">Noted: ${renderPeople(d.notedList)}</div><div style="margin-top:1rem">Approved: ${renderPeople(d.approvedList)}</div><div style="margin-top:1rem">Subject: ${escapeHtml(d.subject || '')}</div><div style="margin-top:1rem">${bodyHtml}</div><div style="margin-top:2rem;text-align:left">Sincerely,<br>College of Engineering – Student Council</div></div></div>`;
+    return `<div class="paper-page">${header}<div style="margin-top:2rem">
+        <div>Date: ${formatDate(d.date)}</div>
+        <div style="margin-top:1rem">For: ${escapeHtml(d.for || '')}</div>
+        <div style="margin-top:1rem">From: <strong>${escapeHtml(from_name)}</strong><br><em>${escapeHtml(from_title)}</em></div>
+        <div style="margin-top:1rem">Noted: ${renderPeople(d.notedList)}</div>
+        <div style="margin-top:1rem">Approved: ${renderPeople(d.approvedList)}</div>
+        <div style="margin-top:1rem">Subject: ${escapeHtml(d.subject || '')}</div>
+        <div style="margin-top:1rem">${bodyHtml}</div>
+        <div style="margin-top:2rem;text-align:left">Sincerely,<br>${escapeHtml(from_name)}</div>
+    </div></div>`;
 }
 
 /**

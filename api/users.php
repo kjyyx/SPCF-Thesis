@@ -57,7 +57,7 @@ if (!is_array($__usersPayload)) {
 }
 $__isProfileUpdate = ($__usersMethod === 'POST' && ($__usersPayload['action'] ?? '') === 'update_profile');
 
-if (!isLoggedIn() || (! $__isProfileUpdate && ($_SESSION['user_role'] ?? null) !== 'admin')) {
+if (!isLoggedIn() || (!$__isProfileUpdate && ($_SESSION['user_role'] ?? null) !== 'admin')) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Forbidden']);
     exit();
@@ -325,8 +325,21 @@ try {
             json_error('User ID already exists', 409);
         }
 
-        // Default password can be provided via payload['default_password']
+        // --- NEW: STRICT BACKEND PASSWORD VALIDATION ---
         $defaultPassword = $payload['default_password'] ?? 'ChangeMe123!';
+
+        // Pentest check: Minimum 8 characters, 1 Uppercase, 1 Number, 1 Special Character
+        if (
+            strlen($defaultPassword) < 8 ||
+            !preg_match('/[A-Z]/', $defaultPassword) ||
+            !preg_match('/[0-9]/', $defaultPassword) ||
+            !preg_match('/[^A-Za-z0-9]/', $defaultPassword)
+        ) {
+
+            json_error('Password must be at least 8 characters long and contain at least one uppercase letter, one number, and one special character.', 400);
+        }
+        // -----------------------------------------------
+
         $hash = password_hash($defaultPassword, PASSWORD_BCRYPT);
 
         if ($role === 'student') {

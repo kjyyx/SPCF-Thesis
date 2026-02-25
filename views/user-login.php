@@ -128,7 +128,7 @@ $twoFactorUserId = '';
                 <!-- Login Header -->
                 <div class="login-header">
                     <div class="login-icon" aria-hidden="true">
-                        <i class="bi bi-file-earmark-lock2-fill"></i>
+                        <img src="<?php echo BASE_URL; ?>assets/images/Sign-UM logo-2.png" alt="Sign-UM Logo" class="login-logo">
                     </div>
                     <h2 id="login-title">Sign-um Portal</h2>
                     <p>Sign in to access your document workspace</p>

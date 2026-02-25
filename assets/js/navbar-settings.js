@@ -100,6 +100,8 @@
         const modal = getModal('profileSettingsModal');
         if (!modal) return toast('Profile settings modal is not available on this page.', 'warning');
         modal.show();
+        // Attach validation after modal is shown
+        setTimeout(attachProfileValidation, 100);
     }
 
     function openChangePassword() {
@@ -196,31 +198,102 @@
         }
     }
 
+    // Real-time validation functions
+    function validateEmail(input) {
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        const isValid = emailRegex.test(input.value.trim());
+        input.classList.toggle('is-valid', isValid && input.value.trim());
+        input.classList.toggle('is-invalid', !isValid && input.value.trim());
+        return isValid;
+    }
+
+    function validatePhone(input) {
+        const phoneRegex = /^(09|\+639)\d{9}$/;
+        const isValid = phoneRegex.test(input.value.trim());
+        input.classList.toggle('is-valid', isValid && input.value.trim());
+        input.classList.toggle('is-invalid', !isValid && input.value.trim());
+        return isValid;
+    }
+
+    function preventInvalidEmailKeypress(event) {
+        const allowedChars = /[a-zA-Z0-9._%+-@]/;
+        if (!allowedChars.test(event.key) && !['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+            event.preventDefault();
+        }
+    }
+
+    function preventInvalidPhoneKeypress(event) {
+        const allowedChars = /[0-9+]/;
+        if (!allowedChars.test(event.key) && !['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+            event.preventDefault();
+        }
+    }
+
+    // Attach validation to profile modal when opened
+    function attachProfileValidation() {
+        const emailInput = document.getElementById('profileEmail');
+        const phoneInput = document.getElementById('profilePhone');
+
+        if (emailInput) {
+            emailInput.addEventListener('input', () => validateEmail(emailInput));
+            emailInput.addEventListener('keypress', preventInvalidEmailKeypress);
+        }
+
+        if (phoneInput) {
+            phoneInput.addEventListener('input', () => validatePhone(phoneInput));
+            phoneInput.addEventListener('keypress', preventInvalidPhoneKeypress);
+        }
+    }
+
+    // Modify saveProfileSettings to validate before submit
     async function saveProfileSettings(event) {
         if (event?.preventDefault) event.preventDefault();
 
+        const emailInput = document.getElementById('profileEmail');
+        const phoneInput = document.getElementById('profilePhone');
+
+        const emailValid = emailInput ? validateEmail(emailInput) : true;
+        const phoneValid = phoneInput ? validatePhone(phoneInput) : true;
+
+        if (!emailValid || !phoneValid) {
+            setMessages('profileSettingsMessages', '<div class="alert alert-danger">Please correct the validation errors before saving.</div>');
+            return;
+        }
+
         const firstName = (document.getElementById('profileFirstName')?.value || '').trim();
         const lastName = (document.getElementById('profileLastName')?.value || '').trim();
-        const email = (document.getElementById('profileEmail')?.value || '').trim();
-        const phone = (document.getElementById('profilePhone')?.value || '').trim();
+        const email = (emailInput?.value || '').trim();
+        const phone = (phoneInput?.value || '').trim();
         const darkMode = !!document.getElementById('darkModeToggle')?.checked;
 
-        if (!firstName || !lastName || !email) {
-            setMessages('profileSettingsMessages', '<div class="alert alert-danger">First name, last name, and email are required.</div>');
+        if (!email) {
+            setMessages('profileSettingsMessages', '<div class="alert alert-danger">Email is required.</div>');
+            return;
+        }
+
+        // Only validate names for admins
+        if (window.currentUser?.role === 'admin' && (!firstName || !lastName)) {
+            setMessages('profileSettingsMessages', '<div class="alert alert-danger">First name and last name are required.</div>');
             return;
         }
 
         try {
+            const payload = {
+                action: 'update_profile',
+                email,
+                phone
+            };
+
+            // Only include name updates for admins
+            if (window.currentUser?.role === 'admin') {
+                payload.first_name = firstName;
+                payload.last_name = lastName;
+            }
+
             const response = await fetch(BASE_URL + 'api/users.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'update_profile',
-                    first_name: firstName,
-                    last_name: lastName,
-                    email,
-                    phone
-                })
+                body: JSON.stringify(payload)
             });
             const result = await response.json();
 
@@ -235,16 +308,21 @@
             toast('Profile updated successfully', 'success');
 
             if (window.currentUser) {
-                window.currentUser.firstName = firstName;
-                window.currentUser.lastName = lastName;
-                window.currentUser.first_name = firstName;
-                window.currentUser.last_name = lastName;
                 window.currentUser.email = email;
                 window.currentUser.phone = phone;
+                // Only update names for admins
+                if (window.currentUser.role === 'admin') {
+                    window.currentUser.firstName = firstName;
+                    window.currentUser.lastName = lastName;
+                    window.currentUser.first_name = firstName;
+                    window.currentUser.last_name = lastName;
+                }
             }
 
             const nameEl = document.getElementById('userDisplayName') || document.getElementById('adminUserName');
-            if (nameEl) nameEl.textContent = `${firstName} ${lastName}`;
+            if (nameEl && window.currentUser?.role === 'admin') {
+                nameEl.textContent = `${firstName} ${lastName}`;
+            }
 
             setTimeout(() => {
                 setMessages('profileSettingsMessages', '');

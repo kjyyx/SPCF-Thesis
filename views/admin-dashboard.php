@@ -875,7 +875,8 @@ $currentPage = 'dashboard';
                                     <div class="mb-3">
                                         <label for="userEmail" class="form-label">Email</label>
                                         <input type="email" class="form-control" id="userEmail"
-                                            placeholder="Enter email address (e.g., user@university.edu)" required>
+                                            placeholder="Enter email address (e.g., user@university.edu)" pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
+                                        <div class="invalid-feedback">Please enter a valid email address.</div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -883,7 +884,8 @@ $currentPage = 'dashboard';
                                         <label for="userPhone" class="form-label">Phone</label>
                                         <input type="tel" class="form-control" id="userPhone"
                                             placeholder="Enter phone number (e.g., 09123456789 or +639123456789)"
-                                            required>
+                                            pattern="^(09|\+639)\d{9}$" required>
+                                        <div class="invalid-feedback">Please enter a valid Philippine phone number (e.g., 09123456789 or +639123456789).</div>
                                     </div>
                                 </div>
                             </div>
@@ -1204,11 +1206,13 @@ $currentPage = 'dashboard';
                             </div>
                             <div class="mb-3">
                                 <label for="profileEmail" class="form-label">Email Address</label>
-                                <input type="email" class="form-control" id="profileEmail" required>
+                                <input type="email" class="form-control" id="profileEmail" pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
+                                <div class="invalid-feedback">Please enter a valid email address.</div>
                             </div>
                             <div class="mb-3">
                                 <label for="profilePhone" class="form-label">Phone Number</label>
-                                <input type="tel" class="form-control" id="profilePhone" required>
+                                <input type="tel" class="form-control" id="profilePhone" pattern="^(09|\+639)\d{9}$" required>
+                                <div class="invalid-feedback">Please enter a valid Philippine phone number (e.g., 09123456789 or +639123456789).</div>
                             </div>
                             <div class="mb-3">
                                 <label for="profileOffice" class="form-label">Office</label>
@@ -1450,7 +1454,8 @@ $currentPage = 'dashboard';
                                     <div class="mt-3">
                                         <label for="adminEmail" class="form-label">Administrator Email</label>
                                         <input type="email" class="form-control" id="adminEmail"
-                                            placeholder="admin@university.edu">
+                                            placeholder="admin@university.edu" pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$">
+                                        <div class="invalid-feedback">Please enter a valid email address.</div>
                                     </div>
                                     <button type="submit" class="btn btn-primary mt-3">Save Notification
                                         Settings</button>

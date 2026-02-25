@@ -77,51 +77,8 @@ $twoFactorUserId = '';
 <body>
     <main class="login-wrapper" role="main">
         <div class="login-layout">
-            <aside class="login-info-panel" aria-label="About Sign-um">
-
-                <!-- Top badge + headline -->
-                <div>
-                    <div class="info-badge mb-3">
-                        <i class="bi bi-stars" aria-hidden="true"></i>
-                        SPCF &mdash; Sign-um Portal
-                    </div>
-                    <h1 class="info-title mb-3">Smarter Document Workflows</h1>
-                    <p class="info-description">
-                        Sign-um digitizes every step of SPCF's document lifecycle&mdash;from creation and routing
-                        to multi-level approval and real-time tracking&mdash;all in one secure portal.
-                    </p>
-                </div>
-
-                <!-- Feature cards 2×2 grid -->
-                <div class="info-features-grid">
-                    <div class="info-feature-card">
-                        <div class="info-feature-icon"><i class="bi bi-file-earmark-check-fill"></i></div>
-                        <p class="info-feature-title">Smart Routing</p>
-                        <p class="info-feature-desc">Documents flow automatically through the correct approval chain.</p>
-                    </div>
-                    <div class="info-feature-card">
-                        <div class="info-feature-icon"><i class="bi bi-pen-fill"></i></div>
-                        <p class="info-feature-title">E-Signatures</p>
-                        <p class="info-feature-desc">Authorised signatories sign digitally with full audit trail.</p>
-                    </div>
-                    <div class="info-feature-card">
-                        <div class="info-feature-icon"><i class="bi bi-bar-chart-line-fill"></i></div>
-                        <p class="info-feature-title">Live Tracking</p>
-                        <p class="info-feature-desc">See exactly where your document sits in the workflow.</p>
-                    </div>
-                    <div class="info-feature-card">
-                        <div class="info-feature-icon"><i class="bi bi-shield-lock-fill"></i></div>
-                        <p class="info-feature-title">2FA Security</p>
-                        <p class="info-feature-desc">TOTP two-factor authentication keeps accounts protected.</p>
-                    </div>
-                </div>
-
-                <!-- Footer note -->
-                <div class="info-panel-footer">
-                    <i class="bi bi-buildings-fill fs-5"></i>
-                    <span>Systems Plus College Foundation &mdash; Official Document Portal</span>
-                </div>
-
+            <aside class="login-info-panel-placeholder" aria-hidden="true">
+                <!-- Placeholder for mobile layout -->
             </aside>
 
             <div class="login-container" role="dialog" aria-labelledby="login-title">
@@ -136,7 +93,7 @@ $twoFactorUserId = '';
 
                 <!-- Login Body -->
                 <div class="login-body">
-                    <form id="loginForm" aria-label="Login Form">
+                    <form id="loginForm" class="login-form" aria-label="Login Form">
                     <input type="hidden" id="requires2fa" value="<?php echo $requires2fa ? 'true' : 'false'; ?>">
                     <input type="hidden" id="requires2faSetup" value="<?php echo $requires2faSetup ? 'true' : 'false'; ?>">
                     <input type="hidden" id="twoFactorSecret" value="<?php echo htmlspecialchars($twoFactorSecret); ?>">
@@ -195,6 +152,14 @@ $twoFactorUserId = '';
                         <button type="button" onclick="openForgotPassword()" aria-label="Reset Password">
                             <i class="bi bi-question-circle-fill" aria-hidden="true"></i>
                             Forgot Password?
+                        </button>
+                    </div>
+
+                    <!-- About Button -->
+                    <div class="about-button">
+                        <button type="button" onclick="openAboutModal()" aria-label="About Sign-um">
+                            <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+                            About
                         </button>
                     </div>
                 </form>
@@ -461,6 +426,64 @@ $twoFactorUserId = '';
         </div>
     </div>
 </div>
+
+    <!-- About Modal -->
+    <div class="modal fade about-modal" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content about-modal-content">
+                <div class="modal-header modal-header-centered">
+                    <h5 class="modal-title" id="aboutModalLabel">
+                        <i class="bi bi-info-circle-fill me-2"></i>About Sign-um Portal
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body login-info-panel-modal about-modal-body">
+                    <!-- Top badge + headline -->
+                    <div>
+                        <div class="info-badge mb-3">
+                            <i class="bi bi-stars" aria-hidden="true"></i>
+                            SPCF &mdash; Sign-um Portal
+                        </div>
+                        <h1 class="info-title mb-3">Smarter Document Workflows</h1>
+                        <p class="info-description">
+                            Sign-um digitizes every step of SPCF's document lifecycle&mdash;from creation and routing
+                            to multi-level approval and real-time tracking&mdash;all in one secure portal.
+                        </p>
+                    </div>
+
+                    <!-- Feature cards 2×2 grid -->
+                    <div class="info-features-grid">
+                        <div class="info-feature-card">
+                            <div class="info-feature-icon"><i class="bi bi-file-earmark-check-fill"></i></div>
+                            <p class="info-feature-title">Smart Routing</p>
+                            <p class="info-feature-desc">Documents flow automatically through the correct approval chain.</p>
+                        </div>
+                        <div class="info-feature-card">
+                            <div class="info-feature-icon"><i class="bi bi-pen-fill"></i></div>
+                            <p class="info-feature-title">E-Signatures</p>
+                            <p class="info-feature-desc">Authorised signatories sign digitally with full audit trail.</p>
+                        </div>
+                        <div class="info-feature-card">
+                            <div class="info-feature-icon"><i class="bi bi-bar-chart-line-fill"></i></div>
+                            <p class="info-feature-title">Live Tracking</p>
+                            <p class="info-feature-desc">See exactly where your document sits in the workflow.</p>
+                        </div>
+                        <div class="info-feature-card">
+                            <div class="info-feature-icon"><i class="bi bi-shield-lock-fill"></i></div>
+                            <p class="info-feature-title">2FA Security</p>
+                            <p class="info-feature-desc">TOTP two-factor authentication keeps accounts protected.</p>
+                        </div>
+                    </div>
+
+                    <!-- Footer note -->
+                    <div class="info-panel-footer">
+                        <i class="bi bi-buildings-fill fs-5"></i>
+                        <span>Systems Plus College Foundation &mdash; Official Document Portal</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Add this before closing body tag -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>

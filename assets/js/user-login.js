@@ -1150,3 +1150,18 @@ function showMfaError(message) {
         errorDiv.classList.remove('d-none');
     }
 }
+
+// About Modal Function
+function openAboutModal() {
+    const aboutModalEl = document.getElementById('aboutModal');
+    if (!aboutModalEl) return;
+
+    if (!window.aboutModalInstance) {
+        window.aboutModalInstance = new bootstrap.Modal(aboutModalEl, {
+            keyboard: true,
+            focus: true
+        });
+    }
+
+    window.aboutModalInstance.show();
+}

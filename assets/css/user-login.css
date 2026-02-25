@@ -41,30 +41,35 @@ body::after {
 /* ── Page wrapper ─────────────────────────────────────── */
 .login-wrapper {
 	width: 100%;
-	max-width: 1160px;
+	max-width: 640px;
 	padding: 0 var(--space-4);
+	margin: 0 auto;
 }
 
 .login-layout {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: var(--space-5);
-	align-items: stretch;
+	display: flex;
+	justify-content: center;
+	align-items: center;
 }
 
 /* ── Info panel (left column) ─────────────────────────── */
-.login-info-panel {
+.login-info-panel-placeholder {
+	display: none;
+}
+
+/* Modal version of info panel */
+.login-info-panel-modal {
 	background: linear-gradient(160deg, rgba(10,22,56,0.96) 0%, rgba(18,89,195,0.82) 100%);
 	backdrop-filter: blur(20px);
 	-webkit-backdrop-filter: blur(20px);
 	color: #ffffff;
-	border-radius: var(--radius-4xl);
+	border-radius: var(--radius-3xl);
 	padding: var(--space-8) var(--space-6);
-	box-shadow: var(--shadow-2xl);
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
-	border: 1px solid rgba(255,255,255,0.10);
+	align-items: center;
+	text-align: center;
 	gap: var(--space-6);
 }
 
@@ -82,6 +87,7 @@ body::after {
 	font-weight: var(--font-semibold);
 	letter-spacing: var(--tracking-wide);
 	text-transform: uppercase;
+	margin-inline: auto;
 }
 
 .info-title {
@@ -97,7 +103,8 @@ body::after {
 	opacity: 0.85;
 	line-height: var(--leading-body);
 	font-size: var(--text-sm);
-	margin: 0;
+	margin: 0 auto;
+	max-width: 680px;
 	color: #cbd5e1;
 }
 
@@ -115,6 +122,7 @@ body::after {
 	padding: 1rem;
 	backdrop-filter: blur(10px);
 	transition: all 0.3s ease;
+	text-align: center;
 }
 
 .info-feature-card:hover {
@@ -133,7 +141,7 @@ body::after {
 	color: white;
  /* Icon color */
 	font-size: 1.5rem;
-	margin-bottom: 1rem;
+	margin: 0 auto 1rem;
 }
 
 .info-feature-title {
@@ -152,11 +160,14 @@ body::after {
 .info-panel-footer {
 	display: flex;
 	align-items: center;
+	justify-content: center;
+	flex-wrap: wrap;
 	gap: var(--space-3);
 	padding-top: var(--space-4);
 	border-top: 1px solid rgba(255,255,255,0.12);
 	font-size: var(--text-xs);
 	opacity: 0.7;
+	text-align: center;
 }
 
 /* Legacy list support */
@@ -183,6 +194,7 @@ body::after {
 /* ── Login container (right column) ───────────────────── */
 .login-container {
 	width: 100%;
+	max-width: 560px;
 	background: var(--color-surface);
 	border-radius: var(--radius-4xl);
 	box-shadow: var(--shadow-2xl);
@@ -190,17 +202,16 @@ body::after {
 	animation: slideUpBounce 0.65s var(--ease-spring);
 	position: relative;
 	z-index: 1;
+	margin: 0 auto;
 }
 
 @media (max-width: 992px) {
 	.login-layout {
-		grid-template-columns: 1fr;
+		display: flex;
 	}
 
-	.login-info-panel {
-		order: 2;
-		border-radius: var(--radius-3xl);
-		padding: var(--space-5);
+	.login-info-panel-placeholder {
+		display: none;
 	}
 
 	.info-features-grid {
@@ -208,7 +219,7 @@ body::after {
 	}
 
 	.login-container {
-		order: 1;
+		max-width: 560px;
 	}
 }
 
@@ -293,6 +304,14 @@ body::after {
 	padding: var(--space-8) var(--space-6) var(--space-6);
 	position: relative;
 	z-index: 1;
+	display: flex;
+	justify-content: center;
+}
+
+.login-form {
+	width: 100%;
+	max-width: 420px;
+	margin: 0 auto;
 }
 
 /* ── Form elements ────────────────────────────────────── */
@@ -523,6 +542,44 @@ body::after {
 .forgot-password button:hover {
 	color: var(--brand-primary-hover);
 	background: rgba(18,89,195,0.08);
+}
+
+/* ── About button ──────────────────────────────────────── */
+.about-button {
+	text-align: center;
+	margin-bottom: var(--space-4);
+}
+
+.about-button button {
+	background: var(--color-surface-sunken);
+	border: 1px solid var(--color-border);
+	color: var(--brand-primary);
+	font-size: var(--text-sm);
+	font-weight: var(--font-semibold);
+	font-family: var(--font-sans);
+	cursor: pointer;
+	padding: var(--space-2) var(--space-4);
+	border-radius: var(--radius-pill);
+	transition: var(--transition-base);
+}
+
+.about-button button:hover {
+	color: var(--brand-primary);
+	background: rgba(18,89,195,0.08);
+	border-color: rgba(18,89,195,0.22);
+}
+
+/* ── About modal polish ────────────────────────────────── */
+.about-modal .modal-dialog {
+	max-width: 900px;
+}
+
+.about-modal-content {
+	overflow: hidden;
+}
+
+.about-modal-body {
+	padding: var(--space-7) var(--space-6) !important;
 }
 
 /* ── Modal base ────────────────────────────────────────── */
@@ -916,8 +973,8 @@ body::after {
 /* ── Mobile ────────────────────────────────────────────── */
 @media (max-width: 480px) {
 	body {
-		align-items: flex-end;
-		padding-bottom: 0;
+		align-items: center;
+		padding-bottom: var(--space-4);
 	}
 
 	.login-layout {
@@ -925,12 +982,7 @@ body::after {
 	}
 
 	.login-container {
-		border-radius: var(--radius-4xl) var(--radius-4xl) 0 0;
-	}
-
-	.login-info-panel {
-		padding: var(--space-5);
-		border-radius: var(--radius-3xl);
+		border-radius: var(--radius-4xl);
 	}
 
 	.info-features-grid {
@@ -947,9 +999,8 @@ body::after {
 	}
 
 	.login-icon {
-		width: 60px;
-		height: 60px;
-		font-size: 1.6rem;
+		width: 72px;
+		height: 72px;
 	}
 
 	.login-header h2 {

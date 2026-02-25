@@ -438,7 +438,7 @@ switch ($method) {
         handlePut();
         break;
     case 'DELETE':
-        handleDelete();
+        handleDelete();  // ← This is called here
         break;
     default:
         http_response_code(405);
@@ -839,11 +839,11 @@ function handleGet()
                 // Include schedule data for proposal documents
                 'schedule' => ($doc['doc_type'] === 'proposal') ? (
                     (!empty($doc['schedule_summary'])) ?
-                        json_decode($doc['schedule_summary'], true) :
-                        ((!empty($doc['data'])) ?
-                            (json_decode($doc['data'], true)['schedule'] ?? []) :
-                            []
-                        )
+                    json_decode($doc['schedule_summary'], true) :
+                    ((!empty($doc['data'])) ?
+                        (json_decode($doc['data'], true)['schedule'] ?? []) :
+                        []
+                    )
                 ) : [],
 
                 'workflow_history' => array_map(function ($step) {
@@ -2221,23 +2221,48 @@ function createDocument($input)
         } elseif ($docType === 'communication') {
             error_log("=== Creating COMMUNICATION workflow ===");
             // Dynamic workflow based on selected notedList and approvedList
-            $selectedPositions = [];
+            $selectedAssignees = [];
 
-            // Parse notedList and approvedList for positions
+            // Parse notedList and approvedList for assignees
             $allLists = array_merge($data['notedList'] ?? [], $data['approvedList'] ?? []);
             error_log("All lists combined: " . print_r($allLists, true));
             foreach ($allLists as $person) {
-                if (isset($person['title'])) {
-                    // Extract position from title (e.g., "College Dean, College of Engineering" -> "College Dean")
+                if (isset($person['name']) && isset($person['title'])) {
+                    // Extract position and department from title
                     $parts = explode(',', $person['title'], 2);
                     $position = trim($parts[0]);
                     $department = isset($parts[1]) ? trim($parts[1]) : null;
-                    $selectedPositions[$position] = $department; // Use department if specified
-                    error_log("Extracted position: '$position', department: '$department'");
+                    $fullName = trim($person['name']);
+
+                    // Find the employee or student by name and position
+                    $table = ($position === 'Supreme Student Council President') ? 'students' : 'employees';
+                    $query = "SELECT id FROM {$table} WHERE CONCAT(first_name, ' ', last_name) = ? AND position = ?";
+                    $params = [$fullName, $position];
+                    if ($department && $table === 'employees') {
+                        $query .= " AND department = ?";
+                        $params[] = $department;
+                    }
+                    $stmt = $db->prepare($query);
+                    $stmt->execute($params);
+                    $assignee = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                    if ($assignee) {
+                        // Use position + id as key to prevent duplicates
+                        $key = $position . '_' . $assignee['id'];
+                        $selectedAssignees[$key] = [
+                            'position' => $position,
+                            'department' => $department,
+                            'id' => $assignee['id'],
+                            'table' => $table
+                        ];
+                        error_log("Found assignee: $fullName ($position) ID: " . $assignee['id']);
+                    } else {
+                        error_log("No assignee found for: $fullName ($position)");
+                    }
                 }
             }
 
-            error_log("Selected positions: " . print_r($selectedPositions, true));
+            error_log("Selected assignees: " . print_r($selectedAssignees, true));
 
             // Define complete hierarchy order (same as Proposal for consistency)
             $hierarchyOrder = [
@@ -2247,57 +2272,52 @@ function createDocument($input)
                 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)',
                 'Center for Performing Arts Organization (CPAO)',
                 'Vice President for Academic Affairs (VPAA)',
-                'Executive Vice-President / Student Services (EVP)'
+                'Physical Plant and Facilities Office (PPFO)',
+                'Executive Vice-President / Student Services (EVP)',
+                'Accounting Personnel (AP)'
             ];
 
-            // Sort selected positions by hierarchy
-            $sortedPositions = [];
-            foreach ($hierarchyOrder as $pos) {
-                if (isset($selectedPositions[$pos])) {
-                    $sortedPositions[$pos] = $selectedPositions[$pos];
+            // Group assignees by position
+            $assigneesByPosition = [];
+            foreach ($selectedAssignees as $assignee) {
+                $pos = $assignee['position'];
+                if (!isset($assigneesByPosition[$pos])) {
+                    $assigneesByPosition[$pos] = [];
                 }
+                $assigneesByPosition[$pos][] = $assignee;
             }
 
-            error_log("Sorted positions: " . print_r($sortedPositions, true));
+            error_log("Assignees by position: " . print_r($assigneesByPosition, true));
 
-            // Create workflow steps for each position
-            foreach ($sortedPositions as $position => $dept) {
-                $table = ($position === 'Supreme Student Council President') ? 'students' : 'employees';
-                $query = "SELECT id FROM {$table} WHERE position = ?";
-                $params = [$position];
-                if ($dept && $table === 'employees') {
-                    $query .= " AND department = ?";
-                    $params[] = $dept;
-                }
-                error_log("Querying for position '$position' in table '$table' with params: " . print_r($params, true));
-                $stmt = $db->prepare($query);
-                $stmt->execute($params);
-                $assignees = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                error_log("Found " . count($assignees) . " assignees for position '$position'");
-
-                foreach ($assignees as $assignee) {
-                    $stepName = $position . ' Approval';
-                    error_log("Creating step: $stepName for assignee ID: " . $assignee['id']);
-                    $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, ?)");
-                    if ($table === 'employees') {
-                        $stmt->execute([$docId, $stepOrder, $stepName, $assignee['id'], null, 'skipped']);
-                    } else {
-                        $stmt->execute([$docId, $stepOrder, $stepName, null, $assignee['id'], 'skipped']);
+            // Create workflow steps, assigning same step_order to parallel assignees at same position
+            $stepOrder = 1;
+            foreach ($hierarchyOrder as $position) {
+                if (isset($assigneesByPosition[$position])) {
+                    $assignees = $assigneesByPosition[$position];
+                    foreach ($assignees as $assignee) {
+                        $stepName = $position . ' Approval';
+                        error_log("Creating step: $stepName for assignee ID: " . $assignee['id'] . " at step_order: $stepOrder");
+                        $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, ?)");
+                        if ($assignee['table'] === 'employees') {
+                            $stmt->execute([$docId, $stepOrder, $stepName, $assignee['id'], null, 'pending']);
+                        } else {
+                            $stmt->execute([$docId, $stepOrder, $stepName, null, $assignee['id'], 'pending']);
+                        }
                     }
-                    $stepOrder++;
+                    $stepOrder++; // Next position gets next step_order
                 }
             }
 
             error_log("Total steps created: " . ($stepOrder - 1));
 
-            // Activate the first step
-            $firstStepStmt = $db->prepare("UPDATE document_steps SET status = 'pending' WHERE document_id = ? AND step_order = 1");
-            $result = $firstStepStmt->execute([$docId]);
-            error_log("Activated first step, affected rows: " . $firstStepStmt->rowCount());
+            // Set initial current_step
+            $initStmt = $db->prepare("UPDATE documents SET current_step = 1 WHERE id = ?");
+            $initStmt->execute([$docId]);
+            error_log("Set initial current_step to 1");
 
-            // Check if current user needs to sign immediately
+            // Check if current user needs to sign immediately (first step)
             $needsSigning = false;
-            $firstStepQuery = $db->prepare("SELECT assigned_to_employee_id, assigned_to_student_id FROM document_steps WHERE document_id = ? AND step_order = 1");
+            $firstStepQuery = $db->prepare("SELECT assigned_to_employee_id, assigned_to_student_id FROM document_steps WHERE document_id = ? AND step_order = 1 LIMIT 1");
             $firstStepQuery->execute([$docId]);
             $firstStep = $firstStepQuery->fetch(PDO::FETCH_ASSOC);
             error_log("First step assignee: " . print_r($firstStep, true));
@@ -2309,7 +2329,6 @@ function createDocument($input)
                 }
             }
             error_log("Needs signing: " . ($needsSigning ? 'YES' : 'NO'));
-
         } elseif ($docType === 'saf') {
             $workflowPositions = [
                 ['position' => 'College Dean', 'table' => 'employees', 'department_specific' => true],
@@ -2872,13 +2891,34 @@ function signDocument($input, $files = null)
                 // NOTE: Funds are now deducted when EVP approves, not when all steps are completed
                 // This block is kept for any future logic that needs to run when fully approved
             } else {
-                // Update current step and status
-                $stmt = $db->prepare("
-                    UPDATE documents
-                    SET current_step = current_step + 1, status = 'in_review', updated_at = NOW()
-                    WHERE id = ?
-                ");
-                $stmt->execute([$documentId]);
+                // Handle parallel approvals: check if all steps at current step_order are completed
+                $stepQuery = $db->prepare("SELECT step_order FROM document_steps WHERE id = ?");
+                $stepQuery->execute([$stepId]);
+                $stepData = $stepQuery->fetch(PDO::FETCH_ASSOC);
+                $completedStepOrder = $stepData['step_order'];
+
+                // Check if all steps at this step_order are completed
+                $levelCheck = $db->prepare("SELECT COUNT(*) as total, COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed FROM document_steps WHERE document_id = ? AND step_order = ?");
+                $levelCheck->execute([$documentId, $completedStepOrder]);
+                $levelProgress = $levelCheck->fetch(PDO::FETCH_ASSOC);
+
+                if ($levelProgress['total'] == $levelProgress['completed']) {
+                    // All at this level completed, advance to next level
+                    $nextStepOrder = $completedStepOrder + 1;
+
+                    // Check if there are steps at next level
+                    $nextCheck = $db->prepare("SELECT COUNT(*) as count FROM document_steps WHERE document_id = ? AND step_order = ?");
+                    $nextCheck->execute([$documentId, $nextStepOrder]);
+                    $nextCount = $nextCheck->fetch(PDO::FETCH_ASSOC)['count'];
+
+                    if ($nextCount > 0) {
+                        // Advance to next level
+                        $updateDoc = $db->prepare("UPDATE documents SET current_step = ?, status = 'in_review', updated_at = NOW() WHERE id = ?");
+                        $updateDoc->execute([$nextStepOrder, $documentId]);
+                    }
+                    // If no next level, but not all completed, wait (shouldn't happen if workflow is correct)
+                }
+                // If not all at level completed, stay at current level
             }
 
             // Add audit log
@@ -3177,6 +3217,7 @@ function signDocument($input, $files = null)
             throw $e;
         }
     }
+}
 
 function handlePut()
 {
@@ -3233,7 +3274,6 @@ function handleDelete()
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'Failed to delete document']);
     }
-}
 }
 
 // Audit logging function

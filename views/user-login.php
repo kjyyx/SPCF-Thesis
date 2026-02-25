@@ -85,10 +85,10 @@ $twoFactorUserId = '';
                         <i class="bi bi-stars" aria-hidden="true"></i>
                         SPCF &mdash; Sign-um Portal
                     </div>
-                    <h1 class="info-title mb-3">Smarter Document Workflows</h1>
+                    <h1 class="info-title mb-3">Digital Document Workflows</h1>
                     <p class="info-description">
                         Sign-um digitizes every step of SPCF's document lifecycle&mdash;from creation and routing
-                        to multi-level approval and real-time tracking&mdash;all in one secure portal.
+                        to multi-level approval and real-time tracking&mdash;all in one portal.
                     </p>
                 </div>
 
@@ -119,7 +119,7 @@ $twoFactorUserId = '';
                 <!-- Footer note -->
                 <div class="info-panel-footer">
                     <i class="bi bi-buildings-fill fs-5"></i>
-                    <span>Systems Plus College Foundation &mdash; Official Document Portal</span>
+                    <span>Systems Plus College Foundation &mdash; Document Portal</span>
                 </div>
 
             </aside>

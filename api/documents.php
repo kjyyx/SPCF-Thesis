@@ -2269,7 +2269,7 @@ function createDocument($input)
                 'College Student Council Adviser',
                 'College Dean',
                 'Supreme Student Council President',
-                'Officer-in-Charge, Office of Student Affairs (OIC-OSA)',
+                'Officer-In-Charge, Office of Student Affairs (OIC-OSA)',
                 'Center for Performing Arts Organization (CPAO)',
                 'Vice President for Academic Affairs (VPAA)',
                 'Physical Plant and Facilities Office (PPFO)',

@@ -141,33 +141,56 @@ function generateQRCode(containerId, secret, userId = 'User') {
                 <i class="bi bi-key-fill" style="color: #667eea; margin-right: 5px;"></i>
                 Can't scan the QR code?
             </div>
-            <div style="
-                background: white;
-                border-radius: 12px;
-                padding: 15px;
-                margin-bottom: 12px;
-                border: 1px dashed #94a3b8;
-            ">
-                <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 5px;">Secret Key:</div>
-                <code style="
-                    display: block;
-                    color: #1e293b;
-                    font-size: 16px;
-                    font-weight: 700;
-                    letter-spacing: 2px;
-                    word-break: break-all;
-                    font-family: 'SF Mono', 'Monaco', monospace;
-                ">${secret}</code>
-            </div>
-            <div style="color: #64748b; font-size: 0.8rem;">
-                <i class="bi bi-info-circle me-1"></i>
-                Account: <strong>${userId}</strong><br>
-                Issuer: <strong>Sign-um</strong>
-            </div>
-            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 0.75rem; color: #94a3b8;">
-                Open your authenticator app and tap "Enter setup key"
+            <button id="showSecretBtn" class="btn btn-outline-primary btn-sm" style="margin-bottom: 12px;">
+                <i class="bi bi-eye me-1"></i>Show Secret Key
+            </button>
+            <div id="secretContainer" style="display: none;">
+                <div style="
+                    background: white;
+                    border-radius: 12px;
+                    padding: 15px;
+                    margin-bottom: 12px;
+                    border: 1px dashed #94a3b8;
+                ">
+                    <div style="color: #64748b; font-size: 0.75rem; margin-bottom: 5px;">Secret Key:</div>
+                    <code style="
+                        display: block;
+                        color: #1e293b;
+                        background: #f8fafc;
+                        padding: 10px;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        font-weight: 700;
+                        letter-spacing: 2px;
+                        word-break: break-all;
+                        font-family: 'SF Mono', 'Monaco', monospace;
+                    ">${secret}</code>
+                </div>
+                <div style="color: #64748b; font-size: 0.8rem;">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Account: <strong>${userId}</strong><br>
+                    Issuer: <strong>Sign-um</strong>
+                </div>
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 0.75rem; color: #94a3b8;">
+                    Open your authenticator app and tap "Enter setup key"
+                </div>
             </div>
         `;
+        
+        // Add click handler to toggle secret visibility
+        backupDiv.addEventListener('click', function(e) {
+            if (e.target.id === 'showSecretBtn') {
+                const container = document.getElementById('secretContainer');
+                const btn = document.getElementById('showSecretBtn');
+                if (container.style.display === 'none') {
+                    container.style.display = 'block';
+                    btn.innerHTML = '<i class="bi bi-eye-slash me-1"></i>Hide Secret Key';
+                } else {
+                    container.style.display = 'none';
+                    btn.innerHTML = '<i class="bi bi-eye me-1"></i>Show Secret Key';
+                }
+            }
+        });
         
         wrapper.appendChild(backupDiv);
     }

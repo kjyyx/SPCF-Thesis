@@ -3214,7 +3214,11 @@ function handleDelete()
         return;
     }
 
-    // Delete document steps first
+    // Delete document signatures first
+    $stmt = $db->prepare("DELETE FROM document_signatures WHERE document_id = ?");
+    $stmt->execute([$id]);
+
+    // Delete document steps
     $stmt = $db->prepare("DELETE FROM document_steps WHERE document_id = ?");
     $stmt->execute([$id]);
 

@@ -23,17 +23,23 @@ require_once ROOT_PATH . 'includes/utilities.php';
 use PragmaRX\Google2FA\Google2FA;
 
 // Utility: map session role to table
-function _auth_table_by_role($role) {
+function _auth_table_by_role($role)
+{
     switch ($role) {
-        case 'admin': return 'administrators';
-        case 'employee': return 'employees';
-        case 'student': return 'students';
-        default: return null;
+        case 'admin':
+            return 'administrators';
+        case 'employee':
+            return 'employees';
+        case 'student':
+            return 'students';
+        default:
+            return null;
     }
 }
 
 // Helper function to check if 2FA is globally enabled
-function is2FAEnabledGlobally() {
+function is2FAEnabledGlobally()
+{
     try {
         $db = new Database();
         $conn = $db->getConnection();
@@ -48,7 +54,8 @@ function is2FAEnabledGlobally() {
 }
 
 // Audit log helper function
-function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO') {
+function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO')
+{
     try {
         $db = new Database();
         $conn = $db->getConnection();
@@ -164,7 +171,8 @@ if ($method === 'POST') {
                 $stmt = $db->prepare("SELECT email, phone, first_name, last_name FROM $table WHERE id = ?");
                 $stmt->execute([$userId]);
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($user) break;
+                if ($user)
+                    break;
             }
 
             if (!$user) {
@@ -181,34 +189,35 @@ if ($method === 'POST') {
             $_SESSION['forgot_password_user'] = $userId;
             $_SESSION['forgot_password_expires'] = time() + 300; // 5 minutes
 
-            // Send email using Gmail SMTP
-            require_once ROOT_PATH . 'vendor/autoload.php'; // Ensure PHPMailer is loaded
+            // Send email using Hostinger SMTP via .env credentials
+            require_once ROOT_PATH . 'vendor/autoload.php';
             $mail = new PHPMailer\PHPMailer\PHPMailer(true);
 
             try {
                 // Server settings
                 $mail->isSMTP();
-                $mail->Host = 'smtp.gmail.com';
+                $mail->Host = $_ENV['MAIL_HOST'];
                 $mail->SMTPAuth = true;
-                $mail->Username = 'signumsystem2025@gmail.com';
-                $mail->Password = 'kilm dprk lwou xhad';
+                $mail->Username = $_ENV['MAIL_USERNAME'];
+                $mail->Password = $_ENV['MAIL_PASSWORD'];
                 $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
-                $mail->Port = 465;
+                $mail->Port = $_ENV['MAIL_PORT'];
 
                 // Recipients
-                $mail->setFrom('signumsystem2025@gmail.com', 'Sign-um System');
-                $mail->addAddress($user['email'], $user['first_name'] . ' ' . $user['last_name']); // Assuming first_name/last_name are available; adjust if needed
+                $mail->setFrom($_ENV['MAIL_FROM_ADDRESS'], $_ENV['MAIL_FROM_NAME']);
+                $mail->addAddress($user['email'], $user['first_name'] . ' ' . $user['last_name']);
+                $mail->addReplyTo($_ENV['MAIL_FROM_ADDRESS'], 'Support'); // Helps with spam filters
 
                 // Content
                 $mail->isHTML(true);
                 $mail->Subject = 'Password Recovery - Sign-um System';
-                
+
                 // Professional HTML email template
                 $currentYear = date('Y');
-                
+
                 // Embed the header image
                 $mail->addEmbeddedImage(ROOT_PATH . 'assets/images/Email_background.jpg', 'header_image', 'Email_background.jpg', 'base64', 'image/jpeg');
-                
+
                 $mail->Body = "
                 <!DOCTYPE html>
                 <html lang='en'>
@@ -300,7 +309,7 @@ if ($method === 'POST') {
                 </body>
                 </html>
                 ";
-                
+
                 $mail->AltBody = "Password Recovery - Sign-um System\n\nHello {$user['first_name']} {$user['last_name']},\n\nWe received a request to reset your password. Your verification code is: $code\n\nThis code expires in 5 minutes. If you did not request this password reset, please ignore this email.\n\nFor security reasons, never share this code with anyone.\n\n© $currentYear Sign-um System. All rights reserved.\nSt. Paul College Foundation, Dumaguete City";
 
                 $mail->send();
@@ -308,9 +317,17 @@ if ($method === 'POST') {
 
                 // Mask email and phone for response (no demo code sent to client)
                 $emailParts = explode('@', $user['email']);
-                $maskedEmail = substr($emailParts[0], 0, 1) . str_repeat('*', strlen($emailParts[0]) - 1) . '@' . $emailParts[1];
-                $phone = $user['phone'];
-                $maskedPhone = substr($phone, 0, 4) . str_repeat('*', strlen($phone) - 7) . substr($phone, -3);
+                $username = $emailParts[0] ?? '';
+                $maskedUsername = strlen($username) > 1 ? substr($username, 0, 1) . str_repeat('*', max(0, strlen($username) - 1)) : $username;
+                $maskedEmail = $maskedUsername . '@' . ($emailParts[1] ?? '');
+
+                $phone = $user['phone'] ?? '';
+                $phoneLen = strlen($phone);
+                if ($phoneLen > 7) {
+                    $maskedPhone = substr($phone, 0, 4) . str_repeat('*', max(0, $phoneLen - 7)) . substr($phone, -3);
+                } else {
+                    $maskedPhone = $phone;
+                }
 
                 echo json_encode([
                     'success' => true,
@@ -325,219 +342,219 @@ if ($method === 'POST') {
             exit;
         }
 
-    if ($action === 'reset_password') {
-        // Demo reset password: Update password for the user
-        $userId = $data['userId'] ?? '';
-        $newPassword = $data['newPassword'] ?? '';
+        if ($action === 'reset_password') {
+            // Demo reset password: Update password for the user
+            $userId = $data['userId'] ?? '';
+            $newPassword = $data['newPassword'] ?? '';
 
-        if (!$userId || !$newPassword) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'User ID and new password required']);
+            if (!$userId || !$newPassword) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'User ID and new password required']);
+                exit;
+            }
+
+            // Enforce password policy
+            $pattern = '/^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/';
+            if (!preg_match($pattern, $newPassword)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Password does not meet complexity requirements.']);
+                exit;
+            }
+
+            // Check if user exists and update
+            $tables = ['students', 'employees', 'administrators'];
+            $updated = false;
+            $db = (new Database())->getConnection();
+
+            foreach ($tables as $table) {
+                $stmt = $db->prepare("UPDATE $table SET password = ?, must_change_password = 0 WHERE id = ?");
+                $hash = password_hash($newPassword, PASSWORD_BCRYPT);
+                $result = $stmt->execute([$hash, $userId]);
+                if ($result && $stmt->rowCount() > 0) {
+                    $updated = true;
+                    break;
+                }
+            }
+
+            if ($updated) {
+                // Clear session
+                unset($_SESSION['forgot_password_code']);
+                unset($_SESSION['forgot_password_user']);
+                echo json_encode(['success' => true, 'message' => 'Password updated successfully.']);
+            } else {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'User not found or update failed.']);
+            }
             exit;
         }
 
-        // Enforce password policy
-        $pattern = '/^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/';
-        if (!preg_match($pattern, $newPassword)) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Password does not meet complexity requirements.']);
-            exit;
-        }
+        // Add new endpoint for 2FA verification
+        if ($action === 'verify_2fa') {
+            $userId = $data['user_id'] ?? '';
+            $code = $data['code'] ?? '';
+            $db = (new Database())->getConnection();
 
-        // Check if user exists and update
-        $tables = ['students', 'employees', 'administrators'];
-        $updated = false;
-        $db = (new Database())->getConnection();
-
-        foreach ($tables as $table) {
-            $stmt = $db->prepare("UPDATE $table SET password = ?, must_change_password = 0 WHERE id = ?");
-            $hash = password_hash($newPassword, PASSWORD_BCRYPT);
-            $result = $stmt->execute([$hash, $userId]);
-            if ($result && $stmt->rowCount() > 0) {
-                $updated = true;
-                break;
+            if (!$userId || !$code) {
+                echo json_encode(['success' => false, 'message' => 'Missing user_id or code']);
+                exit();
             }
-        }
 
-        if ($updated) {
-            // Clear session
-            unset($_SESSION['forgot_password_code']);
-            unset($_SESSION['forgot_password_user']);
-            echo json_encode(['success' => true, 'message' => 'Password updated successfully.']);
-        } else {
-            http_response_code(404);
-            echo json_encode(['success' => false, 'message' => 'User not found or update failed.']);
-        }
-        exit;
-    }
-
-    // Add new endpoint for 2FA verification
-    if ($action === 'verify_2fa') {
-        $userId = $data['user_id'] ?? '';
-        $code = $data['code'] ?? '';
-        $db = (new Database())->getConnection();
-        
-        if (!$userId || !$code) {
-            echo json_encode(['success' => false, 'message' => 'Missing user_id or code']);
-            exit();
-        }
-        
-        // Fetch user and secret
-        $user = null;
-        $tables = ['administrators', 'employees', 'students'];
-        foreach ($tables as $table) {
-            $stmt = $db->prepare("SELECT * FROM $table WHERE id = ?");
-            $stmt->execute([$userId]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($user) {
-                // Add role based on table
-                if ($table === 'students') {
-                    $user['role'] = 'student';
-                } elseif ($table === 'employees') {
-                    $user['role'] = 'employee';
-                } elseif ($table === 'administrators') {
-                    $user['role'] = 'admin';
+            // Fetch user and secret
+            $user = null;
+            $tables = ['administrators', 'employees', 'students'];
+            foreach ($tables as $table) {
+                $stmt = $db->prepare("SELECT * FROM $table WHERE id = ?");
+                $stmt->execute([$userId]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($user) {
+                    // Add role based on table
+                    if ($table === 'students') {
+                        $user['role'] = 'student';
+                    } elseif ($table === 'employees') {
+                        $user['role'] = 'employee';
+                    } elseif ($table === 'administrators') {
+                        $user['role'] = 'admin';
+                    }
+                    break;
                 }
-                break;
             }
-        }
-        
-        if (!$user || empty($user['2fa_secret'])) {
-            echo json_encode(['success' => false, 'message' => 'Invalid user or 2FA not enabled']);
-            exit();
-        }
-        
-        $google2fa = new Google2FA();
-        if ($google2fa->verifyKey($user['2fa_secret'], $code)) {
-            // Reset attempts on success
-            $stmt = $db->prepare("DELETE FROM login_attempts WHERE user_id = ?");
-            $stmt->execute([$userId]);
-            
-            loginUser($user);
-            addAuditLog('LOGIN_2FA', 'Authentication', "User {$user['first_name']} {$user['last_name']} completed 2FA login", $user['id'], 'User', 'INFO');
-            echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . '?page=dashboard' : BASE_URL . '?page=calendar')]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Invalid 2FA code']);
-        }
-        exit();
-    }
 
-    // Add 2FA setup endpoint
-    if ($action === 'setup_2fa') {
-        $userId = $data['user_id'] ?? '';
-        $code = $data['code'] ?? '';
-        $db = (new Database())->getConnection();
-        
-        if (!$userId || !$code) {
-            echo json_encode(['success' => false, 'message' => 'Missing user_id or code']);
+            if (!$user || empty($user['2fa_secret'])) {
+                echo json_encode(['success' => false, 'message' => 'Invalid user or 2FA not enabled']);
+                exit();
+            }
+
+            $google2fa = new Google2FA();
+            if ($google2fa->verifyKey($user['2fa_secret'], $code)) {
+                // Reset attempts on success
+                $stmt = $db->prepare("DELETE FROM login_attempts WHERE user_id = ?");
+                $stmt->execute([$userId]);
+
+                loginUser($user);
+                addAuditLog('LOGIN_2FA', 'Authentication', "User {$user['first_name']} {$user['last_name']} completed 2FA login", $user['id'], 'User', 'INFO');
+                echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . '?page=dashboard' : BASE_URL . '?page=calendar')]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Invalid 2FA code']);
+            }
             exit();
         }
-        
-        // Fetch user
-        $user = null;
-        $tables = ['students', 'employees', 'administrators'];
-        foreach ($tables as $table) {
-            $stmt = $db->prepare("SELECT * FROM $table WHERE id = ?");
-            $stmt->execute([$userId]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($user) {
-                // Add role based on table
-                if ($table === 'students') {
-                    $user['role'] = 'student';
-                } elseif ($table === 'employees') {
-                    $user['role'] = 'employee';
-                } elseif ($table === 'administrators') {
-                    $user['role'] = 'admin';
+
+        // Add 2FA setup endpoint
+        if ($action === 'setup_2fa') {
+            $userId = $data['user_id'] ?? '';
+            $code = $data['code'] ?? '';
+            $db = (new Database())->getConnection();
+
+            if (!$userId || !$code) {
+                echo json_encode(['success' => false, 'message' => 'Missing user_id or code']);
+                exit();
+            }
+
+            // Fetch user
+            $user = null;
+            $tables = ['students', 'employees', 'administrators'];
+            foreach ($tables as $table) {
+                $stmt = $db->prepare("SELECT * FROM $table WHERE id = ?");
+                $stmt->execute([$userId]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($user) {
+                    // Add role based on table
+                    if ($table === 'students') {
+                        $user['role'] = 'student';
+                    } elseif ($table === 'employees') {
+                        $user['role'] = 'employee';
+                    } elseif ($table === 'administrators') {
+                        $user['role'] = 'admin';
+                    }
+                    break;
                 }
-                break;
             }
-        }
-        
-        if (!$user || empty($user['2fa_secret'])) {
-            echo json_encode(['success' => false, 'message' => 'Invalid user or 2FA not configured']);
-            exit();
-        }
-        
-        $google2fa = new Google2FA();
-        if ($google2fa->verifyKey($user['2fa_secret'], $code)) {
-            // Mark as enabled
-            $stmt = $db->prepare("UPDATE $table SET 2fa_enabled = 1 WHERE id = ?");
-            $stmt->execute([$userId]);
-            loginUser($user);
-            addAuditLog('2FA_SETUP', 'Authentication', "User {$user['first_name']} {$user['last_name']} set up 2FA", $user['id'], 'User', 'INFO');
-            echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . '?page=dashboard' : BASE_URL . '?page=calendar')]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Invalid 2FA code']);
-        }
-        exit();
-    }
 
-    // Add new endpoint for forgot password verification
-    if ($action === 'verify_forgot_password') {
-        $code = $data['code'] ?? '';
-        if (!$code) {
-            echo json_encode(['success' => false, 'message' => 'Code required']);
+            if (!$user || empty($user['2fa_secret'])) {
+                echo json_encode(['success' => false, 'message' => 'Invalid user or 2FA not configured']);
+                exit();
+            }
+
+            $google2fa = new Google2FA();
+            if ($google2fa->verifyKey($user['2fa_secret'], $code)) {
+                // Mark as enabled
+                $stmt = $db->prepare("UPDATE $table SET 2fa_enabled = 1 WHERE id = ?");
+                $stmt->execute([$userId]);
+                loginUser($user);
+                addAuditLog('2FA_SETUP', 'Authentication', "User {$user['first_name']} {$user['last_name']} set up 2FA", $user['id'], 'User', 'INFO');
+                echo json_encode(['success' => true, 'redirect' => ($user['role'] === 'admin' ? BASE_URL . '?page=dashboard' : BASE_URL . '?page=calendar')]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Invalid 2FA code']);
+            }
             exit();
         }
 
-        // Check session data
-        if (!isset($_SESSION['forgot_password_code']) || !isset($_SESSION['forgot_password_expires']) || !isset($_SESSION['forgot_password_user'])) {
-            echo json_encode(['success' => false, 'message' => 'No active password reset session']);
-            exit();
-        }
+        // Add new endpoint for forgot password verification
+        if ($action === 'verify_forgot_password') {
+            $code = $data['code'] ?? '';
+            if (!$code) {
+                echo json_encode(['success' => false, 'message' => 'Code required']);
+                exit();
+            }
 
-        // Check expiration
-        if (time() > $_SESSION['forgot_password_expires']) {
+            // Check session data
+            if (!isset($_SESSION['forgot_password_code']) || !isset($_SESSION['forgot_password_expires']) || !isset($_SESSION['forgot_password_user'])) {
+                echo json_encode(['success' => false, 'message' => 'No active password reset session']);
+                exit();
+            }
+
+            // Check expiration
+            if (time() > $_SESSION['forgot_password_expires']) {
+                unset($_SESSION['forgot_password_code'], $_SESSION['forgot_password_user'], $_SESSION['forgot_password_expires']);
+                echo json_encode(['success' => false, 'message' => 'Code expired']);
+                exit();
+            }
+
+            // Verify code
+            if (!password_verify($code, $_SESSION['forgot_password_code'])) {
+                echo json_encode(['success' => false, 'message' => 'Invalid code']);
+                exit();
+            }
+
+            // Success - clear session and allow password reset
             unset($_SESSION['forgot_password_code'], $_SESSION['forgot_password_user'], $_SESSION['forgot_password_expires']);
-            echo json_encode(['success' => false, 'message' => 'Code expired']);
+            echo json_encode(['success' => true, 'message' => 'Code verified for password reset']);
             exit();
         }
 
-        // Verify code
-        if (!password_verify($code, $_SESSION['forgot_password_code'])) {
-            echo json_encode(['success' => false, 'message' => 'Invalid code']);
-            exit();
+        /**
+         * User Login Endpoint
+         * ===================
+         * Authenticates users based on role (admin/employee/student).
+         * Creates session upon successful authentication.
+         * Returns user data for frontend use.
+         */
+
+        $userId = $data['userId'] ?? '';
+        $password = $data['password'] ?? '';
+        $loginType = $data['loginType'] ?? '';
+
+        // Check for brute force cooldown
+        $db = (new Database())->getConnection();
+        $stmt = $db->prepare("SELECT attempts, locked_until FROM login_attempts WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        $attemptData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $now = new DateTime();
+        if ($attemptData && $attemptData['locked_until'] && new DateTime($attemptData['locked_until']) > $now) {
+            $remaining = $now->diff(new DateTime($attemptData['locked_until']));
+            $minutes = $remaining->i;
+            $seconds = $remaining->s;
+            echo json_encode(['success' => false, 'message' => "Too many failed attempts. Try again in {$minutes}m {$seconds}s.", 'cooldown' => true]);
+            exit;
         }
 
-        // Success - clear session and allow password reset
-        unset($_SESSION['forgot_password_code'], $_SESSION['forgot_password_user'], $_SESSION['forgot_password_expires']);
-        echo json_encode(['success' => true, 'message' => 'Code verified for password reset']);
-        exit();
-    }
+        $auth = new Auth();
+        $user = $auth->login($userId, $password, $loginType);
 
-    /**
-     * User Login Endpoint
-     * ===================
-     * Authenticates users based on role (admin/employee/student).
-     * Creates session upon successful authentication.
-     * Returns user data for frontend use.
-     */
+        if ($user) {
+            $global2FAEnabled = is2FAEnabledGlobally();
 
-    $userId = $data['userId'] ?? '';
-    $password = $data['password'] ?? '';
-    $loginType = $data['loginType'] ?? '';
-
-    // Check for brute force cooldown
-    $db = (new Database())->getConnection();
-    $stmt = $db->prepare("SELECT attempts, locked_until FROM login_attempts WHERE user_id = ?");
-    $stmt->execute([$userId]);
-    $attemptData = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    $now = new DateTime();
-    if ($attemptData && $attemptData['locked_until'] && new DateTime($attemptData['locked_until']) > $now) {
-        $remaining = $now->diff(new DateTime($attemptData['locked_until']));
-        $minutes = $remaining->i;
-        $seconds = $remaining->s;
-        echo json_encode(['success' => false, 'message' => "Too many failed attempts. Try again in {$minutes}m {$seconds}s.", 'cooldown' => true]);
-        exit;
-    }
-
-    $auth = new Auth();
-    $user = $auth->login($userId, $password, $loginType);
-
-    if ($user) {
-        $global2FAEnabled = is2FAEnabledGlobally();
-            
             // Check if user has 2FA secret
             if (!empty($user['2fa_secret'])) {
                 if ($user['2fa_enabled'] == 1 && $global2FAEnabled) {

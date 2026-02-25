@@ -233,18 +233,19 @@ $currentPage = 'upload-publication';
                 <label for="profileFirstName" class="form-label text-muted small fw-bold text-uppercase">First
                   Name</label>
                 <input type="text" class="form-control bg-light border-0 rounded-3 p-2 px-3" id="profileFirstName"
-                  required>
+                  required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>>
               </div>
               <div class="col-md-6 form-group mb-0">
                 <label for="profileLastName" class="form-label text-muted small fw-bold text-uppercase">Last
                   Name</label>
                 <input type="text" class="form-control bg-light border-0 rounded-3 p-2 px-3" id="profileLastName"
-                  required>
+                  required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>>
               </div>
             </div>
             <div class="form-group mb-0">
               <label for="profileEmail" class="form-label text-muted small fw-bold text-uppercase">Email Address</label>
-              <input type="email" class="form-control bg-light border-0 rounded-3 p-2 px-3" id="profileEmail" required>
+              <input type="email" class="form-control bg-light border-0 rounded-3 p-2 px-3" id="profileEmail" pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
+              <div class="invalid-feedback">Please enter a valid email address.</div>
             </div>
           </div>
           <div class="modal-footer border-top p-3 px-4">

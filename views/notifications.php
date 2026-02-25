@@ -752,20 +752,22 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="profileFirstName" class="form-label">First Name</label>
-                                <input type="text" class="form-control" id="profileFirstName" required>
+                                <input type="text" class="form-control" id="profileFirstName" required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="profileLastName" class="form-label">Last Name</label>
-                                <input type="text" class="form-control" id="profileLastName" required>
+                                <input type="text" class="form-control" id="profileLastName" required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>>
                             </div>
                         </div>
                         <div class="mb-3">
                             <label for="profileEmail" class="form-label">Email Address</label>
-                            <input type="email" class="form-control" id="profileEmail" required>
+                            <input type="email" class="form-control" id="profileEmail" pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
+                            <div class="invalid-feedback">Please enter a valid email address.</div>
                         </div>
                         <div class="mb-3">
                             <label for="profilePhone" class="form-label">Phone Number</label>
-                            <input type="tel" class="form-control" id="profilePhone">
+                            <input type="tel" class="form-control" id="profilePhone" pattern="^(09|\+639)\d{9}$">
+                            <div class="invalid-feedback">Please enter a valid Philippine phone number (e.g., 09123456789 or +639123456789).</div>
                         </div>
                         <div class="mb-3">
                             <div class="form-check form-switch">

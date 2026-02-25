@@ -202,6 +202,48 @@ function isValidPHPhone(phone) {
 }
 
 /**
+ * Real-time email validation with Bootstrap classes
+ * @param {HTMLInputElement} input - Email input element
+ */
+function validateUserEmail(input) {
+    const isValid = isValidEmail(input.value.trim());
+    input.classList.toggle('is-valid', isValid && input.value.trim());
+    input.classList.toggle('is-invalid', !isValid && input.value.trim());
+}
+
+/**
+ * Real-time phone validation with Bootstrap classes
+ * @param {HTMLInputElement} input - Phone input element
+ */
+function validateUserPhone(input) {
+    const isValid = isValidPHPhone(input.value.trim());
+    input.classList.toggle('is-valid', isValid && input.value.trim());
+    input.classList.toggle('is-invalid', !isValid && input.value.trim());
+}
+
+/**
+ * Prevent invalid characters in email input
+ * @param {KeyboardEvent} event - Keypress event
+ */
+function preventInvalidUserEmailKeypress(event) {
+    const allowedChars = /[a-zA-Z0-9._%+-@]/;
+    if (!allowedChars.test(event.key) && !['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        event.preventDefault();
+    }
+}
+
+/**
+ * Prevent invalid characters in phone input
+ * @param {KeyboardEvent} event - Keypress event
+ */
+function preventInvalidUserPhoneKeypress(event) {
+    const allowedChars = /[0-9+]/;
+    if (!allowedChars.test(event.key) && !['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        event.preventDefault();
+    }
+}
+
+/**
  * Display a success message in the user form
  * @param {string} message - Success message to display
  */
@@ -673,6 +715,29 @@ function resetUserForm() {
     if (passwordSection) passwordSection.style.display = 'block';
     if (addUserNotice) addUserNotice.style.display = 'block';
     if (editUserNotice) editUserNotice.style.display = 'none';
+
+    // Attach validation listeners
+    attachUserFormValidation();
+}
+
+/**
+ * Attach real-time validation to user form inputs
+ */
+function attachUserFormValidation() {
+    const emailInput = document.getElementById('userEmail');
+    const phoneInput = document.getElementById('userPhone');
+
+    if (emailInput && !emailInput.dataset.validationAttached) {
+        emailInput.addEventListener('input', () => validateUserEmail(emailInput));
+        emailInput.addEventListener('keypress', preventInvalidUserEmailKeypress);
+        emailInput.dataset.validationAttached = 'true';
+    }
+
+    if (phoneInput && !phoneInput.dataset.validationAttached) {
+        phoneInput.addEventListener('input', () => validateUserPhone(phoneInput));
+        phoneInput.addEventListener('keypress', preventInvalidUserPhoneKeypress);
+        phoneInput.dataset.validationAttached = 'true';
+    }
 }
 
 /** Handle role button selection in the modal. */

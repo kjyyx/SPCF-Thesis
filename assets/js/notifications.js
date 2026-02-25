@@ -1159,7 +1159,40 @@ class DocumentNotificationSystem {
             const d = new Date(explicit);
             return isNaN(d.getTime()) ? null : d;
         }
-        // Fallback: derive from uploaded_at and status
+
+        // Use document-specific dates based on type
+        const data = doc.data || {};
+        let dueDateStr = null;
+
+        switch (doc.doc_type || doc.type) {
+            case 'proposal':
+                // Use earliest schedule date for proposals
+                if (data.schedule && Array.isArray(data.schedule) && data.schedule.length > 0) {
+                    // Find the earliest date
+                    const dates = data.schedule.map(s => s.date).filter(d => d).sort();
+                    dueDateStr = dates[0];
+                }
+                break;
+            case 'saf':
+                // Use implementation date for SAF
+                dueDateStr = data.implDate;
+                break;
+            case 'facility':
+                // Use event date for facility requests
+                dueDateStr = data.eventDate;
+                break;
+            case 'communication':
+                // Use document date for communication letters
+                dueDateStr = data.date;
+                break;
+        }
+
+        if (dueDateStr) {
+            const d = new Date(dueDateStr);
+            return isNaN(d.getTime()) ? null : d;
+        }
+
+        // Fallback: derive from uploaded_at and status (legacy)
         const uploaded = doc.uploaded_at ? new Date(doc.uploaded_at) : null;
         if (!uploaded || isNaN(uploaded.getTime())) return null;
         const base = new Date(uploaded.getTime());

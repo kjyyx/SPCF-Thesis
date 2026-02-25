@@ -65,52 +65,76 @@
 }
 
 /* Notification Items */
+/* Row-style notification items */
 .notification-item {
-    border: none;
-    border-radius: 12px;
-    padding: 1rem 1.25rem;
-    margin-bottom: 0.5rem;
-    background: #ffffff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid #e2e8f0;
     cursor: pointer;
+    transition: background 0.2s ease;
     border-left: 4px solid transparent;
 }
 
 .notification-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
     background: #f8fafc;
 }
 
 .notification-item.notification-unread {
     border-left-color: #3b82f6;
-    background: linear-gradient(to right, #f0f9ff, #ffffff);
+    background: rgba(59, 130, 246, 0.02);
 }
 
-.notification-item.notification-read {
-    opacity: 0.8;
+.notification-item.notification-unread:hover {
+    background: rgba(59, 130, 246, 0.05);
 }
 
-.notification-item h6 {
-    font-size: 0.95rem;
+.notification-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 1.1rem;
+}
+
+.notification-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.notification-title {
+    font-size: 0.9rem;
     font-weight: 600;
-    color: #1e293b;
     margin-bottom: 0.25rem;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.notification-message {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+    line-height: 1.4;
+}
+
+.notification-time {
+    font-size: 0.75rem;
+    color: #94a3b8;
     display: flex;
     align-items: center;
 }
 
-.notification-item p {
-    color: #475569;
-    font-size: 0.875rem;
-    margin-bottom: 0.5rem;
-    line-height: 1.4;
-}
-
-.notification-item small {
-    color: #64748b;
-    font-size: 0.75rem;
+.notification-actions {
+    flex-shrink: 0;
+    position: relative;
 }
 
 /* Mark as read button */

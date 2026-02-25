@@ -345,16 +345,22 @@
             }
             
             return `
-                <div class="list-group-item notification-item ${readClass}" 
+                <div class="notification-item ${readClass}" 
                      data-notification-id="${n.id}"
                      data-notification-type="${n.type}"
                      data-reference-type="${n.reference_type || ''}"
                      style="animation: slideInUp 0.3s ease ${index * 0.05}s both">
-                    <div class="d-flex w-100 justify-content-between align-items-start">
-                        <h6 class="mb-1">
-                            <i class="bi ${icon} me-2"></i>
-                            ${escapeHtml(n.title)}
-                        </h6>
+                    <div class="notification-icon">
+                        <i class="bi ${icon}"></i>
+                    </div>
+                    <div class="notification-content">
+                        <h6 class="notification-title">${escapeHtml(n.title)}</h6>
+                        <p class="notification-message">${escapeHtml(n.message)}</p>
+                        <small class="notification-time" title="${formatFullDate(date)}">
+                            <i class="bi bi-clock me-1"></i>${timeStr}
+                        </small>
+                    </div>
+                    <div class="notification-actions">
                         <div class="dropdown">
                             <button class="btn btn-link btn-sm p-0" type="button" data-bs-toggle="dropdown">
                                 <i class="bi bi-three-dots-vertical"></i>
@@ -372,12 +378,6 @@
                                 </li>
                             </ul>
                         </div>
-                    </div>
-                    <p class="mb-2">${escapeHtml(n.message)}</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted timestamp" title="${formatFullDate(date)}">
-                            <i class="bi bi-clock me-1"></i>${timeStr}
-                        </small>
                     </div>
                 </div>
             `;

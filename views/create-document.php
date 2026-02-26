@@ -161,6 +161,10 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
 
               <div class="row g-3 mb-4">
                 <div class="col-md-12 form-group mb-0">
+                  <label class="form-label text-muted text-xs uppercase"><i class="bi bi-hand-thumbs-up me-1"></i> Support</label>
+                  <input id="prop-support" class="form-control sm" placeholder="Enter support details (optional)">
+                </div>
+                <div class="col-md-12 form-group mb-0">
                   <label class="form-label text-muted text-xs uppercase"><i class="bi bi-flag me-1"></i> Project Title
                     <span class="text-danger">*</span></label>
                   <input id="prop-title" class="form-control sm" placeholder="Enter project title">
@@ -225,8 +229,9 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                 <div id="schedule-summary-rows">
                   <div class="schedule-summary-row mb-2">
                     <div class="row g-3 align-items-center">
-                      <div class="col-md-5"><input type="date" class="form-control sm schedule-date" required></div>
-                      <div class="col-md-5"><input type="time" class="form-control sm schedule-time" required></div>
+                      <div class="col-md-4"><input type="date" class="form-control sm schedule-date" required></div>
+                      <div class="col-md-3"><input type="time" class="form-control sm schedule-time" required></div>
+                      <div class="col-md-3"><input type="time" class="form-control sm schedule-end-time"></div>
                       <div class="col-md-2"><button class="btn btn-danger btn-icon sm" onclick="removeScheduleRow(this)"><i class="bi bi-x-lg"></i></button></div>
                     </div>
                   </div>
@@ -247,13 +252,11 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                   </button>
                 </div>
                 <div id="program-rows-prop">
-                  <div class="program-row mb-2">
-                    <div><input type="time" class="form-control sm start-time" value=""></div>
-                    <div><input type="time" class="form-control sm end-time" value=""></div>
-                    <div><input type="text" class="activity-input form-control sm" placeholder="Activity description">
-                    </div>
-                    <div><button class="btn btn-danger btn-icon sm" onclick="removeProgramRow(this)"><i
-                          class="bi bi-x-lg"></i></button></div>
+                  <div class="program-row mb-2" style="display: flex; gap: 10px; align-items: center;">
+                    <div><input type="time" class="form-control form-control-sm start-time" value=""></div>
+                    <div><input type="time" class="form-control form-control-sm end-time" value=""></div>
+                    <div style="flex: 1;"><input type="text" class="activity-input form-control form-control-sm" placeholder="Activity description"></div>
+                    <div><button class="btn btn-danger btn-sm" onclick="removeProgramRow(this)"><i class="bi bi-x-lg"></i></button></div>
                   </div>
                 </div>
               </div>

@@ -24,6 +24,73 @@ require_once ROOT_PATH . 'includes/auth.php';
 require_once ROOT_PATH . 'includes/database.php';
 require_once ROOT_PATH . 'vendor/autoload.php';
 
+// Email notification cache to prevent spam and reduce lag
+$emailNotificationCache = [];
+
+// Function to send email asynchronously
+function sendEmailAsync($function, $params) {
+    $script = ROOT_PATH . 'includes/send_email_async.php';
+    $cmd = "php \"$script\" \"$function\" \"" . addslashes(json_encode($params)) . "\" > /dev/null 2>&1";
+    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+        $cmd .= " &"; // Windows background process
+    } else {
+        $cmd .= " &"; // Unix background process
+    }
+    exec($cmd);
+}
+
+/**
+ * Universal Email Trigger Helper
+ * Centralizes DB lookups and caching for workflow emails to prevent code duplication.
+ */
+function triggerWorkflowEmail($emailType, $documentId, $userId, $userType = 'student', $extraParams = []) {
+    global $db, $emailNotificationCache;
+
+    // 1. Unified Cache/Cooldown Check
+    $cacheKey = "{$emailType}_{$documentId}_{$userId}";
+    $cooldown = ($emailType === 'approved' || $emailType === 'rejected') ? 3600 : 300; // 1hr for final status, 5m for workflow
+
+    if (isset($emailNotificationCache[$cacheKey]) && (time() - $emailNotificationCache[$cacheKey]) <= $cooldown) {
+        return false; // Skip, in cooldown to prevent spam
+    }
+
+    // 2. Fetch target user email and name in one clean query
+    $table = ($userType === 'employee') ? 'employees' : 'students';
+    $stmt = $db->prepare("SELECT email, CONCAT(first_name, ' ', last_name) as name FROM {$table} WHERE id = ? AND email IS NOT NULL AND email != ''");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$user) return false;
+
+    // 3. Ensure we have the Document Title
+    $docTitle = $extraParams['documentTitle'] ?? '';
+    if (empty($docTitle)) {
+        $docStmt = $db->prepare("SELECT title FROM documents WHERE id = ?");
+        $docStmt->execute([$documentId]);
+        $docTitle = $docStmt->fetchColumn() ?: 'Document';
+    }
+
+    // Update Cache
+    $emailNotificationCache[$cacheKey] = time();
+
+    // 4. Route to the correct Mailer script
+    switch ($emailType) {
+        case 'assigned':
+            sendEmailAsync('sendDocumentAssignedEmail', [$user['email'], $user['name'], $docTitle]);
+            break;
+        case 'approved':
+            sendEmailAsync('sendDocumentApprovedEmail', [$user['email'], $user['name'], $docTitle]);
+            break;
+        case 'rejected':
+            sendEmailAsync('sendDocumentRejectedEmail', [$user['email'], $user['name'], $docTitle, $extraParams['reason'] ?? 'Revisions needed']);
+            break;
+        case 'progress':
+            sendEmailAsync('sendDocumentProgressEmail', [$user['email'], $user['name'], $docTitle, $extraParams['currentStep'] ?? '', $extraParams['nextStep'] ?? '']);
+            break;
+    }
+    return true;
+}
+
 // TEMPORARY DEBUGGING - Add at the very top
 // error_log("=== DOCUMENTS.PHP REQUEST START ===");
 // error_log("REQUEST_METHOD: " . $_SERVER['REQUEST_METHOD']);
@@ -359,7 +426,7 @@ function convertDocxToPdf($docxPath)
 
 // Document timeout configuration
 if (!defined('DOC_TIMEOUT_DAYS')) {
-    define('DOC_TIMEOUT_DAYS', 5); // Auto-timeout threshold in days
+    define('DOC_TIMEOUT_DAYS', 10); // Auto-timeout threshold in days (increased from 5 to 10)
 }
 if (!defined('DOC_TIMEOUT_MODE')) {
     // 'reject' or 'delete' (soft-delete by setting documents.status = 'deleted')
@@ -375,7 +442,7 @@ function enforceTimeouts()
         // Identify stale documents
         $sel = $db->prepare("
             SELECT id FROM documents
-            WHERE status IN ('submitted', 'in_review')
+            WHERE status IN ('draft', 'reviewing')
               AND DATEDIFF(NOW(), uploaded_at) >= ?
         ");
         $sel->execute([DOC_TIMEOUT_DAYS]);
@@ -408,6 +475,58 @@ function enforceTimeouts()
         }
     } catch (Exception $e) {
         error_log("Error in enforceTimeouts: " . $e->getMessage());
+    }
+}
+
+// Document reminder system
+function sendDocumentReminders()
+{
+    global $db;
+
+    try {
+        // Send reminders for documents approaching timeout
+        // Reminder intervals: 7 days and 3 days before timeout
+
+        $reminderIntervals = [7, 3]; // Days before timeout to send reminders
+
+        foreach ($reminderIntervals as $daysBefore) {
+            $targetDays = DOC_TIMEOUT_DAYS - $daysBefore;
+
+            // Find documents that are exactly at the reminder threshold
+            $sel = $db->prepare("
+                SELECT d.id, d.title, d.uploaded_at,
+                       GROUP_CONCAT(DISTINCT CONCAT(e.first_name, ' ', e.last_name, '|', e.email) SEPARATOR ';;') as assignees
+                FROM documents d
+                JOIN document_steps ds ON d.id = ds.document_id
+                JOIN employees e ON ds.assigned_to_employee_id = e.id
+                WHERE d.status IN ('draft', 'reviewing')
+                  AND ds.status = 'pending'
+                  AND DATEDIFF(NOW(), d.uploaded_at) = ?
+                GROUP BY d.id, d.title, d.uploaded_at
+                HAVING assignees IS NOT NULL
+            ");
+            $sel->execute([$targetDays]);
+            $docsNeedingReminder = $sel->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($docsNeedingReminder as $doc) {
+                $assignees = explode(';;', $doc['assignees']);
+
+                foreach ($assignees as $assignee) {
+                    list($name, $email) = explode('|', $assignee);
+
+                    if ($email && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                        sendEmailAsync('sendDocumentReminderEmail', [
+                            $email,
+                            $name,
+                            $doc['title'],
+                            $daysBefore
+                        ]);
+                    }
+                }
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Error in sendDocumentReminders: " . $e->getMessage());
     }
 }
 
@@ -461,6 +580,7 @@ function handleGet()
     try {
         // Enforce timeouts on stale documents before responding
         enforceTimeouts();
+        sendDocumentReminders();
 
         // Return approved documents as calendar events for the frontend
         if (isset($_GET['action']) && $_GET['action'] === 'approved_events') {
@@ -1493,6 +1613,7 @@ function handlePost()
         try {
             // Enforce timeouts on stale documents before processing actions
             enforceTimeouts();
+            sendDocumentReminders();
             switch ($action) {
                 case 'sign':
                     signDocument($_POST, $_FILES);
@@ -1529,6 +1650,7 @@ function handlePost()
     try {
         // Enforce timeouts on stale documents before processing actions
         enforceTimeouts();
+        sendDocumentReminders();
         switch ($action) {
             case 'sign':
                 signDocument($input);
@@ -2269,7 +2391,7 @@ function createDocument($input)
                 'College Student Council Adviser',
                 'College Dean',
                 'Supreme Student Council President',
-                'Officer-In-Charge, Office of Student Affairs (OIC-OSA)',
+                'Officer-in-Charge, Office of Student Affairs (OIC-OSA)',
                 'Center for Performing Arts Organization (CPAO)',
                 'Vice President for Academic Affairs (VPAA)',
                 'Physical Plant and Facilities Office (PPFO)',
@@ -2300,6 +2422,8 @@ function createDocument($input)
                         $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, ?)");
                         if ($assignee['table'] === 'employees') {
                             $stmt->execute([$docId, $stepOrder, $stepName, $assignee['id'], null, 'pending']);
+                            // Send assignment email to employee asynchronously
+                            triggerWorkflowEmail('assigned', $docId, $assignee['id'], 'employee', ['documentTitle' => $data['title'] ?? 'Document']);
                         } else {
                             $stmt->execute([$docId, $stepOrder, $stepName, null, $assignee['id'], 'pending']);
                         }
@@ -2362,6 +2486,18 @@ function createDocument($input)
             $approvalEndPosition = null;
         }
 
+        // Special hierarchy exception for SSC President: skip CSC Adviser and College Dean for non-communication documents
+        if ($currentUser['position'] === 'Supreme Student Council President' && $docType !== 'communication') {
+            if ($docType === 'proposal') {
+                // Remove CSC Adviser and College Dean (first two positions)
+                array_shift($workflowPositions);
+                array_shift($workflowPositions);
+            } elseif ($docType === 'saf' || $docType === 'facility') {
+                // Remove College Dean (first position)
+                array_shift($workflowPositions);
+            }
+        }
+
         if ($docType !== 'communication') {
             // Add workflow steps, marking those after EVP as documentation only
             $approvalReached = false;
@@ -2392,6 +2528,8 @@ function createDocument($input)
                     $stmt = $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, ?)");
                     if ($table === 'employees') {
                         $stmt->execute([$docId, $stepOrder, $stepName, $assignee['id'], null, $initialStatus]);
+                        // Send assignment email to employee asynchronously
+                        triggerWorkflowEmail('assigned', $docId, $assignee['id'], 'employee', ['documentTitle' => $data['title'] ?? 'Document']);
                     } else {
                         $stmt->execute([$docId, $stepOrder, $stepName, null, $assignee['id'], $initialStatus]);
                     }
@@ -2773,6 +2911,28 @@ function signDocument($input, $files = null)
                     WHERE document_id = ? AND step_order = ? AND status = 'skipped'
                 ");
                 $activateNextStmt->execute([$documentId, $nextStepOrder]);
+
+                // Send progress email to student (intermediate approval)
+                $currentStepInfo = $db->prepare("SELECT name FROM document_steps WHERE id = ?");
+                $currentStepInfo->execute([$stepId]);
+                $currentStepInfo = $currentStepInfo->fetch(PDO::FETCH_ASSOC);
+                
+                $nextStepInfo = $db->prepare("SELECT name FROM document_steps WHERE document_id = ? AND step_order = ?");
+                $nextStepInfo->execute([$documentId, $nextStepOrder]);
+                $nextStepInfo = $nextStepInfo->fetch(PDO::FETCH_ASSOC);
+                
+                if ($currentStepInfo && $nextStepInfo) {
+                    // Get the document's creator ID
+                    $studentIdStmt = $db->prepare("SELECT student_id FROM documents WHERE id = ?");
+                    $studentIdStmt->execute([$documentId]);
+                    $docOwnerId = $studentIdStmt->fetchColumn();
+
+                    triggerWorkflowEmail('progress', $documentId, $docOwnerId, 'student', [
+                        'documentTitle' => $doc['title'] ?? 'Document',
+                        'currentStep' => $currentStepInfo['name'],
+                        'nextStep' => $nextStepInfo['name']
+                    ]);
+                }
             }
 
             // Update dates for SAF documents
@@ -2850,6 +3010,11 @@ function signDocument($input, $files = null)
                     WHERE id = ?
                 ");
                 $stmt->execute([$documentId]);
+
+                // Send approval email to student asynchronously
+                triggerWorkflowEmail('approved', $documentId, $doc['student_id'] ?? $currentUser['id'], 'student', [
+                    'documentTitle' => $doc['title'] ?? 'Document'
+                ]);
 
                 // Set releaseDate for SAF documents
                 $docStmt = $db->prepare("SELECT doc_type, data FROM documents WHERE id = ?");
@@ -3174,6 +3339,12 @@ function signDocument($input, $files = null)
             // Update document status to rejected
             $stmt = $db->prepare("UPDATE documents SET status = 'rejected', updated_at = NOW() WHERE id = ?");
             $stmt->execute([$documentId]);
+
+            // Send rejection email to student asynchronously
+            triggerWorkflowEmail('rejected', $documentId, $doc['student_id'] ?? $currentUser['id'], 'student', [
+                'documentTitle' => $doc['title'] ?? 'Document',
+                'reason' => $reason
+            ]);
 
             // Archive the file for rejected documents to optimize storage
             $docStmt = $db->prepare("SELECT file_path FROM documents WHERE id = ?");

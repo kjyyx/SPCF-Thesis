@@ -238,11 +238,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                     <span>Date (Oldest First)</span>
                                     <i class="bi bi-check-circle-fill sort-check"></i>
                                 </button>
-                                <button class="sort-option" data-sort="due_desc">
-                                    <i class="bi bi-clock-history"></i>
-                                    <span>Due Date (Soonest)</span>
-                                    <i class="bi bi-check-circle-fill sort-check"></i>
-                                </button>
                                 <button class="sort-option" data-sort="due_asc">
                                     <i class="bi bi-clock-history"></i>
                                     <span>Due Date (Latest)</span>

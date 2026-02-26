@@ -916,20 +916,6 @@ class DocumentNotificationSystem {
                         result = (a.title || '').localeCompare(b.title || '');
                     }
                     break;
-                case 'due_desc':
-                    // Due date - soonest first (earliest dates first)
-                    const dueA = (a.date ? new Date(a.date).getTime() :
-                        a.earliest_start_time ? new Date(a.earliest_start_time).getTime() :
-                            a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0);
-                    const dueB = (b.date ? new Date(b.date).getTime() :
-                        b.earliest_start_time ? new Date(b.earliest_start_time).getTime() :
-                            b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0);
-                    result = dueA - dueB;
-                    // Secondary sort by title if dates are equal
-                    if (result === 0) {
-                        result = (a.title || '').localeCompare(b.title || '');
-                    }
-                    break;
                 case 'due_asc':
                     // Due date - latest first (latest dates first)
                     const dueAscA = (a.date ? new Date(a.date).getTime() :

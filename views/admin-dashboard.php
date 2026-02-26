@@ -211,7 +211,7 @@ $currentPage = 'dashboard';
                         </div>
                         <div class="stat-item">
                             <span class="stat-number" id="pendingApprovals">-</span>
-                            <span class="stat-label">Pending</span>
+                            <span class="stat-label">Reviewing</span>
                             <div class="stat-breakdown">
                                 <small id="pendingMaterials">-</small> materials
                             </div>
@@ -324,7 +324,7 @@ $currentPage = 'dashboard';
                                     </div>
                                     <div class="metric-content">
                                         <h4 id="dashboardPendingItems">-</h4>
-                                        <p>Pending Items</p>
+                                        <p>Reviewing Items</p>
                                         <small id="dashboardPendingMaterials" class="text-warning">-</small>
                                     </div>
                                 </div>
@@ -546,7 +546,7 @@ $currentPage = 'dashboard';
                                 <div class="col-md-2">
                                     <select class="form-select" id="materialStatusFilter" onchange="filterMaterials()">
                                         <option value="">All Status</option>
-                                        <option value="pending">Pending</option>
+                                        <option value="reviewing">Reviewing</option>
                                         <option value="approved">Approved</option>
                                         <option value="rejected">Rejected</option>
                                     </select>

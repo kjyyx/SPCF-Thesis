@@ -173,7 +173,8 @@ async function loadStudentDocuments() {
         const data = await response.json();
 
         if (data.success) {
-            allDocuments = data.documents || [];
+            // Filter out null/undefined documents to prevent errors
+            allDocuments = (data.documents || []).filter(doc => doc != null && typeof doc === 'object');
             calculateStatistics();
             updateStatisticsDisplay();
             applyCurrentFilters();
@@ -231,6 +232,7 @@ function getStatusBadgeClass(status) {
 }
 
 function getLocationBadgeClass(location) {
+    if (!location) return 'badge-secondary';
     switch (location.toLowerCase()) {
         case 'finance office':
         case 'cpa office':
@@ -248,6 +250,7 @@ function getLocationBadgeClass(location) {
 }
 
 function getDocTypeBadgeClass(docType) {
+    if (!docType) return 'badge-secondary';
     switch (docType.toLowerCase()) {
         case 'saf': return 'badge-info';
         case 'proposal': return 'badge-primary';
@@ -385,6 +388,10 @@ function handleSort(field) {
 
 function sortDocuments() {
     filteredDocuments.sort((a, b) => {
+        // Ensure both documents are valid objects
+        if (!a || typeof a !== 'object') return 1;
+        if (!b || typeof b !== 'object') return -1;
+        
         let aValue = a[currentSortField] || a.document_name || a.doc_type || a.status || '';
         let bValue = b[currentSortField] || b.document_name || b.doc_type || b.status || '';
         if (currentSortField.includes('_at') || currentSortField.includes('date')) {
@@ -404,7 +411,12 @@ function applyCurrentFilters() {
     const searchTerm = document.getElementById('searchInput')?.value.toLowerCase().trim();
     if (searchTerm) {
         documents = documents.filter(doc => {
-            return [doc.title || doc.document_name, doc.status || doc.current_status, doc.current_location, doc.document_type || doc.doc_type].some(field => field && field.toString().toLowerCase().includes(searchTerm));
+            // Ensure doc is valid object
+            if (!doc || typeof doc !== 'object') return false;
+            return [doc.title || doc.document_name, doc.status || doc.current_status, doc.current_location, doc.document_type || doc.doc_type].some(field => {
+                if (field == null) return false;
+                return field.toString().toLowerCase().includes(searchTerm);
+            });
         });
     }
     const activeFilter = document.querySelector('input[name="statusFilter"]:checked')?.id;

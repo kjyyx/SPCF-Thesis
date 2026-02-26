@@ -231,7 +231,7 @@ $pendingCount = $stmt->fetchColumn();
                         <button type="button" class="btn btn-ghost flex-1" id="exportEventsBtn">
                             <i class="bi bi-download"></i> Export
                         </button>
-                        <?php if ($currentUser['role'] !== 'student'): ?>
+                        <?php if ($currentUser['role'] === 'admin' || $currentUser['position'] === 'Physical Plant and Facilities Office (PPFO)'): ?>
                             <button type="button" class="btn btn-primary flex-2" id="addEventBtn">
                                 <i class="bi bi-plus-lg"></i> Add Event
                             </button>

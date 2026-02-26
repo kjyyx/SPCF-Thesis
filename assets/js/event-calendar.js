@@ -83,7 +83,7 @@ class CalendarApp {
             }
         } else if (currentUser.role === 'employee') {
             if (employeeInfoCompact) employeeInfoCompact.style.display = 'flex';
-            if (addEventBtn && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)')) {
+            if (addEventBtn && currentUser.position === 'Physical Plant and Facilities Office (PPFO)') {
                 addEventBtn.style.display = 'inline-flex';
             }
         } else if (currentUser.role === 'admin') {
@@ -141,7 +141,7 @@ class CalendarApp {
         });
 
         // Event management
-        if (currentUser.role === 'admin' || (currentUser.role === 'employee' && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)'))) {
+        if (currentUser.role === 'admin' || (currentUser.role === 'employee' && currentUser.position === 'Physical Plant and Facilities Office (PPFO)')) {
             document.getElementById('addEventBtn')?.addEventListener('click', () => this.openEventModal());
             document.getElementById('saveEventBtn')?.addEventListener('click', () => this.saveEvent());
             document.getElementById('deleteBtn')?.addEventListener('click', () => this.deleteEvent());
@@ -789,7 +789,7 @@ class CalendarApp {
     }
 
     handleEventClick(eventId, dateStr) {
-        const canEdit = currentUser.role === 'admin' || (currentUser.role === 'employee' && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)'));
+        const canEdit = currentUser.role === 'admin' || (currentUser.role === 'employee' && currentUser.position === 'Physical Plant and Facilities Office (PPFO)');
         if (currentUser.role === 'student' || !canEdit) {
             this.viewEventDetails(eventId, dateStr);
         } else {
@@ -798,7 +798,7 @@ class CalendarApp {
     }
 
     openEventModal(selectedDate = null) {
-        const canEdit = currentUser.role === 'admin' || (currentUser.role === 'employee' && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)'));
+        const canEdit = currentUser.role === 'admin' || (currentUser.role === 'employee' && currentUser.position === 'Physical Plant and Facilities Office (PPFO)');
         if (currentUser && (currentUser.role === 'student' || !canEdit)) {
             return;
         }
@@ -857,7 +857,7 @@ class CalendarApp {
         }
         document.getElementById('deleteBtn').style.display = 'inline-block';
 
-        const canApprove = currentUser.role === 'admin' || (currentUser.role === 'employee' && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)'));
+        const canApprove = currentUser.role === 'admin' || (currentUser.role === 'employee' && currentUser.position === 'Physical Plant and Facilities Office (PPFO)');
         document.getElementById('approveBtn').style.display = canApprove ? 'inline-block' : 'none';
         document.getElementById('disapproveBtn').style.display = canApprove ? 'inline-block' : 'none';
 

@@ -343,7 +343,8 @@ function collectProposalData() {
     document.querySelectorAll('#schedule-summary-rows .schedule-summary-row').forEach(row => {
         const date = row.querySelector('.schedule-date')?.value || '';
         const time = row.querySelector('.schedule-time')?.value || '';
-        if (date || time) schedule.push({ date, time });
+        const endTime = row.querySelector('.schedule-end-time')?.value || '';
+        if (date || time || endTime) schedule.push({ date, time, endTime });
     });
 
     // Return complete proposal data object
@@ -352,6 +353,7 @@ function collectProposalData() {
         organizer: document.getElementById('prop-organizer')?.value || '',
         department: document.getElementById('prop-department')?.value || '',
         departmentFull: '',  // Will be set server-side
+        support: document.getElementById('prop-support')?.value || '',
         title: document.getElementById('prop-title')?.value || '',
         lead: document.getElementById('prop-lead')?.value || '',
         rationale: document.getElementById('prop-rationale')?.value || '',
@@ -567,6 +569,36 @@ function collectCommunicationData() {
  * @param {Object} d - Proposal data object from collectProposalData()
  * @returns {string} Complete HTML string for the proposal document
  */
+
+/**
+ * Format date to worded format (e.g., "February 26, 2026")
+ * @param {string} dateString - Date string in YYYY-MM-DD format
+ * @returns {string} Formatted date string
+ */
+function formatWordedDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+}
+
+/**
+ * Format time to 12-hour AM/PM format (e.g., "10:00AM")
+ * @param {string} timeString - Time string in HH:MM format
+ * @returns {string} Formatted time string
+ */
+function formatTime12Hour(timeString) {
+    if (!timeString) return '';
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes}${ampm}`;
+}
+
 function generateProposalHTML(d) {
     // Generate document header with title
     const header = `<div style="text-align:center;margin-bottom:1rem;"><div style="font-weight:800;font-size:1.2rem">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700;font-size:1.1rem">Project Proposal</div></div>`;
@@ -589,7 +621,7 @@ function generateProposalHTML(d) {
         `<table style="width:100%;border-collapse:collapse;margin-top:8px;border:none"><thead><tr style="background:#f8f9fa;border-bottom:1px solid #dee2e6"><th style="border:none;padding:8px 6px;text-align:left;font-weight:600;width:120px">Start Time</th><th style="border:none;padding:8px 6px;text-align:left;font-weight:600;width:120px">End Time</th><th style="border:none;padding:8px 6px;text-align:left;font-weight:600">Activity</th></tr></thead><tbody>${d.program.map(p => `<tr style="border-bottom:1px solid #f1f3f4"><td style="border:none;padding:6px">${escapeHtml(p.start)}</td><td style="border:none;padding:6px">${escapeHtml(p.end)}</td><td style="border:none;padding:6px">${escapeHtml(p.act)}</td></tr>`).join('')}</tbody></table>` :
         '<div class="text-muted">No program schedule</div>';
 
-    return `<div class="paper-page">${header}<div><strong>Project Organizer:</strong> ${escapeHtml(d.organizer || '')}</div><div style="margin-top:6px"><strong>Support:</strong> ${escapeHtml(d.departmentFull || d.department || '')}</div><div style="margin-top:6px"><strong>Project Title:</strong> ${escapeHtml(d.title || '[Project Title]')}</div><div style="margin-top:6px"><strong>Lead Facilitator:</strong> ${escapeHtml(d.lead || '')}</div><div style="margin-top:12px"><strong>Rationale:</strong><div style="margin-top:6px">${(d.rationale || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Objectives:</strong>${objectivesHtml}</div><div style="margin-top:12px"><strong>Intended Learning Outcomes:</strong>${ilosHtml}</div><div style="margin-top:12px"><strong>Budget Requirements:</strong>${budgetHtml}</div><div style="margin-top:12px"><strong>Source of Budget:</strong> ${escapeHtml(d.budgetSource || '')}</div><div style="margin-top:12px"><strong>Mechanics:</strong><div style="margin-top:6px">${(d.mechanics || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Schedule:</strong><div style="margin-top:6px">${(d.schedule && d.schedule.length) ? `<ul style="margin:0;padding-left:20px">${d.schedule.map(s => `<li>${escapeHtml(s.date)}${s.time ? ` at ${escapeHtml(s.time)}` : ''}</li>`).join('')}</ul>` : '<em>No schedule provided</em>'}</div></div><div style="margin-top:12px"><strong>Program Activities:</strong>${programHtml}</div><div style="margin-top:12px"><strong>Venue:</strong> ${escapeHtml(d.venue || '')}</div></div>`;
+    return `<div class="paper-page">${header}<div><strong>Project Organizer:</strong> ${escapeHtml(d.organizer || '')}</div><div style="margin-top:6px"><strong>Department:</strong> ${escapeHtml(d.departmentFull || d.department || '')}</div><div style="margin-top:6px"><strong>Support:</strong> ${escapeHtml(d.support || '')}</div><div style="margin-top:6px"><strong>Project Title:</strong> ${escapeHtml(d.title || '[Project Title]')}</div><div style="margin-top:6px"><strong>Lead Facilitator:</strong> ${escapeHtml(d.lead || '')}</div><div style="margin-top:12px"><strong>Rationale:</strong><div style="margin-top:6px">${(d.rationale || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Objectives:</strong>${objectivesHtml}</div><div style="margin-top:12px"><strong>Intended Learning Outcomes:</strong>${ilosHtml}</div><div style="margin-top:12px"><strong>Budget Requirements:</strong>${budgetHtml}</div><div style="margin-top:12px"><strong>Source of Budget:</strong> ${escapeHtml(d.budgetSource || '')}</div><div style="margin-top:12px"><strong>Mechanics:</strong><div style="margin-top:6px">${(d.mechanics || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Schedule:</strong><div style="margin-top:6px">${(d.schedule && d.schedule.length) ? `<ul style="margin:0;padding-left:20px">${d.schedule.map(s => `<li>${formatWordedDate(s.date)}${s.time ? ` at ${formatTime12Hour(s.time)}${s.endTime ? ` to ${formatTime12Hour(s.endTime)}` : ''}` : ''}</li>`).join('')}</ul>` : '<em>No schedule provided</em>'}</div></div><div style="margin-top:12px"><strong>Program Activities:</strong>${programHtml}</div><div style="margin-top:12px"><strong>Venue:</strong> ${escapeHtml(d.venue || '')}</div></div>`;
 }
 
 function generateSAFHTML(d) {
@@ -794,8 +826,9 @@ function addScheduleSummary() {
     div.className = 'schedule-summary-row mb-2';
     div.innerHTML = `
         <div class="row g-3 align-items-center">
-            <div class="col-md-5"><input type="date" class="form-control sm schedule-date" required></div>
-            <div class="col-md-5"><input type="time" class="form-control sm schedule-time" required></div>
+            <div class="col-md-4"><input type="date" class="form-control sm schedule-date" placeholder="Date" required></div>
+            <div class="col-md-3"><input type="time" class="form-control sm schedule-time" placeholder="Start Time" required></div>
+            <div class="col-md-3"><input type="time" class="form-control sm schedule-end-time" placeholder="End Time"></div>
             <div class="col-md-2"><button class="btn btn-danger btn-icon sm" onclick="removeScheduleRow(this)"><i class="bi bi-x-lg"></i></button></div>
         </div>
     `;

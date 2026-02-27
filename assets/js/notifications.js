@@ -32,12 +32,6 @@ function showConfirmModal(title, message, onConfirm, confirmText = 'Confirm', co
 
     modal.show();
 }
-// Document Notification System JavaScript
-// Enhanced professional version with improved error handling, search, and performance
-// Notes for future developers:
-// - Keep exported functions (init, openDocument, goBack, etc.) used by HTML intact.
-// - This module uses API calls with proper error handling.
-// - All DOM lookups are guarded; ensure IDs/classes match the HTML.
 
 class DocumentNotificationSystem {
     constructor() {

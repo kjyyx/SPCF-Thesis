@@ -1,0 +1,1 @@
+<!-- $mailer->send($userEmail, $userName, 'Document Approved', 'document_status', ['document' => $docData]); -->

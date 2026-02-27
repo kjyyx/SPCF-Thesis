@@ -2,15 +2,6 @@
 /**
  * Events API - Event Management
  * =============================
- *
- * Manages university events with the following operations:
- * - GET: Retrieve all events with department information
- * - POST: Create new events (admins/employees only)
- * - PUT: Update existing events (admins/employees only)
- * - DELETE: Remove events (admins/employees only)
- *
- * Events are associated with academic units/departments.
- * Only authorized personnel can modify events.
  */
 
 header('Content-Type: application/json');
@@ -18,41 +9,68 @@ require_once __DIR__ . '/../includes/config.php';
 require_once ROOT_PATH . 'includes/auth.php';
 require_once ROOT_PATH . 'includes/session.php';
 require_once ROOT_PATH . 'includes/database.php';
+// require_once ROOT_PATH . 'includes/utilities.php'; // Consider moving sendJsonResponse here if you haven't!
 
-if (!isLoggedIn()) {
-    echo json_encode(['success' => false, 'message' => 'Not authenticated']);
-    exit();
+// ------------------------------------------------------------------
+// Helper Functions
+// ------------------------------------------------------------------
+
+function sendJsonResponse($success, $payload = '', $statusCode = 200) {
+    http_response_code($statusCode);
+    $response = is_string($payload) ? ['success' => $success, 'message' => $payload] : array_merge(['success' => $success], $payload);
+    echo json_encode($response);
+    exit;
 }
 
-$database = new Database();
-$db = $database->getConnection();
+function getUnitIdByName($db, $name) {
+    if (!$name) return null;
+    $stmt = $db->prepare("SELECT id FROM units WHERE name = :name LIMIT 1");
+    $stmt->execute([':name' => $name]);
+    return $stmt->fetchColumn() ?: null;
+}
+
+function hasHighEventPrivileges($role, $currentUser) {
+    if ($role === 'admin') return true;
+    if ($role === 'employee') {
+        $position = $currentUser['position'] ?? '';
+        return (strpos($position, 'Executive Vice-President') !== false || 
+                strpos($position, 'Physical Plant and Facilities Office') !== false);
+    }
+    return false;
+}
+
+function canModifyEvent($db, $role, $currentUser, $eventId, $userId) {
+    if (hasHighEventPrivileges($role, $currentUser)) return true;
+    if ($role !== 'employee') return false;
+
+    // Standard employees can only modify their own events
+    $stmt = $db->prepare("SELECT COUNT(*) FROM events WHERE id = ? AND created_by = ?");
+    $stmt->execute([$eventId, $userId]);
+    return $stmt->fetchColumn() > 0;
+}
+
+// ------------------------------------------------------------------
+// Request Handling
+// ------------------------------------------------------------------
+
+if (!isLoggedIn()) sendJsonResponse(false, 'Not authenticated', 401);
+
+$userId = $_SESSION['user_id'] ?? null;
+$role = $_SESSION['user_role'] ?? null;
+
+if (!$userId || !$role) sendJsonResponse(false, 'Not authenticated', 401);
+
+$db = (new Database())->getConnection();
+$currentUser = (new Auth())->getUser($userId, $role);
+$method = $_SERVER['REQUEST_METHOD'];
+$data = json_decode(file_get_contents('php://input'), true) ?: [];
+
+// PHP automatically populates $_GET from the query string, even for PUT/DELETE
+$eventId = isset($_GET['id']) ? (int)$_GET['id'] : 0; 
 
 try {
-    $method = $_SERVER['REQUEST_METHOD'];
-
-    // Only employees/admins can modify events
-    $role = $_SESSION['user_role'] ?? null;
-    $userId = $_SESSION['user_id'] ?? null;
-
-    if (!$userId || !$role) {
-        echo json_encode(['success' => false, 'message' => 'Not authenticated']);
-        exit();
-    }
-
-    $auth = new Auth();
-    $currentUser = $auth->getUser($userId, $role);
-
     switch ($method) {
         case 'GET':
-            /**
-             * GET /api/events.php - Retrieve all events
-             * =========================================
-             * Returns list of all events with department names.
-             * Available to all authenticated users.
-             * Events are ordered by date and time.
-             */
-
-            // Join units and documents to expose readable department name and approval status for UI
             $query = "SELECT e.id, e.title, e.description, e.venue, e.event_date, e.event_time, e.unit_id,
                              e.created_by, e.created_by_role, e.created_at, e.updated_at, e.source_document_id,
                              e.approved, e.approved_by, e.approved_at,
@@ -61,195 +79,85 @@ try {
                       LEFT JOIN units u ON e.unit_id = u.id
                       LEFT JOIN documents d ON e.source_document_id = d.id
                       ORDER BY e.event_date, e.event_time";
-            $stmt = $db->prepare($query);
-            $stmt->execute();
-
-            $events = [];
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $events[] = $row;
-            }
-
-            echo json_encode(['success' => true, 'events' => $events]);
+            
+            $events = $db->query($query)->fetchAll(PDO::FETCH_ASSOC);
+            sendJsonResponse(true, ['events' => $events]);
             break;
 
         case 'POST':
-            /**
-             * POST /api/events.php - Create new event
-             * =======================================
-             * Creates a new event (admins/employees only).
-             * Requires title, description, date, time, and unit_id.
-             */
+            if (!in_array($role, ['admin', 'employee'])) sendJsonResponse(false, 'Not authorized', 403);
 
-            if (!in_array($role, ['admin', 'employee'])) {
-                echo json_encode(['success' => false, 'message' => 'Not authorized']);
-                exit();
-            }
-
-            $data = json_decode(file_get_contents('php://input'), true);
-            $title = trim($data['title'] ?? '');
-            $description = $data['description'] ?? null;
-            $venue = $data['venue'] ?? null;
-            $event_date = $data['event_date'] ?? null;
-            $event_time = $data['event_time'] ?? null; // can be null
-            $departmentName = $data['department'] ?? null; // UI sends department name; map to unit_id
-            $approved = $data['approved'] ?? 0; // Default to 0 (pencil-booked)
-
-            // Map department name to unit_id (optional)
-            $unit_id = null;
-            if ($departmentName) {
-                $u = $db->prepare("SELECT id FROM units WHERE name = :name LIMIT 1");
-                $u->execute([':name' => $departmentName]);
-                $row = $u->fetch(PDO::FETCH_ASSOC);
-                if ($row) {
-                    $unit_id = (int) $row['id'];
-                }
-            }
-
-            $query = "INSERT INTO events (title, description, venue, event_date, event_time, unit_id, created_by, created_by_role, approved)
-                      VALUES (:title, :description, :venue, :event_date, :event_time, :unit_id, :created_by, :created_by_role, :approved)";
-            $stmt = $db->prepare($query);
+            $stmt = $db->prepare("INSERT INTO events (title, description, venue, event_date, event_time, unit_id, created_by, created_by_role, approved) 
+                                  VALUES (:title, :description, :venue, :event_date, :event_time, :unit_id, :created_by, :created_by_role, :approved)");
+            
             $ok = $stmt->execute([
-                ':title' => $title,
-                ':description' => $description,
-                ':venue' => $venue,
-                ':event_date' => $event_date,
-                ':event_time' => $event_time,
-                ':unit_id' => $unit_id,
+                ':title' => trim($data['title'] ?? ''),
+                ':description' => $data['description'] ?? null,
+                ':venue' => $data['venue'] ?? null,
+                ':event_date' => $data['event_date'] ?? null,
+                ':event_time' => $data['event_time'] ?? null,
+                ':unit_id' => getUnitIdByName($db, $data['department'] ?? null),
                 ':created_by' => $userId,
                 ':created_by_role' => $role,
-                ':approved' => $approved
+                ':approved' => $data['approved'] ?? 0
             ]);
 
             if ($ok) {
-                echo json_encode(['success' => true, 'message' => 'Event created', 'id' => $db->lastInsertId()]);
+                sendJsonResponse(true, ['message' => 'Event created', 'id' => $db->lastInsertId()]);
             } else {
-                echo json_encode(['success' => false, 'message' => 'Event creation failed']);
+                sendJsonResponse(false, 'Event creation failed', 500);
             }
             break;
 
         case 'PUT':
-            $data = json_decode(file_get_contents('php://input'), true);
             $action = $data['action'] ?? null;
 
             if ($action === 'approve' || $action === 'disapprove') {
-                // Approval action - only PPFO, EVP or admin
-                if (!in_array($role, ['admin']) && !($role === 'employee' && (strpos($currentUser['position'] ?? '', 'EVP') !== false || strpos($currentUser['position'] ?? '', 'Physical Plant and Facilities Office') !== false))) {
-                    echo json_encode(['success' => false, 'message' => 'Not authorized to approve events']);
-                    exit();
-                }
+                if (!hasHighEventPrivileges($role, $currentUser)) sendJsonResponse(false, 'Not authorized to approve events', 403);
+                if ($eventId <= 0) sendJsonResponse(false, 'Missing id', 400);
 
-                parse_str($_SERVER['QUERY_STRING'] ?? '', $qs);
-                $id = isset($qs['id']) ? (int) $qs['id'] : 0;
-                if ($id <= 0) {
-                    echo json_encode(['success' => false, 'message' => 'Missing id']);
-                    exit();
-                }
-
-                $approved = $action === 'approve' ? 1 : 0;
+                $approved = ($action === 'approve') ? 1 : 0;
                 $stmt = $db->prepare("UPDATE events SET approved = ?, approved_by = ?, approved_at = NOW() WHERE id = ?");
-                $ok = $stmt->execute([$approved, $userId, $id]);
-
-                echo json_encode(['success' => $ok, 'message' => $ok ? 'Event ' . ($approved ? 'approved' : 'disapproved') : 'Update failed']);
-                break;
+                $ok = $stmt->execute([$approved, $userId, $eventId]);
+                
+                sendJsonResponse($ok, $ok ? 'Event ' . ($approved ? 'approved' : 'disapproved') : 'Update failed', $ok ? 200 : 500);
             }
 
             // Regular update
-            if (!in_array($role, ['admin', 'employee'])) {
-                echo json_encode(['success' => false, 'message' => 'Not authorized']);
-                exit();
-            }
+            if (!in_array($role, ['admin', 'employee'])) sendJsonResponse(false, 'Not authorized', 403);
+            if ($eventId <= 0) sendJsonResponse(false, 'Missing id', 400);
+            if (!canModifyEvent($db, $role, $currentUser, $eventId, $userId)) sendJsonResponse(false, 'Not authorized to edit this event', 403);
 
-            parse_str($_SERVER['QUERY_STRING'] ?? '', $qs);
-            $id = isset($qs['id']) ? (int) $qs['id'] : 0;
-            if ($id <= 0) {
-                echo json_encode(['success' => false, 'message' => 'Missing id']);
-                exit();
-            }
-
-            // Admin can edit any; PPFO/EVP can edit any; other employees can edit only own
-            if ($role === 'employee') {
-                $position = $currentUser['position'] ?? '';
-                $isAuthorized = strpos($position, 'Physical Plant and Facilities Office') !== false || strpos($position, 'Executive Vice-President') !== false;
-                if (!$isAuthorized) {
-                    $ownCheck = $db->prepare("SELECT COUNT(*) FROM events WHERE id = :id AND created_by = :uid");
-                    $ownCheck->execute([':id' => $id, ':uid' => $userId]);
-                    if ($ownCheck->fetchColumn() == 0) {
-                        echo json_encode(['success' => false, 'message' => 'Not authorized to edit this event']);
-                        exit();
-                    }
-                }
-            }
-
-            $title = trim($data['title'] ?? '');
-            $description = $data['description'] ?? null;
-            $venue = $data['venue'] ?? null;
-            $event_date = $data['event_date'] ?? null;
-            $event_time = $data['event_time'] ?? null;
-            $departmentName = $data['department'] ?? null;
-
-            $unit_id = null;
-            if ($departmentName) {
-                $u = $db->prepare("SELECT id FROM units WHERE name = :name LIMIT 1");
-                $u->execute([':name' => $departmentName]);
-                $row = $u->fetch(PDO::FETCH_ASSOC);
-                if ($row) {
-                    $unit_id = (int) $row['id'];
-                }
-            }
-
-            $stmt = $db->prepare("UPDATE events 
-                SET title=:title, description=:description, venue=:venue, event_date=:event_date, event_time=:event_time, unit_id=:unit_id, updated_at=NOW()
-                WHERE id=:id");
+            $stmt = $db->prepare("UPDATE events SET title=:title, description=:description, venue=:venue, event_date=:event_date, event_time=:event_time, unit_id=:unit_id, updated_at=NOW() WHERE id=:id");
+            
             $ok = $stmt->execute([
-                ':title' => $title,
-                ':description' => $description,
-                ':venue' => $venue,
-                ':event_date' => $event_date,
-                ':event_time' => $event_time,
-                ':unit_id' => $unit_id,
-                ':id' => $id
+                ':title' => trim($data['title'] ?? ''),
+                ':description' => $data['description'] ?? null,
+                ':venue' => $data['venue'] ?? null,
+                ':event_date' => $data['event_date'] ?? null,
+                ':event_time' => $data['event_time'] ?? null,
+                ':unit_id' => getUnitIdByName($db, $data['department'] ?? null),
+                ':id' => $eventId
             ]);
 
-            echo json_encode(['success' => $ok, 'message' => $ok ? 'Event updated' : 'Update failed']);
+            sendJsonResponse($ok, $ok ? 'Event updated' : 'Update failed', $ok ? 200 : 500);
             break;
 
         case 'DELETE':
-            if (!in_array($role, ['admin', 'employee'])) {
-                echo json_encode(['success' => false, 'message' => 'Not authorized']);
-                exit();
-            }
-
-            parse_str($_SERVER['QUERY_STRING'] ?? '', $qs);
-            $id = isset($qs['id']) ? (int) $qs['id'] : 0;
-            if ($id <= 0) {
-                echo json_encode(['success' => false, 'message' => 'Missing id']);
-                exit();
-            }
-
-            // Admin can delete any; PPFO/EVP can delete any; other employees can delete only own
-            if ($role === 'employee') {
-                $position = $currentUser['position'] ?? '';
-                $isAuthorized = strpos($position, 'Physical Plant and Facilities Office') !== false || strpos($position, 'Executive Vice-President') !== false;
-                if (!$isAuthorized) {
-                    $ownCheck = $db->prepare("SELECT COUNT(*) FROM events WHERE id = :id AND created_by = :uid");
-                    $ownCheck->execute([':id' => $id, ':uid' => $userId]);
-                    if ($ownCheck->fetchColumn() == 0) {
-                        echo json_encode(['success' => false, 'message' => 'Not authorized to delete this event']);
-                        exit();
-                    }
-                }
-            }
+            if (!in_array($role, ['admin', 'employee'])) sendJsonResponse(false, 'Not authorized', 403);
+            if ($eventId <= 0) sendJsonResponse(false, 'Missing id', 400);
+            if (!canModifyEvent($db, $role, $currentUser, $eventId, $userId)) sendJsonResponse(false, 'Not authorized to delete this event', 403);
 
             $stmt = $db->prepare("DELETE FROM events WHERE id=:id");
-            $ok = $stmt->execute([':id' => $id]);
+            $ok = $stmt->execute([':id' => $eventId]);
 
-            echo json_encode(['success' => $ok, 'message' => $ok ? 'Event deleted' : 'Delete failed']);
+            sendJsonResponse($ok, $ok ? 'Event deleted' : 'Delete failed', $ok ? 200 : 500);
             break;
 
         default:
-            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+            sendJsonResponse(false, 'Method not allowed', 405);
     }
 } catch (PDOException $e) {
     error_log("Events API Error: " . $e->getMessage());
-    echo json_encode(['success' => false, 'message' => 'Server error']);
+    sendJsonResponse(false, 'Server error', 500);
 }

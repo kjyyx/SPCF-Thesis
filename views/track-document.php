@@ -41,7 +41,9 @@ $currentPage = 'track-document';
     <title>Sign-um - Document Tracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/master-css.css"><link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/track-document.css"><script>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/master-css.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/track-document.css">
+    <script>
         window.currentUser = <?php
         $jsUser = $currentUser;
         $jsUser['firstName'] = $currentUser['first_name'];
@@ -52,7 +54,6 @@ $currentPage = 'track-document';
         window.isAdmin = <?php echo ($currentUser['role'] === 'admin') ? 'true' : 'false'; ?>;
         window.BASE_URL = "<?php echo BASE_URL; ?>";
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 
 <body class="has-navbar">
@@ -74,7 +75,7 @@ $currentPage = 'track-document';
                 <button class="btn btn-primary rounded-pill shadow-primary" onclick="window.location.href='<?php echo BASE_URL; ?>create-document'">
                     <i class="bi bi-file-plus me-2"></i> New Document
                 </button>
-                <button class="btn btn-ghost rounded-pill" onclick="refreshDocuments()">
+                <button class="btn btn-ghost rounded-pill" onclick="window.documentTracker.refreshDocuments()">
                     <i class="bi bi-arrow-clockwise me-2"></i> Refresh
                 </button>
             </div>
@@ -90,19 +91,19 @@ $currentPage = 'track-document';
             <div class="col-6 col-md-3">
                 <div class="stat-card warning">
                     <div class="stat-value" id="pendingDocuments">0</div>
-                    <div class="stat-label">Pending</div>
+                    <div class="stat-label">Newly Submitted</div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="stat-card info">
                     <div class="stat-value" id="inProgressDocuments">0</div>
-                    <div class="stat-label">In Progress</div>
+                    <div class="stat-label">Under Review</div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="stat-card success">
                     <div class="stat-value" id="approvedDocuments">0</div>
-                    <div class="stat-label">Approved</div>
+                    <div class="stat-label">Fully Approved</div>
                 </div>
             </div>
         </div>
@@ -120,16 +121,16 @@ $currentPage = 'track-document';
                         <label class="nav-tab" for="filterAll">All</label>
 
                         <input type="radio" class="btn-check" name="statusFilter" id="filterPending">
-                        <label class="nav-tab text-warning" for="filterPending">Pending</label>
+                        <label class="nav-tab text-warning" for="filterPending">Active Review</label>
 
                         <input type="radio" class="btn-check" name="statusFilter" id="filterApproved">
-                        <label class="nav-tab text-success" for="filterApproved">Approved</label>
+                        <label class="nav-tab text-success" for="filterApproved">Fully Approved</label>
 
                         <input type="radio" class="btn-check" name="statusFilter" id="filterRejected">
-                        <label class="nav-tab text-danger" for="filterRejected">Rejected</label>
+                        <label class="nav-tab text-danger" for="filterRejected">Declined</label>
                     </div>
                     <div class="divider m-0" style="height: 32px; width: 1px;"></div>
-                    <button class="btn btn-ghost btn-sm rounded-pill" onclick="clearFilters()" title="Clear all filters">
+                    <button class="btn btn-ghost btn-sm rounded-pill" onclick="window.documentTracker.clearFilters()" title="Clear all filters">
                         Clear Filters
                     </button>
                 </div>
@@ -150,27 +151,27 @@ $currentPage = 'track-document';
                 <table class="table table-hover mb-0" id="documentsTable">
                     <thead>
                         <tr>
-                            <th class="sortable" data-sort="title">
+                            <th class="sortable" data-sort="title" onclick="window.documentTracker.handleSort('title')">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <span>Document</span> <i class="bi bi-chevron-expand"></i>
                                 </div>
                             </th>
-                            <th class="sortable" data-sort="document_type">
+                            <th class="sortable" data-sort="document_type" onclick="window.documentTracker.handleSort('document_type')">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <span>Type</span> <i class="bi bi-chevron-expand"></i>
                                 </div>
                             </th>
-                            <th class="sortable" data-sort="current_status">
+                            <th class="sortable" data-sort="current_status" onclick="window.documentTracker.handleSort('current_status')">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <span>Status</span> <i class="bi bi-chevron-expand"></i>
                                 </div>
                             </th>
-                            <th class="sortable" data-sort="current_location">
+                            <th class="sortable" data-sort="current_location" onclick="window.documentTracker.handleSort('current_location')">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <span>Office</span> <i class="bi bi-chevron-expand"></i>
                                 </div>
                             </th>
-                            <th class="sortable" data-sort="updated_at">
+                            <th class="sortable" data-sort="updated_at" onclick="window.documentTracker.handleSort('updated_at')">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <span>Updated</span> <i class="bi bi-chevron-expand"></i>
                                 </div>
@@ -180,7 +181,7 @@ $currentPage = 'track-document';
                         </tr>
                     </thead>
                     <tbody id="documentsList">
-                        </tbody>
+                    </tbody>
                 </table>
             </div>
 
@@ -204,13 +205,13 @@ $currentPage = 'track-document';
             <div class="card-footer bg-surface-sunken d-flex justify-content-between align-items-center" id="paginationContainer" style="display: none;">
                 <span class="text-muted text-xs fw-medium" id="paginationInfo">Showing 1 to 10 of 0 documents</span>
                 <div class="d-flex align-items-center gap-3">
-                    <select class="form-select sm rounded-pill" id="itemsPerPage" style="width: auto;">
+                    <select class="form-select sm rounded-pill" id="itemsPerPage" onchange="window.documentTracker.changeItemsPerPage(this.value)" style="width: auto;">
                         <option value="5">5 per page</option>
                         <option value="10" selected>10 per page</option>
                         <option value="25">25 per page</option>
                     </select>
                     <ul class="pagination m-0" id="pagination">
-                        </ul>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -241,9 +242,8 @@ $currentPage = 'track-document';
         </div>
     </div>
 
-    <!-- Material Modal for Pubmats -->
     <div class="modal fade" id="materialModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
+        <div class="modal-dialog modal-lg"  style="max-width: 70vw; max-height: 90vh;">
             <div class="modal-content">
                 <div class="modal-header">
                     <div class="d-flex flex-column gap-1">
@@ -262,6 +262,58 @@ $currentPage = 'track-document';
                     <button type="button" class="btn btn-success rounded-pill" id="downloadMaterialBtn" style="display: none;">
                         <i class="bi bi-download me-2"></i>Download
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="fullDocumentModal" tabindex="-1">
+        <div class="modal-dialog modal-lg" style="max-width: 70vw; max-height: 100vh;">
+            <div class="modal-content" style="height: 85vh;">
+                <div class="modal-header">
+                    <h5 class="modal-title">Full Document View</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="padding: 0; height: calc(100% - 60px); overflow: hidden;">
+                    <div id="fullPdfToolbar" class="pdf-toolbar" style="display: flex; justify-content: space-between; padding: 10px; background: #fff; border-bottom: 1px solid #e5e7eb;">
+                        <div class="toolbar-group d-flex align-items-center gap-2">
+                            <button class="btn btn-sm btn-light" onclick="window.documentTracker.pdfViewer.fullPrevPage(window.documentTracker.currentDocument)" id="fullPrevPageBtn" title="Previous Page">
+                                <i class="bi bi-chevron-left"></i>
+                            </button>
+                            <div class="page-info d-flex align-items-center gap-1">
+                                <input type="number" id="fullPageInput" min="1" onchange="window.documentTracker.pdfViewer.fullGoToPage(this.value, window.documentTracker.currentDocument)" class="form-control form-control-sm text-center" style="width: 50px;" />
+                                <span class="text-muted">/</span><span id="fullPageTotal" class="fw-bold">1</span>
+                            </div>
+                            <button class="btn btn-sm btn-light" onclick="window.documentTracker.pdfViewer.fullNextPage(window.documentTracker.currentDocument)" id="fullNextPageBtn" title="Next Page">
+                                <i class="bi bi-chevron-right"></i>
+                            </button>
+                        </div>
+                        <div class="toolbar-group d-flex align-items-center gap-2">
+                            <button class="btn btn-sm btn-light" onclick="window.documentTracker.pdfViewer.fullZoomOut(window.documentTracker.currentDocument)" title="Zoom Out">
+                                <i class="bi bi-dash"></i>
+                            </button>
+                            <span id="fullZoomIndicator" style="min-width: 45px; text-align: center; font-size: 13px; font-weight: 600;">100%</span>
+                            <button class="btn btn-sm btn-light" onclick="window.documentTracker.pdfViewer.fullZoomIn(window.documentTracker.currentDocument)" title="Zoom In">
+                                <i class="bi bi-plus"></i>
+                            </button>
+                            <div class="border-start mx-1" style="height: 24px;"></div>
+                            <button class="btn btn-sm btn-light" onclick="window.documentTracker.pdfViewer.fullFitToWidth(window.documentTracker.currentDocument)" title="Fit to Width">
+                                <i class="bi bi-arrows-angle-expand"></i>
+                            </button>
+                            <button class="btn btn-sm btn-light" onclick="window.documentTracker.pdfViewer.fullResetZoom(window.documentTracker.currentDocument)" title="Reset Zoom">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                            <div class="border-start mx-1" style="height: 24px;"></div>
+                            <button class="btn btn-sm btn-light" onclick="window.documentTracker.pdfViewer.toggleDragMode()" id="dragToggleBtn" title="Toggle Drag Mode">
+                                <i class="bi bi-hand-index"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="fullPdfContent" class="pdf-content-full bg-surface-sunken" style="overflow: auto; height: calc(100% - 50px); cursor: grab; padding: 20px;">
+                        <div id="fullPdfContainer" style="position: relative; min-width: 100%; min-height: 100%; display: flex; align-items: flex-start; justify-content: center;">
+                            <canvas id="fullPdfCanvas" style="max-width: none; image-rendering: -webkit-optimize-contrast; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -335,13 +387,10 @@ $currentPage = 'track-document';
                             <option value="25">25 items per page</option>
                         </select>
                     </div>
-                    <input type="checkbox" id="showRejectedNotes" checked style="display:none;">
-                    <input type="checkbox" id="compactView" checked style="display:none;">
-                    <input type="checkbox" id="showStats" checked style="display:none;">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="savePreferences()">Save Preferences</button>
+                    <button type="button" class="btn btn-primary" onclick="window.documentTracker.savePreferences()">Save Preferences</button>
                 </div>
             </div>
         </div>
@@ -367,8 +416,13 @@ $currentPage = 'track-document';
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/ui-helpers.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/comments-manager.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/signature-manager.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/pdf-viewer.js"></script>
     <script src="<?php echo BASE_URL; ?>assets/js/track-document.js"></script>
 </body>
 </html>

@@ -782,7 +782,7 @@ code {
     justify-content: center !important;
     width: 44px; height: 44px;
     padding: 0;
-    border-radius: var(--radius-full);  /* 50% — perfect circle */
+    border-radius: var(--radius-full);  /* 50% — perfect circl  e */
     background: var(--color-surface-raised);
     border: 1px solid var(--color-border);
     color: var(--color-text-secondary);
@@ -790,6 +790,7 @@ code {
     flex-shrink: 0;
     font-size: 20px;                    /* 20px icon */
 }
+
 .btn-icon:hover {
     color: var(--brand-primary);
     border-color: var(--brand-primary);

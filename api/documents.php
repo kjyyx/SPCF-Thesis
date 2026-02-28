@@ -34,70 +34,52 @@ register_shutdown_function(function () {
 });
 
 // --- Constants ---
-if (!defined('DOC_TIMEOUT_DAYS'))
-    define('DOC_TIMEOUT_DAYS', 5);
-if (!defined('DOC_TIMEOUT_MODE'))
-    define('DOC_TIMEOUT_MODE', 'reject');
+if (!defined('DOC_STEP_TIMEOUT_DAYS'))
+    define('DOC_STEP_TIMEOUT_DAYS', 5);
+// if (!defined('DOC_TIMEOUT_MODE'))
+//     define('DOC_TIMEOUT_MODE', 'reject');
 
 // ------------------------------------------------------------------
 // Local Helper Functions
 // ------------------------------------------------------------------
-
-function getDepartmentFullName($dept) {
-    $map = [
-        'College of Arts, Social Sciences and Education' => 'College of Arts, Social Sciences, and Education',
-        'College of Business' => 'College of Business',
-        'College of Computing and Information Sciences' => 'College of Computing and Information Sciences',
-        'College of Criminology' => 'College of Criminology',
-        'College of Engineering' => 'College of Engineering',
-        'College of Hospitality and Tourism Management' => 'College of Hospitality and Tourism Management',
-        'College of Nursing' => 'College of Nursing',
-        'SPCF Miranda' => 'SPCF Miranda',
-        'Supreme Student Council (SSC)' => 'Supreme Student Council',
-        'Supreme Student Council' => 'Supreme Student Council'
-    ];
-    
-    $dept = trim($dept); 
-    
-    return $map[$dept] ?? $dept;
-}
-
-function fetchSignatory($db, $role, $position, $dept = null)
-{
-    $table = ($role === 'student') ? 'students' : 'employees';
-    $sql = "SELECT id, CONCAT(first_name, ' ', last_name) as name FROM $table WHERE position = ?";
-    $params = [$position];
-    if ($dept) {
-        $sql .= " AND department = ?";
-        $params[] = $dept;
-    }
-    $sql .= " LIMIT 1";
-
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    $res = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    return $res ? ['id' => $res['id'], 'name' => $res['name']] : ['id' => null, 'name' => $position];
-}
-
 function enforceTimeouts($db)
 {
     try {
-        $sel = $db->prepare("SELECT id FROM documents WHERE status IN ('submitted', 'in_review') AND DATEDIFF(NOW(), uploaded_at) >= ?");
-        $sel->execute([DOC_TIMEOUT_DAYS]);
-        $stale = $sel->fetchAll(PDO::FETCH_COLUMN);
+        // Find steps that have been pending for longer than the timeout limit.
+        // It calculates the "pending start time" by looking at the previous step's acted_at time,
+        // or the document's uploaded_at time if it's the very first step.
+        $query = "
+            SELECT ds.id as step_id, d.id as doc_id 
+            FROM document_steps ds
+            JOIN documents d ON ds.document_id = d.id
+            WHERE ds.status = 'pending' 
+            AND DATEDIFF(NOW(), COALESCE(
+                (SELECT acted_at FROM document_steps prev 
+                 WHERE prev.document_id = ds.document_id 
+                 AND prev.step_order = ds.step_order - 1 
+                 LIMIT 1),
+                d.uploaded_at
+            )) >= ?
+        ";
 
-        if (!$stale)
+        $stmt = $db->prepare($query);
+        $stmt->execute([DOC_STEP_TIMEOUT_DAYS]);
+        $expiredSteps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!$expiredSteps)
             return;
 
-        foreach ($stale as $docId) {
+        foreach ($expiredSteps as $row) {
             $db->beginTransaction();
-            if (DOC_TIMEOUT_MODE === 'delete') {
-                $db->prepare("UPDATE documents SET status = 'deleted', updated_at = NOW() WHERE id = ?")->execute([$docId]);
-            } else {
-                $db->prepare("UPDATE document_steps SET status = 'rejected', acted_at = NOW(), note = CONCAT(COALESCE(note, ''), ' [Auto-timeout]') WHERE document_id = ? AND status = 'pending'")->execute([$docId]);
-                $db->prepare("UPDATE documents SET status = 'rejected', updated_at = NOW() WHERE id = ?")->execute([$docId]);
-            }
+
+            // 1. Mark the specific step as expired
+            $db->prepare("UPDATE document_steps SET status = 'expired', acted_at = NOW(), note = CONCAT(COALESCE(note, ''), ' [Auto-timeout]') WHERE id = ?")
+                ->execute([$row['step_id']]);
+
+            // 2. Put the overall document on hold
+            $db->prepare("UPDATE documents SET status = 'on_hold', updated_at = NOW() WHERE id = ?")
+                ->execute([$row['doc_id']]);
+
             $db->commit();
         }
     } catch (Exception $e) {
@@ -150,6 +132,9 @@ switch ($method) {
                     break;
                 case 'add_comment':
                     addDocumentComment($db, $currentUser, $input);
+                    break;
+                case 'resubmit':
+                    resubmitDocument($db, $currentUser, $input);
                     break;
                 default:
                     sendJsonResponse(false, 'Invalid action', 400);
@@ -231,6 +216,9 @@ function createDocument($db, $currentUser, $input)
                 break;
 
             case 'proposal':
+                // Ensure new proposal placeholder fields exist for template replacement.
+                $data['support'] = $data['support'] ?? '';
+
                 $signatories = [
                     'sig_cscp' => fetchSignatory($db, 'student', 'College Student Council President', $department),
                     'sig_csca' => fetchSignatory($db, 'employee', 'College Student Council Adviser', $department),
@@ -346,6 +334,20 @@ function createDocument($db, $currentUser, $input)
             ->execute([$docId, $stepOrder++, ($currentUser['role'] === 'employee' ? $currentUser['id'] : null), ($currentUser['role'] === 'student' ? $currentUser['id'] : null)]);
 
         if ($docType !== 'communication') {
+            // --- NEW: Bypass CSC/Dean/SSC steps if the creator is the SSC President ---
+            if ($currentUser['position'] === 'Supreme Student Council President') {
+                $bypassedRoles = [
+                    'College Student Council Adviser', 
+                    'College Dean', 
+                    'Supreme Student Council President'
+                ];
+                
+                // Filter out the bypassed roles from the workflow array
+                $workflowPositions = array_filter($workflowPositions, function($wp) use ($bypassedRoles) {
+                    return !in_array($wp['position'], $bypassedRoles);
+                });
+            }
+
             $approvalReached = false;
             foreach ($workflowPositions as $wp) {
                 $pos = $wp['position'];
@@ -355,7 +357,7 @@ function createDocument($db, $currentUser, $input)
                 $assignee = fetchSignatory($db, $wp['table'] === 'students' ? 'student' : 'employee', $pos, $wp['dept'] ? $department : null);
 
                 if ($assignee['id']) {
-                    $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, 'skipped')")
+                    $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, 'queued')")
                         ->execute([$docId, $stepOrder++, $stepName, ($wp['table'] === 'employees' ? $assignee['id'] : null), ($wp['table'] === 'students' ? $assignee['id'] : null)]);
                 }
                 if ($pos === 'Executive Vice-President / Student Services (EVP)')
@@ -367,7 +369,7 @@ function createDocument($db, $currentUser, $input)
             foreach ($notedList as $person) {
                 $assignee = fetchSignatory($db, 'employee', $person['title']);
                 if ($assignee['id']) {
-                    $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, ?, ?, 'skipped')")
+                    $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, ?, ?, 'queued')")
                         ->execute([$docId, $stepOrder++, "Noted By: " . $person['title'], $assignee['id']]);
                 }
             }
@@ -375,7 +377,7 @@ function createDocument($db, $currentUser, $input)
             foreach ($approvedList as $person) {
                 $assignee = fetchSignatory($db, 'employee', $person['title']);
                 if ($assignee['id']) {
-                    $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, ?, ?, 'skipped')")
+                    $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, ?, ?, 'queued')")
                         ->execute([$docId, $stepOrder++, "Approved By: " . $person['title'], $assignee['id']]);
                 }
             }
@@ -422,7 +424,7 @@ function signDocument($db, $currentUser, $input, $files = null)
         sendJsonResponse(false, 'Cannot sign this step. Previous steps must be completed first.', 403);
     }
 
-    $docStmt = $db->prepare("SELECT file_path, title, doc_type, data FROM documents WHERE id = ?");
+    $docStmt = $db->prepare("SELECT file_path, title, doc_type, data, department, date, earliest_start_time, venue FROM documents WHERE id = ?");
     $docStmt->execute([$documentId]);
     $doc = $docStmt->fetch(PDO::FETCH_ASSOC);
     if (!$doc)
@@ -496,7 +498,8 @@ function signDocument($db, $currentUser, $input, $files = null)
             $currentStepOrder = $db->prepare("SELECT step_order FROM document_steps WHERE id = ?");
             $currentStepOrder->execute([$stepId]);
             if ($order = $currentStepOrder->fetchColumn()) {
-                $db->prepare("UPDATE document_steps SET status = 'pending' WHERE document_id = ? AND step_order = ? AND status = 'skipped'")
+                // CHANGED: Look for 'queued' instead of 'skipped' to wake up the next step
+                $db->prepare("UPDATE document_steps SET status = 'pending' WHERE document_id = ? AND step_order = ? AND status = 'queued'")
                     ->execute([$documentId, $order + 1]);
             }
 
@@ -504,6 +507,9 @@ function signDocument($db, $currentUser, $input, $files = null)
             if ($progress['total'] == $progress['done']) {
                 $isFullyApproved = true;
                 $db->prepare("UPDATE documents SET status = 'approved', updated_at = NOW() WHERE id = ?")->execute([$documentId]);
+            } else {
+                // NEW: If it's not fully approved yet, update the main document status to 'in_progress'
+                $db->prepare("UPDATE documents SET status = 'in_progress', updated_at = NOW() WHERE id = ? AND status IN ('submitted', 'on_hold')")->execute([$documentId]);
             }
 
             addAuditLog($db, 'DOCUMENT_SIGNED', 'Document Management', "Document signed by {$currentUser['first_name']}", $documentId, 'Document', 'INFO');
@@ -522,25 +528,71 @@ function signDocument($db, $currentUser, $input, $files = null)
     } while ($retryCount < $maxRetries);
 
     // Asynchronous Event Creation for fully approved proposals
+    // Asynchronous Event Creation for fully approved proposals
     if ($isFullyApproved && $doc['doc_type'] === 'proposal') {
-        ignore_user_abort(true);
-        if (function_exists('fastcgi_finish_request'))
-            fastcgi_finish_request();
+        $docData = json_decode($doc['data'], true) ?: [];
 
+        // 1. Extract schedules from schedule_summary (or fallback to data->schedule)
+        $schedules = [];
+        if (!empty($doc['schedule_summary'])) {
+            $schedules = json_decode($doc['schedule_summary'], true) ?: [];
+        } elseif (!empty($docData['schedule']) && is_array($docData['schedule'])) {
+            $schedules = $docData['schedule'];
+        }
+
+        // Fallback just in case the array is completely empty
+        if (empty($schedules)) {
+            $schedules[] = [
+                'date' => !empty($doc['date']) ? $doc['date'] : date('Y-m-d'),
+                'time' => !empty($doc['earliest_start_time']) ? $doc['earliest_start_time'] : null
+            ];
+        }
+
+        // 2. Prepare common event data
         $eventTitle = $doc['title'];
-        $stmt = $db->prepare("SELECT id FROM events WHERE title = ? LIMIT 1");
-        $stmt->execute([$eventTitle]);
-        if (!$stmt->fetch()) {
-            $apiUrl = (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') === false) ? 'https://spcf-signum.com/SPCF-Thesis/api/events.php' : 'http://localhost/SPCF-Thesis/api/events.php';
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $apiUrl);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['title' => $eventTitle, 'approved' => 1])); // Simplified payload
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Cookie: ' . session_name() . '=' . session_id()]);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 1);
-            curl_exec($ch);
-            curl_close($ch);
+        $desc = !empty($doc['description']) ? $doc['description'] : ($docData['rationale'] ?? 'Approved Project Proposal');
+        $venue = !empty($doc['venue']) ? $doc['venue'] : ($docData['venue'] ?? 'TBA');
+
+        // Handle ENUM constraint for created_by_role ('admin', 'employee')
+        // If a student triggered the final approval, we fallback to 'employee' to satisfy the DB constraint
+        $creatorRole = in_array($currentUser['role'] ?? '', ['admin', 'employee']) ? $currentUser['role'] : 'employee';
+
+        try {
+            // 3. Prepare the exact INSERT statement based on your schema
+            // NOTE: 'department' is omitted since your schema uses 'unit_id' (int). 
+            // If you have a way to map department names to unit_id, you can add it here.
+            $insertEvent = $db->prepare("
+                INSERT INTO events 
+                (title, description, venue, event_date, event_time, created_by, created_by_role, source_document_id, approved, approved_by, approved_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NOW())
+            ");
+
+            // 4. Loop through the schedule array and create an event for each day
+            foreach ($schedules as $sched) {
+                $eventDate = !empty($sched['date']) ? $sched['date'] : date('Y-m-d');
+                // The JSON uses "time", so we fetch that.
+                $eventTime = !empty($sched['time']) ? $sched['time'] : null;
+
+                // Check for duplicate to prevent spamming the calendar if re-run
+                $checkStmt = $db->prepare("SELECT id FROM events WHERE title = ? AND event_date = ? AND event_time = ? LIMIT 1");
+                $checkStmt->execute([$eventTitle, $eventDate, $eventTime]);
+
+                if (!$checkStmt->fetch()) {
+                    $insertEvent->execute([
+                        $eventTitle,
+                        $desc,
+                        $venue,
+                        $eventDate,
+                        $eventTime,
+                        $currentUser['id'],
+                        $creatorRole,
+                        $documentId,
+                        $currentUser['id'] // approved_by
+                    ]);
+                }
+            }
+        } catch (Exception $evErr) {
+            error_log("Failed to auto-create event schedules: " . $evErr->getMessage());
         }
     }
 
@@ -581,6 +633,73 @@ function rejectDocument($db, $currentUser, $input)
         addAuditLog($db, 'DOCUMENT_REJECTED', 'Document Management', "Rejected by {$currentUser['first_name']}: $reason", $documentId, 'Document', 'WARNING');
         $db->commit();
         sendJsonResponse(true, ['message' => 'Document rejected', 'step_id' => $stepId]);
+    } catch (Exception $e) {
+        $db->rollBack();
+        throw $e;
+    }
+}
+
+function resubmitDocument($db, $currentUser, $input)
+{
+    $documentId = $input['document_id'] ?? 0;
+    if (!$documentId)
+        sendJsonResponse(false, 'Document ID required', 400);
+
+    // Verify ownership and status
+    $stmt = $db->prepare("SELECT student_id, status FROM documents WHERE id = ?");
+    $stmt->execute([$documentId]);
+    $doc = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$doc)
+        sendJsonResponse(false, 'Document not found', 404);
+    if ($doc['student_id'] != $currentUser['id'])
+        sendJsonResponse(false, 'Only the creator can resubmit', 403);
+    if ($doc['status'] !== 'on_hold')
+        sendJsonResponse(false, 'Document is not on hold', 400);
+
+    try {
+        $db->beginTransaction();
+
+        // Find the specific expired step so we know WHICH timestamp to reset
+        $stmt = $db->prepare("SELECT step_order FROM document_steps WHERE document_id = ? AND status = 'expired' LIMIT 1");
+        $stmt->execute([$documentId]);
+        $expiredStepOrder = $stmt->fetchColumn();
+
+        if ($expiredStepOrder) {
+            
+            // 1. RESET THE CLOCK! (This stops the instant re-timeout bug)
+            if ($expiredStepOrder == 1) {
+                // If it's the very first step, bump the document's creation time to RIGHT NOW
+                $db->prepare("UPDATE documents SET uploaded_at = NOW(), updated_at = NOW() WHERE id = ?")
+                   ->execute([$documentId]);
+            } else {
+                // If it's a later step, bump the PREVIOUS step's completion time to RIGHT NOW
+                $db->prepare("UPDATE document_steps SET acted_at = NOW() WHERE document_id = ? AND step_order = ?")
+                   ->execute([$documentId, $expiredStepOrder - 1]);
+            }
+
+            // 2. Re-activate the expired step & clean up the note
+            $db->prepare("UPDATE document_steps SET status = 'pending', note = REPLACE(note, ' [Auto-timeout]', '') WHERE document_id = ? AND step_order = ?")
+                ->execute([$documentId, $expiredStepOrder]);
+
+            // 3. Determine new document status
+            $newDocStatus = ($expiredStepOrder == 1) ? 'submitted' : 'in_progress';
+
+            // 4. Update the overall document status
+            $db->prepare("UPDATE documents SET status = ?, updated_at = NOW() WHERE id = ?")
+                ->execute([$newDocStatus, $documentId]);
+
+            // 5. Log it
+            addAuditLog($db, 'DOCUMENT_RESUBMITTED', 'Document Management', "Document resubmitted from hold", $documentId, 'Document', 'INFO');
+
+            $db->commit();
+            sendJsonResponse(true, ['message' => 'Document resubmitted successfully']);
+            
+        } else {
+            $db->rollBack();
+            sendJsonResponse(false, 'No expired step found to resubmit.', 400);
+        }
+
     } catch (Exception $e) {
         $db->rollBack();
         throw $e;
@@ -799,6 +918,15 @@ function getGeneralDocumentDetails($db, $currentUser, $docId)
 
     $steps = [];
     while ($s = $stepsStmt->fetch(PDO::FETCH_ASSOC)) {
+        // Safely retrieve the assignee ID and build the name
+        $assignee_id = $s['assigned_to_employee_id'] ?: $s['assigned_to_student_id'];
+        $assignee_name = 'Unknown';
+        if ($s['assigned_to_employee_id']) {
+            $assignee_name = trim(($s['emp_first'] ?? '') . ' ' . ($s['emp_last'] ?? ''));
+        } elseif ($s['assigned_to_student_id']) {
+            $assignee_name = trim(($s['stu_first'] ?? '') . ' ' . ($s['stu_last'] ?? ''));
+        }
+
         $steps[] = [
             'id' => (int) $s['id'],
             'step_order' => (int) $s['step_order'],
@@ -807,13 +935,14 @@ function getGeneralDocumentDetails($db, $currentUser, $docId)
             'note' => $s['note'],
             'acted_at' => $s['acted_at'],
             'signature_map' => $s['signature_map'],
+            'assignee_id' => $assignee_id,                  // <-- Added back
+            'assignee_name' => $assignee_name ?: 'Unknown', // <-- Added back
             'assignee_type' => $s['assigned_to_employee_id'] ? 'employee' : 'student',
             'signature_status' => $s['signature_status'],
             'signed_at' => $s['signed_at']
         ];
     }
 
-    // Fix file paths
     $filePath = $doc['file_path'];
     if ($filePath && strpos($filePath, 'http') !== 0) {
         $filePath = strpos($filePath, 'uploads/') !== 0 ? 'uploads/' . basename($filePath) : $filePath;
@@ -834,7 +963,14 @@ function getGeneralDocumentDetails($db, $currentUser, $docId)
         'file_path' => $filePath
     ];
 
-    // Note: Notifications.js expects raw JSON without a 'success' wrapper for this specific route!
+    // Ensure schedule data is passed correctly if it's a proposal
+    if ($doc['doc_type'] === 'proposal') {
+        $scheduleData = !empty($doc['schedule_summary']) ? json_decode($doc['schedule_summary'], true) : (json_decode($doc['data'] ?? '{}', true)['schedule'] ?? []);
+        if (!empty($scheduleData)) {
+            $payload['schedule'] = $scheduleData;
+        }
+    }
+
     http_response_code(200);
     echo json_encode($payload);
     exit;
@@ -848,10 +984,12 @@ function getMyDocuments($db, $currentUser)
     $stmt = $db->prepare("
         SELECT d.id, d.title, d.doc_type, d.description, d.status, d.uploaded_at,
                ds.step_order, ds.name AS step_name, ds.status AS step_status, ds.note, ds.acted_at,
-               e.first_name AS assignee_first, e.last_name AS assignee_last
+               e.first_name AS emp_first, e.last_name AS emp_last,
+               st.first_name AS stu_first, st.last_name AS stu_last
         FROM documents d
         LEFT JOIN document_steps ds ON d.id = ds.document_id
         LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
+        LEFT JOIN students st ON ds.assigned_to_student_id = st.id
         WHERE d.student_id = ?
         ORDER BY d.uploaded_at DESC, ds.step_order ASC
     ");
@@ -862,15 +1000,28 @@ function getMyDocuments($db, $currentUser)
     foreach ($rows as $row) {
         $docId = $row['id'];
         if (!isset($documents[$docId])) {
-            $current_location = 'Student Council';
-            // Simplified location finder
+            $current_location = 'Pending Setup';
+            $current_assignee = 'Unassigned';
+
+            // Find exactly whose desk the document is currently sitting on
             foreach ($rows as $stepRow) {
                 if ($stepRow['id'] === $docId) {
-                    if ($stepRow['step_status'] === 'rejected') {
+                    // Combine the first and last name safely
+                    $assigneeName = trim(($stepRow['emp_first'] ?? $stepRow['stu_first'] ?? '') . ' ' . ($stepRow['emp_last'] ?? $stepRow['stu_last'] ?? ''));
+                    if (!$assigneeName)
+                        $assigneeName = 'Unassigned';
+
+                    if ($row['status'] === 'approved') {
+                        $current_location = 'Completed';
+                        $current_assignee = 'All Signatories';
+                    } elseif ($stepRow['step_status'] === 'rejected') {
                         $current_location = $stepRow['step_name'];
+                        $current_assignee = $assigneeName;
                         break;
-                    } elseif (in_array($stepRow['step_status'], ['pending', 'in_progress']) && $current_location === 'Student Council') {
+                    } elseif (in_array($stepRow['step_status'], ['pending', 'expired'])) {
                         $current_location = $stepRow['step_name'];
+                        $current_assignee = $assigneeName;
+                        break; // Stop at the first active pending step
                     }
                 }
             }
@@ -882,6 +1033,7 @@ function getMyDocuments($db, $currentUser)
                 'document_type' => $row['doc_type'],
                 'status' => $row['status'],
                 'current_location' => $current_location,
+                'current_assignee' => $current_assignee, // Pass the signee's name to JS!
                 'created_at' => $row['uploaded_at'],
                 'updated_at' => $row['uploaded_at'],
                 'description' => $row['description'],
@@ -1000,7 +1152,6 @@ function getAssignedDocuments($db, $currentUser)
     $assignmentCondition = $isEmployee ? "ds_target.assigned_to_employee_id = ?" : "ds_target.assigned_to_student_id = ?";
     $docTypeFilter = $isAccounting ? "AND d.doc_type = 'saf'" : "";
 
-    // Determine completion logic based on user type
     if (!$isEmployee && !$isStudentCouncil) {
         $completionLogic = "WHEN ds.status = 'pending' AND ds.assigned_to_student_id = ? THEN 0 ELSE 1";
         $params = [$userId, $userId];
@@ -1016,7 +1167,11 @@ function getAssignedDocuments($db, $currentUser)
                CASE WHEN d.status IN ('approved', 'rejected') THEN 1 {$completionLogic} END as user_action_completed,
                ds.id as step_id, ds.step_order, ds.name as step_name, ds.status as step_status, ds.note, ds.acted_at,
                ds.assigned_to_employee_id, ds.assigned_to_student_id,
-               COALESCE(CONCAT(e.first_name, ' ', e.last_name), CONCAT(st.first_name, ' ', st.last_name)) as assignee_name,
+               CASE 
+                   WHEN e.id IS NOT NULL THEN CONCAT(e.first_name, ' ', e.last_name)
+                   WHEN st.id IS NOT NULL THEN CONCAT(st.first_name, ' ', st.last_name)
+                   ELSE 'Unknown'
+               END as assignee_name,
                dsg.status as signature_status, dsg.signed_at
         FROM documents d
         LEFT JOIN students s ON d.student_id = s.id

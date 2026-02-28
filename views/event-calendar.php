@@ -145,8 +145,8 @@ $pendingCount = $stmt->fetchColumn();
                             class="bi bi-clipboard-check"></i> Pending Approvals</button>
 
                     <?php if (stripos($currentUser['position'] ?? '', 'OSA') !== false): ?>
-                        <button class="btn btn-ghost btn-sm"
-                            onclick="window.location.href='<?php echo BASE_URL; ?>saf'"><i class="bi bi-cash-coin"></i>
+                        <button class="btn btn-ghost btn-sm" onclick="window.location.href='<?php echo BASE_URL; ?>saf'"><i
+                                class="bi bi-cash-coin"></i>
                             SAF</button>
                     <?php endif; ?>
 
@@ -155,7 +155,8 @@ $pendingCount = $stmt->fetchColumn();
                                 class="bi bi-file-earmark-text"></i> Pubmats</button>
                     <?php endif; ?>
                     <?php if (($currentUser['position'] ?? '') === 'Physical Plant and Facilities Office (PPFO)'): ?>
-                        <button class="btn btn-info btn-sm" onclick="openPubmatDisplay()"><i class="bi bi-image"></i> Pubmat Display</button>
+                        <button class="btn btn-info btn-sm" onclick="openPubmatDisplay()"><i class="bi bi-image"></i> Pubmat
+                            Display</button>
                     <?php endif; ?>
                 <?php endif; ?>
             </div>
@@ -231,7 +232,7 @@ $pendingCount = $stmt->fetchColumn();
                         <button type="button" class="btn btn-ghost flex-1" id="exportEventsBtn">
                             <i class="bi bi-download"></i> Export
                         </button>
-                        <?php if ($currentUser['role'] !== 'student'): ?>
+                        <?php if ($currentUser['role'] === 'admin' || $currentUser['position'] === 'Physical Plant and Facilities Office (PPFO)'): ?>
                             <button type="button" class="btn btn-primary flex-2" id="addEventBtn">
                                 <i class="bi bi-plus-lg"></i> Add Event
                             </button>
@@ -438,22 +439,26 @@ $pendingCount = $stmt->fetchColumn();
                         <div class="row g-3">
                             <div class="col-md-6 form-group mb-0">
                                 <label for="profileFirstName" class="form-label">First Name</label>
-                                <input type="text" class="form-control" id="profileFirstName" required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>>
+                                <input type="text" class="form-control" id="profileFirstName" required <?php if ($currentUser['role'] !== 'admin')
+                                    echo 'readonly'; ?>>
                             </div>
                             <div class="col-md-6 form-group mb-0">
                                 <label for="profileLastName" class="form-label">Last Name</label>
-                                <input type="text" class="form-control" id="profileLastName" required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>>
+                                <input type="text" class="form-control" id="profileLastName" required <?php if ($currentUser['role'] !== 'admin')
+                                    echo 'readonly'; ?>>
                             </div>
                         </div>
                         <div class="form-group mb-0">
                             <label for="profileEmail" class="form-label">Email Address</label>
-                            <input type="email" class="form-control" id="profileEmail" pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
+                            <input type="email" class="form-control" id="profileEmail"
+                                pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
                             <div class="invalid-feedback">Please enter a valid email address.</div>
                         </div>
                         <div class="form-group mb-0">
                             <label for="profilePhone" class="form-label">Phone Number</label>
                             <input type="tel" class="form-control" id="profilePhone" pattern="^(09|\+639)\d{9}$">
-                            <div class="invalid-feedback">Please enter a valid Philippine phone number (e.g., 09123456789 or +639123456789).</div>
+                            <div class="invalid-feedback">Please enter a valid Philippine phone number (e.g.,
+                                09123456789 or +639123456789).</div>
                         </div>
                         <?php if ($currentUser['role'] === 'student'): ?>
                             <div class="form-group mb-0">
@@ -461,13 +466,6 @@ $pendingCount = $stmt->fetchColumn();
                                 <input type="text" class="form-control" id="profilePosition" readonly>
                             </div>
                         <?php endif; ?>
-
-                        <div class="divider"></div>
-
-                        <div class="form-check form-switch mt-2">
-                            <input class="form-check-input" type="checkbox" id="darkModeToggle">
-                            <label class="form-check-label fw-medium ms-2" for="darkModeToggle">Enable Dark Mode</label>
-                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancel</button>

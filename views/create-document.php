@@ -170,6 +170,11 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                     Facilitator <span class="text-danger">*</span></label>
                   <input id="prop-lead" class="form-control sm" placeholder="Enter lead facilitator name">
                 </div>
+                <div class="col-md-12 form-group mb-0">
+                  <label class="form-label text-muted text-xs uppercase"><i class="bi bi-people me-1"></i>
+                    Support</label>
+                  <input id="prop-support" class="form-control sm" placeholder="Enter support details">
+                </div>
               </div>
 
               <div class="form-group mb-4">
@@ -217,7 +222,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                 <label class="form-label text-muted text-xs uppercase"><i class="bi bi-clock-history me-1"></i> Schedule
                   Summary <span class="text-danger">*</span></label>
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                  <small class="text-muted">Add event dates and times (each will create a calendar event when approved)</small>
+                  <small class="text-muted">Add event dates and time ranges (each will create a calendar event when
+                    approved)</small>
                   <button class="btn btn-outline-primary btn-sm rounded-pill" onclick="addScheduleSummary()">
                     <i class="bi bi-plus-lg"></i> Add Date & Time
                   </button>
@@ -225,9 +231,14 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                 <div id="schedule-summary-rows">
                   <div class="schedule-summary-row mb-2">
                     <div class="row g-3 align-items-center">
-                      <div class="col-md-5"><input type="date" class="form-control sm schedule-date" required></div>
-                      <div class="col-md-5"><input type="time" class="form-control sm schedule-time" required></div>
-                      <div class="col-md-2"><button class="btn btn-danger btn-icon sm" onclick="removeScheduleRow(this)"><i class="bi bi-x-lg"></i></button></div>
+                      <div class="col-md-4"><input type="date" class="form-control sm schedule-date" placeholder="Date"
+                          required></div>
+                      <div class="col-md-3"><input type="time" class="form-control sm schedule-time"
+                          placeholder="Start Time" required></div>
+                      <div class="col-md-3"><input type="time" class="form-control sm schedule-end-time"
+                          placeholder="End Time"></div>
+                      <div class="col-md-2"><button class="btn btn-danger btn-icon sm"
+                          onclick="removeScheduleRow(this)"><i class="bi bi-x-lg"></i></button></div>
                     </div>
                   </div>
                 </div>
@@ -319,7 +330,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
 
               <div class="row g-3 mb-4">
                 <div class="col-md-6 form-group mb-0">
-                  <label class="form-label text-muted text-xs uppercase"><i class="bi bi-calendar3 me-1"></i> Request
+                  <label class="form-label text-muted text-xs uppercase"><i class="bi bi-calendar3 me-1"></i>
+                    Request
                     Date <span class="text-danger">*</span></label>
                   <input id="saf-date" type="date" class="form-control sm">
                 </div>
@@ -331,7 +343,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
               </div>
 
               <div id="row-dept" class="form-group mb-4" style="display:none">
-                <label class="form-label text-muted text-xs uppercase"><i class="bi bi-building me-1"></i> Department
+                <label class="form-label text-muted text-xs uppercase"><i class="bi bi-building me-1"></i>
+                  Department
                   <span class="text-danger">*</span></label>
                 <input type="text" class="form-control sm bg-surface-sunken"
                   value="<?php echo htmlspecialchars($currentUser['department'] ?? ''); ?>" readonly>
@@ -340,7 +353,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
               </div>
 
               <div class="mb-3">
-                <label class="form-label text-muted text-xs uppercase mb-3"><i class="bi bi-cash-stack me-1"></i> Fund
+                <label class="form-label text-muted text-xs uppercase mb-3"><i class="bi bi-cash-stack me-1"></i>
+                  Fund
                   Amounts</label>
                 <div class="table-wrapper border">
                   <table class="table mb-0 saf-fund-table">
@@ -412,7 +426,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
             </div>
 
             <div id="facility-form" class="document-form" style="display:none">
-              <h4 class="mb-4 text-dark fw-bold"><i class="bi bi-building text-warning me-2"></i> Facility Request</h4>
+              <h4 class="mb-4 text-dark fw-bold"><i class="bi bi-building text-warning me-2"></i> Facility Request
+              </h4>
 
               <div class="row g-3 mb-4">
                 <div class="col-md-8 form-group mb-0">
@@ -483,23 +498,29 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                   <div class="facility-category">
                     <h6 class="category-title">IT Building</h6>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f1"
-                        value="IT Bldg. Theater"><label class="form-check-label" for="fac-f1">IT Bldg. Theater</label>
+                        value="IT Bldg. Theater"><label class="form-check-label" for="fac-f1">IT Bldg.
+                        Theater</label>
                     </div>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f2"
-                        value="IT Bldg Theater Lobby"><label class="form-check-label" for="fac-f2">IT Bldg Theater
+                        value="IT Bldg Theater Lobby"><label class="form-check-label" for="fac-f2">IT
+                        Bldg Theater
                         Lobby</label></div>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f3"
-                        value="Computer Lab"><label class="form-check-label" for="fac-f3">Computer Lab</label></div>
+                        value="Computer Lab"><label class="form-check-label" for="fac-f3">Computer
+                        Lab</label></div>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f4"
-                        value="IT Seminar Room"><label class="form-check-label" for="fac-f4">IT Seminar Room</label>
+                        value="IT Seminar Room"><label class="form-check-label" for="fac-f4">IT Seminar
+                        Room</label>
                     </div>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f5"
-                        value="IT Case Room"><label class="form-check-label" for="fac-f5">IT Case Room</label></div>
+                        value="IT Case Room"><label class="form-check-label" for="fac-f5">IT Case
+                        Room</label></div>
                   </div>
                   <div class="facility-category">
                     <h6 class="category-title">CHTM</h6>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f6"
-                        value="CHTM/ Luid Hall"><label class="form-check-label" for="fac-f6">Luid Hall</label></div>
+                        value="CHTM/ Luid Hall"><label class="form-check-label" for="fac-f6">Luid
+                        Hall</label></div>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f7"
                         value="CHTM/ Amphitheater"><label class="form-check-label" for="fac-f7">Amphitheater</label>
                     </div>
@@ -507,7 +528,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                   <div class="facility-category">
                     <h6 class="category-title">Sports & Recreation</h6>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f8"
-                        value="Tennis Court"><label class="form-check-label" for="fac-f8">Tennis Court</label></div>
+                        value="Tennis Court"><label class="form-check-label" for="fac-f8">Tennis
+                        Court</label></div>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f11"
                         value="Gym 1 (Basketball Court)"><label class="form-check-label" for="fac-f11">Gym 1</label>
                     </div>
@@ -515,7 +537,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                         value="Gym 2 (Volleyball Court)"><label class="form-check-label" for="fac-f12">Gym 2</label>
                     </div>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f13"
-                        value="Aquatic"><label class="form-check-label" for="fac-f13">Aquatic Center</label></div>
+                        value="Aquatic"><label class="form-check-label" for="fac-f13">Aquatic
+                        Center</label></div>
                   </div>
                 </div>
                 <div class="row g-3 mt-3">
@@ -531,7 +554,9 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
               <div class="divider"></div>
 
               <div class="mb-4">
-                <label class="form-label text-muted text-xs uppercase mb-3"><i class="bi bi-tools me-1"></i> Equipment &
+                <label class="form-label text-muted text-xs uppercase mb-3"><i class="bi bi-tools me-1"></i>
+                  Equipment
+                  &
                   Staffing</label>
                 <div class="row g-4">
                   <div class="col-md-6 d-flex flex-column gap-2">
@@ -588,7 +613,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
               <div class="divider"></div>
 
               <div class="mb-4">
-                <label class="form-label text-muted text-xs uppercase mb-3"><i class="bi bi-clock me-1"></i> Timeline
+                <label class="form-label text-muted text-xs uppercase mb-3"><i class="bi bi-clock me-1"></i>
+                  Timeline
                   Schedule</label>
 
                 <div class="bg-surface-sunken p-3 rounded-2xl border mb-3">
@@ -597,6 +623,14 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                     <div class="col-md-3"><input type="date" class="form-control sm" id="fac-pre-event-date"></div>
                     <div class="col-md-3"><input type="time" class="form-control sm" id="fac-pre-event-start"></div>
                     <div class="col-md-3"><input type="time" class="form-control sm" id="fac-pre-event-end"></div>
+                  </div>
+                </div>
+                <div class="bg-surface-sunken p-3 rounded-2xl border mb-3">
+                  <div class="row g-3 align-items-center">
+                    <div class="col-md-3 fw-semibold text-sm">Practice</div>
+                    <div class="col-md-3"><input type="date" class="form-control sm" id="fac-practice-date"></div>
+                    <div class="col-md-3"><input type="time" class="form-control sm" id="fac-practice-start"></div>
+                    <div class="col-md-3"><input type="time" class="form-control sm" id="fac-practice-end"></div>
                   </div>
                 </div>
                 <div class="bg-surface-sunken p-3 rounded-2xl border mb-3">
@@ -625,7 +659,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
             </div>
 
             <div id="communication-form" class="document-form" style="display:none">
-              <h4 class="mb-4 text-dark fw-bold"><i class="bi bi-envelope text-info me-2"></i> Communication Letter</h4>
+              <h4 class="mb-4 text-dark fw-bold"><i class="bi bi-envelope text-info me-2"></i> Communication Letter
+              </h4>
 
               <div class="row g-3 mb-4">
                 <div class="col-md-4 form-group mb-0">
@@ -697,7 +732,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
               id="page-controls" style="display:none !important;">
               <button class="btn btn-ghost btn-icon sm rounded-full" onclick="previousPage()"><i
                   class="bi bi-chevron-left"></i></button>
-              <span id="page-indicator" class="text-xs fw-bold text-muted uppercase tracking-wider">Page 1 of 1</span>
+              <span id="page-indicator" class="text-xs fw-bold text-muted uppercase tracking-wider">Page 1 of
+                1</span>
               <button class="btn btn-ghost btn-icon sm rounded-full" onclick="nextPage()"><i
                   class="bi bi-chevron-right"></i></button>
             </div>
@@ -721,28 +757,28 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
             <div class="row g-3">
               <div class="col-md-6 form-group mb-0">
                 <label for="profileFirstName" class="form-label">First Name</label>
-                <input type="text" class="form-control" id="profileFirstName" required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>>
+                <input type="text" class="form-control" id="profileFirstName" required <?php if ($currentUser['role'] !== 'admin')
+                  echo 'readonly'; ?>>
               </div>
               <div class="col-md-6 form-group mb-0">
                 <label for="profileLastName" class="form-label">Last Name</label>
-                <input type="text" class="form-control" id="profileLastName" required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>>
+                <input type="text" class="form-control" id="profileLastName" required <?php if ($currentUser['role'] !== 'admin')
+                  echo 'readonly'; ?>>
               </div>
             </div>
             <div class="form-group mb-0">
               <label for="profileEmail" class="form-label">Email Address</label>
-              <input type="email" class="form-control" id="profileEmail" pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
+              <input type="email" class="form-control" id="profileEmail"
+                pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
               <div class="invalid-feedback">Please enter a valid email address.</div>
             </div>
             <div class="form-group mb-0">
               <label for="profilePhone" class="form-label">Phone Number</label>
               <input type="tel" class="form-control" id="profilePhone" pattern="^(09|\+639)\d{9}$">
-              <div class="invalid-feedback">Please enter a valid Philippine phone number (e.g., 09123456789 or +639123456789).</div>
+              <div class="invalid-feedback">Please enter a valid Philippine phone number (e.g., 09123456789 or
+                +639123456789).</div>
             </div>
             <div class="divider"></div>
-            <div class="form-check form-switch mt-2">
-              <input class="form-check-input" type="checkbox" id="darkModeToggle">
-              <label class="form-check-label fw-medium ms-2" for="darkModeToggle">Enable Dark Mode</label>
-            </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancel</button>
@@ -770,7 +806,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
             </div>
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="browserNotifications" checked>
-              <label class="form-check-label fw-medium ms-1" for="browserNotifications">Browser notifications</label>
+              <label class="form-check-label fw-medium ms-1" for="browserNotifications">Browser
+                notifications</label>
             </div>
           </div>
           <div class="form-group mb-0">
@@ -800,7 +837,8 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
         <div class="modal-body p-0">
           <div class="p-4 bg-surface-sunken border-bottom">
             <h6 class="fw-bold mb-2">Creating Documents</h6>
-            <p class="text-sm text-muted mb-0">Select your document type from the dropdown, fill out the required fields
+            <p class="text-sm text-muted mb-0">Select your document type from the dropdown, fill out the required
+              fields
               in the left editor panel, and view the live rendering on the right.</p>
           </div>
         </div>
@@ -831,6 +869,10 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
+  <script src="<?php echo BASE_URL; ?>assets/js/ui-helpers.js"></script>
+  <script src="<?php echo BASE_URL; ?>assets/js/comments-manager.js"></script>
+  <script src="<?php echo BASE_URL; ?>assets/js/signature-manager.js"></script>
+  <script src="<?php echo BASE_URL; ?>assets/js/pdf-viewer.js"></script>
   <script src="<?php echo BASE_URL; ?>assets/js/create-document.js"></script>
 
   <script>

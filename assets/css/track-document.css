@@ -169,3 +169,69 @@
     max-height: 85vh;
     overflow-y: auto;
 }
+
+/* Threaded Comments Styling (Imported from Notifications) */
+.thread-comment-item {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.thread-comment-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+.thread-comment-author {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #111827;
+}
+.thread-comment-meta {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+.thread-comment-body {
+    font-size: 0.875rem;
+    color: #374151;
+    margin-bottom: 8px;
+}
+.thread-comment-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.thread-comment-time {
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+.reply-comment-btn {
+    background: none;
+    border: none;
+    color: #3b82f6;
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 0;
+    font-weight: 500;
+}
+.reply-comment-btn:hover {
+    text-decoration: underline;
+    color: #2563eb;
+}
+.thread-empty-state {
+    text-align: center;
+    padding: 20px;
+    color: #6b7280;
+    font-style: italic;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px dashed #d1d5db;
+}
+
+/* Comment Depths for Threading */
+.depth-1 { margin-left: 1.5rem; }
+.depth-2 { margin-left: 3rem; }
+.depth-3 { margin-left: 4.5rem; }
+.depth-4 { margin-left: 6rem; }

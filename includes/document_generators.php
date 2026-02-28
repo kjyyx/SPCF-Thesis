@@ -83,44 +83,93 @@ function fillDocxTemplate($templatePath, $data)
     }
 
     // Replace simple placeholders
+// Replace simple placeholders and generate tables
     foreach ($data as $key => $value) {
         if (is_array($value)) {
-            if ($key === 'objectives' || $key === 'ilos') {
-                // Simple bulleted list for arrays of strings
+if ($key === 'budget') {
+                // Generate the complex Word Table for the Budget
+                $table = new \PhpOffice\PhpWord\Element\Table([
+                    'borderSize' => 6, 
+                    'borderColor' => 'D3D3D3', 
+                    // Reduced margin from 80 to 40 for a much tighter height
+                    'cellMargin' => 40,
+                    'alignment' => \PhpOffice\PhpWord\SimpleType\JcTable::CENTER // Centers the narrowed table on the page
+                    // Notice: 'width' => 100*50 was removed so it doesn't stretch across the whole page
+                ]);
+
+                // Define standard font styles for the table
+                $headerFont = ['bold' => true, 'color' => '6C757D', 'size' => 8]; // Smaller header font
+                $dataFont = ['size' => 9, 'color' => '000000']; // Smaller data font for compact fit
+                
+                // Set a fixed, narrow row height (250 twips)
+                $rowHeight = 250;
+
+                // Header Row (Narrowed column widths)
+                $table->addRow($rowHeight, ['exactHeight' => true]);
+                $table->addCell(2800)->addText('ITEM DESCRIPTION', $headerFont);
+                $table->addCell(1200)->addText('PRICE (Php)', $headerFont, ['alignment' => 'center']);
+                $table->addCell(1500)->addText('DETAILS', $headerFont, ['alignment' => 'center']);
+                $table->addCell(800)->addText('QTY', $headerFont, ['alignment' => 'center']);
+                $table->addCell(1500)->addText('TOTAL', $headerFont, ['alignment' => 'right']);
+
+                $grandTotal = 0;
+                foreach ($value as $item) {
+                    $total = floatval($item['price']) * intval($item['qty']);
+                    $grandTotal += $total;
+
+                    $table->addRow($rowHeight, ['exactHeight' => true]);
+                    $table->addCell(2800)->addText(htmlspecialchars($item['name'] ?? ''), $dataFont);
+                    $table->addCell(1200)->addText(number_format(floatval($item['price'] ?? 0), 2), $dataFont, ['alignment' => 'center']);
+                    $table->addCell(1500)->addText(htmlspecialchars($item['size'] ?? ''), $dataFont, ['alignment' => 'center']);
+                    $table->addCell(800)->addText($item['qty'] ?? '0', $dataFont, ['alignment' => 'center']);
+                    $table->addCell(1500)->addText(number_format($total, 2), $dataFont, ['alignment' => 'right']);
+                }
+
+                // Grand Total Row
+                $table->addRow($rowHeight, ['exactHeight' => true]);
+                // Gridspan 4 merges the first 4 columns. 2800+1200+1500+800 = 6300 twips.
+                $table->addCell(6300, ['gridSpan' => 4])->addText('Grand Total:', ['bold' => true, 'size' => 9], ['alignment' => 'right']);
+                $table->addCell(1500)->addText(number_format($grandTotal, 2), ['bold' => true, 'color' => '198754', 'size' => 9], ['alignment' => 'right']);
+
+                $templateProcessor->setComplexBlock($key, $table);
+                continue; 
+                
+            } elseif ($key === 'objectives' || $key === 'ilos') {
                 $value = implode("\n• ", array_map('htmlspecialchars', $value));
             } elseif ($key === 'program') {
-                // Format program schedule
+                // Formatting Program as: "1:00 pm - 1:30pm - Activity"
                 $lines = [];
                 foreach ($value as $item) {
-                    $lines[] = htmlspecialchars("{$item['start']} - {$item['end']}: {$item['act']}");
-                }
-                $value = implode("\n", $lines);
-            } elseif ($key === 'schedule') {
-                // Format schedule summaries as date/time list
-                $lines = [];
-                foreach ($value as $item) {
-                    if (!empty($item['date']) && !empty($item['time'])) {
-                        $lines[] = htmlspecialchars("{$item['date']} at {$item['time']}");
-                    } elseif (!empty($item['date'])) {
-                        $lines[] = htmlspecialchars($item['date']);
-                    } elseif (!empty($item['time'])) {
-                        $lines[] = htmlspecialchars($item['time']);
+                    $start = !empty($item['start']) ? date("g:i a", strtotime($item['start'])) : '';
+                    $end = !empty($item['end']) ? date("g:i a", strtotime($item['end'])) : '';
+                    $timeStr = $start;
+                    if ($end)
+                        $timeStr .= " – $end";
+                    if ($timeStr || !empty($item['act'])) {
+                        $lines[] = htmlspecialchars(trim("$timeStr - " . ($item['act'] ?? ''), ' -'));
                     }
                 }
                 $value = implode("\n", $lines);
-            } elseif ($key === 'budget') {
-                // Format budget table as text
+            } elseif ($key === 'schedule') {
+                // Formatting Schedule as: "February 28, 2026 1:00 pm - 4:00pm"
                 $lines = [];
                 foreach ($value as $item) {
-                    $lines[] = htmlspecialchars("{$item['name']} - {$item['size']} - Qty: {$item['qty']} - Price: ₱{$item['price']} - Total: ₱{$item['total']}");
+                    $date = !empty($item['date']) ? formatDateForTemplate($item['date']) : '';
+                    $start = !empty($item['time']) ? date("g:i a", strtotime($item['time'])) : '';
+                    $end = !empty($item['endTime']) ? date("g:i a", strtotime($item['endTime'])) : '';
+                    $timeStr = $start;
+                    if ($end)
+                        $timeStr .= " – $end";
+                    $lines[] = htmlspecialchars(trim("$date $timeStr"));
                 }
-                $value = implode("\n", $lines);
+                $value = implode("\n", array_filter($lines));
             } else {
                 $value = implode(", ", array_map('htmlspecialchars', $value));
             }
         } elseif (is_string($value)) {
             $value = htmlspecialchars($value);
         }
+
         $templateProcessor->setValue($key, $value);
     }
 

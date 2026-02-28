@@ -112,9 +112,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/event-calendar.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/notifications.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/toast.css">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global-notifications.css"><!-- Global notifications styles -->
-
-    <script>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/global-notifications.css"><script>
         // Provide user data to JS (employee-only)
         window.currentUser = <?php
         $jsUser = [
@@ -139,9 +137,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     include ROOT_PATH . 'includes/notifications.php';
     ?>
 
-    <!-- Main Content -->
     <div class="main-content">
-        <!-- Page Header -->
         <div class="page-header-section">
             <div class="container-fluid">
                 <div class="page-header-content">
@@ -161,15 +157,12 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
             </div>
         </div>
 
-        <!-- Compact Notification Header - OneUI Enhanced -->
         <div class="notification-header-modern">
             <div class="container-fluid">
                 <div class="header-modern-wrapper">
-                    <!-- Top Row: Controls and Filtering (Left) -->
                     <div class="header-controls-row" style="gap: 2rem; align-items: flex-start;">
-                        <!-- Filtering/Stats Cards (Left) -->
                         <div class="stats-cards-modern" style="margin-right: 1.5rem;">
-                            <div class="stat-card all">
+                            <div class="stat-card all" onclick="filterDocuments('all')" role="button" tabindex="0">
                                 <div class="stat-icon">
                                     <i class="bi bi-files"></i>
                                 </div>
@@ -178,36 +171,35 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                     <div class="stat-label">Total</div>
                                 </div>
                             </div>
-                            <div class="stat-card pending">
+                            <div class="stat-card pending" onclick="filterDocuments('submitted')" role="button" tabindex="0">
                                 <div class="stat-icon">
                                     <i class="bi bi-hourglass-split"></i>
                                 </div>
                                 <div class="stat-content">
                                     <div class="stat-value" id="submittedCount">0</div>
-                                    <div class="stat-label">Pending</div>
+                                    <div class="stat-label">Newly Submitted</div>
                                 </div>
                             </div>
-                            <div class="stat-card in-review">
+                            <div class="stat-card in-review" onclick="filterDocuments('in_progress')" role="button" tabindex="0">
                                 <div class="stat-icon">
                                     <i class="bi bi-eye-fill"></i>
                                 </div>
                                 <div class="stat-content">
                                     <div class="stat-value" id="inReviewCount">0</div>
-                                    <div class="stat-label">In Review</div>
+                                    <div class="stat-label">Under Review</div>
                                 </div>
                             </div>
-                            <div class="stat-card approved">
+                            <div class="stat-card approved" onclick="filterDocuments('approved')" role="button" tabindex="0">
                                 <div class="stat-icon">
                                     <i class="bi bi-check-circle-fill"></i>
                                 </div>
                                 <div class="stat-content">
                                     <div class="stat-value" id="approvedCount">0</div>
-                                    <div class="stat-label">Completed</div>
+                                    <div class="stat-label">Fully Approved</div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Search Bar (Middle) -->
                         <div class="search-box-modern" style="flex: 1; max-width: 600px;">
                             <i class="bi bi-search search-icon"></i>
                             <input type="text" class="search-input" id="documentSearch"
@@ -219,7 +211,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             </button>
                         </div>
 
-                        <!-- Sorting Dropdown (Right) -->
                         <div class="sort-dropdown-modern">
                             <button class="sort-trigger" id="sortTrigger">
                                 <i class="bi bi-funnel"></i>
@@ -228,16 +219,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             </button>
                             <div class="sort-menu" id="sortMenu" style="display: none;">
                                 <div class="sort-menu-header">Sort by</div>
-                                <button class="sort-option active" data-sort="date_desc">
-                                    <i class="bi bi-calendar-event"></i>
-                                    <span>Date (Newest First)</span>
-                                    <i class="bi bi-check-circle-fill sort-check"></i>
-                                </button>
-                                <button class="sort-option" data-sort="date_asc">
-                                    <i class="bi bi-calendar-event"></i>
-                                    <span>Date (Oldest First)</span>
-                                    <i class="bi bi-check-circle-fill sort-check"></i>
-                                </button>
                                 <button class="sort-option" data-sort="due_desc">
                                     <i class="bi bi-clock-history"></i>
                                     <span>Due Date (Soonest)</span>
@@ -261,7 +242,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             </div>
                         </div>
 
-                        <!-- Grouping Dropdown -->
                         <div class="group-dropdown-modern">
                             <button class="group-trigger" id="groupTrigger">
                                 <i class="bi bi-folder"></i>
@@ -298,23 +278,36 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
 
         <script>
-        // Enhanced sort and group dropdown functionality
+        // Enhanced sort and group dropdown functionality (Refactored to map to new JS Managers)
         document.addEventListener('DOMContentLoaded', function() {
             const sortTrigger = document.getElementById('sortTrigger');
             const sortMenu = document.getElementById('sortMenu');
             const sortOptions = document.querySelectorAll('.sort-option');
             const groupTrigger = document.getElementById('groupTrigger');
             const groupMenu = document.getElementById('groupMenu');
-            const groupOptions = document.querySelectorAll('.group-option');
             const searchInput = document.getElementById('documentSearch');
             const clearSearchBtn = document.getElementById('clearSearch');
+            const sortLabel = document.querySelector('#sortTrigger .sort-label');
+
+            function syncSortUi(sortValue) {
+                let selected = null;
+                sortOptions.forEach(opt => {
+                    const isActive = opt.dataset.sort === sortValue;
+                    opt.classList.toggle('active', isActive);
+                    if (isActive) selected = opt;
+                });
+                if (sortLabel && selected) {
+                    const text = selected.querySelector('span')?.textContent?.trim();
+                    if (text) sortLabel.textContent = text;
+                }
+            }
             
             // Toggle sort menu
             if (sortTrigger) {
                 sortTrigger.addEventListener('click', function(e) {
                     e.stopPropagation();
                     sortMenu.style.display = sortMenu.style.display === 'none' ? 'block' : 'none';
-                    groupMenu.style.display = 'none'; // Close group menu
+                    if (groupMenu) groupMenu.style.display = 'none'; // Close group menu
                 });
             }
             
@@ -323,7 +316,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                 groupTrigger.addEventListener('click', function(e) {
                     e.stopPropagation();
                     groupMenu.style.display = groupMenu.style.display === 'none' ? 'block' : 'none';
-                    sortMenu.style.display = 'none'; // Close sort menu
+                    if (sortMenu) sortMenu.style.display = 'none'; // Close sort menu
                 });
             }
             
@@ -337,33 +330,20 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
             sortOptions.forEach(option => {
                 option.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    sortOptions.forEach(opt => opt.classList.remove('active'));
-                    this.classList.add('active');
                     const sortValue = this.dataset.sort;
+                    syncSortUi(sortValue);
+                    
                     if (window.documentSystem) {
-                        window.documentSystem.currentSort = sortValue;
-                        window.documentSystem.renderDocuments();
+                        window.documentSystem.sortOption = sortValue;
+                        window.documentSystem.applyFiltersAndSearch();
                     }
-                    sortMenu.style.display = 'none';
+                    if (sortMenu) sortMenu.style.display = 'none';
                 });
             });
-            
-            // Group option selection - REMOVED: Handled by initGroupingControls() in notifications.js
-            /*
-            groupOptions.forEach(option => {
-                option.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    groupOptions.forEach(opt => opt.classList.remove('active'));
-                    this.classList.add('active');
-                    const groupValue = this.dataset.group;
-                    if (window.documentSystem) {
-                        window.documentSystem.currentGroup = groupValue;
-                        window.documentSystem.renderDocuments();
-                    }
-                    groupMenu.style.display = 'none';
-                });
-            });
-            */
+
+            // Initialize sort label/selection from persisted value
+            const initialSort = localStorage.getItem('notifications_sortOption') || 'date_desc';
+            syncSortUi(initialSort);
             
             // Search input clear button
             if (searchInput && clearSearchBtn) {
@@ -375,18 +355,17 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                     searchInput.value = '';
                     this.style.display = 'none';
                     if (window.documentSystem) {
-                        window.documentSystem.renderDocuments();
+                        window.documentSystem.searchTerm = '';
+                        window.documentSystem.applyFiltersAndSearch();
                     }
                 });
             }
         });
         </script>
 
-        <!-- Dashboard View -->
         <div id="dashboardView" class="container-fluid">
             <div class="row">
                 <div class="col-12">
-                    <!-- Compact List View Container -->
                     <div class="documents-list-wrapper">
                         <div class="list-header">
                             <div class="list-header-left">
@@ -399,10 +378,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                         </div>
                         
                         <div class="documents-list-container" id="documentsContainer">
-                            <!-- Documents will be populated here as compact list items -->
-                        </div>
+                            </div>
                         
-                        <!-- Empty State -->
                         <div class="empty-state" id="emptyState" style="display: none;">
                             <div class="empty-icon">
                                 <i class="bi bi-inbox"></i>
@@ -416,9 +393,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
     </div>
 
-    <!-- Modern Document Detail View -->
     <div id="documentView" class="document-detail" style="display: none;">
-        <!-- Enhanced Header with Better Controls -->
         <div class="document-header">
             <div class="container-fluid">
                 <div class="header-content">
@@ -446,62 +421,62 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
             </div>
         </div>
 
-        <!-- Modern Layout Container -->
         <div class="document-layout">
             <div class="container-fluid">
                 <div class="layout-grid">
-                    <!-- Main PDF Viewer -->
                     <div class="pdf-section">
                         <div class="pdf-viewer-modern">
-                            <!-- Enhanced PDF Controls -->
-                            <div class="pdf-toolbar">
-                                <div class="toolbar-group">
-                                    <div class="page-controls">
-                                        <button class="tool-btn" onclick="documentSystem.prevPage()" id="prevPageBtn"
-                                            title="Previous Page" aria-label="Previous Page">
+                            <div class="pdf-toolbar" style="display: flex; justify-content: space-between; padding: 10px; background: #fff; border-bottom: 1px solid #e5e7eb;">
+                                <div class="toolbar-group d-flex align-items-center">
+                                    <div class="page-controls d-flex align-items-center gap-2">
+                                        <button class="tool-btn btn btn-sm btn-light" onclick="documentSystem.pdfViewer.prevPage(documentSystem.currentDocument)" id="prevPageBtn" title="Previous Page">
                                             <i class="bi bi-chevron-left"></i>
                                         </button>
-                                        <div class="page-info">
-                                            <input type="number" id="pageInput" min="1"
-                                                onchange="documentSystem.goToPage(this.value)" class="page-input"
-                                                title="Current Page" />
-                                            <span class="page-separator">/</span>
-                                            <span id="pageTotal" class="page-total">1</span>
+                                        <div class="page-info d-flex align-items-center gap-1">
+                                            <input type="number" id="pageInput" min="1" onchange="documentSystem.pdfViewer.goToPage(this.value, documentSystem.currentDocument)" class="form-control form-control-sm text-center" style="width: 50px;" title="Current Page" />
+                                            <span class="page-separator text-muted">/</span>
+                                            <span id="pageTotal" class="page-total fw-bold">1</span>
                                         </div>
-                                        <button class="tool-btn" onclick="documentSystem.nextPage()" id="nextPageBtn"
-                                            title="Next Page" aria-label="Next Page">
+                                        <button class="tool-btn btn btn-sm btn-light" onclick="documentSystem.pdfViewer.nextPage(documentSystem.currentDocument)" id="nextPageBtn" title="Next Page">
                                             <i class="bi bi-chevron-right"></i>
                                         </button>
                                     </div>
                                 </div>
 
-                                <div class="toolbar-group">
-                                    <button class="tool-btn" onclick="documentSystem.fitToWidth()"
-                                        title="Fit to Width">
+                                <div class="toolbar-group d-flex align-items-center gap-2">
+                                    <!-- <button class="tool-btn btn btn-sm btn-light" onclick="documentSystem.pdfViewer.zoomOut(documentSystem.currentDocument)" id="zoomOutBtn" title="Zoom Out">
+                                        <i class="bi bi-dash"></i>
+                                    </button>
+                                    <div class="zoom-info" style="min-width: 50px; text-align: center; font-size: 13px; font-weight: 600;">
+                                        <span id="zoomIndicator" class="zoom-level">100%</span>
+                                    </div>
+                                    <button class="tool-btn btn btn-sm btn-light" onclick="documentSystem.pdfViewer.zoomIn(documentSystem.currentDocument)" id="zoomInBtn" title="Zoom In">
+                                        <i class="bi bi-plus"></i>
+                                    </button>
+                                    
+                                    <div class="border-start mx-1" style="height: 24px;"></div> -->
+
+                                    <button class="tool-btn btn btn-sm btn-light" onclick="documentSystem.pdfViewer.fitToWidth(documentSystem.currentDocument)" title="Fit to Width">
                                         <i class="bi bi-arrows-angle-expand"></i>
                                     </button>
-                                    <button class="tool-btn" onclick="documentSystem.openFullViewer()"
-                                        title="View Full Document">
+                                    <button class="tool-btn btn btn-sm btn-light" onclick="documentSystem.pdfViewer.openFullViewer(documentSystem.currentDocument)" title="View Full Document">
                                         <i class="bi bi-eye"></i>
                                     </button>
                                 </div>
                             </div>
 
-                            <!-- PDF Canvas Container -->
-                            <div class="pdf-canvas-container" id="pdfContent">
-                                <div id="pdfLoading" class="pdf-loading-modern">
-                                    <div class="loading-spinner">
-                                        <div class="spinner"></div>
-                                    </div>
-                                    <p class="loading-text">Loading document...</p>
+                            <div class="pdf-canvas-container" id="pdfContent" style="position: relative; overflow: auto; text-align: center; background-color: #f3f4f6; min-height: 500px; padding: 20px;">
+                                <div id="pdfLoading" class="pdf-loading-modern" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+                                    <div class="spinner-border text-primary mb-3" role="status"></div>
+                                    <p class="loading-text text-muted">Loading document...</p>
                                 </div>
+                                
+                                <canvas id="pdfCanvas" style="display: none; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></canvas>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Enhanced Sidebar -->
                     <div class="actions-sidebar">
-                        <!-- Document Actions Card -->
                         <div class="sidebar-card">
                             <div class="card-header">
                                 <h3 class="card-title">
@@ -538,7 +513,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             </div>
                         </div>
 
-                        <!-- Signature Status Card -->
                         <div class="sidebar-card">
                             <div class="card-header">
                                 <h3 class="card-title">
@@ -575,7 +549,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                     Open Signature Pad
                                 </button>
 
-                                <!-- Enhanced Signature Pad -->
                                 <div id="signaturePadContainer" class="signature-pad-modern d-none">
                                     <div class="signature-header">
                                         <span class="signature-title">Add Your Signature</span>
@@ -622,7 +595,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             </div>
                         </div>
 
-                        <!-- Notes Card -->
                         <div class="sidebar-card">
                             <div class="card-header">
                                 <h3 class="card-title">
@@ -638,7 +610,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                         <div class="reply-banner-text">
                                             Replying to <span id="replyAuthorName"></span>
                                         </div>
-                                        <button type="button" class="reply-cancel-btn" onclick="documentSystem.clearReplyTarget()">
+                                        <button type="button" class="reply-cancel-btn" onclick="documentSystem.commentsManager.clearReplyTarget()">
                                             <i class="bi bi-x"></i>
                                         </button>
                                     </div>
@@ -648,7 +620,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
 
                                     <div class="notes-actions">
                                         <span id="notesSaveIndicator"></span>
-                                        <button class="btn-notes save" id="postCommentBtn" onclick="documentSystem.postComment()">
+                                        <button class="btn-notes save" id="postCommentBtn" onclick="documentSystem.commentsManager.postComment()">
                                             <i class="bi bi-send"></i>
                                             Post Comment
                                         </button>
@@ -657,7 +629,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             </div>
                         </div>
 
-                        <!-- Workflow Progress Card -->
                         <div class="sidebar-card">
                             <div class="card-header">
                                 <h3 class="card-title">
@@ -668,8 +639,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             </div>
                             <div class="card-content">
                                 <div id="workflowSteps" class="workflow-timeline">
-                                    <!-- Workflow steps will be populated here -->
-                                </div>
+                                    </div>
                             </div>
                         </div>
                     </div>
@@ -678,7 +648,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
     </div>
 
-    <!-- Change Password Modal -->
     <div class="modal fade" id="changePasswordModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -733,7 +702,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
     </div>
 
-    <!-- Profile Settings Modal -->
     <div class="modal fade" id="profileSettingsModal" tabindex="-1" aria-labelledby="profileSettingsLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -769,14 +737,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                             <input type="tel" class="form-control" id="profilePhone" pattern="^(09|\+639)\d{9}$">
                             <div class="invalid-feedback">Please enter a valid Philippine phone number (e.g., 09123456789 or +639123456789).</div>
                         </div>
-                        <div class="mb-3">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="darkModeToggle">
-                                <label class="form-check-label" for="darkModeToggle">
-                                    Enable Dark Mode
-                                </label>
-                            </div>
-                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -787,7 +747,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
     </div>
 
-    <!-- Preferences Modal -->
     <div class="modal fade" id="preferencesModal" tabindex="-1" aria-labelledby="preferencesLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -832,7 +791,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
     </div>
 
-    <!-- Help & Support Modal -->
     <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -876,12 +834,15 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                 <div class="accordion-body">
                                     <p>Documents follow a sequential approval process:</p>
                                     <ol>
-                                        <li><strong>Submitted:</strong> Document is uploaded and pending initial review
+                                        <li><strong>Draft:</strong> Document is created but not yet submitted for approval</li>
+                                        <li><strong>Newly Submitted:</strong> Document is uploaded and pending initial review
                                         </li>
-                                        <li><strong>In Review:</strong> Document is being reviewed by assigned personnel
+                                        <li><strong>Under Review:</strong> Document is being reviewed by assigned personnel
                                         </li>
-                                        <li><strong>Approved:</strong> Document has been approved and signed</li>
-                                        <li><strong>Rejected:</strong> Document was rejected (requires revision)</li>
+                                        <li><strong>Action Required:</strong> Workflow is paused due to a 7-day signer timeout</li>
+                                        <li><strong>Fully Approved:</strong> Document has been approved and signed</li>
+                                        <li><strong>Declined:</strong> Document was rejected (requires revision)</li>
+                                        <li><strong>Cancelled:</strong> Document was withdrawn by the student or an administrator</li>
                                     </ol>
                                 </div>
                             </div>
@@ -959,7 +920,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
     </div>
 
-    <!-- Notifications Modal - OneUI Enhanced -->
     <div class="modal fade" id="notificationsModal" tabindex="-1" aria-labelledby="notificationsModalLabel"
         aria-hidden="true">
         <div class="modal-dialog">
@@ -973,8 +933,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                 </div>
                 <div class="modal-body">
                     <div id="notificationsList">
-                        <!-- Notifications will be populated here -->
-                    </div>
+                        </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary btn-sm" onclick="markAllAsRead()">
@@ -988,7 +947,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
     </div>
 
-    <!-- Reject Document Modal -->
     <div class="modal fade" id="rejectDocumentModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -1016,7 +974,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
     </div>
 
-    <!-- Generic Confirmation Modal -->
     <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -1035,7 +992,6 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
     </div>
 
-    <!-- Full Document Viewer Modal -->
     <div class="modal fade" id="fullDocumentModal" tabindex="-1">
         <div class="modal-dialog modal-lg" style="max-width: 90vw; max-height: 90vh;">
             <div class="modal-content" style="height: 85vh;">
@@ -1046,37 +1002,37 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                 <div class="modal-body" style="padding: 0; height: calc(100% - 60px); overflow: hidden;">
                     <div id="fullPdfToolbar" class="pdf-toolbar">
                         <div class="toolbar-group">
-                            <button class="tool-btn" onclick="documentSystem.fullPrevPage()" id="fullPrevPageBtn" title="Previous Page">
+                            <button class="tool-btn" onclick="documentSystem.pdfViewer.fullPrevPage(documentSystem.currentDocument)" id="fullPrevPageBtn" title="Previous Page">
                                 <i class="bi bi-chevron-left"></i>
                             </button>
                             <div class="page-info">
-                                <input type="number" id="fullPageInput" min="1" onchange="documentSystem.fullGoToPage(this.value)" class="page-input" title="Current Page" />
+                                <input type="number" id="fullPageInput" min="1" onchange="documentSystem.pdfViewer.fullGoToPage(this.value, documentSystem.currentDocument)" class="page-input" title="Current Page" />
                                 <span class="page-separator">/</span>
                                 <span id="fullPageTotal" class="page-total">1</span>
                             </div>
-                            <button class="tool-btn" onclick="documentSystem.fullNextPage()" id="fullNextPageBtn" title="Next Page">
+                            <button class="tool-btn" onclick="documentSystem.pdfViewer.fullNextPage(documentSystem.currentDocument)" id="fullNextPageBtn" title="Next Page">
                                 <i class="bi bi-chevron-right"></i>
                             </button>
                         </div>
                         <div class="toolbar-group">
-                            <button class="tool-btn" onclick="documentSystem.fullZoomOut()" title="Zoom Out">
+                            <button class="tool-btn" onclick="documentSystem.pdfViewer.fullZoomOut(documentSystem.currentDocument)" title="Zoom Out">
                                 <i class="bi bi-dash"></i>
                             </button>
                             <div class="zoom-info">
                                 <span id="fullZoomIndicator" class="zoom-level">100%</span>
                             </div>
-                            <button class="tool-btn" onclick="documentSystem.fullZoomIn()" title="Zoom In">
+                            <button class="tool-btn" onclick="documentSystem.pdfViewer.fullZoomIn(documentSystem.currentDocument)" title="Zoom In">
                                 <i class="bi bi-plus"></i>
                             </button>
                             <div class="toolbar-separator"></div>
-                            <button class="tool-btn" onclick="documentSystem.fullFitToWidth()" title="Fit to Width">
+                            <button class="tool-btn" onclick="documentSystem.pdfViewer.fullFitToWidth(documentSystem.currentDocument)" title="Fit to Width">
                                 <i class="bi bi-arrows-angle-expand"></i>
                             </button>
-                            <button class="tool-btn" onclick="documentSystem.fullResetZoom()" title="Reset Zoom">
+                            <button class="tool-btn" onclick="documentSystem.pdfViewer.fullResetZoom(documentSystem.currentDocument)" title="Reset Zoom">
                                 <i class="bi bi-arrow-clockwise"></i>
                             </button>
                             <div class="toolbar-separator"></div>
-                            <button class="tool-btn" onclick="documentSystem.toggleDragMode()" id="dragToggleBtn" title="Toggle Drag Mode">
+                            <button class="tool-btn" onclick="documentSystem.pdfViewer.toggleDragMode()" id="dragToggleBtn" title="Toggle Drag Mode">
                                 <i class="bi bi-hand-index"></i>
                             </button>
                         </div>
@@ -1091,11 +1047,14 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         </div>
     </div>
 
-    <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/ui-helpers.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/comments-manager.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/signature-manager.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/pdf-viewer.js"></script>
     <script src="<?php echo BASE_URL; ?>assets/js/notifications.js"></script>
 
     <script>
@@ -1121,7 +1080,10 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
             window.saveProfileSettings = window.NavbarSettings.saveProfileSettings;
         }
 
-        // Document actions routed to the controller
+        // ----------------------------------------------------------------------
+        // UI WRAPPER FUNCTIONS (Connecting HTML elements to the JS Controllers)
+        // ----------------------------------------------------------------------
+
         function filterDocuments(status) {
             if (window.documentSystem) {
                 window.documentSystem.filterDocuments(status);
@@ -1129,32 +1091,36 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
         }
 
         function goBack() {
-            document.getElementById('documentView').style.display = 'none';
-            document.getElementById('dashboardView').style.display = 'block';
+            if (window.documentSystem) {
+                window.documentSystem.goBack();
+            }
         }
 
         function signDocument() {
             if (window.documentSystem && window.documentSystem.currentDocument) {
                 window.documentSystem.signDocument(window.documentSystem.currentDocument.id);
             } else if (window.ToastManager) {
-                window.ToastManager.warning('Open a document first.', 'Notice');
+                window.ToastManager.show({ type: 'warning', title: 'Notice', message: 'Please open a document first.' });
             }
         }
-
-        function applySignature() { toggleSignaturePad(); }
 
         function toggleSignaturePad() {
             const pad = document.getElementById('signaturePadContainer');
             if (!pad) return;
             pad.classList.toggle('d-none');
-            if (!pad.classList.contains('d-none') && window.documentSystem) {
-                window.documentSystem.initSignaturePad();
+            
+            // Delegate initialization to the new signature manager
+            if (!pad.classList.contains('d-none') && window.documentSystem && window.documentSystem.signatureManager) {
+                window.documentSystem.signatureManager.initSignaturePad();
             }
+        }
+
+        function applySignature() { 
+            toggleSignaturePad(); 
         }
 
         function downloadPDF() {
             if (window.documentSystem && window.documentSystem.currentDocument) {
-                // Create a temporary link to download the PDF
                 let filePath = window.documentSystem.currentDocument.file_path;
                 if (filePath.startsWith('/')) {
                     filePath = window.BASE_URL + filePath.substring(1);
@@ -1176,11 +1142,11 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                 document.body.removeChild(link);
 
                 if (window.ToastManager) {
-                    window.ToastManager.success('PDF download started.', 'Download');
+                    window.ToastManager.show({ type: 'success', title: 'Download', message: 'PDF download started.' });
                 }
             } else {
                 if (window.ToastManager) {
-                    window.ToastManager.warning('Please open a document first.', 'Notice');
+                    window.ToastManager.show({ type: 'warning', title: 'Notice', message: 'Please open a document first.' });
                 }
             }
         }
@@ -1207,11 +1173,11 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                         return;
                     }
                     errorDiv.classList.add('d-none');
+                    
                     // Call the JS controller to reject
                     if (window.documentSystem && window.documentSystem.currentDocument) {
                         window.documentSystem.rejectDocument(window.documentSystem.currentDocument.id, reason);
                     }
-                    // Hide modal after submit
                     bootstrap.Modal.getInstance(document.getElementById('rejectDocumentModal')).hide();
                 };
             }
@@ -1233,21 +1199,15 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     </script>
 
     <script>
-        // Check for sign_doc parameter and open document
-        const urlParams = new URLSearchParams(window.location.search);
-        const signDocId = urlParams.get('sign_doc');
-        if (signDocId) {
-            // Initialize and open the document for signing
-            document.addEventListener('DOMContentLoaded', function() {
-                documentSystem.init();
-                documentSystem.openDocument(signDocId);
-            });
-        } else {
-            // Normal initialization
-            document.addEventListener('DOMContentLoaded', function() {
-                documentSystem.init();
-            });
-        }
+        // Initialize Application
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const signDocId = urlParams.get('sign_doc');
+            
+            if (signDocId) {
+                window.documentSystem.openDocument(signDocId);
+            }
+        });
     </script>
 </body>
 

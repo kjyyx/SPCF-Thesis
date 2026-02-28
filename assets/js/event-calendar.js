@@ -83,7 +83,7 @@ class CalendarApp {
             }
         } else if (currentUser.role === 'employee') {
             if (employeeInfoCompact) employeeInfoCompact.style.display = 'flex';
-            if (addEventBtn && (currentUser.position === 'Physical Plant and Facilities Office (PPFO)' || currentUser.position === 'Executive Vice-President/Student Services (EVP)')) {
+            if (addEventBtn && currentUser.position === 'Physical Plant and Facilities Office (PPFO)') {
                 addEventBtn.style.display = 'inline-flex';
             }
         } else if (currentUser.role === 'admin') {

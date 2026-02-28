@@ -343,7 +343,8 @@ function collectProposalData() {
     document.querySelectorAll('#schedule-summary-rows .schedule-summary-row').forEach(row => {
         const date = row.querySelector('.schedule-date')?.value || '';
         const time = row.querySelector('.schedule-time')?.value || '';
-        if (date || time) schedule.push({ date, time });
+        const endTime = row.querySelector('.schedule-end-time')?.value || '';
+        if (date || time || endTime) schedule.push({ date, time, endTime });
     });
 
     // Return complete proposal data object
@@ -352,6 +353,7 @@ function collectProposalData() {
         organizer: document.getElementById('prop-organizer')?.value || '',
         department: document.getElementById('prop-department')?.value || '',
         departmentFull: '',  // Will be set server-side
+        support: document.getElementById('prop-support')?.value || '',
         title: document.getElementById('prop-title')?.value || '',
         lead: document.getElementById('prop-lead')?.value || '',
         rationale: document.getElementById('prop-rationale')?.value || '',
@@ -568,28 +570,57 @@ function collectCommunicationData() {
  * @returns {string} Complete HTML string for the proposal document
  */
 function generateProposalHTML(d) {
-    // Generate document header with title
     const header = `<div style="text-align:center;margin-bottom:1rem;"><div style="font-weight:800;font-size:1.2rem">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700;font-size:1.1rem">Project Proposal</div></div>`;
 
-    // Generate objectives list with HTML escaping for security
     const objectivesHtml = (d.objectives && d.objectives.length) ?
         `<ul style="margin:0;padding-left:20px">${d.objectives.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ul>` :
         '<div class="text-muted">No objectives provided</div>';
 
-    // Generate Intended Learning Outcomes list
     const ilosHtml = (d.ilos && d.ilos.length) ?
         `<ul style="margin:0;padding-left:20px">${d.ilos.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ul>` :
         '<div class="text-muted">No ILOs provided</div>';
 
+    // 1. The beautifully styled Budget Table
+    let grandTotal = 0;
+    const budgetRows = (d.budget || []).map(b => {
+        grandTotal += b.total;
+        return `<tr style="border-bottom:1px solid #f1f3f4">
+            <td style="border:none;padding:8px">${escapeHtml(b.name)}</td>
+            <td style="border:none;padding:8px;text-align:center">₱${b.price.toFixed(2)}</td>
+            <td style="border:none;padding:8px;text-align:center">${escapeHtml(b.size)}</td>
+            <td style="border:none;padding:8px;text-align:center">${b.qty}</td>
+            <td style="border:none;padding:8px;text-align:right">₱${b.total.toFixed(2)}</td>
+        </tr>`;
+    }).join('');
+
     const budgetHtml = (d.budget && d.budget.length) ?
-        `<table style="width:100%;border-collapse:collapse;margin-top:8px;border:none"><thead><tr style="background:#f8f9fa;border-bottom:1px solid #dee2e6"><th style="border:none;padding:8px 6px;text-align:left;font-weight:600">Item</th><th style="border:none;padding:8px 6px;text-align:center;font-weight:600;width:60px">Qty</th><th style="border:none;padding:8px 6px;text-align:right;font-weight:600;width:100px">Unit Price</th><th style="border:none;padding:8px 6px;text-align:right;font-weight:600;width:100px">Total</th></tr></thead><tbody>${d.budget.map(b => `<tr style="border-bottom:1px solid #f1f3f4"><td style="border:none;padding:6px">${escapeHtml(b.name)}</td><td style="border:none;padding:6px;text-align:center">${b.qty}</td><td style="border:none;padding:6px;text-align:right">₱${b.price.toFixed(2)}</td><td style="border:none;padding:6px;text-align:right;font-weight:600">₱${b.total.toFixed(2)}</td></tr>`).join('')}</tbody></table>` :
+        `<table style="width:100%;border-collapse:collapse;margin-top:8px;border:1px solid #dee2e6;border-radius:8px;overflow:hidden">
+            <thead><tr style="border-bottom:1px solid #dee2e6;font-size:0.75rem;text-transform:uppercase;color:#6c757d;letter-spacing:1px;background:#f8f9fa;">
+                <th style="border:none;padding:12px 8px;text-align:left;font-weight:700">Item Description</th>
+                <th style="border:none;padding:12px 8px;text-align:center;font-weight:700">Price (₱)</th>
+                <th style="border:none;padding:12px 8px;text-align:center;font-weight:700">Details</th>
+                <th style="border:none;padding:12px 8px;text-align:center;font-weight:700;width:60px">Qty</th>
+                <th style="border:none;padding:12px 8px;text-align:right;font-weight:700;width:100px">Total</th>
+            </tr></thead>
+            <tbody>${budgetRows}</tbody>
+            <tfoot><tr style="border-top:1px solid #dee2e6">
+                <td colspan="4" style="text-align:right;padding:12px 8px;font-weight:800;font-size:1rem;">Grand Total:</td>
+                <td style="text-align:right;padding:12px 8px;font-weight:800;color:#198754;font-size:1rem;">₱${grandTotal.toFixed(2)}</td>
+            </tr></tfoot>
+        </table>` :
         '<div class="text-muted">No budget items</div>';
 
+    // 2. Formatting the Program as "1:00 pm - 1:30pm - Activity"
     const programHtml = (d.program && d.program.length) ?
-        `<table style="width:100%;border-collapse:collapse;margin-top:8px;border:none"><thead><tr style="background:#f8f9fa;border-bottom:1px solid #dee2e6"><th style="border:none;padding:8px 6px;text-align:left;font-weight:600;width:120px">Start Time</th><th style="border:none;padding:8px 6px;text-align:left;font-weight:600;width:120px">End Time</th><th style="border:none;padding:8px 6px;text-align:left;font-weight:600">Activity</th></tr></thead><tbody>${d.program.map(p => `<tr style="border-bottom:1px solid #f1f3f4"><td style="border:none;padding:6px">${escapeHtml(p.start)}</td><td style="border:none;padding:6px">${escapeHtml(p.end)}</td><td style="border:none;padding:6px">${escapeHtml(p.act)}</td></tr>`).join('')}</tbody></table>` :
+        `<div style="margin-top:6px">${d.program.map(p => `<div>${formatProgramRow(p.start, p.end, p.act)}</div>`).join('')}</div>` :
         '<div class="text-muted">No program schedule</div>';
 
-    return `<div class="paper-page">${header}<div><strong>Project Organizer:</strong> ${escapeHtml(d.organizer || '')}</div><div style="margin-top:6px"><strong>Support:</strong> ${escapeHtml(d.departmentFull || d.department || '')}</div><div style="margin-top:6px"><strong>Project Title:</strong> ${escapeHtml(d.title || '[Project Title]')}</div><div style="margin-top:6px"><strong>Lead Facilitator:</strong> ${escapeHtml(d.lead || '')}</div><div style="margin-top:12px"><strong>Rationale:</strong><div style="margin-top:6px">${(d.rationale || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Objectives:</strong>${objectivesHtml}</div><div style="margin-top:12px"><strong>Intended Learning Outcomes:</strong>${ilosHtml}</div><div style="margin-top:12px"><strong>Budget Requirements:</strong>${budgetHtml}</div><div style="margin-top:12px"><strong>Source of Budget:</strong> ${escapeHtml(d.budgetSource || '')}</div><div style="margin-top:12px"><strong>Mechanics:</strong><div style="margin-top:6px">${(d.mechanics || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Schedule:</strong><div style="margin-top:6px">${(d.schedule && d.schedule.length) ? `<ul style="margin:0;padding-left:20px">${d.schedule.map(s => `<li>${escapeHtml(s.date)}${s.time ? ` at ${escapeHtml(s.time)}` : ''}</li>`).join('')}</ul>` : '<em>No schedule provided</em>'}</div></div><div style="margin-top:12px"><strong>Program Activities:</strong>${programHtml}</div><div style="margin-top:12px"><strong>Venue:</strong> ${escapeHtml(d.venue || '')}</div></div>`;
+    // 3. Formatting Schedule Summary
+    const scheduleHtml = (d.schedule && d.schedule.length) ? 
+        `<div style="margin-top:6px">${d.schedule.map(s => `<div>${formatScheduleRow(s.date, s.time, s.endTime)}</div>`).join('')}</div>` : 
+        '<em>No schedule provided</em>';
+
+    return `<div class="paper-page">${header}<div><strong>Project Organizer:</strong> ${escapeHtml(d.organizer || '')}</div><div style="margin-top:6px"><strong>Department:</strong> ${escapeHtml(d.departmentFull || d.department || '')}</div><div style="margin-top:6px"><strong>Support:</strong> ${escapeHtml(d.support || '')}</div><div style="margin-top:6px"><strong>Project Title:</strong> ${escapeHtml(d.title || '[Project Title]')}</div><div style="margin-top:6px"><strong>Lead Facilitator:</strong> ${escapeHtml(d.lead || '')}</div><div style="margin-top:12px"><strong>Rationale:</strong><div style="margin-top:6px">${(d.rationale || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Objectives:</strong>${objectivesHtml}</div><div style="margin-top:12px"><strong>Intended Learning Outcomes:</strong>${ilosHtml}</div><div style="margin-top:12px"><strong>Budget Requirements:</strong>${budgetHtml}</div><div style="margin-top:12px"><strong>Source of Budget:</strong> ${escapeHtml(d.budgetSource || '')}</div><div style="margin-top:12px"><strong>Mechanics:</strong><div style="margin-top:6px">${(d.mechanics || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Schedule:</strong>${scheduleHtml}</div><div style="margin-top:12px"><strong>Program Schedule (Event):</strong>${programHtml}</div><div style="margin-top:12px"><strong>Venue:</strong> ${escapeHtml(d.venue || '')}</div></div>`;
 }
 
 function generateSAFHTML(d) {
@@ -631,28 +662,21 @@ function generateSAFHTML(d) {
 function generateFacilityHTML(d) {
     const header = `<div style="text-align:center;margin-bottom:1rem;"><div style="font-weight:800;font-size:1.2rem">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700;font-size:1.1rem">Facility Request</div></div>`;
 
-    // Facilities list
     const facilitiesList = [];
-    for (let i = 1; i <= 24; i++) {
-        if (d[`f${i}`] === '✓') {
-            facilitiesList.push(`Facility ${i}`);
-        }
-    }
+    for (let i = 1; i <= 24; i++) { if (d[`f${i}`] === '✓') facilitiesList.push(`Facility ${i}`); }
     const facilitiesHtml = facilitiesList.length ? `<ul>${facilitiesList.map(f => `<li>${f}</li>`).join('')}</ul>` : '<em>No facilities selected</em>';
 
-    // Equipment list
     const equipmentList = [];
-    for (let i = 1; i <= 11; i++) {
-        if (d[`e${i}`] === '✓') {
-            equipmentList.push(`Equipment ${i} (Qty: ${d[`q${i}`] || 0})`);
-        }
-    }
+    for (let i = 1; i <= 11; i++) { if (d[`e${i}`] === '✓') equipmentList.push(`Equipment ${i} (Qty: ${d[`q${i}`] || 0})`); }
     const equipmentHtml = equipmentList.length ? `<ul>${equipmentList.map(e => `<li>${e}</li>`).join('')}</ul>` : '<em>No equipment selected</em>';
 
-    // Timeline
-    const timelineHtml = `<div style="margin-top:12px"><strong>Event Timeline:</strong><br>Pre-Event: ${formatDate(d.preEventDate)} ${d.preEventStartTime} - ${d.preEventEndTime}<br>Practice: ${formatDate(d.practiceDate)} ${d.practiceStartTime} - ${d.practiceEndTime}<br>Setup: ${formatDate(d.setupDate)} ${d.setupStartTime} - ${d.setupEndTime}<br>Cleanup: ${formatDate(d.cleanupDate)} ${d.cleanupStartTime} - ${d.cleanupEndTime}</div>`;
+    // 4. Update the Timeline strings using the new formatter
+    const timelineHtml = `<div style="margin-top:12px"><strong>Event Timeline:</strong><br>
+        Pre-Event: ${formatScheduleRow(d.preEventDate, d.preEventStartTime, d.preEventEndTime)}<br>
+        Practice: ${formatScheduleRow(d.practiceDate, d.practiceStartTime, d.practiceEndTime)}<br>
+        Setup: ${formatScheduleRow(d.setupDate, d.setupStartTime, d.setupEndTime)}<br>
+        Cleanup: ${formatScheduleRow(d.cleanupDate, d.cleanupStartTime, d.cleanupEndTime)}</div>`;
 
-    // Signatures
     const signaturesHtml = `<div style="margin-top:12px"><table style="width:100%;border-collapse:collapse"><tbody><tr><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.departmentHead || 'Department Head')}</div></td><td style="border:1px solid #000;padding:18px;text-align:center"><div style="border-bottom:1px solid #000;height:3rem;margin-bottom:.25rem"></div><div style="font-weight:700">${escapeHtml(d.receivingRequesteeName || 'Requestee')}</div></td></tr><tr><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ______</td><td style="border:1px solid #000;padding:6px;text-align:center"><strong>Date:</strong> ${escapeHtml(d.receivingDateFiled || '______')}</td></tr></tbody></table></div>`;
 
     return `<div class="paper-page">${header}<div><strong>Event Name:</strong> ${escapeHtml(d.eventName || '')}</div><div style="margin-top:6px"><strong>Event Date:</strong> ${formatDate(d.eventDate)}</div><div style="margin-top:6px"><strong>Department:</strong> ${escapeHtml(d.departmentFull || d.department || '')}</div><div style="margin-top:6px"><strong>Clean and Set-up Committee:</strong> ${escapeHtml(d.cleanSetUpCommittee || '')}</div><div style="margin-top:6px"><strong>Contact Person:</strong> ${escapeHtml(d.contactPerson || '')}</div><div style="margin-top:6px"><strong>Contact Number:</strong> ${escapeHtml(d.contactNumber || '')}</div><div style="margin-top:6px"><strong>Expected Attendees:</strong> ${d.expectedAttendees || 0}</div><div style="margin-top:6px"><strong>Guest/Speaker:</strong> ${escapeHtml(d.guestSpeaker || '')}</div><div style="margin-top:6px"><strong>Expected Performers:</strong> ${d.expectedPerformers || 0}</div><div style="margin-top:6px"><strong>Parking Gate/Plate No.:</strong> ${escapeHtml(d.parkingGatePlateNo || '')}</div><div style="margin-top:12px"><strong>Facilities:</strong>${facilitiesHtml}</div><div style="margin-top:12px"><strong>Equipment & Staffing:</strong>${equipmentHtml}</div>${timelineHtml}<div style="margin-top:12px"><strong>Other Matters:</strong> ${escapeHtml(d.otherMattersSpecify || '')}</div>${signaturesHtml}</div>`;
@@ -703,13 +727,10 @@ function generateCommunicationHTML(d) {
  */
 
 /**
- * Format a date string into a readable format
- * Converts date inputs to "Month Day, Year" format for document display
- * @param {string} s - Date string to format
- * @returns {string} Formatted date string or original string if parsing fails
+ * Format a date string into "Month DD, YYYY"
  */
 function formatDate(s) {
-    if (!s) return '[Date]';
+    if (!s) return '';
     try {
         const dt = new Date(s);
         return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -719,11 +740,45 @@ function formatDate(s) {
 }
 
 /**
- * Escape HTML characters to prevent XSS attacks
- * Converts dangerous HTML characters to safe HTML entities
- * @param {any} unsafe - Value to escape (converted to string)
- * @returns {string} HTML-safe string
+ * Format standard 24h time into "h:mm am/pm"
  */
+function formatTimeAmPm(timeStr) {
+    if (!timeStr) return '';
+    const [h, m] = timeStr.split(':');
+    let hours = parseInt(h, 10);
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12 || 12;
+    return `${hours}:${m} ${ampm}`;
+}
+
+/**
+ * Output format: "February 28, 2026 1:00 pm – 4:00pm"
+ */
+function formatScheduleRow(date, start, end) {
+    if (!date && !start && !end) return '';
+    const dateFmt = formatDate(date);
+    const startFmt = formatTimeAmPm(start);
+    const endFmt = formatTimeAmPm(end);
+    let timePart = startFmt;
+    if (endFmt) timePart += ` – ${endFmt}`;
+    
+    if (dateFmt && timePart) return `${dateFmt} ${timePart}`;
+    return dateFmt || timePart;
+}
+
+/**
+ * Output format: "1:00 pm – 1:30pm - Assembly"
+ */
+function formatProgramRow(start, end, activity) {
+    const startFmt = formatTimeAmPm(start);
+    const endFmt = formatTimeAmPm(end);
+    let timePart = startFmt;
+    if (endFmt) timePart += ` – ${endFmt}`;
+    
+    if (timePart && activity) return `${timePart} - ${escapeHtml(activity)}`;
+    return timePart || escapeHtml(activity);
+}
+
 function escapeHtml(unsafe) {
     if (unsafe === undefined || unsafe === null) return '';
     return String(unsafe).replace(/[&<>"']/g, function (m) {
@@ -794,8 +849,9 @@ function addScheduleSummary() {
     div.className = 'schedule-summary-row mb-2';
     div.innerHTML = `
         <div class="row g-3 align-items-center">
-            <div class="col-md-5"><input type="date" class="form-control sm schedule-date" required></div>
-            <div class="col-md-5"><input type="time" class="form-control sm schedule-time" required></div>
+            <div class="col-md-4"><input type="date" class="form-control sm schedule-date" placeholder="Date" required></div>
+            <div class="col-md-3"><input type="time" class="form-control sm schedule-time" placeholder="Start Time" required></div>
+            <div class="col-md-3"><input type="time" class="form-control sm schedule-end-time" placeholder="End Time"></div>
             <div class="col-md-2"><button class="btn btn-danger btn-icon sm" onclick="removeScheduleRow(this)"><i class="bi bi-x-lg"></i></button></div>
         </div>
     `;
@@ -824,8 +880,8 @@ function addProgramRowProp() {
     const container = document.getElementById('program-rows-prop');
     const div = document.createElement('div');
     div.className = 'program-row';
-    div.innerHTML = `<div><input type="time" class="form-control start-time" value=""></div>
-        <div><input type="time" class="form-control end-time" value=""></div>
+    div.innerHTML = `<div><input type="time" class="form-control start-time" value="" placeholder="Start Time" aria-label="Start Time"></div>
+        <div><input type="time" class="form-control end-time" value="" placeholder="End Time" aria-label="End Time"></div>
         <div><input type="text" class="activity-input form-control" placeholder="Activity description"></div>
         <div><button class="btn btn-sm btn-danger" onclick="removeProgramRow(this)">×</button></div>`;
     container.appendChild(div);

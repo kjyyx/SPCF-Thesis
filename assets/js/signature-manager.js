@@ -1,22 +1,17 @@
 /**
- * Signature Manager
- * =================
- * Handles the smooth signature pad, strictly sized target overlays, 
- * perfectly centered redaction stamps, and PDF-Lib embedding.
+ * Signature Manager (Dynamic Multi-Box Edition)
+ * ============================================
+ * Allows users to dynamically add, delete, drag, and resize multiple signature 
+ * boxes across any page of a document. Future-proof against template changes!
  */
 class SignatureManager {
     constructor() {
         this.signatureImage = null;
-        this.currentSignatureMap = null;
+        this.placedSignatures = []; // Stores array of { id, page, x_pct, y_pct, w_pct, h_pct }
 
-        // Context tracking (updated when rendering overlays)
         this.currentCanvas = null;
         this.currentPage = 1;
-
-        // SAF Dual Signing properties
-        this.isSafDualSigning = false;
-        this.linkedTargets = null;
-        this.linkedSignatureMaps = null;
+        this.isReadOnly = false;
     }
 
     // ------------------------------------------------------------------
@@ -29,60 +24,141 @@ class SignatureManager {
         if (!container || !canvas || canvas.dataset.initialized) return;
 
         canvas.dataset.initialized = 'true';
-        canvas.width = container.clientWidth ? Math.min(container.clientWidth - 16, 560) : 560;
-        canvas.height = 200;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-        const ctx = canvas.getContext('2d');
-        ctx.strokeStyle = '#111827';
-        ctx.lineWidth = 2.5; // Slightly thicker for a natural ink look
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
+        // --- FIX 1: Auto-Resizing & High-DPI Support ---
+        const resizeCanvas = () => {
+            const width = container.clientWidth;
+            const height = 200; // STRICTLY LOCK HEIGHT TO 200px!
 
+            if (width === 0) return; // Modal is currently hidden
+
+            const dpr = window.devicePixelRatio || 1;
+
+            // Only resize if dimensions actually changed (prevents accidental clearing)
+            if (canvas.width !== Math.floor(width * dpr) || canvas.height !== Math.floor(height * dpr)) {
+                // Save existing drawing if any
+                let backup = null;
+                if (this.hasCanvasContent(canvas)) {
+                    backup = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                }
+
+                // Force the physical size and logical size to match perfectly
+                canvas.style.width = width + 'px';
+                canvas.style.height = height + 'px';
+                canvas.width = Math.floor(width * dpr);
+                canvas.height = Math.floor(height * dpr);
+
+                ctx.scale(dpr, dpr);
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+
+                if (backup) {
+                    ctx.putImageData(backup, 0, 0);
+                }
+            }
+        };
+
+        // Watch the container for size changes (like when the modal opens)
+        const ro = new ResizeObserver(() => resizeCanvas());
+        ro.observe(container);
+
+        // --- FIX 2: Fountain Pen Physics ---
         let drawing = false;
         let lastPos = null;
+        let lastTime = null;
+        let lastLineWidth = 2.5;
+
+        // Pen width settings
+        const minWidth = 0.8;
+        const maxWidth = 3.8;
+        const velocityFilterWeight = 0.7; // Smoothing factor for organic transitions
 
         const pos = (e) => {
             const r = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            // Returns exact logical CSS coordinates matching the pointer
             return {
-                x: (e.touches ? e.touches[0].clientX : e.clientX) - r.left,
-                y: (e.touches ? e.touches[0].clientY : e.clientY) - r.top
+                x: clientX - r.left,
+                y: clientY - r.top,
+                time: Date.now()
             };
         };
 
-        // --- FIX: Buttery Smooth Quadratic Bezier Pen Algorithm ---
-        const start = (e) => { 
-            drawing = true; 
-            lastPos = pos(e); 
+        const start = (e) => {
+            e.preventDefault();
+            drawing = true;
+            lastPos = pos(e);
+            lastTime = lastPos.time;
+            lastLineWidth = (minWidth + maxWidth) / 2;
+
             ctx.beginPath();
-            ctx.arc(lastPos.x, lastPos.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+            ctx.fillStyle = '#0f172a'; // Deep ink color
+            ctx.arc(lastPos.x, lastPos.y, lastLineWidth / 2, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
             ctx.moveTo(lastPos.x, lastPos.y);
-            e.preventDefault(); 
         };
-        
-        const move = (e) => { 
-            if (!drawing) return; 
-            const currentPos = pos(e); 
-            
-            // Calculate midpoint for smooth curving
+
+        const move = (e) => {
+            if (!drawing) return;
+            e.preventDefault();
+
+            const currentPos = pos(e);
+            const dx = currentPos.x - lastPos.x;
+            const dy = currentPos.y - lastPos.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const timeDiff = currentPos.time - lastTime;
+
+            // Calculate velocity (pixels per ms)
+            const velocity = distance / Math.max(1, timeDiff);
+
+            // Target width: Faster = thinner, Slower = thicker
+            const targetWidth = Math.max(minWidth, maxWidth - (velocity * 2));
+
+            // Smooth out width changes for organic stroke
+            const newLineWidth = (lastLineWidth * velocityFilterWeight) + (targetWidth * (1 - velocityFilterWeight));
+
             const midPoint = {
-                x: lastPos.x + (currentPos.x - lastPos.x) / 2,
-                y: lastPos.y + (currentPos.y - lastPos.y) / 2
+                x: lastPos.x + dx / 2,
+                y: lastPos.y + dy / 2
             };
+
+            ctx.lineWidth = newLineWidth;
+            ctx.strokeStyle = '#0f172a';
 
             ctx.quadraticCurveTo(lastPos.x, lastPos.y, midPoint.x, midPoint.y);
             ctx.stroke();
+
+            // Reset path from midpoint so next stroke segment can have a different thickness
+            ctx.beginPath();
+            ctx.moveTo(midPoint.x, midPoint.y);
+
             lastPos = currentPos;
-            e.preventDefault(); 
+            lastTime = currentPos.time;
+            lastLineWidth = newLineWidth;
         };
-        
-        const end = () => { drawing = false; };
 
-        canvas.onmousedown = start; canvas.onmousemove = move; window.addEventListener('mouseup', end);
-        canvas.ontouchstart = start; canvas.ontouchmove = move; window.addEventListener('touchend', end);
+        const end = (e) => {
+            if (drawing) {
+                ctx.lineTo(lastPos.x, lastPos.y);
+                ctx.stroke();
+            }
+            drawing = false;
+        };
 
-        // Handle Image Upload
+        canvas.addEventListener('mousedown', start);
+        canvas.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', end);
+
+        // Touch events must be passive: false to prevent mobile scrolling while signing
+        canvas.addEventListener('touchstart', start, { passive: false });
+        canvas.addEventListener('touchmove', move, { passive: false });
+        window.addEventListener('touchend', end);
+
+        // Upload handler
         const uploadInput = document.getElementById('signatureUpload');
         if (uploadInput) {
             uploadInput.onchange = (e) => {
@@ -92,10 +168,18 @@ class SignatureManager {
                     reader.onload = (event) => {
                         const img = new Image();
                         img.onload = () => {
+                            // Reset transform before clearing to ensure entire canvas clears
+                            ctx.save();
+                            ctx.setTransform(1, 0, 0, 1, 0, 0);
                             ctx.clearRect(0, 0, canvas.width, canvas.height);
-                            const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                            ctx.restore();
+
+                            const logicalW = canvas.width / (window.devicePixelRatio || 1);
+                            const logicalH = canvas.height / (window.devicePixelRatio || 1);
+                            const scale = Math.min(logicalW / img.width, logicalH / img.height);
                             const w = img.width * scale, h = img.height * scale;
-                            ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+                            ctx.drawImage(img, (logicalW - w) / 2, (logicalH - h) / 2, w, h);
+
                             this.saveSignatureState(canvas);
                         };
                         img.src = event.target.result;
@@ -105,9 +189,12 @@ class SignatureManager {
             };
         }
 
-        // Button Actions
         document.getElementById('sigClearBtn')?.addEventListener('click', () => {
+            // Must clear the physical area
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
         });
 
         document.getElementById('sigSaveBtn')?.addEventListener('click', () => {
@@ -116,7 +203,6 @@ class SignatureManager {
                 return;
             }
             this.saveSignatureState(canvas);
-
             if (typeof window.toggleSignaturePad === 'function') window.toggleSignaturePad();
             if (window.ToastManager) window.ToastManager.show({ type: 'success', title: 'Saved', message: 'Signature ready to apply.' });
         });
@@ -128,7 +214,6 @@ class SignatureManager {
         return false;
     }
 
-    // --- FIX: Auto-crops whitespace so the signature PERFECTLY fills the 174x85 box! ---
     cropSignatureCanvas(canvas) {
         const ctx = canvas.getContext('2d');
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -138,112 +223,59 @@ class SignatureManager {
 
         for (let y = 0; y < canvas.height; y++) {
             for (let x = 0; x < canvas.width; x++) {
-                const alpha = data[(y * canvas.width + x) * 4 + 3];
-                if (alpha > 0) {
-                    if (x < minX) minX = x;
-                    if (y < minY) minY = y;
-                    if (x > maxX) maxX = x;
-                    if (y > maxY) maxY = y;
+                if (data[(y * canvas.width + x) * 4 + 3] > 0) {
+                    if (x < minX) minX = x; if (y < minY) minY = y;
+                    if (x > maxX) maxX = x; if (y > maxY) maxY = y;
                     hasContent = true;
                 }
             }
         }
-
         if (!hasContent) return canvas;
 
-        const padding = 8; // Small safety padding
-        minX = Math.max(0, minX - padding);
-        minY = Math.max(0, minY - padding);
-        maxX = Math.min(canvas.width, maxX + padding);
-        maxY = Math.min(canvas.height, maxY + padding);
+        const pad = 8;
+        minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+        maxX = Math.min(canvas.width, maxX + pad); maxY = Math.min(canvas.height, maxY + pad);
 
-        const width = maxX - minX;
-        const height = maxY - minY;
-
-        const croppedCanvas = document.createElement('canvas');
-        croppedCanvas.width = width;
-        croppedCanvas.height = height;
-        croppedCanvas.getContext('2d').putImageData(ctx.getImageData(minX, minY, width, height), 0, 0);
-        return croppedCanvas;
+        const cropped = document.createElement('canvas');
+        cropped.width = maxX - minX; cropped.height = maxY - minY;
+        cropped.getContext('2d').putImageData(ctx.getImageData(minX, minY, cropped.width, cropped.height), 0, 0);
+        return cropped;
     }
 
     saveSignatureState(canvas) {
-        // Crop it tightly before saving so it maximizes the space when applied
         const cropped = this.cropSignatureCanvas(canvas);
         this.signatureImage = cropped.toDataURL('image/png');
-        
-        this.updateSignatureOverlayImage();
+
         document.getElementById('signaturePlaceholder')?.classList.add('d-none');
         document.getElementById('signedStatus')?.classList.remove('d-none');
 
-        if (window.documentSystem?.updateApprovalButtonsVisibility && window.documentSystem.currentDocument) {
-            window.documentSystem.updateApprovalButtonsVisibility(window.documentSystem.currentDocument);
-        }
+        this.updateDynamicSignaturesWithImage();
+        this.triggerValidationUpdate();
+    }
+
+    updateDynamicSignaturesWithImage() {
+        document.querySelectorAll('.dynamic-signature-box').forEach(box => {
+            const id = box.dataset.id;
+            if (this.signatureImage) {
+                // Ensure the image naturally centers itself within the bounds of the box using width/height 100% and object-fit
+                let contentHTML = `<img src="${this.signatureImage}" style="width: 100%; height: 100%; object-fit: contain; pointer-events: none;">`;
+
+                // We must preserve the delete button and the resize handle if we update the HTML!
+                const deleteBtnHTML = `<button class="delete-sig-btn" onclick="documentSystem.signatureManager.removeSignatureBox('${id}')" style="position: absolute; top: -10px; right: -10px; width: 22px; height: 22px; border-radius: 50%; background: #ef4444; color: white; border: 2px solid white; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; z-index: 30; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"><i class="bi bi-x"></i></button>`;
+
+                // The resize handle is empty div, we will rebuild it in renderDynamicSignatures, 
+                // but since we update HTML here, we can just replace the image part safely if we wrap it.
+                // A better approach is to only target the inner image wrapper:
+                const imgContainer = box.querySelector('.sig-img-container');
+                if (imgContainer) {
+                    imgContainer.innerHTML = contentHTML;
+                }
+            }
+        });
     }
 
     // ------------------------------------------------------------------
-    // PDF-Lib Generation
-    // ------------------------------------------------------------------
-
-    async applySignatureToPdf(doc) {
-        if (!this.signatureImage) return null;
-
-        let pdfUrl = doc.file_path;
-        if (pdfUrl.startsWith('/')) {
-            pdfUrl = BASE_URL + pdfUrl.substring(1);
-        } else if (pdfUrl.startsWith('../')) {
-            pdfUrl = BASE_URL + pdfUrl.substring(3);
-        } else if (pdfUrl.startsWith('SPCF-Thesis/')) {
-            pdfUrl = BASE_URL + pdfUrl.substring(12);
-        } else if (!pdfUrl.startsWith('http')) {
-            pdfUrl = BASE_URL + (pdfUrl.startsWith('uploads/') ? pdfUrl : 'uploads/' + pdfUrl);
-        }
-
-        const response = await fetch(pdfUrl, { credentials: 'same-origin' });
-        if (!response.ok) {
-            console.error(`Failed to fetch PDF from: ${pdfUrl}`);
-            throw new Error(`Failed to fetch PDF`);
-        }
-
-        const arrayBuffer = await response.arrayBuffer();
-        const pdfDoc = await window.PDFLib.PDFDocument.load(arrayBuffer);
-        const embeddedSig = await pdfDoc.embedPng(this.signatureImage);
-
-        if (this.isSafDualSigning && this.linkedSignatureMaps) {
-            const acct = this.linkedSignatureMaps.accounting;
-            const acctPage = pdfDoc.getPage((acct.page || 1) - 1);
-            acctPage.drawImage(embeddedSig, {
-                x: acct.x_pct * acctPage.getWidth(),
-                y: acctPage.getHeight() - (acct.y_pct * acctPage.getHeight()) - (acct.h_pct * acctPage.getHeight()),
-                width: acct.w_pct * acctPage.getWidth(),
-                height: acct.h_pct * acctPage.getHeight()
-            });
-
-            const issuer = this.linkedSignatureMaps.issuer;
-            const issuerPage = pdfDoc.getPage((issuer.page || 1) - 1);
-            issuerPage.drawImage(embeddedSig, {
-                x: issuer.x_pct * issuerPage.getWidth(),
-                y: issuerPage.getHeight() - (issuer.y_pct * issuerPage.getHeight()) - (issuer.h_pct * issuerPage.getHeight()),
-                width: issuer.w_pct * issuerPage.getWidth(),
-                height: issuer.h_pct * issuerPage.getHeight()
-            });
-        } else {
-            const map = this.currentSignatureMap;
-            const page = pdfDoc.getPage((map.page || this.currentPage) - 1);
-            page.drawImage(embeddedSig, {
-                x: map.x_pct * page.getWidth(),
-                y: page.getHeight() - (map.y_pct * page.getHeight()) - (map.h_pct * page.getHeight()),
-                width: map.w_pct * page.getWidth(),
-                height: map.h_pct * page.getHeight()
-            });
-        }
-
-        const modifiedPdfBytes = await pdfDoc.save();
-        return new Blob([modifiedPdfBytes], { type: 'application/pdf' });
-    }
-
-    // ------------------------------------------------------------------
-    // Overlays & UI Positioning
+    // Core Rendering & Positioning
     // ------------------------------------------------------------------
 
     renderSignatureOverlay(doc, canvas, currentPage) {
@@ -253,32 +285,259 @@ class SignatureManager {
         const content = document.getElementById('pdfContent');
         if (!content || !canvas) return;
 
-        content.style.position = 'relative';
-        content.querySelectorAll('.signature-target, .completed-signature-container, .linked-connection').forEach(el => el.remove());
+        let wrapper = document.getElementById('sigOverlayWrapper');
+        if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.id = 'sigOverlayWrapper';
+            wrapper.style.position = 'absolute';
+            content.appendChild(wrapper);
+        }
 
-        // Redactions will still render perfectly!
-        this.renderCompletedSignatures(doc, content, canvas);
+        // Align exactly to the canvas boundaries
+        wrapper.style.left = canvas.offsetLeft + 'px';
+        wrapper.style.top = canvas.offsetTop + 'px';
+        wrapper.style.width = canvas.offsetWidth + 'px';
+        wrapper.style.height = canvas.offsetHeight + 'px';
 
-        const pendingStep = doc.workflow?.find(step => step.status === 'pending');
-        const user = window.currentUser;
-        const isAssigned = pendingStep && (pendingStep.assignee_id == user.id || pendingStep.assigned_to == user.id);
+        wrapper.innerHTML = '';
+        content.querySelectorAll('.add-sig-floating-btn').forEach(el => el.remove());
 
-        // --- FIX: Only render the draggable targets if NOT in Read-Only mode! ---
-        if (isAssigned && !this.isReadOnly) {
-            if (doc.doc_type === 'saf') {
-                this.isSafDualSigning = true;
-                this.createLinkedSafSignatureTargets(content, doc);
-            } else {
-                this.isSafDualSigning = false;
-                this.createSingleSignatureTarget(content, doc);
+        this.renderCompletedSignatures(doc, wrapper);
+
+        if (this.isReadOnly) return;
+
+        if (this.isUserAssignedToPendingStep(doc)) {
+            if (this.placedSignatures.length === 0) {
+                this.addSignatureBox(false);
             }
+
+            this.renderDynamicSignatures(wrapper);
+
+            const btnContainer = document.createElement('div');
+            btnContainer.className = 'add-sig-floating-btn';
+            btnContainer.style.cssText = 'position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 100;';
+            btnContainer.innerHTML = `<button class="btn btn-primary shadow-lg rounded-pill fw-bold border-2 border-white" type="button"><i class="bi bi-plus-circle me-2"></i>Add Signature Box</button>`;
+            btnContainer.querySelector('button').onclick = () => this.addSignatureBox(true);
+            content.appendChild(btnContainer);
+        }
+
+        this.triggerValidationUpdate();
+    }
+
+    addSignatureBox(shouldRender = true) {
+        const cw = this.currentCanvas ? this.currentCanvas.width : 800;
+        const ch = this.currentCanvas ? this.currentCanvas.height : 1100;
+
+        this.placedSignatures.push({
+            id: Date.now().toString() + Math.floor(Math.random() * 1000),
+            page: this.currentPage,
+            x_pct: 0.1,
+            y_pct: 0.1,
+            w_pct: 170 / cw,
+            h_pct: 70 / ch
+        });
+
+        if (shouldRender) {
+            const wrapper = document.getElementById('sigOverlayWrapper');
+            if (wrapper) this.renderDynamicSignatures(wrapper);
+            this.triggerValidationUpdate();
         }
     }
 
-    // --- FIX: Perfectly Centered Redaction stamps bound exactly to the target coordinates ---
-    renderCompletedSignatures(doc, container, canvas) {
-        if (!doc.workflow || !canvas) return;
+    removeSignatureBox(id) {
+        this.placedSignatures = this.placedSignatures.filter(s => s.id !== id);
+        const wrapper = document.getElementById('sigOverlayWrapper');
+        if (wrapper) this.renderDynamicSignatures(wrapper);
+        this.triggerValidationUpdate();
+    }
 
+    renderDynamicSignatures(wrapper) {
+        wrapper.querySelectorAll('.dynamic-signature-box').forEach(el => el.remove());
+
+        const pageSigs = this.placedSignatures.filter(s => s.page === this.currentPage);
+
+        pageSigs.forEach(sig => {
+            const box = document.createElement('div');
+            box.className = 'signature-target dynamic-signature-box';
+            box.dataset.id = sig.id;
+            box.title = 'Drag to reposition, pull right edge to resize width';
+
+            box.style.cssText = `
+                position: absolute; 
+                left: ${sig.x_pct * 100}%; 
+                top: ${sig.y_pct * 100}%; 
+                width: ${sig.w_pct * 100}%; 
+                height: ${sig.h_pct * 100}%; 
+                z-index: 20; 
+                background: rgba(59, 130, 246, 0.15); 
+                border: 2px dashed #3b82f6; 
+                border-radius: 4px; 
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                cursor: grab;
+            `;
+
+            // Inner container for the image so it's safely isolated from handles
+            const imgContainer = document.createElement('div');
+            imgContainer.className = 'sig-img-container';
+            imgContainer.style.cssText = 'width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; pointer-events: none;';
+
+            if (this.signatureImage) {
+                imgContainer.innerHTML = `<img src="${this.signatureImage}" style="width: 100%; height: 100%; object-fit: contain; pointer-events: none;">`;
+            } else {
+                imgContainer.innerHTML = `<span style="pointer-events:none; font-size:12px; color:#3b82f6; font-weight:bold; text-align:center;">Empty Box<br><small style="font-size:8px">Draw signature in sidebar</small></span>`;
+            }
+            box.appendChild(imgContainer);
+
+            // Delete Button
+            const delBtn = document.createElement('button');
+            delBtn.innerHTML = '<i class="bi bi-x"></i>';
+            delBtn.className = 'delete-sig-btn';
+            delBtn.style.cssText = 'position: absolute; top: -10px; right: -10px; width: 22px; height: 22px; border-radius: 50%; background: #ef4444; color: white; border: 2px solid white; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; z-index: 30; box-shadow: 0 2px 4px rgba(0,0,0,0.2);';
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.removeSignatureBox(sig.id);
+            };
+            box.appendChild(delBtn);
+
+            // Resize Width Handle
+            const resizeHandle = document.createElement('div');
+            resizeHandle.className = 'resize-width-handle';
+            resizeHandle.style.cssText = 'position: absolute; top: 0; right: -5px; width: 10px; height: 100%; cursor: ew-resize; z-index: 25; display: flex; align-items: center; justify-content: center;';
+            // Add a little visual indicator for the drag handle
+            resizeHandle.innerHTML = '<div style="width: 4px; height: 20px; background: #3b82f6; border-radius: 2px;"></div>';
+            box.appendChild(resizeHandle);
+
+            wrapper.appendChild(box);
+
+            // Apply Drag and Resize Interactions
+            this.makeDraggable(box, wrapper, sig.id);
+            this.makeResizableWidth(box, resizeHandle, wrapper, sig.id);
+        });
+    }
+
+    makeDraggable(element, wrapper, id) {
+        let isDragging = false, startX, startY, initialX, initialY;
+
+        element.addEventListener('mousedown', (e) => {
+            // Don't drag if clicking delete button or the resize handle
+            if (e.target.closest('.delete-sig-btn') || e.target.closest('.resize-width-handle')) return;
+
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            initialX = element.offsetLeft;
+            initialY = element.offsetTop;
+            element.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+
+            const maxX = wrapper.offsetWidth - element.offsetWidth;
+            const maxY = wrapper.offsetHeight - element.offsetHeight;
+
+            let newX = Math.max(0, Math.min(initialX + dx, maxX));
+            let newY = Math.max(0, Math.min(initialY + dy, maxY));
+
+            const sig = this.placedSignatures.find(s => s.id === id);
+            if (sig) {
+                sig.x_pct = newX / wrapper.offsetWidth;
+                sig.y_pct = newY / wrapper.offsetHeight;
+
+                element.style.left = (sig.x_pct * 100) + '%';
+                element.style.top = (sig.y_pct * 100) + '%';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                element.style.cursor = 'grab';
+            }
+        });
+    }
+
+    makeResizableWidth(element, handle, wrapper, id) {
+        let isResizing = false, startX, initialWidth;
+
+        handle.addEventListener('mousedown', (e) => {
+            e.stopPropagation(); // Prevents the drag logic from firing
+            isResizing = true;
+            startX = e.clientX;
+            initialWidth = element.offsetWidth;
+            document.body.style.cursor = 'ew-resize';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const dx = e.clientX - startX;
+
+            // Allow a minimum width of 50px
+            const newWidth = Math.max(50, initialWidth + dx);
+
+            // Prevent resizing out of bounds on the right side
+            const maxWidth = wrapper.offsetWidth - element.offsetLeft;
+            const finalWidth = Math.min(newWidth, maxWidth);
+
+            const sig = this.placedSignatures.find(s => s.id === id);
+            if (sig) {
+                sig.w_pct = finalWidth / wrapper.offsetWidth;
+                element.style.width = (sig.w_pct * 100) + '%';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                document.body.style.cursor = '';
+            }
+        });
+    }
+
+    // ------------------------------------------------------------------
+    // PDF-Lib Permanent Embedding
+    // ------------------------------------------------------------------
+
+    async applySignatureToPdf(doc) {
+        if (!this.signatureImage || this.placedSignatures.length === 0) return null;
+
+        let pdfUrl = doc.file_path;
+        if (pdfUrl.startsWith('/')) pdfUrl = BASE_URL + pdfUrl.substring(1);
+        else if (pdfUrl.startsWith('../')) pdfUrl = BASE_URL + pdfUrl.substring(3);
+        else if (!pdfUrl.startsWith('http')) pdfUrl = BASE_URL + (pdfUrl.startsWith('uploads/') ? pdfUrl : 'uploads/' + pdfUrl);
+
+        const response = await fetch(pdfUrl, { credentials: 'same-origin' });
+        const arrayBuffer = await response.arrayBuffer();
+        const pdfDoc = await window.PDFLib.PDFDocument.load(arrayBuffer);
+        const embeddedSig = await pdfDoc.embedPng(this.signatureImage);
+
+        // Loop through all boxes added by the user and stamp them permanently
+        for (const sig of this.placedSignatures) {
+            const page = pdfDoc.getPage((sig.page || 1) - 1);
+            page.drawImage(embeddedSig, {
+                x: sig.x_pct * page.getWidth(),
+                y: page.getHeight() - (sig.y_pct * page.getHeight()) - (sig.h_pct * page.getHeight()),
+                width: sig.w_pct * page.getWidth(),
+                height: sig.h_pct * page.getHeight()
+            });
+        }
+
+        const modifiedPdfBytes = await pdfDoc.save();
+        return new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+    }
+
+    // ------------------------------------------------------------------
+    // Redaction Rendering (Supports backward compatibility!)
+    // ------------------------------------------------------------------
+
+    renderCompletedSignatures(doc, wrapper) {
+        if (!doc.workflow) return;
         const completedSignatures = doc.workflow.filter(step => step.status === 'completed' && step.signed_at);
 
         completedSignatures.forEach((step) => {
@@ -288,306 +547,65 @@ class SignatureManager {
             }
             if (!mapData) return;
 
-            let mapsToRender = (doc.doc_type === 'saf' && mapData.accounting && mapData.issuer)
-                ? [mapData.accounting, mapData.issuer]
-                : [mapData];
+            let mapsToRender = [];
+            if (Array.isArray(mapData)) {
+                mapsToRender = mapData;
+            } else if (mapData.accounting && mapData.issuer) {
+                mapsToRender = [mapData.accounting, mapData.issuer];
+            } else {
+                mapsToRender = [mapData];
+            }
 
             mapsToRender.forEach((map) => {
                 if ((map.page || 1) !== this.currentPage) return;
 
-                let rect = this.computeSignaturePixelRectForContainer(map, canvas, container);
-                if (!rect) return;
-
                 const box = document.createElement('div');
                 box.className = 'completed-signature-container';
-                // By forcing the width and height to EXACTLY match rect.width/height, it will scale perfectly and allow exact centering
-                box.style.cssText = `position: absolute; left: ${rect.left}px; top: ${rect.top}px; z-index: 15; width: ${rect.width}px; height: ${rect.height}px; display: flex; align-items: center; justify-content: center;`;
+                box.style.cssText = `
+                    position: absolute; 
+                    left: ${map.x_pct * 100}%; 
+                    top: ${map.y_pct * 100}%; 
+                    width: ${map.w_pct * 100}%; 
+                    height: ${map.h_pct * 100}%; 
+                    z-index: 15; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center;
+                `;
 
-                const timestamp = new Date(step.signed_at).toLocaleString([], { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
-                const flexDir = doc.doc_type === 'saf' ? 'column' : 'row';
+                const timestamp = new Date(step.signed_at).toLocaleString([], { year: '2-digit', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
                 box.innerHTML = `
-                    <div class="signature-redaction" style="
-                        width: 100%;
-                        height: 100%;
-                        display: flex;
-                        flex-direction: ${flexDir};
-                        justify-content: center;
-                        align-items: center;
-                        gap: 4px;
-                        border-radius: 8px;
-                        background: rgba(30, 30, 35, 0.85);
-                        border: 1px solid rgba(255, 255, 255, 0.15);
-                        color: rgba(255, 255, 255, 0.95);
-                        padding: 6px 10px;
-                        backdrop-filter: blur(12px) saturate(180%);
-                        -webkit-backdrop-filter: blur(12px) saturate(180%);
-                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-                        box-sizing: border-box;
-                        overflow: hidden;
-                    ">
-                        <div style="
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            text-align: center;
-                            gap: 1px;
-                            min-width: 0;
-                            overflow: hidden;
-                        ">
-                            <div style="font-weight: 700; font-size: 10px; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                ${step.assignee_name || 'Unknown'}
-                            </div>
-                            <div style="font-size: 8px; color: rgba(255, 255, 255, 0.6); width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                ${step.assignee_position || ''}
-                            </div>
-                            <div style="font-size: 8px; font-weight: 600; color: rgba(255, 255, 255, 0.45); margin-top: 2px;">
-                                ${timestamp}
-                            </div>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(box);
+                    <div class="signature-redaction" style="width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; border-radius: 8px; background: rgba(30, 30, 35, 0.85); border: 1px solid rgba(255, 255, 255, 0.15); color: rgba(255, 255, 255, 0.95); padding: 6px 10px; backdrop-filter: blur(12px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); overflow: hidden;">
+                        <div style="font-weight: 700; font-size: 10px; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align:center;">${step.assignee_name || 'Unknown'}</div>
+                        <div style="font-size: 8px; color: rgba(255, 255, 255, 0.6); width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align:center;">${step.assignee_position || ''}</div>
+                        <div style="font-size: 8px; font-weight: 600; color: rgba(255, 255, 255, 0.45); margin-top: 2px;">${timestamp}</div>
+                    </div>`;
+                wrapper.appendChild(box);
             });
         });
     }
 
-    createSingleSignatureTarget(content, doc) {
-        let map = doc.signature_map;
-        try { map = (typeof map === 'string') ? JSON.parse(map) : map; } catch (e) { map = null; }
+    // ------------------------------------------------------------------
+    // Validation Helpers
+    // ------------------------------------------------------------------
 
-        // --- FIX: Set specific aspect ratio so when scaled, it translates to roughly 174x85 ---
-        if (!map || !map.w_pct) {
-            const cw = this.currentCanvas ? this.currentCanvas.width : 800;
-            const ch = this.currentCanvas ? this.currentCanvas.height : 1100;
-            map = { 
-                x_pct: 0.1, 
-                y_pct: 0.1, 
-                w_pct: 170 / cw,  // Mathematically locked 174 pixels
-                h_pct: 70 / ch,   // Mathematically locked 85 pixels
-                page: 1 
-            };
+    isReadyToSign() {
+        return this.signatureImage !== null && this.placedSignatures.length > 0;
+    }
+
+    triggerValidationUpdate() {
+        if (window.documentSystem?.updateApprovalButtonsVisibility && window.documentSystem.currentDocument) {
+            window.documentSystem.updateApprovalButtonsVisibility(window.documentSystem.currentDocument);
         }
-
-        const box = document.createElement('div');
-        box.className = 'signature-target draggable';
-        box.title = 'Drag to position your signature';
-        box.style.cssText = 'position: absolute; display: flex; align-items: center; justify-content: center; cursor: grab; z-index: 20; background: rgba(59, 130, 246, 0.15); border: 2px dashed #3b82f6; border-radius: 4px;';
-
-        content.appendChild(box);
-
-        const rect = this.computeSignaturePixelRect(map);
-        if (rect) {
-            box.style.left = rect.left + 'px';
-            box.style.top = rect.top + 'px';
-            box.style.width = rect.width + 'px';
-            box.style.height = rect.height + 'px';
+        if (window.documentTracker?.updateApprovalButtonsVisibility && window.documentTracker.currentDocument) {
+            window.documentTracker.updateApprovalButtonsVisibility(window.documentTracker.currentDocument);
         }
-
-        this.makeDraggable(box, content);
-        
-        // --- FIX: Resizable handles have been completely stripped off ---
-        this.updateSignatureMap(box, content);
-
-        if (this.signatureImage) this.updateSignatureOverlayImage();
     }
-
-    // ------------------------------------------------------------------
-    // SAF Dual Linked Targets
-    // ------------------------------------------------------------------
-
-    createLinkedSafSignatureTargets(content, doc) {
-        this.linkedTargets = null;
-        let initialMap = null;
-
-        try { initialMap = typeof doc.signature_map === 'string' ? JSON.parse(doc.signature_map) : doc.signature_map; } catch (e) { }
-
-        if (!initialMap || !initialMap.w_pct) {
-            const cw = this.currentCanvas ? this.currentCanvas.width : 800;
-            const ch = this.currentCanvas ? this.currentCanvas.height : 1100;
-            initialMap = { 
-                x_pct: 0.65, 
-                y_pct: 0.25, 
-                w_pct: 130 / cw, 
-                h_pct: 65 / ch, 
-                page: 1 
-            };
-        }
-
-        const verticalOffset = initialMap.h_pct * 1.5;
-
-        const primaryTarget = this.createSafBox(content, 'accounting', initialMap, 'rgba(59, 130, 246, 0.15)', '#3b82f6');
-
-        const issuerMap = { ...initialMap, y_pct: initialMap.y_pct + verticalOffset };
-        const secondaryTarget = this.createSafBox(content, 'issuer', issuerMap, 'rgba(16, 185, 129, 0.15)', '#10b981');
-
-        this.linkedTargets = { primary: primaryTarget, secondary: secondaryTarget };
-
-        this.linkSafTargets(primaryTarget, secondaryTarget, content);
-        this.updateLinkedSignatureMaps(content);
-
-        if (this.signatureImage) this.updateLinkedSignatureOverlay();
-    }
-
-    createSafBox(content, role, map, bgColor, borderColor) {
-        const box = document.createElement('div');
-        box.className = `signature-target draggable saf-${role}`;
-
-        const rect = this.computeSignaturePixelRect(map);
-        box.style.cssText = `position: absolute; left: ${rect?.left || 0}px; top: ${rect?.top || 0}px; width: ${rect?.width || 120}px; height: ${rect?.height || 60}px; z-index: ${role === 'accounting' ? 25 : 24}; background-color: ${bgColor}; border: 2px dashed ${borderColor}; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: move; font-weight: 600; font-size: 12px; color: ${borderColor};`;
-        box.textContent = 'Signature';
-
-        const badge = document.createElement('div');
-        badge.style.cssText = `position: absolute; top: -8px; right: -8px; width: 16px; height: 16px; background-color: ${borderColor}; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; z-index: 30;`;
-        badge.textContent = role === 'accounting' ? '1' : '2';
-
-        box.appendChild(badge);
-        content.appendChild(box);
-        return box;
-    }
-
-    linkSafTargets(primary, secondary, content) {
-        let isDragging = false;
-        let startX, startY, initPX, initPY, initSX, initSY;
-
-        const startDrag = (e) => {
-            isDragging = true;
-            startX = e.clientX; startY = e.clientY;
-            initPX = primary.offsetLeft; initPY = primary.offsetTop;
-            initSX = secondary.offsetLeft; initSY = secondary.offsetTop;
-            primary.style.cursor = 'grabbing'; secondary.style.cursor = 'grabbing';
-            e.preventDefault();
-        };
-
-        primary.addEventListener('mousedown', startDrag);
-        secondary.addEventListener('mousedown', startDrag);
-
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging || !this.currentCanvas) return;
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
-
-            const maxX = this.currentCanvas.width - primary.offsetWidth;
-            const pMaxY = this.currentCanvas.height - primary.offsetHeight;
-            const sMaxY = this.currentCanvas.height - secondary.offsetHeight;
-
-            primary.style.left = Math.max(0, Math.min(initPX + dx, maxX)) + 'px';
-            primary.style.top = Math.max(0, Math.min(initPY + dy, pMaxY)) + 'px';
-            secondary.style.left = Math.max(0, Math.min(initSX + dx, maxX)) + 'px';
-            secondary.style.top = Math.max(0, Math.min(initSY + dy, sMaxY)) + 'px';
-        });
-
-        document.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                primary.style.cursor = 'move'; secondary.style.cursor = 'move';
-                this.updateLinkedSignatureMaps(content);
-            }
-        });
-    }
-
-    // ------------------------------------------------------------------
-    // Math & Image Helpers
-    // ------------------------------------------------------------------
-
-    makeDraggable(element, container) {
-        let isDragging = false, startX, startY, initialX, initialY;
-
-        element.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            startX = e.clientX; startY = e.clientY;
-            initialX = element.offsetLeft; initialY = element.offsetTop;
-            element.style.cursor = 'grabbing';
-            e.preventDefault();
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging || !this.currentCanvas) return;
-            const dx = e.clientX - startX, dy = e.clientY - startY;
-            const maxX = this.currentCanvas.width - element.offsetWidth;
-            const maxY = this.currentCanvas.height - element.offsetHeight;
-
-            element.style.left = Math.max(0, Math.min(initialX + dx, maxX)) + 'px';
-            element.style.top = Math.max(0, Math.min(initialY + dy, maxY)) + 'px';
-        });
-
-        document.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                element.style.cursor = 'grab';
-                this.updateSignatureMap(element, container);
-            }
-        });
-    }
-
-    updateSignatureMap(element, container) {
-        if (!this.currentCanvas) return;
-        const width = this.currentCanvas.width, height = this.currentCanvas.height;
-
-        this.currentSignatureMap = {
-            x_pct: Math.max(0, Math.min(1, element.offsetLeft / width)),
-            y_pct: Math.max(0, Math.min(1, element.offsetTop / height)),
-            w_pct: Math.max(0, Math.min(1, element.offsetWidth / width)),
-            h_pct: Math.max(0, Math.min(1, element.offsetHeight / height)),
-            page: this.currentPage
-        };
-    }
-
-    updateLinkedSignatureMaps(content) {
-        if (!this.linkedTargets || !this.currentCanvas) return;
-        const w = this.currentCanvas.width, h = this.currentCanvas.height;
-        const p = this.linkedTargets.primary, s = this.linkedTargets.secondary;
-
-        this.linkedSignatureMaps = {
-            accounting: { x_pct: p.offsetLeft / w, y_pct: p.offsetTop / h, w_pct: p.offsetWidth / w, h_pct: p.offsetHeight / h, page: this.currentPage },
-            issuer: { x_pct: s.offsetLeft / w, y_pct: s.offsetTop / h, w_pct: s.offsetWidth / w, h_pct: s.offsetHeight / h, page: this.currentPage }
-        };
-        this.currentSignatureMap = this.linkedSignatureMaps.accounting;
-    }
-
-    computeSignaturePixelRect(map) {
-        if (!this.currentCanvas) return null;
-        const cw = this.currentCanvas.width, ch = this.currentCanvas.height;
-        return {
-            left: map.x_pct * cw, top: map.y_pct * ch,
-            width: map.w_pct * cw, height: map.h_pct * ch
-        };
-    }
-
-    computeSignaturePixelRectForContainer(map, canvas, container) {
-        if (!canvas) return null;
-        const canvasRect = canvas.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-
-        const left = (canvasRect.left - containerRect.left) + (map.x_pct * canvasRect.width);
-        const top = (canvasRect.top - containerRect.top) + (map.y_pct * canvasRect.height);
-
-        return { left, top, width: map.w_pct * canvasRect.width, height: map.h_pct * canvasRect.height };
-    }
-
-    updateSignatureOverlayImage() {
-        const box = document.getElementById('pdfContent')?.querySelector('.signature-target:not(.saf-accounting):not(.saf-issuer)');
-        if (!box || !this.signatureImage) return;
-        box.innerHTML = `<img src="${this.signatureImage}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`;
-    }
-
-    updateLinkedSignatureOverlay() {
-        if (!this.signatureImage || !this.linkedTargets) return;
-        const imgHtml = `<img src="${this.signatureImage}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`;
-        this.linkedTargets.primary.innerHTML = imgHtml;
-        this.linkedTargets.secondary.innerHTML = imgHtml;
-    }
-
-    // ------------------------------------------------------------------
-    // Helpers
-    // ------------------------------------------------------------------
 
     isUserAssignedToPendingStep(doc) {
         const pendingStep = doc.workflow?.find(step => step.status === 'pending');
         if (!pendingStep) return false;
-        const user = window.currentUser;
-
-        // Check if the current user matches the assignee of the pending step
-        return pendingStep.assignee_id == user.id || pendingStep.assigned_to == user.id;
+        return pendingStep.assignee_id == window.currentUser.id || pendingStep.assigned_to == window.currentUser.id;
     }
 }

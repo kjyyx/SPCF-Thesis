@@ -19,7 +19,7 @@ class DocumentNotificationSystem {
         // UI State
         this.searchTerm = '';
         this.currentFilter = 'all';
-        this.sortOption = 'due_desc';
+        this.sortOption = 'date_desc';
         this.currentGroup = 'none';
         this.isLoading = false;
         this.isApplyingFilters = false;
@@ -35,10 +35,10 @@ class DocumentNotificationSystem {
     // ------------------------------------------------------------------
 
     async init() {
-        const userHasAccess = this.currentUser &&
-            (this.currentUser.role === 'employee' ||
-                (this.currentUser.position === 'Supreme Student Council President' ||
-                 this.currentUser.position === 'College Student Council President'));
+        // ALLOW ALL STUDENTS & EMPLOYEES TO LOAD THE PAGE
+        // The applyAccessRules() function will act as the bouncer to hide/show specific docs
+        const userHasAccess = this.currentUser && 
+            (this.currentUser.role === 'employee' || this.currentUser.role === 'student');
 
         if (!userHasAccess) {
             window.location.href = BASE_URL + '?page=login&error=access_denied';
@@ -76,13 +76,46 @@ class DocumentNotificationSystem {
         }, 30000);
     }
 
+    // --- STRICT NOTIFICATION ACCESS RULES ---
+    applyAccessRules(docs) {
+        // ONLY SSC Presidents and Employees get elevated view.
+        // CSC Presidents and regular students are restricted.
+        const isElevatedUser = this.currentUser.role === 'employee' || 
+                               this.currentUser.position === 'Supreme Student Council President';
+
+        return docs.filter(doc => {
+            const docStatus = this.normalizeDocumentStatus(doc.status);
+            const pendingStep = doc.workflow?.find(step => step.status === 'pending');
+            
+            // Check if the logged-in user is EXACTLY the person who needs to sign right now
+            const isCurrentSignatory = pendingStep && (pendingStep.assignee_id == this.currentUser.id || pendingStep.assigned_to == this.currentUser.id);
+
+            if (!isElevatedUser) {
+                // RULE 1: Restricted Users (CSC Presidents & Regular Students)
+                // They ONLY see documents in notifications if it is their exact turn to sign.
+                // Once they sign it, it disappears from their feed immediately.
+                return isCurrentSignatory;
+            } else {
+                // RULE 2: Elevated Users (Employees & SSC Presidents)
+                // Hide "Newly Submitted" documents unless they are the active signatory
+                if (docStatus === 'submitted' && !isCurrentSignatory) {
+                    return false;
+                }
+                // Allow them to see their history of other documents (in progress, approved, etc.)
+                return true;
+            }
+        });
+    }
+
     async loadDocuments() {
         this.setLoading(true);
         try {
             const response = await fetch(this.apiBase);
             const data = await response.json();
             if (data.success) {
-                this.documents = data.documents || [];
+                // Apply the strict access rules before doing anything else
+                this.documents = this.applyAccessRules(data.documents || []);
+                
                 this.pendingDocuments = this.documents.filter(doc => !doc.user_action_completed);
                 this.completedDocuments = this.documents.filter(doc => doc.user_action_completed);
                 this.applyFiltersAndSearch();
@@ -100,7 +133,9 @@ class DocumentNotificationSystem {
             const response = await fetch(this.apiBase + '?t=' + Date.now());
             const data = await response.json();
             if (data.success) {
-                this.documents = data.documents || [];
+                // Apply the strict access rules on background refresh
+                this.documents = this.applyAccessRules(data.documents || []);
+                
                 this.pendingDocuments = this.documents.filter(doc => !doc.user_action_completed);
                 this.completedDocuments = this.documents.filter(doc => doc.user_action_completed);
                 this.applyFiltersAndSearch();
@@ -285,8 +320,6 @@ class DocumentNotificationSystem {
         container.appendChild(wrapper);
     }
 
-    // Restored Original Card Design
-// Restored Original Card Design (With getStatusBadge integration)
     createDocumentCard(doc) {
         const listItem = document.createElement('div');
         const userHasSigned = !!doc.workflow?.find(step => 
@@ -296,18 +329,15 @@ class DocumentNotificationSystem {
         listItem.className = `document-list-item ${userHasSigned ? 'read-only' : ''}`;
         listItem.onclick = () => this.openDocument(doc.id);
         
-        // Proper formatting (e.g. 'proposal' -> 'Project Proposal')
         const docType = this.formatDocType(doc.doc_type || doc.type || 'Document');
         const fromWho = doc.student?.department || doc.from || 'Unknown';
         const progressPct = this.computeProgress(doc);
         const dueDate = this.getDueDate(doc);
         const daysUntilDue = this.getDaysUntilDue(dueDate);
         
-        // Format the creation date properly
         const createdDate = doc.uploaded_at || doc.created_at;
         const dateString = createdDate ? this.formatDate(createdDate) : '—';
 
-        // USE THE NEW BADGE HELPER
         const statusBadgeHTML = typeof getStatusBadge === 'function' 
             ? getStatusBadge(doc.status, 'document') 
             : `<span class="badge bg-secondary">${doc.status}</span>`;
@@ -394,20 +424,18 @@ class DocumentNotificationSystem {
             const pdfUrl = fullDoc.file_path; 
             await this.pdfViewer.loadPdf(pdfUrl, fullDoc);
 
-            // STUDENT RESTRICTIONS LOGIC
-            const isStudentView = this.currentUser?.role === 'student' && 
-                                  (this.currentUser?.position !== 'Supreme Student Council President' && 
-                                   this.currentUser?.position !== 'College Student Council President' || 
-                                   fullDoc.student?.id === this.currentUser?.id);
+            // CSC PRESIDENTS ARE RESTRICTED HERE JUST LIKE REGULAR STUDENTS
+            const isRestrictedView = this.currentUser?.role === 'student' && 
+                                     this.currentUser?.position !== 'Supreme Student Council President';
 
             const timelineCard = document.getElementById('workflowSteps')?.closest('.sidebar-card');
-            if (timelineCard) timelineCard.style.display = isStudentView ? 'none' : 'block';
+            if (timelineCard) timelineCard.style.display = isRestrictedView ? 'none' : 'block';
 
             const commentsCard = document.querySelector('.comments-container')?.closest('.sidebar-card');
-            if (commentsCard) commentsCard.style.display = isStudentView ? 'none' : 'block';
+            if (commentsCard) commentsCard.style.display = isRestrictedView ? 'none' : 'block';
 
             // Only generate timeline and comments if authorized to view them
-            if (!isStudentView) {
+            if (!isRestrictedView) {
                 this.commentsManager.init(fullDoc.id);
                 this.renderWorkflowTimeline(fullDoc);
             }
@@ -484,16 +512,15 @@ class DocumentNotificationSystem {
 
         const docStatus = this.normalizeDocumentStatus(doc.status);
 
-        // 1. Hide everything if document is already terminal (approved/rejected/cancelled) or user finished their turn
         if (docStatus === 'approved' || docStatus === 'rejected' || docStatus === 'cancelled' || doc.user_action_completed) {
             return; 
         }
 
-        const pendingStep = doc.workflow?.find(step => step.status === 'pending');
         const isStudentCreator = this.currentUser.role === 'student' && doc.student?.id === this.currentUser.id;
         
-        // Use signature manager's helper to determine if it is their turn
-        const isAssigned = this.signatureManager.isUserAssignedToPendingStep(doc) || isStudentCreator;
+        // BUG FIX: Strictly verify if the user is assigned to the current step. 
+        // This ensures creators cannot sign out of turn or interact improperly.
+        const isAssigned = this.signatureManager.isUserAssignedToPendingStep(doc);
 
         if (isAssigned) {
             signBtn.style.display = 'flex';
@@ -538,7 +565,7 @@ class DocumentNotificationSystem {
         }
     }
 
-    async executeSign(docId, doc, isSaf) {
+    async executeSign(docId, doc) {
         try {
             const signedPdfBlob = await this.signatureManager.applySignatureToPdf(doc);
             const pendingStep = doc.workflow?.find(s => s.status === 'pending');
@@ -548,12 +575,8 @@ class DocumentNotificationSystem {
             formData.append('document_id', docId);
             formData.append('step_id', pendingStep?.id || '');
             
-            if (isSaf && this.signatureManager.linkedSignatureMaps) {
-                formData.append('signature_map', JSON.stringify(this.signatureManager.linkedSignatureMaps));
-                formData.append('dual_signature', 'true');
-            } else if (this.signatureManager.currentSignatureMap) {
-                formData.append('signature_map', JSON.stringify(this.signatureManager.currentSignatureMap));
-            }
+            // --- FIX: Pass the entire array of dynamically placed signatures ---
+            formData.append('signature_map', JSON.stringify(this.signatureManager.placedSignatures));
             
             if (signedPdfBlob) formData.append('signed_pdf', signedPdfBlob, 'signed_document.pdf');
 
@@ -564,7 +587,7 @@ class DocumentNotificationSystem {
                 if (window.ToastManager) window.ToastManager.show({ type: 'success', title: 'Success', message: 'Document signed successfully.' });
                 
                 this.signatureManager.signatureImage = null;
-                this.signatureManager.currentSignatureMap = null;
+                this.signatureManager.placedSignatures = []; // Reset the array
                 
                 setTimeout(() => {
                     this.goBack();
@@ -672,47 +695,33 @@ class DocumentNotificationSystem {
     }
 
     getDueDate(doc) {
-        const explicit = doc.due_date || doc.dueDate;
-        if (explicit) {
-            const d = new Date(explicit);
-            return isNaN(d.getTime()) ? null : d;
+        const status = this.normalizeDocumentStatus(doc.status);
+        if (['approved', 'rejected', 'cancelled', 'on_hold'].includes(status)) {
+            return null;
         }
 
-        const data = doc.data || {};
-        let dueDateStr = null;
-
-        switch (doc.doc_type || doc.type) {
-            case 'proposal':
-                if (data.schedule && Array.isArray(data.schedule) && data.schedule.length > 0) {
-                    const dates = data.schedule.map(s => s.date).filter(d => d).sort();
-                    dueDateStr = dates[0];
-                }
-                break;
-            case 'saf': dueDateStr = data.implDate; break;
-            case 'facility': dueDateStr = data.eventDate; break;
-            case 'communication': dueDateStr = data.date; break;
+        let timerStartTime = doc.uploaded_at ? new Date(doc.uploaded_at).getTime() : Date.now();
+        
+        const wf = doc.workflow || [];
+        if (wf.length > 0) {
+            const completedSteps = wf.filter(step => step.status === 'completed' && step.acted_at);
+            if (completedSteps.length > 0) {
+                completedSteps.sort((a, b) => new Date(b.acted_at).getTime() - new Date(a.acted_at).getTime());
+                timerStartTime = new Date(completedSteps[0].acted_at).getTime();
+            }
         }
 
-        if (dueDateStr) {
-            const d = new Date(dueDateStr);
-            return isNaN(d.getTime()) ? null : d;
-        }
-
-        const uploaded = doc.uploaded_at ? new Date(doc.uploaded_at) : null;
-        if (!uploaded || isNaN(uploaded.getTime())) return null;
-        const base = new Date(uploaded.getTime());
-        const addDays = (n) => new Date(uploaded.getTime() + n * 86400000);
-        switch (this.normalizeDocumentStatus(doc.status)) {
-            case 'submitted': return addDays(2);
-            case 'in_progress': return addDays(4);
-            default: return base;
-        }
+        return new Date(timerStartTime + (5 * 86400000));
     }
 
     getDaysUntilDue(dueDate) {
         if (!dueDate) return null;
-        const days = Math.ceil((dueDate.getTime() - new Date().getTime()) / 86400000);
-        return days < 0 ? 0 : days;
+        
+        const now = new Date().getTime();
+        const diffInMs = dueDate.getTime() - now;
+        const days = Math.ceil(diffInMs / 86400000);
+        
+        return days < 0 ? 0 : days; 
     }
 
     computeProgress(doc) {
@@ -746,6 +755,8 @@ class DocumentNotificationSystem {
             const dueB = this.getDueDate(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
 
             switch (sortOption) {
+                case 'date_desc': result = dateB - dateA; break;
+                case 'date_asc':  result = dateA - dateB; break;
                 case 'due_desc':  result = dueA - dueB; break; // Soonest first
                 case 'due_asc':   result = dueB - dueA; break; // Latest first
                 case 'name_asc':  result = (a.title || '').localeCompare(b.title || ''); break;

@@ -52,7 +52,7 @@ class DocumentTrackerSystem {
         // Periodic auto-refresh
         setInterval(() => {
             const autoRefresh = document.getElementById('autoRefresh');
-            if (autoRefresh && autoRefresh.checked && !document.hidden && document.getElementById('documentModal').style.display !== 'block') {
+            if (autoRefresh && autoRefresh.checked && !document.hidden && document.getElementById('documentModal')?.style.display !== 'block') {
                 this.loadStudentDocuments(true);
             }
         }, 30000);
@@ -142,7 +142,6 @@ class DocumentTrackerSystem {
             const docType = this.getDocumentTypeDisplay(doc.document_type || doc.doc_type);
             const createdDate = doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'N/A';
 
-            // Call the new global helper for the beautiful badges
             const statusBadgeHTML = typeof window.getStatusBadge === 'function'
                 ? window.getStatusBadge(doc.status || doc.current_status, 'document')
                 : `<span class="badge ${this.getStatusBadgeClass(doc.status || doc.current_status)}">${this.formatStatusDisplay(doc.status || doc.current_status)}</span>`;
@@ -184,7 +183,7 @@ class DocumentTrackerSystem {
 
         this.renderPagination(totalPages);
         this.updatePaginationInfo(startIndex + 1, endIndex, this.totalDocuments);
-        paginationContainer.style.display = totalPages > 1 ? 'flex' : 'none';
+        if (paginationContainer) paginationContainer.style.display = totalPages > 1 ? 'flex' : 'none';
     }
 
     // ------------------------------------------------------------------
@@ -192,7 +191,6 @@ class DocumentTrackerSystem {
     // ------------------------------------------------------------------
 
     async viewDetails(docId) {
-        // Route Material clicks to the global handler
         const isMaterial = String(docId).startsWith('MAT-');
         const originalId = isMaterial ? String(docId).replace('MAT-', '') : docId;
 
@@ -209,7 +207,6 @@ class DocumentTrackerSystem {
         const modalBody = document.getElementById('documentModalBody');
 
         try {
-            // Fetch the document details
             const response = await fetch(BASE_URL + `api/documents.php?id=${docId}`);
             if (!response.ok) throw new Error('Document not found');
 
@@ -222,7 +219,6 @@ class DocumentTrackerSystem {
                 modalTitle.innerHTML = `<i class="bi bi-file-earmark-text text-primary me-2"></i>${this.safeText(doc.title || doc.document_name)}`;
                 document.getElementById('documentModalMeta').innerHTML = `<i class="bi bi-folder2 me-1"></i> ${this.safeText(docType)}`;
 
-                // Setup layout mimicking the original UI but integrating the PdfViewer HTML
                 let pdfHtml = '';
                 if (doc.file_path && /\.pdf(\?|$)/i.test(doc.file_path)) {
                     pdfHtml = `
@@ -267,11 +263,9 @@ class DocumentTrackerSystem {
                                     A signatory failed to respond within 5 days. You may resubmit this to reset their timer and send a new notification.
                                 </p>
                             </div>
-                            
                             <button id="resubmitInitBtn-${doc.id}" class="btn btn-warning btn-sm rounded-pill w-100 fw-bold shadow-sm" onclick="documentTracker.showResubmitConfirm('${doc.id}')">
                                 <i class="bi bi-arrow-clockwise me-2"></i>Resubmit Document
                             </button>
-                            
                             <div id="resubmitConfirmBox-${doc.id}" class="mt-2 p-3 bg-surface-raised border rounded-lg shadow-sm text-start" style="display: none;">
                                 <p class="text-sm text-dark fw-bold mb-1">Are you sure?</p>
                                 <p class="text-xs text-muted mb-3">This will reset the 5-day timer and alert the signatory.</p>
@@ -284,7 +278,6 @@ class DocumentTrackerSystem {
                     `;
                 }
 
-                // Status Info
                 let infoHtml = `
                     <div class="card card-flat mb-3 shadow-none">
                         <div class="card-body py-3">
@@ -297,7 +290,6 @@ class DocumentTrackerSystem {
                     </div>
                 `;
 
-                // Integrate CommentsManager HTML
                 const conversationHtml = `
                     <div class="card card-flat mb-3 shadow-none">
                         <div class="card-header bg-transparent pb-2 border-bottom">
@@ -322,7 +314,6 @@ class DocumentTrackerSystem {
                     </div>
                 `;
 
-                // Correctly Structured Timeline HTML
                 let timelineHtml = `<div class="card card-flat mb-3 shadow-none"><div class="card-header bg-transparent pb-0 border-0"><h6 class="m-0 fw-bold"><i class="bi bi-clock-history text-info me-2"></i>Approval Timeline</h6></div><div class="card-body px-4 pb-4"><div class="timeline-container">`;
                 const workflow = doc.workflow || [];
 
@@ -330,36 +321,21 @@ class DocumentTrackerSystem {
                     workflow.forEach((item, index) => {
                         const isLast = index === workflow.length - 1;
                         const rawStepStatus = item.status || item.step_status || item.signature_status || 'queued';
+                        const status = (typeof normalizeWorkflowStatus === 'function' ? normalizeWorkflowStatus(rawStepStatus, 'step') : String(rawStepStatus || '').toLowerCase());
 
-                        // Use your new global ui-helper to perfectly normalize the status
-                        const status = (typeof normalizeWorkflowStatus === 'function'
-                            ? normalizeWorkflowStatus(rawStepStatus, 'step')
-                            : String(rawStepStatus || '').toLowerCase());
-
-                        // Step Name goes on top, Assignee goes on bottom
                         const stepName = this.shortenOfficeName(item.name || item.step_name || 'Unknown Step');
                         const assigneeName = (item.assignee_name && item.assignee_name !== 'Unknown') ? item.assignee_name : 'Unassigned';
 
-                        // Styling for the timeline marker
                         let stepClass = status === 'rejected' ? 'timeline-step-rejected' : (status === 'completed' ? 'timeline-step-approved' : '');
                         let markerClass = status === 'rejected' ? 'bg-danger' : (status === 'completed' ? 'bg-success' : (status === 'pending' ? 'bg-warning text-dark' : 'bg-secondary'));
                         let icon = status === 'rejected' ? 'bi-x-circle-fill' : (status === 'completed' ? 'bi-check-circle-fill' : (status === 'pending' ? 'bi-hourglass-split' : 'bi-circle'));
 
-                        // Use your new ui-helper to get the exact semantic status text
-                        let actionText = '';
-                        if (typeof getStatusText === 'function') {
-                            actionText = getStatusText(status, 'step');
-                        } else {
-                            actionText = status.charAt(0).toUpperCase() + status.slice(1);
-                        }
-
-                        // Right-side badge logic (Shows Date AND Time if acted upon)
+                        let actionText = typeof getStatusText === 'function' ? getStatusText(status, 'step') : (status.charAt(0).toUpperCase() + status.slice(1));
                         let dateText = actionText;
+
                         if (item.acted_at) {
                             const actedDate = new Date(item.acted_at);
-                            const formattedDate = actedDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-                            const formattedTime = actedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-                            dateText = `${formattedDate} • ${formattedTime}`;
+                            dateText = `${actedDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })} • ${actedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
                         }
 
                         let badgeClass = 'bg-light text-muted';
@@ -394,7 +370,6 @@ class DocumentTrackerSystem {
                 }
                 timelineHtml += `</div></div></div>`;
 
-                // Inject into DOM
                 modalBody.innerHTML = `
                     <div class="row g-3">
                         <div class="col-lg-7">${pdfHtml}</div>
@@ -402,7 +377,6 @@ class DocumentTrackerSystem {
                     </div>
                 `;
 
-                // Download Button logic
                 const dlBtn = document.getElementById('downloadDocumentBtn');
                 if (dlBtn && doc.file_path && (doc.status === 'approved' || doc.status === 'rejected')) {
                     dlBtn.style.display = 'inline-flex';
@@ -411,17 +385,13 @@ class DocumentTrackerSystem {
 
                 modal.show();
 
-                // Initialize the managers once the modal is visible
                 modalElement.addEventListener('shown.bs.modal', function handler() {
                     modalElement.removeEventListener('shown.bs.modal', handler);
-
                     if (doc.file_path && /\.pdf(\?|$)/i.test(doc.file_path)) {
                         let pdfUrl = doc.file_path;
                         if (!pdfUrl.startsWith('http') && !pdfUrl.startsWith('upload')) pdfUrl = BASE_URL + 'uploads/' + pdfUrl;
                         documentTracker.pdfViewer.loadPdf(pdfUrl, doc);
                     }
-
-                    // Initialize threaded comments
                     documentTracker.commentsManager.init(doc.id);
                 });
             }
@@ -467,12 +437,14 @@ class DocumentTrackerSystem {
 
     applyCurrentFilters() {
         let docs = [...this.allDocuments];
-        const searchVal = document.getElementById('searchInput')?.value.toLowerCase().trim();
+        const searchInput = document.getElementById('searchInput');
+        // FIX: Bulletproof string checking for the search bar
+        const searchVal = searchInput ? String(searchInput.value || '').toLowerCase().trim() : '';
 
         if (searchVal) {
             docs = docs.filter(doc =>
                 [doc.title, doc.document_name, doc.status, doc.current_location, doc.document_type, doc.doc_type]
-                    .some(f => f && String(f).toLowerCase().includes(searchVal))
+                    .some(f => String(f || '').toLowerCase().includes(searchVal))
             );
         }
 
@@ -531,8 +503,8 @@ class DocumentTrackerSystem {
                 valA = new Date(valA).getTime() || 0;
                 valB = new Date(valB).getTime() || 0;
             } else {
-                valA = String(valA).toLowerCase();
-                valB = String(valB).toLowerCase();
+                valA = String(valA || '').toLowerCase();
+                valB = String(valB || '').toLowerCase();
             }
 
             if (valA < valB) return this.currentSortDirection === 'asc' ? -1 : 1;
@@ -543,18 +515,12 @@ class DocumentTrackerSystem {
 
     getSortValue(doc, field) {
         switch (field) {
-            case 'title':
-                return doc.title || doc.document_name || '';
-            case 'document_type':
-                return this.getDocumentTypeDisplay(doc.document_type || doc.doc_type || '');
-            case 'current_status':
-                return this.formatStatusDisplay(doc.status || doc.current_status || '');
-            case 'current_location':
-                return this.shortenOfficeName(doc.current_location || '');
-            case 'updated_at':
-                return doc.updated_at || doc.uploaded_at || '';
-            default:
-                return doc[field] || doc.title || doc.document_name || '';
+            case 'title': return doc.title || doc.document_name || '';
+            case 'document_type': return this.getDocumentTypeDisplay(doc.document_type || doc.doc_type || '');
+            case 'current_status': return this.formatStatusDisplay(doc.status || doc.current_status || '');
+            case 'current_location': return this.shortenOfficeName(doc.current_location || '');
+            case 'updated_at': return doc.updated_at || doc.uploaded_at || '';
+            default: return doc[field] || doc.title || doc.document_name || '';
         }
     }
 
@@ -624,9 +590,6 @@ class DocumentTrackerSystem {
             .catch(() => this.showToast('Failed to download document', 'error'));
     }
 
-    // Formatting & Helpers
-
-    // --- Inline Resubmit Confirmation Handlers ---
     showResubmitConfirm(docId) {
         const btn = document.getElementById(`resubmitInitBtn-${docId}`);
         const box = document.getElementById(`resubmitConfirmBox-${docId}`);
@@ -643,33 +606,25 @@ class DocumentTrackerSystem {
 
     async executeResubmit(docId) {
         this.showToast('Resubmitting document...', 'info');
-
         const box = document.getElementById(`resubmitConfirmBox-${docId}`);
         if (box) box.style.opacity = '0.5';
 
-        // FIX: Use FormData instead of JSON so PHP's $_POST can read it natively!
         const formData = new FormData();
         formData.append('action', 'resubmit');
         formData.append('document_id', docId);
 
         try {
-            const response = await fetch(this.apiBase, {
-                method: 'POST',
-                body: formData // Send as standard form data
-            });
-
+            const response = await fetch(this.apiBase, { method: 'POST', body: formData });
             const data = await response.json();
 
             if (data.success) {
                 this.showToast('Document successfully resubmitted!', 'success');
-
                 const modalEl = document.getElementById('documentModal');
                 if (modalEl) {
                     const closeBtn = modalEl.querySelector('.btn-close');
                     if (closeBtn) closeBtn.click();
                 }
-
-                this.loadStudentDocuments(true); // Silent refresh
+                this.loadStudentDocuments(true); 
             } else {
                 this.showToast(data.message || 'Failed to resubmit document.', 'error');
                 if (box) box.style.opacity = '1';
@@ -683,28 +638,14 @@ class DocumentTrackerSystem {
 
     safeText(value) { return value ? String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : 'N/A'; }
     normalizeDocumentStatus(status) {
-        if (typeof normalizeWorkflowStatus === 'function') {
-            return normalizeWorkflowStatus(status, 'document');
-        }
+        if (typeof normalizeWorkflowStatus === 'function') return normalizeWorkflowStatus(status, 'document');
         const fallback = String(status || '').toLowerCase();
-        const alias = {
-            pending: 'submitted',
-            completed: 'approved',
-            in_review: 'in_progress',
-            under_review: 'in_progress',
-            'under review': 'in_progress',
-            'in review': 'in_progress',
-            timeout: 'on_hold',
-            expired: 'on_hold',
-            deleted: 'cancelled'
-        };
+        const alias = { pending: 'submitted', completed: 'approved', in_review: 'in_progress', under_review: 'in_progress', timeout: 'on_hold', expired: 'on_hold', deleted: 'cancelled' };
         return alias[fallback] || fallback;
     }
     renderDocumentStatusBadge(status) {
         const normalized = this.normalizeDocumentStatus(status);
-        if (typeof getStatusBadge === 'function') {
-            return getStatusBadge(normalized, 'document');
-        }
+        if (typeof getStatusBadge === 'function') return getStatusBadge(normalized, 'document');
         return `<span class="badge badge-secondary">${this.safeText(this.formatStatusDisplay(normalized))}</span>`;
     }
     getStatusBadgeClass(status) {
@@ -724,11 +665,7 @@ class DocumentTrackerSystem {
         const normalized = this.normalizeDocumentStatus(status);
         return normalized.charAt(0).toUpperCase() + normalized.slice(1);
     }
-    shortenOfficeName(name) {
-        if (!name) return 'Unknown';
-        // Returns the complete office name but removes the word "Approval"
-        return String(name).replace(/\s*Approval/gi, '').trim();
-    }
+    shortenOfficeName(name) { return name ? String(name).replace(/\s*Approval/gi, '').trim() : 'Unknown'; }
     getDocumentTypeDisplay(type) {
         const map = { 'saf': 'Student Activity Form', 'publication': 'Publication', 'proposal': 'Project Proposal', 'facility': 'Facility Request', 'communication': 'Communication' };
         return map[type] || type;
@@ -760,51 +697,44 @@ class DocumentTrackerSystem {
         if (time) time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
     showLoadingState() {
-        document.getElementById('loadingState').style.display = 'block';
-        document.getElementById('emptyState').style.display = 'none';
-        document.querySelector('.table-wrapper').style.display = 'none';
-        document.getElementById('paginationContainer').style.display = 'none';
+        if(document.getElementById('loadingState')) document.getElementById('loadingState').style.display = 'block';
+        if(document.getElementById('emptyState')) document.getElementById('emptyState').style.display = 'none';
+        if(document.querySelector('.table-wrapper')) document.querySelector('.table-wrapper').style.display = 'none';
+        if(document.getElementById('paginationContainer')) document.getElementById('paginationContainer').style.display = 'none';
     }
     hideLoadingState() {
-        document.getElementById('loadingState').style.display = 'none';
-        document.querySelector('.table-wrapper').style.display = 'block';
+        if(document.getElementById('loadingState')) document.getElementById('loadingState').style.display = 'none';
+        if(document.querySelector('.table-wrapper')) document.querySelector('.table-wrapper').style.display = 'block';
     }
     showEmptyState() {
-        document.getElementById('loadingState').style.display = 'none';
-        document.getElementById('emptyState').style.display = 'block';
-        document.querySelector('.table-wrapper').style.display = 'none';
-        document.getElementById('paginationContainer').style.display = 'none';
+        if(document.getElementById('loadingState')) document.getElementById('loadingState').style.display = 'none';
+        if(document.getElementById('emptyState')) document.getElementById('emptyState').style.display = 'block';
+        if(document.querySelector('.table-wrapper')) document.querySelector('.table-wrapper').style.display = 'none';
+        if(document.getElementById('paginationContainer')) document.getElementById('paginationContainer').style.display = 'none';
     }
     showToast(message, type = 'info', title = null) {
         if (window.ToastManager) window.ToastManager.show({ type: type, title: title, message: message, duration: 4000 });
     }
 
+    // FIX: Bulletproof string conversions to prevent .toLowerCase() crashes
     getLocationBadgeClass(location) {
-        switch (location.toLowerCase()) {
-            case 'finance office':
-            case 'cpa office':
-            case 'accounting': return 'badge-warning';
-            case 'student affairs':
-            case 'osa':
-            case 'oic osa': return 'badge-primary';
-            case 'student council':
-            case 'ssc': return 'badge-info';
-            case 'dean\'s office':
-            case 'college dean': return 'badge-success';
-            case 'completed':
-            case 'approved': return 'badge-success';
-            default: return 'badge-secondary';
-        }
+        const loc = String(location || '').toLowerCase();
+        if (loc.includes('finance') || loc.includes('cpa') || loc.includes('accounting')) return 'badge-warning';
+        if (loc.includes('student affairs') || loc.includes('osa') || loc.includes('oic osa')) return 'badge-primary';
+        if (loc.includes('student council') || loc.includes('ssc')) return 'badge-info';
+        if (loc.includes('dean')) return 'badge-success';
+        if (loc.includes('completed') || loc.includes('approved')) return 'badge-success';
+        return 'badge-secondary';
     }
+
     getDocTypeBadgeClass(docType) {
-        switch (docType.toLowerCase()) {
-            case 'saf': return 'badge-info';
-            case 'proposal': return 'badge-primary';
-            case 'communication': return 'badge-success';
-            case 'material': return 'badge-warning';
-            case 'publication': return 'badge-secondary';
-            default: return 'badge-secondary';
-        }
+        const type = String(docType || '').toLowerCase();
+        if (type.includes('saf')) return 'badge-info';
+        if (type.includes('proposal')) return 'badge-primary';
+        if (type.includes('communication')) return 'badge-success';
+        if (type.includes('material')) return 'badge-warning';
+        if (type.includes('publication')) return 'badge-secondary';
+        return 'badge-secondary';
     }
 
     loadPreferences() {
@@ -824,18 +754,15 @@ class DocumentTrackerSystem {
     }
 }
 
-// Instantiate Global Tracker
 document.addEventListener('DOMContentLoaded', () => {
     window.documentTracker = new DocumentTrackerSystem();
     window.documentTracker.init();
 });
 
-// UI Helper Wrappers for onclick elements
 function refreshDocuments() { window.documentTracker.refreshDocuments(); }
 function clearFilters() { window.documentTracker.clearFilters(); }
 function formatDate(dateString) { return dateString ? new Date(dateString).toLocaleDateString() : ''; }
 
-// Legacy Settings 
 if (window.NavbarSettings) {
     window.openProfileSettings = window.NavbarSettings.openProfileSettings;
     window.openPreferences = window.NavbarSettings.openPreferences;
@@ -851,159 +778,53 @@ let currentMaterialReplyTarget = null;
 
 async function viewMaterialDetails(materialId) {
     currentMaterialId = normalizeMaterialId(materialId) || materialId;
-
     const modal = new bootstrap.Modal(document.getElementById('materialModal'));
     const modalTitle = document.getElementById('materialModalTitle');
     const modalBody = document.getElementById('materialModalBody');
 
     try {
-        const response = await fetch(
-            BASE_URL + `api/materials.php?action=get_material_details&id=${encodeURIComponent(currentMaterialId)}&t=${Date.now()}`
-        );
+        const response = await fetch(BASE_URL + `api/materials.php?action=get_material_details&id=${encodeURIComponent(currentMaterialId)}&t=${Date.now()}`);
         if (!response.ok) throw new Error('Material not found');
         const data = await response.json();
 
         if (data.success && data.material) {
             const material = data.material;
             window.currentMaterial = material;
-
             modalTitle.innerHTML = `<i class="bi bi-image text-primary me-2"></i>${window.documentTracker.safeText(material.title)}`;
             document.getElementById('materialModalMeta').innerHTML = `<i class="bi bi-person me-1"></i> ${window.documentTracker.safeText(material.creator_name)} • ${window.documentTracker.safeText(material.department)} • Created ${new Date(material.uploaded_at).toLocaleDateString()}`;
 
             const isImage = material.file_type && material.file_type.startsWith('image/');
             const isPDF = material.file_type === 'application/pdf';
-
             let previewHtml = '';
-            let fileUrl = '';
-
-            if (material.file_path) {
-                fileUrl = BASE_URL + `api/materials.php?action=serve_image&id=${materialId}`;
-            }
+            let fileUrl = material.file_path ? BASE_URL + `api/materials.php?action=serve_image&id=${materialId}` : '';
 
             if (isImage) {
-                previewHtml = `
-                    <div class="card card-flat mb-3 shadow-none">
-                        <div class="card-header bg-transparent pb-0 border-0">
-                            <h6 class="m-0 fw-bold"><i class="bi bi-image text-primary me-2"></i>Publication Material Preview</h6>
-                        </div>
-                        <div class="card-body p-0 text-center">
-                            <img src="${fileUrl}" class="img-fluid rounded-3 shadow-sm" style="max-height: 70vh; object-fit: contain;" alt="Publication Material"
-                                 onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'alert alert-warning m-3\'>Image failed to load. <button class=\'btn btn-sm btn-primary ms-2\' onclick=\'downloadMaterial(${materialId}, \\'${material.file_path}\\', \\'${material.title}\\')\'>Download</button></div>';">
-                        </div>
-                    </div>
-                `;
+                previewHtml = `<div class="card card-flat mb-3 shadow-none"><div class="card-header bg-transparent pb-0 border-0"><h6 class="m-0 fw-bold"><i class="bi bi-image text-primary me-2"></i>Publication Material Preview</h6></div><div class="card-body p-0 text-center"><img src="${fileUrl}" class="img-fluid rounded-3 shadow-sm" style="max-height: 70vh; object-fit: contain;" alt="Publication Material" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'alert alert-warning m-3\\'>Image failed to load. <button class=\\'btn btn-sm btn-primary ms-2\\' onclick=\\'downloadMaterial(${materialId}, \\\\\\'${material.file_path}\\\\\\, \\\\\\'${material.title}\\\\\\')\\'>Download</button></div>';"></div></div>`;
             } else if (isPDF) {
-                previewHtml = `
-                    <div class="card card-flat mb-3 shadow-none">
-                        <div class="card-header bg-transparent pb-0 border-0">
-                            <h6 class="m-0 fw-bold"><i class="bi bi-file-pdf text-danger me-2"></i>PDF Preview</h6>
-                        </div>
-                        <div class="card-body p-0">
-                            <iframe src="${fileUrl}" class="w-100 rounded-3 shadow-sm border-0" style="height: 70vh;"></iframe>
-                        </div>
-                    </div>
-                `;
+                previewHtml = `<div class="card card-flat mb-3 shadow-none"><div class="card-header bg-transparent pb-0 border-0"><h6 class="m-0 fw-bold"><i class="bi bi-file-pdf text-danger me-2"></i>PDF Preview</h6></div><div class="card-body p-0"><iframe src="${fileUrl}" class="w-100 rounded-3 shadow-sm border-0" style="height: 70vh;"></iframe></div></div>`;
             } else {
-                previewHtml = `
-                    <div class="card card-flat mb-3 shadow-none">
-                        <div class="card-body text-center py-5">
-                            <i class="bi bi-file-earmark text-muted" style="font-size: 4rem;"></i>
-                            <p class="text-muted mt-3">Preview not available for this file type.</p>
-                            <button class="btn btn-primary btn-sm rounded-pill mt-2" onclick="downloadMaterial(${materialId}, '${material.file_path}', '${material.title}')">
-                                <i class="bi bi-download me-2"></i>Download File
-                            </button>
-                        </div>
-                    </div>
-                `;
+                previewHtml = `<div class="card card-flat mb-3 shadow-none"><div class="card-body text-center py-5"><i class="bi bi-file-earmark text-muted" style="font-size: 4rem;"></i><p class="text-muted mt-3">Preview not available for this file type.</p><button class="btn btn-primary btn-sm rounded-pill mt-2" onclick="downloadMaterial(${materialId}, '${material.file_path}', '${material.title}')"><i class="bi bi-download me-2"></i>Download File</button></div></div>`;
             }
 
-            let infoHtml = `
-                <div class="card card-flat mb-3 shadow-none">
-                    <div class="card-body py-3">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="text-xs text-muted fw-semibold">Status</span>
-                            ${window.documentTracker.renderDocumentStatusBadge(material.status)}
-                        </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="text-xs text-muted fw-semibold">Current Office</span>
-                            <span class="badge ${getMaterialLocationBadgeClass(material.current_location || 'Pending')}">${window.documentTracker.shortenOfficeName(material.current_location || 'Pending')}</span>
-                        </div>
-                        ${material.description ? `
-                        <div class="mt-3 pt-2 border-top">
-                            <div class="text-xs text-muted fw-semibold mb-1">Description</div>
-                            <div class="text-sm">${window.documentTracker.safeText(material.description)}</div>
-                        </div>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
+            let infoHtml = `<div class="card card-flat mb-3 shadow-none"><div class="card-body py-3"><div class="d-flex justify-content-between mb-2"><span class="text-xs text-muted fw-semibold">Status</span>${window.documentTracker.renderDocumentStatusBadge(material.status)}</div><div class="d-flex justify-content-between mb-2"><span class="text-xs text-muted fw-semibold">Current Office</span><span class="badge ${getMaterialLocationBadgeClass(material.current_location || 'Pending')}">${window.documentTracker.shortenOfficeName(material.current_location || 'Pending')}</span></div>${material.description ? `<div class="mt-3 pt-2 border-top"><div class="text-xs text-muted fw-semibold mb-1">Description</div><div class="text-sm">${window.documentTracker.safeText(material.description)}</div></div>` : ''}</div></div>`;
 
-            let timelineHtml = `
-                <div class="card card-flat mb-3 shadow-none">
-                    <div class="card-header bg-transparent pb-0 border-0">
-                        <h6 class="m-0 fw-bold"><i class="bi bi-clock-history text-info me-2"></i>Approval Timeline</h6>
-                    </div>
-                    <div class="card-body px-4">
-                        <div class="timeline">
-            `;
-
+            let timelineHtml = `<div class="card card-flat mb-3 shadow-none"><div class="card-header bg-transparent pb-0 border-0"><h6 class="m-0 fw-bold"><i class="bi bi-clock-history text-info me-2"></i>Approval Timeline</h6></div><div class="card-body px-4"><div class="timeline">`;
             if (material.workflow_history && material.workflow_history.length > 0) {
                 material.workflow_history.forEach(item => {
                     const actionClass = item.action === 'Approved' ? 'bg-success' : (item.action === 'Rejected' ? 'bg-danger' : 'bg-warning');
-                    timelineHtml += `
-                        <div class="timeline-item pb-3 position-relative">
-                            <div class="timeline-marker position-absolute rounded-full border border-2 border-white ${actionClass} shadow-xs" style="left: -23px; top: 3px; width: 12px; height: 12px;"></div>
-                            <div class="bg-surface-raised border rounded-lg p-2 shadow-xs">
-                                <div class="text-2xs text-muted fw-semibold mb-1">${new Date(item.created_at).toLocaleDateString()}</div>
-                                <div class="text-xs fw-semibold text-dark">${item.action} • ${window.documentTracker.shortenOfficeName(item.office_name)}</div>
-                                ${item.note ? `<div class="text-2xs text-muted mt-1">${window.documentTracker.safeText(item.note)}</div>` : ''}
-                            </div>
-                        </div>
-                    `;
+                    timelineHtml += `<div class="timeline-item pb-3 position-relative"><div class="timeline-marker position-absolute rounded-full border border-2 border-white ${actionClass} shadow-xs" style="left: -23px; top: 3px; width: 12px; height: 12px;"></div><div class="bg-surface-raised border rounded-lg p-2 shadow-xs"><div class="text-2xs text-muted fw-semibold mb-1">${new Date(item.created_at).toLocaleDateString()}</div><div class="text-xs fw-semibold text-dark">${item.action} • ${window.documentTracker.shortenOfficeName(item.office_name)}</div>${item.note ? `<div class="text-2xs text-muted mt-1">${window.documentTracker.safeText(item.note)}</div>` : ''}</div></div>`;
                 });
             } else {
                 timelineHtml += `<div class="text-muted text-sm py-2">No workflow history available</div>`;
             }
             timelineHtml += `</div></div></div>`;
 
-            const conversationHtml = `
-                <div class="card card-flat mb-3 shadow-none">
-                    <div class="card-header bg-transparent pb-2 border-bottom">
-                        <h6 class="m-0 fw-bold"><i class="bi bi-chat-dots text-success me-2"></i>Comments</h6>
-                    </div>
-                    <div class="card-body p-3">
-                        <div id="materialConversationThread" class="conversation-thread mb-3"></div>
-                        <div id="materialReplyBanner" class="alert alert-info py-2 px-3 d-flex justify-content-between align-items-center" style="display:none;">
-                            <span class="text-xs">Replying to <strong id="materialReplyAuthor"></strong></span>
-                            <button type="button" class="btn-close ms-2" id="cancelMaterialReply"></button>
-                        </div>
-                        <div class="conversation-input-wrap">
-                            <textarea id="materialCommentInput" class="form-control sm mb-2" rows="2" placeholder="Write a comment..."></textarea>
-                            <div class="d-flex justify-content-end">
-                                <button type="button" class="btn btn-primary btn-sm rounded-pill" id="sendMaterialCommentBtn">Post Comment</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
+            const conversationHtml = `<div class="card card-flat mb-3 shadow-none"><div class="card-header bg-transparent pb-2 border-bottom"><h6 class="m-0 fw-bold"><i class="bi bi-chat-dots text-success me-2"></i>Comments</h6></div><div class="card-body p-3"><div id="materialConversationThread" class="conversation-thread mb-3"></div><div id="materialReplyBanner" class="alert alert-info py-2 px-3 d-flex justify-content-between align-items-center" style="display:none;"><span class="text-xs">Replying to <strong id="materialReplyAuthor"></strong></span><button type="button" class="btn-close ms-2" id="cancelMaterialReply"></button></div><div class="conversation-input-wrap"><textarea id="materialCommentInput" class="form-control sm mb-2" rows="2" placeholder="Write a comment..."></textarea><div class="d-flex justify-content-end"><button type="button" class="btn btn-primary btn-sm rounded-pill" id="sendMaterialCommentBtn">Post Comment</button></div></div></div></div>`;
 
-            modalBody.innerHTML = `
-                <div class="row g-3">
-                    <div class="col-lg-7">${previewHtml}</div>
-                    <div class="col-lg-5">
-                        ${infoHtml}
-                        ${timelineHtml}
-                        ${conversationHtml}
-                    </div>
-                </div>
-            `;
-
-            currentMaterialId = materialId;
-            currentMaterialReplyTarget = null;
+            modalBody.innerHTML = `<div class="row g-3"><div class="col-lg-7">${previewHtml}</div><div class="col-lg-5">${infoHtml}${timelineHtml}${conversationHtml}</div></div>`;
 
             document.getElementById('sendMaterialCommentBtn')?.addEventListener('click', postMaterialComment);
             document.getElementById('cancelMaterialReply')?.addEventListener('click', clearMaterialReplyTarget);
-
             loadMaterialComments(materialId);
 
             const dlBtn = document.getElementById('downloadMaterialBtn');
@@ -1011,7 +832,6 @@ async function viewMaterialDetails(materialId) {
                 dlBtn.style.display = 'inline-flex';
                 dlBtn.onclick = () => downloadMaterial(materialId, material.file_path, material.title);
             }
-
             modal.show();
         }
     } catch (error) {
@@ -1023,144 +843,67 @@ async function viewMaterialDetails(materialId) {
 function normalizeMaterialId(id) {
     if (id == null) return null;
     let value = String(id).trim();
-    if (!value) return null;
-    if (value.toUpperCase().startsWith('MAT-')) {
-        value = value.substring(4).trim();
-    }
+    if (value.toUpperCase().startsWith('MAT-')) value = value.substring(4).trim();
     const matMatch = value.match(/^MAT(\d+)$/i);
     if (matMatch) return `MAT${matMatch[1]}`;
     if (/^\d+$/.test(value)) return `MAT${value.padStart(3, '0')}`;
     return null;
 }
-
-function clearMaterialReplyTarget() {
-    currentMaterialReplyTarget = null;
-    document.getElementById('materialReplyBanner').style.display = 'none';
-}
-
-function setMaterialReplyTarget(commentId, authorName) {
-    currentMaterialReplyTarget = Number(commentId);
-    document.getElementById('materialReplyAuthor').textContent = authorName || 'comment';
-    document.getElementById('materialReplyBanner').style.display = 'flex';
-    document.getElementById('materialCommentInput').focus();
-}
+function clearMaterialReplyTarget() { currentMaterialReplyTarget = null; document.getElementById('materialReplyBanner').style.display = 'none'; }
+function setMaterialReplyTarget(commentId, authorName) { currentMaterialReplyTarget = Number(commentId); document.getElementById('materialReplyAuthor').textContent = authorName || 'comment'; document.getElementById('materialReplyBanner').style.display = 'flex'; document.getElementById('materialCommentInput').focus(); }
 
 async function loadMaterialComments(materialId) {
     try {
         const response = await fetch(BASE_URL + `api/materials.php?action=get_comments&id=${materialId}`);
         const data = await response.json();
-
-        if (data.success) {
-            renderMaterialComments(data.comments || []);
-        }
+        if (data.success) renderMaterialComments(data.comments || []);
     } catch (error) { }
 }
 
 function renderMaterialComments(comments) {
     const thread = document.getElementById('materialConversationThread');
     if (!thread) return;
-
-    if (!Array.isArray(comments) || comments.length === 0) {
-        thread.innerHTML = '<div class="text-center text-muted p-3 border border-dashed rounded-lg">No comments yet.</div>';
-        return;
-    }
-
-    const byParent = comments.reduce((acc, item) => {
-        const key = item.parent_id == null ? 'root' : String(item.parent_id);
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(item);
-        return acc;
-    }, {});
-
+    if (!Array.isArray(comments) || comments.length === 0) { thread.innerHTML = '<div class="text-center text-muted p-3 border border-dashed rounded-lg">No comments yet.</div>'; return; }
+    const byParent = comments.reduce((acc, item) => { const key = item.parent_id == null ? 'root' : String(item.parent_id); if (!acc[key]) acc[key] = []; acc[key].push(item); return acc; }, {});
     const renderNodes = (parentKey, depth = 0) => {
-        const nodes = byParent[parentKey] || [];
-        return nodes.map((item) => `
-            <div class="conversation-item mb-2 depth-${Math.min(depth, 4)}">
-                <div class="bg-white border rounded-lg p-2 shadow-xs">
-                    <div class="d-flex gap-2 text-xs mb-1">
-                        <strong class="text-dark">${window.documentTracker.safeText(item.author_name)}</strong>
-                        <span class="text-muted">${window.documentTracker.safeText(item.author_role)}${item.author_position ? ` • ${item.author_position}` : ''}</span>
-                    </div>
-                    <div class="text-sm text-dark mb-1">${window.documentTracker.safeText(item.comment).replace(/\n/g, '<br>')}</div>
-                    <div class="d-flex justify-content-between align-items-center mt-2">
-                        <small class="text-muted" style="font-size:10px;">${formatDate(item.created_at)}</small>
-                        <button type="button" class="btn btn-link text-decoration-none p-0 text-xs" onclick="setMaterialReplyTarget(${item.id}, '${window.documentTracker.safeText(item.author_name)}')">Reply</button>
-                    </div>
-                </div>
-                ${renderNodes(String(item.id), depth + 1)}
-            </div>
-        `).join('');
+        return (byParent[parentKey] || []).map((item) => `<div class="conversation-item mb-2 depth-${Math.min(depth, 4)}"><div class="bg-white border rounded-lg p-2 shadow-xs"><div class="d-flex gap-2 text-xs mb-1"><strong class="text-dark">${window.documentTracker.safeText(item.author_name)}</strong><span class="text-muted">${window.documentTracker.safeText(item.author_role)}${item.author_position ? ` • ${item.author_position}` : ''}</span></div><div class="text-sm text-dark mb-1">${window.documentTracker.safeText(item.comment).replace(/\n/g, '<br>')}</div><div class="d-flex justify-content-between align-items-center mt-2"><small class="text-muted" style="font-size:10px;">${formatDate(item.created_at)}</small><button type="button" class="btn btn-link text-decoration-none p-0 text-xs" onclick="setMaterialReplyTarget(${item.id}, '${window.documentTracker.safeText(item.author_name)}')">Reply</button></div></div>${renderNodes(String(item.id), depth + 1)}</div>`).join('');
     };
-
     thread.innerHTML = renderNodes('root');
 }
 
 async function postMaterialComment() {
     const materialId = normalizeMaterialId(currentMaterialId);
-    if (!materialId) {
-        window.documentTracker.showToast('No material selected', 'error');
-        return;
-    }
-
     const input = document.getElementById('materialCommentInput');
-    if (!input) return;
-
-    const comment = input.value.trim();
-    if (!comment) {
-        window.documentTracker.showToast('Please enter a comment', 'error');
-        return;
-    }
-
-    const payload = {
-        action: 'add_comment',
-        material_id: materialId,
-        comment: comment,
-        parent_id: currentMaterialReplyTarget || null
-    };
+    const comment = input?.value.trim();
+    if (!materialId || !comment) { window.documentTracker.showToast('Please enter a comment', 'error'); return; }
 
     try {
-        const response = await fetch(BASE_URL + 'api/materials.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
+        const response = await fetch(BASE_URL + 'api/materials.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add_comment', material_id: materialId, comment: comment, parent_id: currentMaterialReplyTarget || null }) });
         const data = await response.json();
-
-        if (data.success) {
-            input.value = '';
-            clearMaterialReplyTarget();
-            await loadMaterialComments(materialId);
-            window.documentTracker.showToast('Comment posted successfully', 'success');
-        } else {
-            window.documentTracker.showToast('Failed to post comment: ' + (data.message || 'Unknown error'), 'error');
-        }
-    } catch (error) {
-        window.documentTracker.showToast('Error posting comment: ' + error.message, 'error');
-    }
+        if (data.success) { input.value = ''; clearMaterialReplyTarget(); await loadMaterialComments(materialId); window.documentTracker.showToast('Comment posted', 'success'); }
+        else window.documentTracker.showToast('Failed: ' + data.message, 'error');
+    } catch (error) { window.documentTracker.showToast('Error posting', 'error'); }
 }
 
 function downloadMaterial(materialId, filePath, title) {
-    window.documentTracker.showToast('Preparing download...', 'info');
     let filename = filePath;
     if (filename.includes(':\\')) filename = filename.split('\\').pop();
     if (filename.includes('/')) filename = filename.split('/').pop();
-
-    const downloadUrl = BASE_URL + `api/materials.php?download=1&id=${materialId}`;
     const link = document.createElement('a');
-    link.href = downloadUrl;
+    link.href = BASE_URL + `api/materials.php?download=1&id=${materialId}`;
     link.download = title + '_pubmat.' + (filename.split('.').pop() || 'file');
     link.target = '_blank';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    window.documentTracker.showToast('Download started', 'success');
 }
 
+// FIX: Bulletproof string conversion
 function getMaterialLocationBadgeClass(location) {
-    if (location.toLowerCase().includes('adviser')) return 'badge-info';
-    if (location.toLowerCase().includes('dean')) return 'badge-primary';
-    if (location.toLowerCase().includes('osa')) return 'badge-success';
-    if (location.toLowerCase().includes('completed')) return 'badge-success';
+    const loc = String(location || '').toLowerCase();
+    if (loc.includes('adviser')) return 'badge-info';
+    if (loc.includes('dean')) return 'badge-primary';
+    if (loc.includes('osa')) return 'badge-success';
+    if (loc.includes('completed')) return 'badge-success';
     return 'badge-secondary';
 }

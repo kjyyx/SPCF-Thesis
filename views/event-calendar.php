@@ -17,10 +17,10 @@ if (!$currentUser) {
 error_log("Current position: " . $currentUser['position']);
 
 // Restrict Accounting employees to only SAF access
-if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
-    header('Location: ' . BASE_URL . 'saf');
-    exit();
-}
+// if ($currentUser['role'] === 'employee' && stripos($currentUser['position'] ?? '', 'Accounting') !== false) {
+//     header('Location: ' . BASE_URL . 'saf');
+//     exit();
+// }
 
 // Audit log helper function
 function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO')
@@ -144,7 +144,13 @@ $pendingCount = $stmt->fetchColumn();
                     <button class="btn btn-danger btn-sm" onclick="openPendingApprovals()"><i
                             class="bi bi-clipboard-check"></i> Pending Approvals</button>
 
-                    <?php if (stripos($currentUser['position'] ?? '', 'OSA') !== false): ?>
+                    <?php if (stripos($currentUser['position'] ?? '', 'OSA', ) !== false): ?>
+                        <button class="btn btn-ghost btn-sm" onclick="window.location.href='<?php echo BASE_URL; ?>saf'"><i
+                                class="bi bi-cash-coin"></i>
+                            SAF</button>
+                    <?php endif; ?>
+
+                    <?php if (stripos($currentUser['position'] ?? '', 'Accounting') !== false): ?>
                         <button class="btn btn-ghost btn-sm" onclick="window.location.href='<?php echo BASE_URL; ?>saf'"><i
                                 class="bi bi-cash-coin"></i>
                             SAF</button>

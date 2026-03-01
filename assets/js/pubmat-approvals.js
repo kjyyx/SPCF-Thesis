@@ -9,25 +9,14 @@ let currentMaterial = null;
 
 function normalizeMaterialId(id) {
     if (id == null) return null;
-
     let value = String(id).trim();
     if (!value) return null;
 
-    // Handle prefixed forms like "MAT-MAT005" or "MAT-005"
-    if (value.toUpperCase().startsWith('MAT-')) {
-        value = value.substring(4).trim();
-    }
-
-    // Already MAT format
+    if (value.toUpperCase().startsWith('MAT-')) value = value.substring(4).trim();
+    
     const matMatch = value.match(/^MAT(\d+)$/i);
-    if (matMatch) {
-        return `MAT${matMatch[1]}`;
-    }
-
-    // Numeric fallback -> MAT###
-    if (/^\d+$/.test(value)) {
-        return `MAT${value.padStart(3, '0')}`;
-    }
+    if (matMatch) return `MAT${matMatch[1]}`;
+    if (/^\d+$/.test(value)) return `MAT${value.padStart(3, '0')}`;
 
     return null;
 }
@@ -35,7 +24,6 @@ function normalizeMaterialId(id) {
 document.addEventListener('DOMContentLoaded', function () {
     loadMaterials();
     
-    // Add event listener for comment input
     const commentInput = document.getElementById('threadCommentInput');
     if (commentInput) {
         commentInput.addEventListener('keydown', function(e) {
@@ -46,16 +34,13 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Add event listeners for approval buttons
     const approveBtn = document.getElementById('approveBtn');
     const rejectBtn = document.getElementById('rejectBtn');
     
     if (approveBtn) {
-        // Remove existing listeners to avoid duplicates
         approveBtn.replaceWith(approveBtn.cloneNode(true));
         document.getElementById('approveBtn').addEventListener('click', submitApproval);
     }
-    
     if (rejectBtn) {
         rejectBtn.replaceWith(rejectBtn.cloneNode(true));
         document.getElementById('rejectBtn').addEventListener('click', submitApproval);
@@ -76,17 +61,14 @@ async function loadMaterials() {
 
     try {
         const response = await fetch(BASE_URL + 'api/materials.php?for_approval=1&t=' + Date.now());
-
         const contentType = response.headers.get('content-type');
+        
         if (!contentType || !contentType.includes('application/json')) {
-            const rawText = await response.text();
-            console.error('Non-JSON response received:', rawText.substring(0, 500));
             showError('Server returned invalid response. Check console for details.');
             return;
         }
 
         const result = await response.json();
-
         if (result.success) {
             displayMaterials(result.materials);
         } else {
@@ -119,9 +101,7 @@ function displayMaterials(materials) {
         const previewHtml = isImage
             ? `<img src="${BASE_URL}api/materials.php?action=serve_image&id=${mat.id}" alt="Preview"
                    onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'pubmat-preview-placeholder\\'><i class=\\'bi bi-image fs-1\\'></i></div>';">`
-            : `<div class="pubmat-preview-placeholder">
-                   <i class="bi bi-file-earmark-pdf-fill" style="font-size: 3rem; color: var(--color-danger);"></i>
-               </div>`;
+            : `<div class="pubmat-preview-placeholder"><i class="bi bi-file-earmark-pdf-fill" style="font-size: 3rem; color: var(--color-danger);"></i></div>`;
 
         const recentCommentHtml = mat.recent_comment ? `
             <div class="pubmat-comment-preview">
@@ -133,32 +113,22 @@ function displayMaterials(materials) {
         html += `
         <div class="col-md-6 col-lg-4">
             <div class="card pubmat-card h-100 d-flex flex-column" style="overflow: hidden; padding: 0;">
-
-                <!-- Preview thumbnail -->
                 <div class="pubmat-preview">
                     ${previewHtml}
                     <div class="pubmat-preview-badge">
                         <span class="badge badge-light" style="font-size: var(--text-2xs);">Publication Material</span>
                     </div>
                 </div>
-
-                <!-- Card body -->
                 <div class="card-body d-flex flex-column" style="padding: var(--space-4) var(--space-5); flex: 1;">
-                    <h6 class="mb-1 text-truncate"
-                        title="${escapeHtml(mat.title)}"
-                        style="font-size: var(--text-base); font-weight: var(--font-semibold); color: var(--color-text-heading);">
+                    <h6 class="mb-1 text-truncate" title="${escapeHtml(mat.title)}" style="font-size: var(--text-base); font-weight: var(--font-semibold); color: var(--color-text-heading);">
                         ${escapeHtml(mat.title)}
                     </h6>
-
                     <div class="pubmat-meta mb-3">
                         <span><i class="bi bi-person me-1"></i>${escapeHtml(mat.creator_name)}</span>
                         <span style="color: var(--gray-300);">&bull;</span>
                         <span><i class="bi bi-calendar3 me-1"></i>${new Date(mat.uploaded_at).toLocaleDateString()}</span>
                     </div>
-
                     ${recentCommentHtml}
-
-                    <!-- Action buttons pinned to bottom -->
                     <div class="d-flex gap-2 mt-auto" style="padding-top: var(--space-3);">
                         <button class="btn btn-ghost btn-sm border flex-grow-1" onclick="viewMaterial('${mat.id}')">
                             <i class="bi bi-eye me-1"></i> View
@@ -171,7 +141,6 @@ function displayMaterials(materials) {
                         </button>
                     </div>
                 </div>
-
             </div>
         </div>`;
     });
@@ -182,19 +151,12 @@ function displayMaterials(materials) {
 function viewMaterial(id) {
     currentMaterialId = normalizeMaterialId(id) || id;
     
-    // Show loading state
     const viewer = document.getElementById('materialViewer');
     viewer.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
     
-    // Fetch material details
     fetch(BASE_URL + `api/materials.php?action=get_material_details&id=${encodeURIComponent(currentMaterialId)}&t=${Date.now()}`)
         .then(response => {
-            if (!response.ok) {
-                if (response.status === 403) {
-                    throw new Error('You do not have permission to view this material');
-                }
-                throw new Error('Failed to load material');
-            }
+            if (!response.ok) throw new Error(response.status === 403 ? 'Permission denied' : 'Failed to load material');
             return response.json();
         })
         .then(data => {
@@ -205,44 +167,34 @@ function viewMaterial(id) {
                 const modalTitle = document.getElementById('viewModalTitle');
                 modalTitle.innerHTML = `<i class="bi bi-eye text-primary me-2"></i> ${escapeHtml(material.title)}`;
                 
-                // Determine file preview type
                 const isImage = material.file_type && material.file_type.startsWith('image/');
                 const isPDF = material.file_type === 'application/pdf';
-                
-                // Get file URL
                 let fileUrl = BASE_URL + `api/materials.php?action=serve_image&id=${encodeURIComponent(currentMaterialId)}`;
                 
                 if (isImage) {
-                    viewer.innerHTML = `<img src="${fileUrl}" class="img-fluid rounded-3 shadow-sm" style="max-height: 70vh; object-fit: contain;" alt="Material" 
-                        onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'alert alert-danger m-3\'>Failed to load image. <button class=\'btn btn-sm btn-primary ms-2\' onclick=\'downloadMaterial(${JSON.stringify(currentMaterialId)})\'></button></div>`;
+                    viewer.innerHTML = `<img src="${fileUrl}" class="img-fluid rounded-3 shadow-sm" style="max-height: 70vh; object-fit: contain;" alt="Material">`;
                 } else if (isPDF) {
                     viewer.innerHTML = `<iframe src="${fileUrl}" class="w-100 rounded-3 shadow-sm border-0" style="height: 70vh;"></iframe>`;
                 } else {
-                    viewer.innerHTML = `
-                        <div style="text-align: center; padding: var(--space-6);">
-                            <i class="bi bi-file-earmark" style="font-size: 3rem; color: var(--color-text-tertiary); display: block; margin-bottom: var(--space-3);"></i>
-                            <p style="font-size: var(--text-sm); color: var(--color-text-tertiary); margin-bottom: var(--space-4);">Preview not available for this file type.</p>
-                            <button class="btn btn-primary btn-sm" onclick="downloadMaterial(${JSON.stringify(currentMaterialId)})">
-                                <i class="bi bi-download me-1"></i> Download to view
-                            </button>
-                        </div>`;
+                    viewer.innerHTML = `<div style="text-align: center; padding: var(--space-6);">
+                        <i class="bi bi-file-earmark" style="font-size: 3rem; color: var(--color-text-tertiary); display: block; margin-bottom: var(--space-3);"></i>
+                        <p>Preview not available for this file type.</p>
+                        <button class="btn btn-primary btn-sm" onclick="downloadMaterial('${currentMaterialId}')"><i class="bi bi-download me-1"></i> Download</button>
+                    </div>`;
                 }
 
-                // Update download button
-                const downloadBtn = document.getElementById('downloadBtnInModal');
-                downloadBtn.onclick = function () {
-                    downloadMaterial(currentMaterialId);
-                };
+                document.getElementById('downloadBtnInModal').onclick = () => downloadMaterial(currentMaterialId);
                 
-                // Load comments
+                // NEW: Display the approval timeline
+                displayMaterialWorkflow(material);
+                
                 loadThreadComments(currentMaterialId);
             } else {
-                viewer.innerHTML = '<div style="color: var(--color-danger); font-size: var(--text-sm); padding: var(--space-4);">Material not found.</div>';
+                viewer.innerHTML = '<div style="color: var(--color-danger); padding: var(--space-4);">Material not found.</div>';
             }
         })
         .catch(error => {
-            console.error('Error loading material:', error);
-            viewer.innerHTML = `<div style="color: var(--color-danger); font-size: var(--text-sm); padding: var(--space-4);">${escapeHtml(error.message)}</div>`;
+            viewer.innerHTML = `<div style="color: var(--color-danger); padding: var(--space-4);">${escapeHtml(error.message)}</div>`;
             showError(error.message);
         });
 
@@ -250,42 +202,42 @@ function viewMaterial(id) {
     modal.show();
 }
 
-// Add download function
 function downloadMaterial(id) {
     window.open(BASE_URL + `api/materials.php?download=1&id=${id}`, '_blank');
 }
 
 function displayMaterialWorkflow(material) {
-    // You can add a workflow timeline section to your modal if desired
-    // This would show the approval steps like in documents
     const workflowContainer = document.getElementById('workflowContainer');
-    if (!workflowContainer || !material.workflow_history) return;
+    if (!workflowContainer || !material.workflow_history || material.workflow_history.length === 0) {
+        if(workflowContainer) workflowContainer.innerHTML = '';
+        return;
+    }
     
-    let workflowHtml = '<div class="mt-3"><h6>Approval Timeline</h6><div class="timeline">';
+    let html = `<div class="d-flex align-items-center mb-3"><i class="bi bi-diagram-3 text-primary me-2"></i><strong style="font-size: var(--text-sm);">Approval Timeline</strong></div>`;
     
-    material.workflow_history.forEach(item => {
-        const statusClass = item.action === 'Approved' ? 'bg-success' : 
-                           (item.action === 'Rejected' ? 'bg-danger' : 'bg-warning');
+    material.workflow_history.forEach((item, index) => {
+        let color = 'var(--gray-300)';
+        let icon = 'bi-circle';
         
-        workflowHtml += `
-            <div class="timeline-item mb-2">
-                <div class="d-flex">
-                    <div class="timeline-marker ${statusClass} me-2" style="width: 10px; height: 10px; border-radius: 50%; margin-top: 6px;"></div>
-                    <div class="flex-grow-1">
-                        <div class="d-flex justify-content-between">
-                            <strong>${item.office_name}</strong>
-                            <small class="text-muted">${new Date(item.created_at).toLocaleDateString()}</small>
-                        </div>
-                        <div>${item.action}</div>
-                        ${item.note ? `<small class="text-muted">Note: ${escapeHtml(item.note)}</small>` : ''}
+        if (item.action === 'Approved') { color = 'var(--color-success)'; icon = 'bi-check-circle-fill'; }
+        else if (item.action === 'Rejected') { color = 'var(--color-danger)'; icon = 'bi-x-circle-fill'; }
+        else if (item.action === 'Pending') { color = 'var(--color-warning)'; icon = 'bi-clock-fill'; }
+
+        html += `
+            <div class="d-flex align-items-start mb-2" style="font-size: var(--text-sm);">
+                <i class="bi ${icon} me-2" style="color: ${color}; font-size: 1.1rem; margin-top: -2px;"></i>
+                <div>
+                    <div class="fw-semibold" style="color: var(--color-text-heading);">${item.office_name}</div>
+                    <div style="color: var(--color-text-tertiary); font-size: var(--text-xs);">
+                        ${item.action} &bull; ${new Date(item.created_at).toLocaleDateString()}
+                        ${item.note ? `<br><span class="fst-italic">"${escapeHtml(item.note)}"</span>` : ''}
                     </div>
                 </div>
             </div>
         `;
     });
     
-    workflowHtml += '</div></div>';
-    workflowContainer.innerHTML = workflowHtml;
+    workflowContainer.innerHTML = html;
 }
 
 function showApprovalModal(id, action) {
@@ -327,7 +279,6 @@ async function submitApproval() {
         return;
     }
 
-    // Update button states while processing
     const activeBtn = currentAction === 'approve' ? document.getElementById('approveBtn') : document.getElementById('rejectBtn');
     if (!activeBtn) return;
     
@@ -349,18 +300,18 @@ async function submitApproval() {
 
         if (result.success) {
             showSuccess(`Material ${currentAction}d successfully`);
-            
-            // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('approvalModal'));
             if (modal) modal.hide();
             
-            // Reload materials list
+            // Close view modal if it's open behind
+            const viewModal = bootstrap.Modal.getInstance(document.getElementById('viewModal'));
+            if (viewModal) viewModal.hide();
+
             await loadMaterials();
         } else {
             showError('Failed to process approval: ' + (result.message || 'Unknown error'));
         }
     } catch (error) {
-        console.error('Error processing approval:', error);
         showError('Error processing approval: ' + error.message);
     } finally {
         activeBtn.innerHTML = originalText;
@@ -368,7 +319,6 @@ async function submitApproval() {
     }
 }
 
-// Comment functionality
 async function loadThreadComments(materialId) {
     try {
         const response = await fetch(BASE_URL + `api/materials.php?action=get_comments&id=${materialId}&t=${Date.now()}`);
@@ -381,7 +331,6 @@ async function loadThreadComments(materialId) {
             console.error('Failed to load comments:', result.message);
         }
     } catch (error) {
-        console.error('Error loading comments:', error);
         threadComments = [];
         renderThreadComments();
     }
@@ -392,35 +341,21 @@ function renderThreadComments() {
     if (!commentsList) return;
 
     if (!threadComments || threadComments.length === 0) {
-        commentsList.innerHTML = `
-            <div style="text-align: center; padding: var(--space-6) var(--space-4); color: var(--color-text-tertiary); font-size: var(--text-xs);">
-                <i class="bi bi-chat-dots" style="font-size: 1.75rem; display: block; margin-bottom: var(--space-2); opacity: 0.5;"></i>
-                No comments yet. Be the first!
-            </div>`;
+        commentsList.innerHTML = `<div style="text-align: center; padding: var(--space-6) var(--space-4); color: var(--color-text-tertiary); font-size: var(--text-xs);"><i class="bi bi-chat-dots" style="font-size: 1.75rem; display: block; margin-bottom: var(--space-2); opacity: 0.5;"></i>No comments yet. Be the first!</div>`;
         return;
     }
 
-    // Build comment tree
     const commentMap = {};
     const rootComments = [];
     
-    threadComments.forEach(comment => {
-        commentMap[comment.id] = { ...comment, replies: [] };
-    });
-    
-    threadComments.forEach(comment => {
-        if (comment.parent_id && commentMap[comment.parent_id]) {
-            commentMap[comment.parent_id].replies.push(commentMap[comment.id]);
-        } else {
-            rootComments.push(commentMap[comment.id]);
-        }
+    threadComments.forEach(c => { commentMap[c.id] = { ...c, replies: [] }; });
+    threadComments.forEach(c => {
+        if (c.parent_id && commentMap[c.parent_id]) commentMap[c.parent_id].replies.push(commentMap[c.id]);
+        else rootComments.push(commentMap[c.id]);
     });
 
     const renderComment = (comment, depth = 0) => {
-        const repliesHtml = comment.replies && comment.replies.length
-            ? `<div class="comment-replies">${comment.replies.map(r => renderComment(r, depth + 1)).join('')}</div>`
-            : '';
-
+        const repliesHtml = comment.replies && comment.replies.length ? `<div class="comment-replies">${comment.replies.map(r => renderComment(r, depth + 1)).join('')}</div>` : '';
         return `
             <div class="comment-item">
                 <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
@@ -431,9 +366,7 @@ function renderThreadComments() {
                     <span class="comment-date flex-shrink-0">${formatDate(comment.created_at)}</span>
                 </div>
                 <div class="comment-body">${escapeHtml(comment.comment || '').replace(/\n/g, '<br>')}</div>
-                <button class="comment-reply-btn" onclick="setReplyTarget(${comment.id}, '${escapeHtml(comment.author_name)}')">
-                    <i class="bi bi-reply"></i> Reply
-                </button>
+                <button class="comment-reply-btn" onclick="setReplyTarget(${comment.id}, '${escapeHtml(comment.author_name)}')"><i class="bi bi-reply"></i> Reply</button>
                 ${repliesHtml}
             </div>`;
     };
@@ -443,118 +376,62 @@ function renderThreadComments() {
 
 function setReplyTarget(commentId, authorName) {
     replyTarget = { id: Number(commentId), authorName: authorName };
-
     const banner = document.getElementById('commentReplyBanner');
     const replyAuthorName = document.getElementById('replyAuthorName');
     if (replyAuthorName) replyAuthorName.textContent = authorName;
     if (banner) banner.classList.remove('d-none');
 
     const input = document.getElementById('threadCommentInput');
-    if (input) {
-        input.focus();
-        input.placeholder = `Replying to ${authorName}...`;
-    }
+    if (input) { input.focus(); input.placeholder = `Replying to ${authorName}...`; }
 }
 
 function clearReplyTarget() {
     replyTarget = null;
     const banner = document.getElementById('commentReplyBanner');
     if (banner) banner.classList.add('d-none');
-    
     const input = document.getElementById('threadCommentInput');
-    if (input) {
-        input.placeholder = "Write a comment...";
-    }
-}
-
-async function loadThreadComments(materialId) {
-    const normalizedId = normalizeMaterialId(materialId);
-    if (!normalizedId) {
-        console.error('Invalid material ID for comments:', materialId);
-        threadComments = [];
-        renderThreadComments();
-        return;
-    }
-
-    try {
-        const response = await fetch(BASE_URL + `api/materials.php?action=get_comments&id=${encodeURIComponent(normalizedId)}&t=${Date.now()}`);
-        const result = await response.json();
-        
-        if (result.success) {
-            threadComments = result.comments || [];
-            renderThreadComments();
-        } else {
-            console.error('Failed to load comments:', result.message);
-        }
-    } catch (error) {
-        console.error('Error loading comments:', error);
-        threadComments = [];
-        renderThreadComments();
-    }
+    if (input) input.placeholder = "Write a comment...";
 }
 
 async function postComment() {
-    
     const materialId = normalizeMaterialId(currentMaterialId);
-    if (!materialId) {
-        console.error('No/invalid material selected:', currentMaterialId);
-        showError('No material selected');
-        return;
-    }
+    if (!materialId) { showError('No material selected'); return; }
 
     const input = document.getElementById('threadCommentInput');
-    if (!input) {
-        console.error('Comment input not found');
-        return;
-    }
-
     const comment = input.value.trim();
-    if (!comment) {
-        showError('Please enter a comment');
-        return;
-    }
+    if (!comment) { showError('Please enter a comment'); return; }
 
-    // Create the payload
     const payload = {
         action: 'add_comment',
-        material_id: materialId,  // Use the captured value
+        material_id: materialId,
         comment: comment,
         parent_id: replyTarget ? replyTarget.id : null
     };
-    
-
-    const saveIndicator = document.getElementById('notesSaveIndicator');
 
     try {
         const response = await fetch(BASE_URL + 'api/materials.php', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
         const result = await response.json();
-
-
         if (result.success) {
             input.value = '';
             clearReplyTarget();
             
+            const saveIndicator = document.getElementById('notesSaveIndicator');
             if (saveIndicator) {
                 saveIndicator.classList.remove('d-none');
                 setTimeout(() => saveIndicator.classList.add('d-none'), 3000);
             }
             
             showSuccess('Comment posted successfully');
-            
-            // Reload comments
             await loadThreadComments(materialId);
         } else {
             showError('Failed to post comment: ' + (result.message || 'Unknown error'));
         }
     } catch (error) {
-        console.error('Error posting comment:', error);
         showError('Error posting comment: ' + error.message);
     }
 }
@@ -562,12 +439,7 @@ async function postComment() {
 // Utility functions
 function escapeHtml(str) {
     if (str == null) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
 function formatDate(dateString) {
@@ -575,57 +447,24 @@ function formatDate(dateString) {
     try {
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return '';
-        
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        });
-    } catch (e) {
-        return '';
-    }
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+    } catch (e) { return ''; }
 }
 
 function showSuccess(message) {
-    if (window.ToastManager) {
-        window.ToastManager.show({
-            type: 'success',
-            title: 'Success',
-            message: message,
-            duration: 4000
-        });
-    } else {
-        console.log('Success:', message);
-    }
+    if (window.ToastManager) window.ToastManager.show({ type: 'success', title: 'Success', message: message, duration: 4000 });
+    else alert('Success: ' + message);
 }
 
 function showError(message) {
-    if (window.ToastManager) {
-        window.ToastManager.show({
-            type: 'error',
-            title: 'Error',
-            message: message,
-            duration: 4000
-        });
-    } else {
-        console.error('Error:', message);
-    }
+    if (window.ToastManager) window.ToastManager.show({ type: 'error', title: 'Error', message: message, duration: 4000 });
+    else alert('Error: ' + message);
 }
 
-// Auto-refresh every 30 seconds (like documents)
 let autoRefreshInterval = setInterval(() => {
-    if (document.getElementById('materialsContainer') && 
-        !document.getElementById('approvalModal').classList.contains('show')) {
+    if (document.getElementById('materialsContainer') && !document.getElementById('approvalModal').classList.contains('show') && !document.getElementById('viewModal').classList.contains('show')) {
         loadMaterials();
     }
 }, 30000);
 
-// Clean up interval when page unloads
-window.addEventListener('beforeunload', function() {
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-    }
-});
+window.addEventListener('beforeunload', () => { if (autoRefreshInterval) clearInterval(autoRefreshInterval); });

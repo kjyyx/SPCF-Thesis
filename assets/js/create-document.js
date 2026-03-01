@@ -427,14 +427,18 @@ function collectSAFData() {
 
 /**
  * Collect all data from the Facility Request form
- * Gathers requester information, facility details, and reservation notes
+ * Gathers requester information, facility details, and triggers dynamic routing variables
  * @returns {Object} Facility data object with reservation details
  */
 function collectFacilityData() {
-    // Facilities checkboxes (f1-f24)
+    // Facilities checkboxes (f1-f24) & special text fields
     const facilities = [];
     for (let i = 1; i <= 24; i++) {
-        facilities.push(document.getElementById(`fac-f${i}`)?.checked ? '✓' : '');
+        if (i === 19) {
+            facilities.push(document.getElementById(`fac-f19`)?.value || ''); // f19 is actually a specify field
+        } else {
+            facilities.push(document.getElementById(`fac-f${i}`)?.checked ? '✓' : '');
+        }
     }
 
     // Specify fields (s1-s5)
@@ -478,6 +482,13 @@ function collectFacilityData() {
         e1: equipment[0], e2: equipment[1], e3: equipment[2], e4: equipment[3], e5: equipment[4], e6: equipment[5], e7: equipment[6], e8: equipment[7], e9: equipment[8], e10: equipment[9], e11: equipment[10],
         q1: quantities[0], q2: quantities[1], q3: quantities[2], q4: quantities[3], q5: quantities[4], q6: quantities[5], q7: quantities[6], q8: quantities[7], q9: quantities[8],
         o1: others[0], o2: others[1],
+
+        // --- DYNAMIC WORKFLOW TRIGGERS (Mapped explicitly for the backend API) ---
+        internetNeeded: document.getElementById('fac-internet')?.checked,
+        soundSystem: document.getElementById('fac-e7')?.checked,
+        projector: document.getElementById('fac-e9')?.checked,
+        technicalNeeds: document.getElementById('fac-e10')?.checked,
+
         preEventDate: document.getElementById('fac-pre-event-date')?.value || '',
         practiceDate: document.getElementById('fac-practice-date')?.value || '',
         setupDate: document.getElementById('fac-setup-date')?.value || '',
@@ -518,7 +529,7 @@ function collectCommunicationData() {
             return { name: '', title: '' };
         }
     });
-    
+
     const approvedList = Array.from(document.querySelectorAll('#comm-approved-list input:checked')).map(cb => {
         try {
             const value = JSON.parse(cb.value);
@@ -534,11 +545,11 @@ function collectCommunicationData() {
 
     // Get current user data for the "From" section
     const currentUser = window.currentUser || {};
-    const fullName = currentUser.firstName && currentUser.lastName ? 
+    const fullName = currentUser.firstName && currentUser.lastName ?
         `${currentUser.firstName} ${currentUser.lastName}` : '';
     const position = currentUser.position || '';
     const department = currentUser.department || '';
-    
+
     // Construct from fields - ensure from_title is properly formatted
     const from_name = fullName || '';
     // Create the title in "Position, Department" format
@@ -616,8 +627,8 @@ function generateProposalHTML(d) {
         '<div class="text-muted">No program schedule</div>';
 
     // 3. Formatting Schedule Summary
-    const scheduleHtml = (d.schedule && d.schedule.length) ? 
-        `<div style="margin-top:6px">${d.schedule.map(s => `<div>${formatScheduleRow(s.date, s.time, s.endTime)}</div>`).join('')}</div>` : 
+    const scheduleHtml = (d.schedule && d.schedule.length) ?
+        `<div style="margin-top:6px">${d.schedule.map(s => `<div>${formatScheduleRow(s.date, s.time, s.endTime)}</div>`).join('')}</div>` :
         '<em>No schedule provided</em>';
 
     return `<div class="paper-page">${header}<div><strong>Project Organizer:</strong> ${escapeHtml(d.organizer || '')}</div><div style="margin-top:6px"><strong>Department:</strong> ${escapeHtml(d.departmentFull || d.department || '')}</div><div style="margin-top:6px"><strong>Support:</strong> ${escapeHtml(d.support || '')}</div><div style="margin-top:6px"><strong>Project Title:</strong> ${escapeHtml(d.title || '[Project Title]')}</div><div style="margin-top:6px"><strong>Lead Facilitator:</strong> ${escapeHtml(d.lead || '')}</div><div style="margin-top:12px"><strong>Rationale:</strong><div style="margin-top:6px">${(d.rationale || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Objectives:</strong>${objectivesHtml}</div><div style="margin-top:12px"><strong>Intended Learning Outcomes:</strong>${ilosHtml}</div><div style="margin-top:12px"><strong>Budget Requirements:</strong>${budgetHtml}</div><div style="margin-top:12px"><strong>Source of Budget:</strong> ${escapeHtml(d.budgetSource || '')}</div><div style="margin-top:12px"><strong>Mechanics:</strong><div style="margin-top:6px">${(d.mechanics || '').replace(/\n/g, '<br>') || '<em>None provided</em>'}</div></div><div style="margin-top:12px"><strong>Schedule:</strong>${scheduleHtml}</div><div style="margin-top:12px"><strong>Program Schedule (Event):</strong>${programHtml}</div><div style="margin-top:12px"><strong>Venue:</strong> ${escapeHtml(d.venue || '')}</div></div>`;
@@ -663,14 +674,37 @@ function generateFacilityHTML(d) {
     const header = `<div style="text-align:center;margin-bottom:1rem;"><div style="font-weight:800;font-size:1.2rem">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700;font-size:1.1rem">Facility Request</div></div>`;
 
     const facilitiesList = [];
-    for (let i = 1; i <= 24; i++) { if (d[`f${i}`] === '✓') facilitiesList.push(`Facility ${i}`); }
+    if (d.f1 === '✓') facilitiesList.push('IT Bldg. Theater');
+    if (d.f2 === '✓') facilitiesList.push('IT Bldg Theater Lobby');
+    if (d.f3 === '✓') facilitiesList.push(`Computer Lab ${d.s1 ? '(' + escapeHtml(d.s1) + ')' : ''}`);
+    if (d.f4 === '✓') facilitiesList.push('IT Seminar Room');
+    if (d.f5 === '✓') facilitiesList.push('IT Case Room');
+    if (d.f6 === '✓') facilitiesList.push('CHTM/ Luid Hall');
+    if (d.f7 === '✓') facilitiesList.push('CHTM/ Amphitheater');
+    if (d.f8 === '✓') facilitiesList.push(`Tennis Court ${d.s2 ? '(' + escapeHtml(d.s2) + ')' : ''}`);
+    if (d.f9 === '✓') facilitiesList.push('Orchard Bar');
+    if (d.f10 === '✓') facilitiesList.push('Andreas');
+    if (d.f11 === '✓') facilitiesList.push('Gym 1 (Basketball Court)');
+    if (d.f12 === '✓') facilitiesList.push('Gym 2 (Volleyball Court)');
+    if (d.f13 === '✓') facilitiesList.push('Aquatic');
+    if (d.f14 === '✓') facilitiesList.push('COC / Function Room');
+    if (d.f15 === '✓') facilitiesList.push('COC / Fitness Center');
+    if (d.f16 === '✓') facilitiesList.push('COC / Firing Range');
+    if (d.f17 === '✓') facilitiesList.push(`Classroom ${d.s3 ? '(' + escapeHtml(d.s3) + ')' : ''}`);
+    if (d.f18 === '✓') facilitiesList.push(`COC Lab ${d.f19 ? '(' + escapeHtml(d.f19) + ')' : ''}`);
+    if (d.f20 === '✓') facilitiesList.push(`Nursing Lab ${d.s4 ? '(' + escapeHtml(d.s4) + ')' : ''}`);
+    if (d.f21 === '✓') facilitiesList.push('CON / Amphitheater');
+    if (d.f22 === '✓') facilitiesList.push('CON / Lecture Room');
+    if (d.f23 === '✓') facilitiesList.push('CON / Chapel');
+    if (d.f24 === '✓') facilitiesList.push(`CON / RVJ Hall ${d.s5 ? '(' + escapeHtml(d.s5) + ')' : ''}`);
+
     const facilitiesHtml = facilitiesList.length ? `<ul>${facilitiesList.map(f => `<li>${f}</li>`).join('')}</ul>` : '<em>No facilities selected</em>';
 
     const equipmentList = [];
     for (let i = 1; i <= 11; i++) { if (d[`e${i}`] === '✓') equipmentList.push(`Equipment ${i} (Qty: ${d[`q${i}`] || 0})`); }
+    if (d.internetNeeded) equipmentList.push('Internet Connection');
     const equipmentHtml = equipmentList.length ? `<ul>${equipmentList.map(e => `<li>${e}</li>`).join('')}</ul>` : '<em>No equipment selected</em>';
 
-    // 4. Update the Timeline strings using the new formatter
     const timelineHtml = `<div style="margin-top:12px"><strong>Event Timeline:</strong><br>
         Pre-Event: ${formatScheduleRow(d.preEventDate, d.preEventStartTime, d.preEventEndTime)}<br>
         Practice: ${formatScheduleRow(d.practiceDate, d.practiceStartTime, d.practiceEndTime)}<br>
@@ -696,10 +730,10 @@ function generateCommunicationHTML(d) {
 
     const header = `<div style="text-align:center;margin-bottom:1rem;"><div style="font-weight:800;font-size:1.2rem">SYSTEMS PLUS COLLEGE FOUNDATION</div><div style="font-weight:700;font-size:1.1rem">Communication Letter</div></div>`;
     const bodyHtml = (d.body || '').replace(/\n/g, '<br>') || '&nbsp;';
-    
+
     // Get the values from the data object with proper fallbacks
     const from_name = d.from_name || (window.currentUser?.firstName + ' ' + window.currentUser?.lastName) || '';
-    
+
     // CRITICAL FIX: Ensure from_title is properly formatted
     // If d.from_title exists, use it; otherwise construct from position and department
     let from_title = d.from_title;
@@ -761,7 +795,7 @@ function formatScheduleRow(date, start, end) {
     const endFmt = formatTimeAmPm(end);
     let timePart = startFmt;
     if (endFmt) timePart += ` – ${endFmt}`;
-    
+
     if (dateFmt && timePart) return `${dateFmt} ${timePart}`;
     return dateFmt || timePart;
 }
@@ -774,7 +808,7 @@ function formatProgramRow(start, end, activity) {
     const endFmt = formatTimeAmPm(end);
     let timePart = startFmt;
     if (endFmt) timePart += ` – ${endFmt}`;
-    
+
     if (timePart && activity) return `${timePart} - ${escapeHtml(activity)}`;
     return timePart || escapeHtml(activity);
 }
@@ -1050,12 +1084,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let typeSelected = false;
     const persistedType = localStorage.getItem('selectedDocumentType');
     const persistedPage = localStorage.getItem('createDoc_currentPage');
-    
+
     if (persistedType && ['proposal', 'saf', 'facility', 'communication'].includes(persistedType)) {
         selectDocumentType(persistedType);
         typeSelected = true;
     }
-    
+
     if (persistedPage) currentPage = parseInt(persistedPage);
 
     // Set up live preview for all form inputs
@@ -1150,12 +1184,12 @@ function clearValidationErrors() {
     document.querySelectorAll('.form-control, .form-select').forEach(element => {
         element.classList.remove('is-invalid');
     });
-    
+
     // Remove error messages
     document.querySelectorAll('.invalid-feedback').forEach(element => {
         element.remove();
     });
-    
+
     // Remove error highlighting from other elements
     document.querySelectorAll('.validation-error').forEach(element => {
         element.classList.remove('validation-error');
@@ -1170,15 +1204,15 @@ function clearValidationErrors() {
 function highlightField(fieldId, message) {
     const element = document.getElementById(fieldId);
     if (!element) return;
-    
+
     // Add error class
     element.classList.add('is-invalid');
-    
+
     // Create and insert error message
     const errorDiv = document.createElement('div');
     errorDiv.className = 'invalid-feedback d-block';
     errorDiv.textContent = message;
-    
+
     // Insert after the element
     if (element.nextSibling) {
         element.parentNode.insertBefore(errorDiv, element.nextSibling);
@@ -1383,7 +1417,7 @@ async function submitDocument() {
     // If validation errors exist, show them and stop
     if (validationErrors.length > 0) {
         window.ToastManager?.error(`Please correct the highlighted fields. ${validationErrors.length} field(s) need attention.`, 'Validation Error');
-        
+
         // Scroll to first error field
         if (firstErrorField) {
             const firstErrorElement = document.getElementById(firstErrorField);
@@ -1392,7 +1426,7 @@ async function submitDocument() {
                 firstErrorElement.focus();
             }
         }
-        
+
         return;
     }
 

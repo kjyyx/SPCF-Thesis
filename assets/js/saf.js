@@ -38,6 +38,13 @@ const canEditSaf = isAccounting || isAdmin;
 let allocateModal, transactionModal, addDeductModal, resetModal, editModal;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // --- FIX: Initialize all Bootstrap Modals ---
+  if (document.getElementById('allocateModal')) allocateModal = new bootstrap.Modal(document.getElementById('allocateModal'));
+  if (document.getElementById('transactionModal')) transactionModal = new bootstrap.Modal(document.getElementById('transactionModal'));
+  if (document.getElementById('addDeductModal')) addDeductModal = new bootstrap.Modal(document.getElementById('addDeductModal'));
+  if (document.getElementById('resetModal')) resetModal = new bootstrap.Modal(document.getElementById('resetModal'));
+  if (document.getElementById('editModal')) editModal = new bootstrap.Modal(document.getElementById('editModal'));
+
   // Load persisted state
   const savedDept = localStorage.getItem('saf_currentDept');
   if (savedDept) currentDeptId = savedDept;
@@ -67,6 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Show approvals button for Accounting personnel
   if (isAccounting) {
     document.getElementById('btn-approvals').style.display = 'inline-flex';
+    document.getElementById('btn-calendar').style.display = 'inline-flex';
   }
 
   await initDataSdk();
@@ -136,25 +144,25 @@ async function initDataSdk() {
     const result = await response.json();
     if (result.success) {
       allData = result.data || [];
-      
+
       // NEW: Calculate and show the Global Total for Employees
       if (canEditSaf || isOsa) {
-          let globalTotal = 0;
-          allData.forEach(d => {
-              if (d.type === 'saf') {
-                  const initial = parseFloat(d.initial_amount) || 0;
-                  const used = parseFloat(d.used_amount) || 0;
-                  const balance = d.current_balance !== undefined ? parseFloat(d.current_balance) : (initial - used);
-                  globalTotal += balance;
-              }
-          });
-          const globalContainer = document.getElementById('global-saf-container');
-          const globalTotalEl = document.getElementById('global-total-saf');
-          if (globalContainer && globalTotalEl) {
-              globalContainer.classList.remove('d-none');
-              globalContainer.classList.add('d-inline-flex');
-              globalTotalEl.textContent = formatCurrency(globalTotal);
+        let globalTotal = 0;
+        allData.forEach(d => {
+          if (d.type === 'saf') {
+            const initial = parseFloat(d.initial_amount) || 0;
+            const used = parseFloat(d.used_amount) || 0;
+            const balance = d.current_balance !== undefined ? parseFloat(d.current_balance) : (initial - used);
+            globalTotal += balance;
           }
+        });
+        const globalContainer = document.getElementById('global-saf-container');
+        const globalTotalEl = document.getElementById('global-total-saf');
+        if (globalContainer && globalTotalEl) {
+          globalContainer.classList.remove('d-none');
+          globalContainer.classList.add('d-inline-flex');
+          globalTotalEl.textContent = formatCurrency(globalTotal);
+        }
       }
 
     } else {
@@ -176,7 +184,7 @@ function renderSidebar() {
     const a = document.createElement('a');
     a.href = '#';
     const isActive = dept.db_id === currentDeptId;
-    
+
     // OneUI Styling for Sidebar items
     a.className = `list-group-item list-group-item-action border-0 rounded-3 mb-2 px-3 py-2 fw-medium ${isActive ? 'active bg-primary text-white shadow-sm' : 'text-dark bg-light'}`;
     a.onclick = (e) => {
@@ -193,11 +201,11 @@ function renderSidebar() {
     // Check if Department has SAF allocated
     const safRecord = allData.find(d => d.type === 'saf' && d.department_id === dept.db_id);
     if (safRecord) {
-        const icon = document.createElement('i');
-        icon.className = 'bi bi-check-circle-fill text-success opacity-75 ms-2 float-end mt-1';
-        icon.style.fontSize = '0.75rem';
-        if (isActive) icon.classList.replace('text-success', 'text-white');
-        nameSpan.appendChild(icon);
+      const icon = document.createElement('i');
+      icon.className = 'bi bi-check-circle-fill text-success opacity-75 ms-2 float-end mt-1';
+      icon.style.fontSize = '0.75rem';
+      if (isActive) icon.classList.replace('text-success', 'text-white');
+      nameSpan.appendChild(icon);
     }
 
     a.appendChild(nameSpan);
@@ -265,7 +273,7 @@ function renderDashboard(deptId) {
 function updateProgressBar(used, allocated) {
   const progressEl = document.getElementById('fund-progress');
   const percentageEl = document.getElementById('fund-percentage');
-  
+
   if (!progressEl || !percentageEl) return;
 
   if (allocated <= 0) {
@@ -280,7 +288,7 @@ function updateProgressBar(used, allocated) {
   percentageEl.textContent = percentage.toFixed(1) + '%';
 
   progressEl.classList.remove('bg-success', 'bg-warning', 'bg-danger', 'bg-primary');
-  
+
   if (percentage < 50) {
     progressEl.classList.add('bg-success');
   } else if (percentage < 85) {
@@ -314,16 +322,16 @@ function renderTransactions(records) {
     const amount = record.transaction_amount;
     const date = record.transaction_date;
     const desc = record.transaction_description;
-      
+
     // Determine colors and prefixes based on transaction type
     const isDeduction = type === 'expense' || type === 'deduct';
     const amountColor = isDeduction ? 'text-danger' : 'text-success';
     const amountPrefix = isDeduction ? '-' : '+';
-    
+
     const iconClass = type === 'expense' ? 'bi-cart-dash' :
-                      type === 'allocation' || type === 'add' || type === 'set' ? 'bi-cash-coin' :
-                      type === 'deduct' ? 'bi-arrow-down-circle' : 'bi-plus-circle';
-                      
+      type === 'allocation' || type === 'add' || type === 'set' ? 'bi-cash-coin' :
+        type === 'deduct' ? 'bi-arrow-down-circle' : 'bi-plus-circle';
+
     const iconBg = isDeduction ? 'bg-danger text-danger' : 'bg-success text-success';
 
     let controlsHtml = '';
@@ -340,9 +348,9 @@ function renderTransactions(records) {
     }
 
     const typeName = type === 'expense' ? 'Expense' :
-                     type === 'add' ? 'Allocation Added' :
-                     type === 'deduct' ? 'Funds Deducted' :
-                     type === 'set' ? 'Initial Allocation' : 'Transaction';
+      type === 'add' ? 'Allocation Added' :
+        type === 'deduct' ? 'Funds Deducted' :
+          type === 'set' ? 'Initial Allocation' : 'Transaction';
 
     // OneUI Inspired Transaction Card
     html += `
@@ -406,7 +414,7 @@ async function submitAllocation() {
       })
     });
     const result = await response.json();
-    
+
     if (result.success) {
       if (window.addAuditLog) {
         window.addAuditLog('SAF_ALLOCATED', 'Financial Management', `Allocated ${formatCurrency(amount)} to ${deptId}`, result.id, 'SAF');
@@ -499,7 +507,7 @@ async function submitAddDeduct() {
 
   try {
     const transType = type === 'add' ? 'add' : 'deduct';
-    
+
     // 1. Create transaction record
     await fetch(BASE_URL + 'api/saf.php', {
       method: 'POST',
@@ -533,15 +541,15 @@ async function submitAddDeduct() {
         initial_amount: newTotal
       })
     });
-    
+
     const updateResult = await updateResponse.json();
 
     if (updateResult.success) {
-        if (window.addAuditLog) {
-            window.addAuditLog('SAF_ADJUSTED', 'Financial Management', `${type === 'add' ? 'Added' : 'Deducted'} ${formatCurrency(amount)} for ${currentDeptId}`, safRecord.id, 'SAF');
-        }
-        showToast(type === 'add' ? 'Funds added successfully' : 'Funds deducted successfully', 'success');
-        document.getElementById('addDeductForm').reset();
+      if (window.addAuditLog) {
+        window.addAuditLog('SAF_ADJUSTED', 'Financial Management', `${type === 'add' ? 'Added' : 'Deducted'} ${formatCurrency(amount)} for ${currentDeptId}`, safRecord.id, 'SAF');
+      }
+      showToast(type === 'add' ? 'Funds added successfully' : 'Funds deducted successfully', 'success');
+      document.getElementById('addDeductForm').reset();
     }
 
     await initDataSdk();
@@ -606,7 +614,7 @@ async function submitTransaction() {
       showToast('Transaction updated successfully', 'success');
       editingTransactionId = null;
       document.getElementById('transactionForm').reset();
-      
+
       await initDataSdk();
     } else {
       showToast('Update failed: ' + result.message, 'danger');
@@ -671,7 +679,7 @@ async function confirmReset() {
         })
       });
       const result = await response.json();
-      
+
       if (result.success) {
         if (window.addAuditLog) {
           window.addAuditLog('SAF_RESET', 'Financial Management', `Reset all SAF data for ${currentDeptId}`, safRecord.id, 'SAF', 'WARNING');

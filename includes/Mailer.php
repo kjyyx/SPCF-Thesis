@@ -1,8 +1,8 @@
 <?php
 /**
- * Centralized Mailer Utility
- * ==========================
- * Handles all outbound emails for the system.
+ * Centralized Mailer Utility (Production)
+ * =======================================
+ * Handles all outbound emails for the system using .env credentials.
  * Automatically wraps message content in the master layout.
  */
 
@@ -28,28 +28,21 @@ class Mailer {
         $this->mail->SMTPAuth   = true;
         $this->mail->Username   = $_ENV['MAIL_USERNAME'];
         $this->mail->Password   = $_ENV['MAIL_PASSWORD'];
-        $this->mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        
+        // Dynamically set encryption based on the port in your .env
+        $this->mail->SMTPSecure = ($_ENV['MAIL_PORT'] == 587) ? PHPMailer::ENCRYPTION_STARTTLS : PHPMailer::ENCRYPTION_SMTPS;
         $this->mail->Port       = $_ENV['MAIL_PORT'];
 
         $this->mail->setFrom($_ENV['MAIL_FROM_ADDRESS'], $_ENV['MAIL_FROM_NAME']);
         $this->mail->addReplyTo($_ENV['MAIL_FROM_ADDRESS'], 'Support');
         $this->mail->isHTML(true);
 
-        // Always embed the layout's header image
-        $imagePath = ROOT_PATH . 'assets/images/Email_background.jpg';
-        if (file_exists($imagePath)) {
-            $this->mail->addEmbeddedImage($imagePath, 'header_image', 'Email_background.jpg', 'base64', 'image/jpeg');
-        }
+        // Prevents bulk-sending headers that often trigger spam filters
+        $this->mail->XMailer = 'Sign-um Portal';
     }
 
     /**
-     * Sends an email using a specific template
-     * * @param string $toEmail Recipient email address
-     * @param string $toName Recipient full name
-     * @param string $subject Email subject line
-     * @param string $templateName Name of the file in templates/emails/ (without .php)
-     * @param array  $templateData Associative array of variables to pass to the template
-     * @return bool True on success, false on failure
+     * Sends a targeted notification email
      */
     public function send($toEmail, $toName, $subject, $templateName, $templateData = []) {
         try {
@@ -58,10 +51,13 @@ class Mailer {
             $this->mail->addAddress($toEmail, $toName);
             $this->mail->Subject = $subject;
 
+            // Always embed the header logo
+            $this->mail->addEmbeddedImage(ROOT_PATH . 'assets/images/Sign-UM logo.png', 'header_image');
+
             // Generate HTML body using the layout system
             $this->mail->Body = $this->renderTemplate($templateName, $templateData);
             
-            // Generate a plain-text fallback
+            // Generate a plain-text fallback for email clients that block HTML
             $this->mail->AltBody = strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>'], "\n", $this->mail->Body));
 
             return $this->mail->send();
@@ -75,7 +71,7 @@ class Mailer {
      * Compiles the specific view into the master layout
      */
     private function renderTemplate($templateName, $data) {
-        // Extract array keys into actual variables (e.g., $user, $code)
+        // Extract array keys into actual variables
         extract($data);
 
         // 1. Capture the specific email content

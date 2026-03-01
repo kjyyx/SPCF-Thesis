@@ -496,68 +496,96 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                   Target Facilities</label>
                 <div class="facilities-grid">
                   <div class="facility-category">
-                    <h6 class="category-title">IT Building</h6>
+                    <h6 class="category-title text-primary fw-bold mb-2">IT Building</h6>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f1"
-                        value="IT Bldg. Theater"><label class="form-check-label" for="fac-f1">IT Bldg.
-                        Theater</label>
+                        value="IT Bldg. Theater"><label class="form-check-label" for="fac-f1">IT Bldg. Theater</label>
                     </div>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f2"
-                        value="IT Bldg Theater Lobby"><label class="form-check-label" for="fac-f2">IT
-                        Bldg Theater
-                        Lobby</label></div>
+                        value="IT Bldg Theater Lobby"><label class="form-check-label" for="fac-f2">Theater Lobby</label>
+                    </div>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f3"
-                        value="Computer Lab"><label class="form-check-label" for="fac-f3">Computer
+                        value="Computer Lab"><label class="form-check-label text-info fw-bold" for="fac-f3">Computer
                         Lab</label></div>
+                    <input type="text" class="form-control sm mb-2" id="fac-s1" placeholder="Specify Lab (if checked)">
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f4"
-                        value="IT Seminar Room"><label class="form-check-label" for="fac-f4">IT Seminar
-                        Room</label>
+                        value="IT Seminar Room"><label class="form-check-label" for="fac-f4">IT Seminar Room</label>
                     </div>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f5"
-                        value="IT Case Room"><label class="form-check-label" for="fac-f5">IT Case
-                        Room</label></div>
+                        value="IT Case Room"><label class="form-check-label" for="fac-f5">IT Case Room</label></div>
                   </div>
+
                   <div class="facility-category">
-                    <h6 class="category-title">CHTM</h6>
+                    <h6 class="category-title text-primary fw-bold mb-2">CHTM & Other</h6>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f6"
-                        value="CHTM/ Luid Hall"><label class="form-check-label" for="fac-f6">Luid
-                        Hall</label></div>
+                        value="CHTM/ Luid Hall"><label class="form-check-label" for="fac-f6">CHTM Luid Hall</label>
+                    </div>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f7"
-                        value="CHTM/ Amphitheater"><label class="form-check-label" for="fac-f7">Amphitheater</label>
+                        value="CHTM/ Amphitheater"><label class="form-check-label" for="fac-f7">CHTM
+                        Amphitheater</label></div>
+                    <div class="form-check mt-2"><input class="form-check-input facility-check" type="checkbox"
+                        id="fac-f17" value="Classroom"><label class="form-check-label" for="fac-f17">Classroom</label>
                     </div>
+                    <input type="text" class="form-control sm mb-2" id="fac-s3" placeholder="Specify Classroom">
+                    <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f9"
+                        value="Orchard Bar"><label class="form-check-label" for="fac-f9">Orchard Bar</label></div>
+                    <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f10"
+                        value="Andreas"><label class="form-check-label" for="fac-f10">Andreas</label></div>
                   </div>
+
                   <div class="facility-category">
-                    <h6 class="category-title">Sports & Recreation</h6>
+                    <h6 class="category-title text-primary fw-bold mb-2">Sports & Recreation</h6>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f8"
-                        value="Tennis Court"><label class="form-check-label" for="fac-f8">Tennis
-                        Court</label></div>
+                        value="Tennis Court"><label class="form-check-label" for="fac-f8">Tennis Court</label></div>
+                    <input type="text" class="form-control sm mb-2" id="fac-s2" placeholder="Specify Court">
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f11"
-                        value="Gym 1 (Basketball Court)"><label class="form-check-label" for="fac-f11">Gym 1</label>
-                    </div>
+                        value="Gym 1 (Basketball Court)"><label class="form-check-label" for="fac-f11">Gym 1
+                        (Basketball)</label></div>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f12"
-                        value="Gym 2 (Volleyball Court)"><label class="form-check-label" for="fac-f12">Gym 2</label>
-                    </div>
+                        value="Gym 2 (Volleyball Court)"><label class="form-check-label" for="fac-f12">Gym 2
+                        (Volleyball)</label></div>
                     <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f13"
-                        value="Aquatic"><label class="form-check-label" for="fac-f13">Aquatic
-                        Center</label></div>
+                        value="Aquatic"><label class="form-check-label" for="fac-f13">Aquatic Center</label></div>
                   </div>
-                </div>
-                <div class="row g-3 mt-3">
-                  <div class="col-md-4"><input type="text" class="form-control sm" id="fac-s1"
-                      placeholder="Specify Computer Lab"></div>
-                  <div class="col-md-4"><input type="text" class="form-control sm" id="fac-s2"
-                      placeholder="Specify Other Facility"></div>
-                  <div class="col-md-4"><input type="text" class="form-control sm" id="fac-s3"
-                      placeholder="Specify Classroom"></div>
+
+                  <div class="facility-category">
+                    <h6 class="category-title text-primary fw-bold mb-2">COC & CON</h6>
+                    <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f14"
+                        value="COC / Function Room"><label class="form-check-label" for="fac-f14">COC Function
+                        Room</label></div>
+                    <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f15"
+                        value="COC / Fitness Center"><label class="form-check-label" for="fac-f15">COC Fitness
+                        Center</label></div>
+                    <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f16"
+                        value="COC / Firing Range"><label class="form-check-label" for="fac-f16">COC Firing
+                        Range</label></div>
+                    <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f18"
+                        value="COC Lab"><label class="form-check-label" for="fac-f18">COC Lab</label></div>
+                    <input type="text" class="form-control sm mb-2" id="fac-f19" placeholder="Specify COC Lab">
+
+                    <div class="form-check mt-2"><input class="form-check-input facility-check" type="checkbox"
+                        id="fac-f20" value="Nursing Lab"><label class="form-check-label" for="fac-f20">Nursing
+                        Lab</label></div>
+                    <input type="text" class="form-control sm mb-2" id="fac-s4" placeholder="Specify Nursing Lab">
+                    <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f21"
+                        value="CON / Amphitheater"><label class="form-check-label" for="fac-f21">CON
+                        Amphitheater</label></div>
+                    <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f22"
+                        value="CON / Lecture Room"><label class="form-check-label" for="fac-f22">CON Lecture
+                        Room</label></div>
+                    <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f23"
+                        value="CON / Chapel"><label class="form-check-label" for="fac-f23">CON Chapel</label></div>
+                    <div class="form-check"><input class="form-check-input facility-check" type="checkbox" id="fac-f24"
+                        value="CON / RVJ Hall"><label class="form-check-label" for="fac-f24">CON RVJ Hall</label></div>
+                    <input type="text" class="form-control sm mb-2" id="fac-s5" placeholder="Specify RVJ Hall">
+                  </div>
                 </div>
               </div>
 
               <div class="divider"></div>
 
               <div class="mb-4">
-                <label class="form-label text-muted text-xs uppercase mb-3"><i class="bi bi-tools me-1"></i>
-                  Equipment
-                  &
-                  Staffing</label>
+                <label class="form-label text-muted text-xs uppercase mb-3"><i class="bi bi-tools me-1"></i> Equipment &
+                  Staffing Needs</label>
                 <div class="row g-4">
                   <div class="col-md-6 d-flex flex-column gap-2">
                     <div class="d-flex align-items-center gap-3">
@@ -568,6 +596,17 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                         placeholder="Qty" style="max-width: 70px;">
                     </div>
                     <div class="d-flex align-items-center gap-3">
+                      <div class="form-check mb-0 flex-1"><input class="form-check-input equipment-check"
+                          type="checkbox" id="fac-e2" value="Chorale Raiser"><label class="form-check-label"
+                          for="fac-e2">Chorale Raiser</label></div>
+                      <input type="number" class="form-control sm w-auto flex-shrink-0" id="fac-q2" min="0"
+                        placeholder="Qty" style="max-width: 70px;">
+                    </div>
+                    <div class="form-check mb-0 mt-1"><input class="form-check-input equipment-check" type="checkbox"
+                        id="fac-e3" value="Elevator"><label class="form-check-label" for="fac-e3">Elevator
+                        Access</label></div>
+
+                    <div class="d-flex align-items-center gap-3 mt-2">
                       <div class="form-check mb-0 flex-1"><input class="form-check-input equipment-check"
                           type="checkbox" id="fac-e4" value="Tables"><label class="form-check-label"
                           for="fac-e4">Tables</label></div>
@@ -581,9 +620,19 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                       <input type="number" class="form-control sm w-auto flex-shrink-0" id="fac-q4" min="0"
                         placeholder="Qty" style="max-width: 70px;">
                     </div>
+                    <div class="d-flex align-items-center gap-3">
+                      <div class="form-check mb-0 flex-1"><input class="form-check-input equipment-check"
+                          type="checkbox" id="fac-e6" value="Flag"><label class="form-check-label"
+                          for="fac-e6">Flag</label></div>
+                      <input type="number" class="form-control sm w-auto flex-shrink-0" id="fac-q5" min="0"
+                        placeholder="Qty" style="max-width: 70px;">
+                    </div>
                   </div>
                   <div class="col-md-6 d-flex flex-column gap-2">
-                    <div class="d-flex align-items-center gap-3">
+                    <div class="form-check mb-0"><input class="form-check-input equipment-check" type="checkbox"
+                        id="fac-e7" value="Lights and Sounds"><label class="form-check-label text-warning fw-bold"
+                        for="fac-e7">Lights and Sounds</label></div>
+                    <div class="d-flex align-items-center gap-3 mt-1">
                       <div class="form-check mb-0 flex-1"><input class="form-check-input equipment-check"
                           type="checkbox" id="fac-e8" value="Microphone"><label class="form-check-label"
                           for="fac-e8">Microphone</label></div>
@@ -592,21 +641,37 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
                     </div>
                     <div class="d-flex align-items-center gap-3">
                       <div class="form-check mb-0 flex-1"><input class="form-check-input equipment-check"
-                          type="checkbox" id="fac-e9" value="Projector"><label class="form-check-label"
-                          for="fac-e9">Projector</label></div>
+                          type="checkbox" id="fac-e9" value="Projector"><label
+                          class="form-check-label text-warning fw-bold" for="fac-e9">Projector</label></div>
                       <input type="number" class="form-control sm w-auto flex-shrink-0" id="fac-q7" min="0"
                         placeholder="Qty" style="max-width: 70px;">
                     </div>
-                    <div class="form-check mb-0 mt-1"><input class="form-check-input equipment-check" type="checkbox"
-                        id="fac-e7" value="Lights and Sounds"><label class="form-check-label" for="fac-e7">Lights and
-                        Sounds</label></div>
+                    <div class="d-flex align-items-center gap-3">
+                      <div class="form-check mb-0 flex-1"><input class="form-check-input equipment-check"
+                          type="checkbox" id="fac-e10" value="Technical"><label
+                          class="form-check-label text-warning fw-bold" for="fac-e10">Technical Staff</label></div>
+                      <input type="number" class="form-control sm w-auto flex-shrink-0" id="fac-q8" min="0"
+                        placeholder="Qty" style="max-width: 70px;">
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                      <div class="form-check mb-0 flex-1"><input class="form-check-input equipment-check"
+                          type="checkbox" id="fac-e11" value="Ushers"><label class="form-check-label"
+                          for="fac-e11">Ushers/Usherettes</label></div>
+                      <input type="number" class="form-control sm w-auto flex-shrink-0" id="fac-q9" min="0"
+                        placeholder="Qty" style="max-width: 70px;">
+                    </div>
+                    <div class="form-check mt-3 mb-0 p-2 bg-light border rounded">
+                      <input class="form-check-input ms-1" type="checkbox" id="fac-internet">
+                      <label class="form-check-label text-info fw-bold ms-2" for="fac-internet"><i
+                          class="bi bi-wifi me-1"></i> Internet Connection Needed</label>
+                    </div>
                   </div>
                 </div>
                 <div class="row g-3 mt-2">
                   <div class="col-md-6"><input type="text" class="form-control sm" id="fac-o1"
-                      placeholder="Other Equipment 1"></div>
+                      placeholder="Other Needs (e.g. Whiteboard)"></div>
                   <div class="col-md-6"><input type="text" class="form-control sm" id="fac-o2"
-                      placeholder="Other Equipment 2"></div>
+                      placeholder="Other Needs 2"></div>
                 </div>
               </div>
 

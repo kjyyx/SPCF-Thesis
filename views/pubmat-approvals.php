@@ -67,7 +67,7 @@ $currentPage = 'pubmat-approvals';
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>assets/images/Sign-UM logo ico.png">
     <title>Sign-um - Pubmat Approvals</title>
-    
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/master-css.css">
@@ -78,8 +78,9 @@ $currentPage = 'pubmat-approvals';
         /* Lift effect on material cards */
         .pubmat-card {
             transition: transform var(--duration-200) var(--ease-spring),
-                        box-shadow var(--duration-200) var(--ease-out);
+                box-shadow var(--duration-200) var(--ease-out);
         }
+
         .pubmat-card:hover {
             transform: translateY(-5px);
             box-shadow: var(--shadow-lg) !important;
@@ -94,15 +95,22 @@ $currentPage = 'pubmat-approvals';
             background: var(--gray-100);
             flex-shrink: 0;
         }
+
         .pubmat-preview img {
-            width: 100%; height: 100%;
+            width: 100%;
+            height: 100%;
             object-fit: cover;
         }
+
         .pubmat-preview-placeholder {
-            width: 100%; height: 100%;
-            display: flex; align-items: center; justify-content: center;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             color: var(--gray-400);
         }
+
         .pubmat-preview-badge {
             position: absolute;
             top: var(--space-3);
@@ -111,7 +119,9 @@ $currentPage = 'pubmat-approvals';
 
         /* Meta row (author / date) */
         .pubmat-meta {
-            display: flex; align-items: center; flex-wrap: wrap;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
             gap: var(--space-2);
             font-size: var(--text-2xs);
             color: var(--color-text-tertiary);
@@ -133,6 +143,7 @@ $currentPage = 'pubmat-approvals';
             text-align: center;
             padding: var(--space-16) var(--space-8);
         }
+
         .pubmat-empty-icon {
             font-size: 3.5rem;
             color: var(--color-success-mid);
@@ -140,12 +151,14 @@ $currentPage = 'pubmat-approvals';
             display: block;
             margin-bottom: var(--space-4);
         }
+
         .pubmat-empty h4 {
             font-size: var(--text-xl);
             font-weight: var(--font-semibold);
             color: var(--color-text-heading);
             margin-bottom: var(--space-2);
         }
+
         .pubmat-empty p {
             font-size: var(--text-sm);
             color: var(--color-text-tertiary);
@@ -156,7 +169,9 @@ $currentPage = 'pubmat-approvals';
         .viewer-wrap {
             background: var(--gray-100);
             min-height: 320px;
-            display: flex; align-items: center; justify-content: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             overflow: auto;
             padding: var(--space-4);
         }
@@ -167,18 +182,23 @@ $currentPage = 'pubmat-approvals';
             background: var(--color-surface);
             border-top: 1px solid var(--color-border-subtle);
         }
+
         .comments-section-title {
             font-size: var(--text-base);
             font-weight: var(--font-semibold);
             color: var(--color-text-heading);
-            display: flex; align-items: center; gap: var(--space-2);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
             margin-bottom: var(--space-4);
         }
+
         .comments-list {
             max-height: 340px;
             overflow-y: auto;
             padding-right: var(--space-1);
         }
+
         .comment-item {
             background: var(--gray-50);
             border: 1px solid var(--color-border-subtle);
@@ -186,22 +206,29 @@ $currentPage = 'pubmat-approvals';
             padding: var(--space-3) var(--space-4);
             margin-bottom: var(--space-2);
         }
-        .comment-item:last-child { margin-bottom: 0; }
+
+        .comment-item:last-child {
+            margin-bottom: 0;
+        }
+
         .comment-author-name {
             font-size: var(--text-xs);
             font-weight: var(--font-semibold);
             color: var(--color-text-label);
         }
+
         .comment-author-position {
             font-size: var(--text-2xs);
             color: var(--color-text-tertiary);
             margin-left: var(--space-2);
         }
+
         .comment-date {
             font-size: var(--text-2xs);
             color: var(--color-text-tertiary);
             margin-left: auto;
         }
+
         .comment-body {
             font-size: var(--text-xs);
             color: var(--color-text-secondary);
@@ -211,15 +238,24 @@ $currentPage = 'pubmat-approvals';
             white-space: pre-wrap;
             word-break: break-word;
         }
+
         .comment-reply-btn {
-            background: none; border: none; padding: 0;
+            background: none;
+            border: none;
+            padding: 0;
             font-size: var(--text-2xs);
             color: var(--brand-primary);
             cursor: pointer;
-            display: inline-flex; align-items: center; gap: 4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
             font-family: var(--font-sans);
         }
-        .comment-reply-btn:hover { text-decoration: underline; }
+
+        .comment-reply-btn:hover {
+            text-decoration: underline;
+        }
+
         .comment-replies {
             margin-top: var(--space-2);
             margin-left: var(--space-6);
@@ -230,24 +266,38 @@ $currentPage = 'pubmat-approvals';
         /* Reply-to banner */
         .reply-banner {
             background: var(--color-info-bg);
-            border: 1px solid rgba(2,119,189,0.18);
+            border: 1px solid rgba(2, 119, 189, 0.18);
             border-radius: var(--radius-md);
             padding: var(--space-2) var(--space-3);
             font-size: var(--text-xs);
             color: var(--color-info);
-            display: flex; align-items: center; gap: var(--space-2);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
             margin-bottom: var(--space-3);
         }
+
         .reply-banner-close {
-            background: none; border: none;
-            margin-left: auto; padding: 0 0 0 var(--space-2);
-            cursor: pointer; color: var(--color-info);
-            font-size: 1rem; line-height: 1; opacity: 0.7;
+            background: none;
+            border: none;
+            margin-left: auto;
+            padding: 0 0 0 var(--space-2);
+            cursor: pointer;
+            color: var(--color-info);
+            font-size: 1rem;
+            line-height: 1;
+            opacity: 0.7;
         }
-        .reply-banner-close:hover { opacity: 1; }
+
+        .reply-banner-close:hover {
+            opacity: 1;
+        }
 
         /* Comment input area */
-        .comment-input-area { margin-top: var(--space-4); }
+        .comment-input-area {
+            margin-top: var(--space-4);
+        }
+
         .comment-input-hint {
             font-size: var(--text-2xs);
             color: var(--color-text-tertiary);
@@ -258,7 +308,9 @@ $currentPage = 'pubmat-approvals';
         .save-indicator {
             font-size: var(--text-xs);
             color: var(--color-success);
-            display: flex; align-items: center; gap: var(--space-2);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
             margin-top: var(--space-2);
         }
 
@@ -290,7 +342,7 @@ $currentPage = 'pubmat-approvals';
     <?php include ROOT_PATH . 'includes/notifications.php'; ?>
 
     <div class="container pt-4 pb-5">
-        
+
         <div class="page-header mb-4">
             <div>
                 <h1 class="page-title">
@@ -309,7 +361,9 @@ $currentPage = 'pubmat-approvals';
             <div class="col-12">
                 <div class="pubmat-empty">
                     <div class="spinner-border text-primary" role="status" style="width: 2.5rem; height: 2.5rem;"></div>
-                    <p style="margin-top: var(--space-4); font-size: var(--text-sm); color: var(--color-text-tertiary);">Loading materials...</p>
+                    <p
+                        style="margin-top: var(--space-4); font-size: var(--text-sm); color: var(--color-text-tertiary);">
+                        Loading materials...</p>
                 </div>
             </div>
         </div>
@@ -320,24 +374,22 @@ $currentPage = 'pubmat-approvals';
         <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
             <div class="modal-content border-0 rounded-4" style="box-shadow: var(--shadow-xl);">
                 <div class="modal-header border-0 px-5 pt-5 pb-2">
-                    <h5 class="modal-title fw-bold" id="approvalModalTitle" style="font-size: var(--text-xl); color: var(--color-text-heading);">
+                    <h5 class="modal-title fw-bold" id="approvalModalTitle"
+                        style="font-size: var(--text-xl); color: var(--color-text-heading);">
                         Process Material
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body px-5 py-4">
                     <div class="approval-field-label">Note</div>
-                    <textarea
-                        class="form-control"
-                        id="approvalNote"
-                        rows="4"
+                    <textarea class="form-control" id="approvalNote" rows="4"
                         placeholder="Enter your feedback or reason..."
-                        style="border-radius: var(--radius-lg); background: var(--gray-50); border: 1px solid var(--color-border); resize: none; font-size: var(--text-sm); padding: var(--space-3) var(--space-4);"
-                    ></textarea>
+                        style="border-radius: var(--radius-lg); background: var(--gray-50); border: 1px solid var(--color-border); resize: none; font-size: var(--text-sm); padding: var(--space-3) var(--space-4);"></textarea>
                     <p class="comment-input-hint mt-2">A reason is required when rejecting.</p>
                 </div>
                 <div class="modal-footer border-0 px-5 pb-5 pt-0 gap-2">
-                    <button type="button" class="btn btn-ghost border" data-bs-dismiss="modal" style="margin-right: auto;">
+                    <button type="button" class="btn btn-ghost border" data-bs-dismiss="modal"
+                        style="margin-right: auto;">
                         Cancel
                     </button>
                     <button type="button" class="btn btn-danger" id="rejectBtn">
@@ -372,6 +424,9 @@ $currentPage = 'pubmat-approvals';
                     </div>
                 </div>
 
+                <div id="workflowContainer" class="px-5 py-4 border-bottom" style="background: var(--gray-50);">
+                </div>
+
                 <!-- Comments Section -->
                 <div class="comments-section">
                     <div class="comments-section-title">
@@ -388,20 +443,16 @@ $currentPage = 'pubmat-approvals';
                     <div id="commentReplyBanner" class="reply-banner d-none">
                         <i class="bi bi-reply"></i>
                         Replying to <strong id="replyAuthorName"></strong>
-                        <button type="button" class="reply-banner-close" onclick="clearReplyTarget()" aria-label="Cancel reply">
+                        <button type="button" class="reply-banner-close" onclick="clearReplyTarget()"
+                            aria-label="Cancel reply">
                             <i class="bi bi-x-lg"></i>
                         </button>
                     </div>
 
                     <!-- Input area -->
                     <div class="comment-input-area">
-                        <textarea
-                            id="threadCommentInput"
-                            class="form-control"
-                            rows="3"
-                            placeholder="Write a comment…"
-                            style="border-radius: var(--radius-lg); background: var(--gray-50); border: 1px solid var(--color-border); resize: none; font-size: var(--text-sm); padding: var(--space-3) var(--space-4);"
-                        ></textarea>
+                        <textarea id="threadCommentInput" class="form-control" rows="3" placeholder="Write a comment…"
+                            style="border-radius: var(--radius-lg); background: var(--gray-50); border: 1px solid var(--color-border); resize: none; font-size: var(--text-sm); padding: var(--space-3) var(--space-4);"></textarea>
                         <div class="d-flex align-items-center justify-content-between mt-2">
                             <span class="comment-input-hint">Shift + Enter for a new line</span>
                             <button type="button" class="btn btn-primary btn-sm" onclick="postComment()">
@@ -417,8 +468,10 @@ $currentPage = 'pubmat-approvals';
                 </div>
 
                 <!-- Footer -->
-                <div class="modal-footer border-0 px-5 py-3" style="background: var(--color-surface); border-top: 1px solid var(--color-border-subtle) !important;">
-                    <button type="button" class="btn btn-ghost border" data-bs-dismiss="modal" style="margin-right: auto;">
+                <div class="modal-footer border-0 px-5 py-3"
+                    style="background: var(--color-surface); border-top: 1px solid var(--color-border-subtle) !important;">
+                    <button type="button" class="btn btn-ghost border" data-bs-dismiss="modal"
+                        style="margin-right: auto;">
                         Close
                     </button>
                     <button type="button" class="btn btn-primary" id="downloadBtnInModal">
@@ -433,4 +486,5 @@ $currentPage = 'pubmat-approvals';
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="<?php echo BASE_URL; ?>assets/js/pubmat-approvals.js"></script>
 </body>
+
 </html>

@@ -1,12 +1,11 @@
 // Upload Publication Materials JavaScript
-// This file contains the client-side logic for the upload publication materials page
 var BASE_URL = window.BASE_URL || './';
 
 function showToast(message, type = 'info', title = null) {
     if (window.ToastManager) {
         window.ToastManager.show({ type: type, title: title, message: message, duration: 4000 });
     } else {
-        // Toast: message
+        console.log(`[${type.toUpperCase()}] ${message}`);
     }
 }
 
@@ -43,14 +42,14 @@ function initializeUploadSystem() {
     });
 
     ['dragenter', 'dragover'].forEach(eventName => {
-        uploadZone.addEventListener(eventName, highlight, false);
+        uploadZone.addEventListener(eventName, () => uploadZone.classList.add('drag-over'), false);
     });
 
     ['dragleave', 'drop'].forEach(eventName => {
-        uploadZone.addEventListener(eventName, unhighlight, false);
+        uploadZone.addEventListener(eventName, () => uploadZone.classList.remove('drag-over'), false);
     });
 
-    uploadZone.addEventListener('drop', handleDrop, false);
+    uploadZone.addEventListener('drop', (e) => handleFiles({ target: { files: e.dataTransfer.files } }), false);
     fileInput.addEventListener('change', handleFiles, false);
 
     document.getElementById('clear-all-btn').addEventListener('click', () => {
@@ -65,20 +64,6 @@ function initializeUploadSystem() {
     function preventDefaults(e) {
         e.preventDefault();
         e.stopPropagation();
-    }
-
-    function highlight(e) {
-        uploadZone.classList.add('drag-over');
-    }
-
-    function unhighlight(e) {
-        uploadZone.classList.remove('drag-over');
-    }
-
-    function handleDrop(e) {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        handleFiles({ target: { files: files } });
     }
 
     async function handleFiles(e) {
@@ -118,11 +103,9 @@ function initializeUploadSystem() {
         renderPreview();
     }
 
-    // Modern HTML injection replacing the old custom cards
     function renderPreview() {
         if (uploadedFiles.length === 0) {
             previewGrid.innerHTML = '';
-            // Show empty state
             if (emptyState) {
                 emptyState.style.display = 'block';
                 previewGrid.appendChild(emptyState);
@@ -147,7 +130,6 @@ function initializeUploadSystem() {
             previewEl.dataset.index = index;
 
             let previewContent = '';
-            
             if (prefs.autoPreview && file.type.startsWith('image/')) {
                 previewContent = `<img src="${URL.createObjectURL(file)}" alt="${file.name}" class="w-100 h-100 object-fit-cover">`;
             } else if (file.type === 'application/pdf') {
@@ -176,24 +158,22 @@ function initializeUploadSystem() {
             previewGrid.appendChild(previewEl);
 
             previewEl.addEventListener('dragstart', handleDragStart);
-            previewEl.addEventListener('dragover', handleDragOver);
+            previewEl.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; });
             previewEl.addEventListener('drop', handleDropSort);
-            previewEl.addEventListener('dragend', handleDragEnd);
+            previewEl.addEventListener('dragend', function() { this.style.opacity = '1'; draggedItem = null; });
         });
 
         document.querySelectorAll('.remove-btn').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                const index = parseInt(this.dataset.index);
-                uploadedFiles.splice(index, 1);
+                uploadedFiles.splice(parseInt(this.dataset.index), 1);
                 renderPreview();
             });
         });
 
         document.querySelectorAll('.desc-input').forEach(input => {
             input.addEventListener('change', function() {
-                const index = parseInt(this.dataset.index);
-                uploadedFiles[index].description = this.value;
+                uploadedFiles[parseInt(this.dataset.index)].description = this.value;
             });
         });
 
@@ -210,29 +190,16 @@ function initializeUploadSystem() {
         e.dataTransfer.setData('text/plain', this.dataset.index);
     }
 
-    function handleDragOver(e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        return false;
-    }
-
     function handleDropSort(e) {
         e.stopPropagation();
         if (draggedItem !== this) {
             const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
             const toIndex = parseInt(this.dataset.index);
-            
             const movedFile = uploadedFiles.splice(fromIndex, 1)[0];
             uploadedFiles.splice(toIndex, 0, movedFile);
-            
             renderPreview();
         }
         return false;
-    }
-
-    function handleDragEnd(e) {
-        this.style.opacity = '1';
-        draggedItem = null;
     }
 
     function formatFileSize(bytes) {
@@ -271,10 +238,7 @@ function initializeUploadSystem() {
         `;
         setTimeout(() => {
             const alert = alertContainer.querySelector('.alert');
-            if (alert) {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            }
+            if (alert) new bootstrap.Alert(alert).close();
         }, 5000);
     }
 
@@ -283,7 +247,6 @@ function initializeUploadSystem() {
     function checkFormValidity() {
         const title = document.getElementById('pub-title').value.trim();
         const totalSize = uploadedFiles.reduce((sum, file) => sum + file.size, 0);
-        
         submitBtn.disabled = !(title && uploadedFiles.length > 0 && totalSize <= MAX_TOTAL_SIZE);
     }
 
@@ -298,28 +261,21 @@ function initializeUploadSystem() {
                     const canvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
-                    
                     const MAX_WIDTH = 1920;
                     const MAX_HEIGHT = 1080;
                     
                     if (width > height && width > MAX_WIDTH) {
-                        height *= MAX_WIDTH / width;
-                        width = MAX_WIDTH;
+                        height *= MAX_WIDTH / width; width = MAX_WIDTH;
                     } else if (height > MAX_HEIGHT) {
-                        width *= MAX_HEIGHT / height;
-                        height = MAX_HEIGHT;
+                        width *= MAX_HEIGHT / height; height = MAX_HEIGHT;
                     }
                     
-                    canvas.width = width;
-                    canvas.height = height;
+                    canvas.width = width; canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
                     
                     canvas.toBlob(blob => {
-                        const newFile = new File([blob], file.name, {
-                            type: 'image/jpeg',
-                            lastModified: Date.now()
-                        });
+                        const newFile = new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() });
                         newFile.description = file.description;
                         resolve(newFile);
                     }, 'image/jpeg', 0.8);
@@ -333,11 +289,10 @@ function initializeUploadSystem() {
     async function submitFiles() {
         if (submitBtn.disabled) return;
 
-        const title = document.getElementById('pub-title').value.trim();
+        const baseTitle = document.getElementById('pub-title').value.trim();
         const desc = document.getElementById('pub-desc').value.trim();
 
-        // Validate title
-        if (!title) {
+        if (!baseTitle) {
             showAlert('Please enter a title for your publication.', 'danger');
             return;
         }
@@ -349,20 +304,21 @@ function initializeUploadSystem() {
         let successCount = 0;
         let errorMessages = [];
 
-        // Upload each file separately
         for (let i = 0; i < uploadedFiles.length; i++) {
             const file = uploadedFiles[i];
             const fileDesc = file.description || desc;
+            
+            // --- SMART NAMING: Append " - Part 1, Part 2" if multiple files uploaded ---
+            const finalTitle = uploadedFiles.length > 1 ? `${baseTitle} - Part ${i + 1}` : baseTitle;
 
             const formData = new FormData();
             formData.append('action', 'upload');
             formData.append('student_id', window.currentUser.id);
-            formData.append('title', title);
+            formData.append('title', finalTitle);
             formData.append('description', fileDesc);
             formData.append('file', file);
 
             try {
-
                 const response = await fetch(BASE_URL + 'api/materials.php', {
                     method: 'POST',
                     body: formData
@@ -381,20 +337,12 @@ function initializeUploadSystem() {
         }
 
         if (successCount === uploadedFiles.length) {
-            // Clear form
             document.getElementById('pub-title').value = '';
             document.getElementById('pub-desc').value = '';
-
-            // Clear uploaded files array
             uploadedFiles = [];
-
-            // Re-render preview (which will show empty state)
             renderPreview();
 
-            // Show success modal
-            const modal = new bootstrap.Modal(document.getElementById('successModal'));
-            modal.show();
-
+            new bootstrap.Modal(document.getElementById('successModal')).show();
             showToast(`Successfully uploaded ${successCount} file(s)`, 'success');
         } else {
             showAlert(`Uploaded ${successCount}/${uploadedFiles.length} files. Errors: ${errorMessages.join(', ')}`, 'danger');
@@ -429,7 +377,7 @@ function savePreferences() {
     
     showToast('Preferences saved successfully', 'success');
     bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
-    location.reload(); // Quick refresh to apply pref changes to UI
+    setTimeout(() => location.reload(), 500); 
 }
 
 if (window.NavbarSettings) {

@@ -210,8 +210,8 @@ $currentPage = 'upload-publication';
           <div class="d-flex gap-3 justify-content-center">
             <button type="button" class="btn btn-light border rounded-pill px-4" data-bs-dismiss="modal"
               onclick="location.reload()">Upload More</button>
-            <a href="<?php echo BASE_URL; ?>?page=track-document"
-              class="btn btn-primary rounded-pill px-4 shadow-sm">Track Documents</a>
+            <a href="<?php echo BASE_URL; ?>?page=dashboard" class="btn btn-primary rounded-pill px-4 shadow-sm">Return
+              to Dashboard</a>
           </div>
         </div>
       </div>
@@ -233,18 +233,21 @@ $currentPage = 'upload-publication';
                 <label for="profileFirstName" class="form-label text-muted small fw-bold text-uppercase">First
                   Name</label>
                 <input type="text" class="form-control bg-light border-0 rounded-3 p-2 px-3" id="profileFirstName"
-                  required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>>
+                  required <?php if ($currentUser['role'] !== 'admin')
+                    echo 'readonly'; ?>>
               </div>
               <div class="col-md-6 form-group mb-0">
                 <label for="profileLastName" class="form-label text-muted small fw-bold text-uppercase">Last
                   Name</label>
                 <input type="text" class="form-control bg-light border-0 rounded-3 p-2 px-3" id="profileLastName"
-                  required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>>
+                  required <?php if ($currentUser['role'] !== 'admin')
+                    echo 'readonly'; ?>>
               </div>
             </div>
             <div class="form-group mb-0">
               <label for="profileEmail" class="form-label text-muted small fw-bold text-uppercase">Email Address</label>
-              <input type="email" class="form-control bg-light border-0 rounded-3 p-2 px-3" id="profileEmail" pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
+              <input type="email" class="form-control bg-light border-0 rounded-3 p-2 px-3" id="profileEmail"
+                pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
               <div class="invalid-feedback">Please enter a valid email address.</div>
             </div>
           </div>

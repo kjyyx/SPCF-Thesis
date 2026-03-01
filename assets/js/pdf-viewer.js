@@ -289,7 +289,7 @@ class PdfViewer {
         }
     }
 
-    async renderFullPage(currentDocument) {
+async renderFullPage(currentDocument) {
         if (!this.fullPdfDoc || !this.fullCanvas) return;
 
         try {
@@ -303,12 +303,33 @@ class PdfViewer {
 
             const container = document.getElementById('fullPdfContainer');
             if (container && currentDocument && this.signatureManager) {
-                container.querySelectorAll('.completed-signature-container').forEach(el => el.remove());
+                
+                // --- FIX: Create a dedicated wrapper that tightly hugs the canvas ---
+                let sigWrapper = document.getElementById('fullPdfSigWrapper');
+                if (!sigWrapper) {
+                    sigWrapper = document.createElement('div');
+                    sigWrapper.id = 'fullPdfSigWrapper';
+                    sigWrapper.style.position = 'absolute';
+                    // Disable pointer events so it doesn't block dragging/panning the PDF!
+                    sigWrapper.style.pointerEvents = 'none'; 
+                    container.appendChild(sigWrapper);
+                }
+
+                // Match canvas size EXACTLY so percentage-math works perfectly
+                sigWrapper.style.left = this.fullCanvas.offsetLeft + 'px';
+                sigWrapper.style.top = this.fullCanvas.offsetTop + 'px';
+                sigWrapper.style.width = this.fullCanvas.offsetWidth + 'px';
+                sigWrapper.style.height = this.fullCanvas.offsetHeight + 'px';
+                
+                sigWrapper.innerHTML = ''; // Clear old redactions
 
                 // Override signature manager's page temporarily for full viewer
                 const originalPage = this.signatureManager.currentPage;
                 this.signatureManager.currentPage = this.fullCurrentPage;
-                this.signatureManager.renderCompletedSignatures(currentDocument, container, this.fullCanvas);
+                
+                // Render into our tight wrapper, not the loose container
+                this.signatureManager.renderCompletedSignatures(currentDocument, sigWrapper);
+                
                 this.signatureManager.currentPage = originalPage; // Restore
             }
 
@@ -474,7 +495,7 @@ class PdfViewer {
         if (content) content.style.cursor = this.isDragMode ? 'grab' : 'default';
     }
 
-    updateCanvasPosition(currentDocument) {
+updateCanvasPosition(currentDocument) {
         if (!this.fullCanvas) return;
 
         const container = document.getElementById('fullPdfContainer');
@@ -482,12 +503,7 @@ class PdfViewer {
 
         container.style.transform = `translate(${this.canvasOffsetX}px, ${this.canvasOffsetY}px)`;
 
-        if (currentDocument && this.signatureManager) {
-            container.querySelectorAll('.completed-signature-container').forEach(el => el.remove());
-            const originalPage = this.signatureManager.currentPage;
-            this.signatureManager.currentPage = this.fullCurrentPage;
-            this.signatureManager.renderCompletedSignatures(currentDocument, container, this.fullCanvas);
-            this.signatureManager.currentPage = originalPage;
-        }
+        // --- FIX: We DO NOT need to re-render signatures here anymore! ---
+        // Because the sigWrapper is inside the container, it naturally moves with it perfectly.
     }
 }

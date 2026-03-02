@@ -850,7 +850,58 @@ window.exportAuditLog = function () { downloadCSV(convertToCSV(auditLogs), 'audi
 
 window.goToCalendar = function () { window.location.href = BASE_URL + 'calendar'; };
 window.logout = function () { window.addAuditLog('LOGOUT', 'Auth', 'Logged out'); window.location.href = BASE_URL + 'logout'; };
-window.openSystemSettings = function () { safeShowModal('systemSettingsModal'); };
+
+window.openSystemSettings = async function () {
+    try {
+        const response = await apiFetch(BASE_URL + 'api/settings.php?key=all');
+        if (response && response.success && response.settings) {
+            const settings = response.settings;
+            if (document.getElementById('sysAcadYear')) {
+                document.getElementById('sysAcadYear').value = settings.academic_year || '';
+            }
+            if (document.getElementById('enable2FA')) {
+                // Check for '1', 'true', or true. Key is 'enable_2fa' in auth logic.
+                const isEnabled = settings.enable_2fa == '1' || settings.enable_2fa === 'true' || settings.enable_2fa === true;
+                document.getElementById('enable2FA').checked = isEnabled;
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching system settings:', error);
+        showToast('Could not load current settings.', 'warning');
+    }
+    safeShowModal('systemSettingsModal');
+};
+// ... Existing code ...
+// System Settings Form Handler
+document.addEventListener('DOMContentLoaded', function () {
+    const settingsForm = document.getElementById('generalSettingsForm');
+    if (settingsForm) {
+        settingsForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const data = {
+                academic_year: document.getElementById('sysAcadYear')?.value,
+                enable_2fa: document.getElementById('enable2FA')?.checked ? '1' : '0' 
+            };
+            
+            try {
+                const res = await apiFetch(BASE_URL + 'api/settings.php', { 
+                    method: 'POST', 
+                    body: JSON.stringify(data) 
+                });
+                
+                if (res.success) { 
+                    showToast('Settings saved successfully', 'success'); 
+                    safeHideModal('systemSettingsModal'); 
+                } else {
+                    showToast(res.message || 'Failed to save settings', 'warning');
+                }
+            } catch (error) {
+                console.error('Settings save error:', error);
+                showToast('Error saving settings', 'danger');
+            }
+        });
+    }
+});
 
 // User Form Listener
 document.addEventListener('DOMContentLoaded', function () {
@@ -895,23 +946,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-// System Settings Form Handler
-document.addEventListener('DOMContentLoaded', function () {
-    const settingsForm = byId('generalSettingsForm');
-    if (settingsForm) {
-        settingsForm.addEventListener('submit', async function (e) {
-            e.preventDefault();
-            const data = {
-                action: 'update_settings',
-                academic_year: byId('sysAcadYear')?.value,
-                force_2fa: byId('enable2FA')?.checked ? 1 : 0
-            };
-            const res = await apiFetch(ADMIN_DATA_API, { method: 'POST', body: JSON.stringify(data) });
-            if (res.success) { showToast('Settings saved successfully', 'success'); safeHideModal('systemSettingsModal'); }
-            else showToast(res.message || 'Failed to save settings', 'warning');
-        });
-    }
-});
+
 
 // === Core Initialization Trigger ===
 document.addEventListener('DOMContentLoaded', async function () {

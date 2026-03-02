@@ -32,11 +32,15 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
     case 'GET':
-        // Get a setting by key
         $key = $_GET['key'] ?? null;
-        if (!$key) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Setting key required']);
+        
+        if ($key === 'all' || !$key) {
+            $stmt = $conn->query("SELECT setting_key, setting_value FROM system_settings");
+            $settings = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $settings[$row['setting_key']] = $row['setting_value'];
+            }
+            echo json_encode(['success' => true, 'settings' => $settings]);
             exit();
         }
 

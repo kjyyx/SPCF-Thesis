@@ -192,6 +192,22 @@ function createDocument($db, $currentUser, $input)
                     'sig_sscp' => fetchSignatory($db, 'student', 'Supreme Student Council President'),
                     'sig_dean' => fetchSignatory($db, 'employee', 'College Dean', $department)
                 ];
+
+                $workflowPositions = [
+                    ['position' => 'College Student Council Adviser', 'table' => 'employees', 'dept' => true],
+                    ['position' => 'College Dean', 'table' => 'employees', 'dept' => true],
+                    ['position' => 'Supreme Student Council President', 'table' => 'students', 'dept' => false],
+                    ['position' => 'Accounting Personnel (AP)', 'table' => 'employees', 'dept' => false, 'doc_only' => true],
+                    ['position' => 'Information Technology Services (ITS)', 'table' => 'employees', 'dept' => false],
+                    ['position' => 'Information Office (IO)', 'table' => 'employees', 'dept' => false],
+                    ['position' => 'Security Head (SH)', 'table' => 'employees', 'dept' => false],
+                    ['position' => 'Technical Support (TS)', 'table' => 'employees', 'dept' => false],
+                    ['position' => 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)', 'table' => 'employees', 'dept' => false],
+                    ['position' => 'Center for Performing Arts Organization (CPAO)', 'table' => 'employees', 'dept' => false],
+                    ['position' => 'Physical Plant and Facilities Office (PPFO)', 'table' => 'employees', 'dept' => false],
+                    ['position' => 'Vice President for Academic Affairs (VPAA)', 'table' => 'employees', 'dept' => false],
+                    ['position' => 'Executive Vice-President / Student Services (EVP)', 'table' => 'employees', 'dept' => false],
+                ];
                 break;
 
             case 'proposal':
@@ -314,46 +330,116 @@ function createDocument($db, $currentUser, $input)
         $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, 'Document Creator Signature', ?, ?, 'pending')")
             ->execute([$docId, $stepOrder++, ($currentUser['role'] === 'employee' ? $currentUser['id'] : null), ($currentUser['role'] === 'student' ? $currentUser['id'] : null)]);
 
-        if ($docType !== 'communication') {
-            if ($currentUser['position'] === 'Supreme Student Council President') {
-                $bypassedRoles = ['College Student Council Adviser', 'College Dean', 'Supreme Student Council President'];
-                $workflowPositions = array_filter($workflowPositions, function ($wp) use ($bypassedRoles) {
-                    return !in_array($wp['position'], $bypassedRoles);
-                });
+        // Unified workflow logic for ALL document types including 'communication'
+        if ($currentUser['position'] === 'Supreme Student Council President') {
+            $bypassedRoles = ['College Student Council Adviser', 'College Dean', 'Supreme Student Council President'];
+            $workflowPositions = array_filter($workflowPositions, function ($wp) use ($bypassedRoles) {
+                return !in_array($wp['position'], $bypassedRoles);
+            });
+        }
+
+        // --- HIERARCHY FOR COMMUNICATION LETTERS ---
+        if ($docType === 'communication') {
+            $existingAssignees = []; // Track who has been assigned to prevent duplicates
+            $selectedIds = [];
+            
+            // Extract selected IDs from frontend
+            foreach (($data['notedList'] ?? []) as $p) if (!empty($p['id'])) $selectedIds[] = $p['id'];
+            foreach (($data['approvedList'] ?? []) as $p) if (!empty($p['id'])) $selectedIds[] = $p['id'];
+            $selectedIds = array_unique($selectedIds);
+
+            // Fetch the selected users to determine their exact positions/titles
+            if (!empty($selectedIds)) {
+                $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
+                $sql = "SELECT id, position, 'employee' as type FROM employees WHERE id IN ($placeholders)
+                        UNION
+                        SELECT id, position, 'student' as type FROM students WHERE id IN ($placeholders)";
+                $stmt = $db->prepare($sql);
+                $allParams = array_merge($selectedIds, $selectedIds);
+                $stmt->execute($allParams); 
+                $signers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } else {
+                $signers = [];
             }
 
-            $approvalReached = false;
+            // Define Strict Hierarchy dynamically based on the configuration above
+            // This ensures that the order defined in $workflowPositions is respected
+            $hierarchy = [];
+            $positionConfig = [];
+            $rank = 1;
+
             foreach ($workflowPositions as $wp) {
-                $pos = $wp['position'];
-                $isDocOnly = $approvalReached || !empty($wp['doc_only']);
-                $stepName = $isDocOnly ? "$pos (Documentation Only)" : "$pos Approval";
+                $key = $wp['position'];
+                $hierarchy[$key] = $rank++;
+                $positionConfig[$key] = $wp;
+            }
 
-                $assignee = fetchSignatory($db, $wp['table'] === 'students' ? 'student' : 'employee', $pos, $wp['dept'] ? $department : null);
+            // Sort Signers by Hierarchy Rank
+            usort($signers, function($a, $b) use ($hierarchy) {
+                $getRank = function($pos) use ($hierarchy) {
+                    foreach ($hierarchy as $key => $rank) {
+                        // Match partial position names (e.g. "College Dean - COB" matches "College Dean")
+                        if (stripos($pos, $key) !== false) return $rank;
+                    }
+                    return 0; // Steps before ADV (e.g. Instructors)
+                };
+                $rankA = $getRank($a['position']);
+                $rankB = $getRank($b['position']);
+                return $rankA - $rankB;
+            });
 
-                if ($assignee['id']) {
-                    $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, 'queued')")
-                        ->execute([$docId, $stepOrder++, $stepName, ($wp['table'] === 'employees' ? $assignee['id'] : null), ($wp['table'] === 'students' ? $assignee['id'] : null)]);
+            // Add Steps to DB
+            foreach ($signers as $signer) {
+                $pos = $signer['position'];
+                $assigneeId = $signer['id'];
+                
+                // Determine label based on list origin (Noted vs Approved)
+                $label = "Approved By: $pos";
+                $isNoted = false;
+                foreach (($data['notedList'] ?? []) as $p) {
+                    if (($p['id'] ?? '') == $assigneeId) {
+                        $label = "Noted By: $pos";
+                        $isNoted = true;
+                        break;
+                    }
                 }
-                if ($pos === 'Executive Vice-President / Student Services (EVP)')
-                    $approvalReached = true;
-            }
-        } else {
-            $notedList = $data['notedList'] ?? [];
-            foreach ($notedList as $person) {
-                $assignee = fetchSignatory($db, 'employee', $person['title']);
-                if ($assignee['id']) {
-                    $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, ?, ?, 'queued')")
-                        ->execute([$docId, $stepOrder++, "Noted By: " . $person['title'], $assignee['id']]);
+
+                // Check for config overrides (like doc_only)
+                foreach ($positionConfig as $confKey => $conf) {
+                     if (stripos($pos, $confKey) !== false) {
+                         if (!empty($conf['doc_only'])) {
+                             $label = "$pos (Documentation Only)";
+                         }
+                         break;
+                     }
+                }
+
+                if (!in_array($assigneeId, $existingAssignees)) {
+                    $column = ($signer['type'] === 'student') ? 'assigned_to_student_id' : 'assigned_to_employee_id';
+                    $sql = "INSERT INTO document_steps (document_id, step_order, name, $column, status) VALUES (?, ?, ?, ?, 'queued')";
+                    $db->prepare($sql)->execute([$docId, $stepOrder++, $label, $assigneeId]);
+                    $existingAssignees[] = $assigneeId;
                 }
             }
-            $approvedList = $data['approvedList'] ?? [];
-            foreach ($approvedList as $person) {
-                $assignee = fetchSignatory($db, 'employee', $person['title']);
-                if ($assignee['id']) {
-                    $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, status) VALUES (?, ?, ?, ?, 'queued')")
-                        ->execute([$docId, $stepOrder++, "Approved By: " . $person['title'], $assignee['id']]);
-                }
+            
+            // Skip the standard loop below for communication letters
+            $workflowPositions = []; 
+        }
+
+        $approvalReached = false;
+        foreach ($workflowPositions as $wp) {
+            $pos = $wp['position'];
+            $isDocOnly = $approvalReached || !empty($wp['doc_only']);
+            $stepName = $isDocOnly ? "$pos (Documentation Only)" : "$pos Approval";
+
+            $assignee = fetchSignatory($db, $wp['table'] === 'students' ? 'student' : 'employee', $pos, $wp['dept'] ? $department : null);
+
+            if ($assignee['id']) {
+                $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, 'queued')")
+                    ->execute([$docId, $stepOrder++, $stepName, ($wp['table'] === 'employees' ? $assignee['id'] : null), ($wp['table'] === 'students' ? $assignee['id'] : null)]);
             }
+            if ($pos === 'Executive Vice-President / Student Services (EVP)')
+                $approvalReached = true;
         }
 
         $db->commit();

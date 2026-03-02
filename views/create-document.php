@@ -952,6 +952,7 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
 
         data.employees.forEach(emp => {
           const personData = {
+            id: emp.id,
             name: emp.first_name + ' ' + emp.last_name,
             title: emp.position + (emp.department ? ', ' + emp.department : '')
           };

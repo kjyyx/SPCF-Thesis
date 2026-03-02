@@ -521,12 +521,13 @@ function collectCommunicationData() {
         try {
             const value = JSON.parse(cb.value);
             return {
+                id: value.id || '',
                 name: value.name || '',
                 title: value.title || ''
             };
         } catch (e) {
             console.error('Error parsing noted value:', cb.value);
-            return { name: '', title: '' };
+            return { id: '', name: '', title: '' };
         }
     });
 
@@ -534,12 +535,13 @@ function collectCommunicationData() {
         try {
             const value = JSON.parse(cb.value);
             return {
+                id: value.id || '',
                 name: value.name || '',
                 title: value.title || ''
             };
         } catch (e) {
             console.error('Error parsing approved value:', cb.value);
-            return { name: '', title: '' };
+            return { id: '', name: '', title: '' };
         }
     });
 

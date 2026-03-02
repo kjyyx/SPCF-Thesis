@@ -433,6 +433,44 @@ try {
     }
 
     // ----------------------------------
+    // TOGGLE STATUS: Deactivate/Reactivate user
+    // ----------------------------------
+    if ($method === 'POST' && $action === 'toggle_status') {
+        $id = $payload['id'] ?? '';
+        $role = $payload['role'] ?? '';
+        $newStatus = $payload['status'] ?? 'active'; // 'active' or 'inactive'
+        
+        $table = get_table_by_role($role);
+        if (!$table || !$id) {
+            json_error('Missing id, role, or status', 400);
+        }
+        
+        if (!in_array($newStatus, ['active', 'inactive'])) {
+            json_error('Invalid status value', 400);
+        }
+
+        if ($role === 'admin' && ($id === ($_SESSION['user_id'] ?? '')) && $newStatus === 'inactive') {
+            json_error('Cannot deactivate your own admin account', 400);
+        }
+
+        // If deactivating, we update the status. 
+        // NOTE: Unique email constraint remains. ID uniqueness remains.
+        // If "position becomes available" implies releasing a unique constraint on position, 
+        // we would need updates to how positions are checked. 
+        // Currently, there is NO unique constraint on position in the schema or code, 
+        // so setting status to inactive naturally "frees" it up in a logical sense (e.g. they can't login).
+        
+        $stmt = $db->prepare("UPDATE $table SET status = :status WHERE id = :id");
+        $ok = $stmt->execute([':status' => $newStatus, ':id' => $id]);
+        
+        if ($ok) {
+            $logAction = $newStatus === 'active' ? 'USER_REACTIVATED' : 'USER_DEACTIVATED';
+            addAuditLog($logAction, 'User Management', ucfirst($newStatus) . " user $role: $id", $id, 'User', 'WARNING');
+        }
+        json_response(['success' => $ok, 'message' => $ok ? "User marked as $newStatus" : 'Status update failed']);
+    }
+
+    // ----------------------------------
     // UPDATE: Update a user (role required to select table)
     // ----------------------------------
     if ($method === 'PUT') {

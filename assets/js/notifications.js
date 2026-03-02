@@ -679,11 +679,11 @@ class DocumentNotificationSystem {
 
     formatDocType(type) {
         const typeMap = {
-            'saf': 'Student Activity Form',
+            'saf': 'Student Activity Fund',
             'publication': 'Publication',
             'proposal': 'Project Proposal',
             'facility': 'Facility Request',
-            'communication': 'Communication'
+            'communication': 'Communication Letter'
         };
         return typeMap[type] || type;
     }

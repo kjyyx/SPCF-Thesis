@@ -753,6 +753,15 @@ function handleDelete($db, $currentUser)
 
 function handleGet($db, $currentUser)
 {
+    // Handle file download request
+    if (isset($_GET['download']) && $_GET['download'] == '1') {
+        $docId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        if ($docId) {
+            downloadDocumentFile($db, $currentUser, $docId);
+            exit;
+        }
+    }
+
     $action = $_GET['action'] ?? null;
     $docId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
@@ -768,6 +777,139 @@ function handleGet($db, $currentUser)
         getGeneralDocumentDetails($db, $currentUser, $docId);
     else
         getAssignedDocuments($db, $currentUser);
+}
+
+// ------------------------------------------------------------------
+// Download Handler
+// ------------------------------------------------------------------
+
+function downloadDocumentFile($db, $currentUser, $docId)
+{
+    // Fetch document
+    $stmt = $db->prepare("SELECT * FROM documents WHERE id = ?");
+    $stmt->execute([$docId]);
+    $doc = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$doc) {
+        http_response_code(404);
+        die('Document not found');
+    }
+
+    // Access check (simplified)
+    if ($currentUser['role'] !== 'admin' && $doc['student_id'] != $currentUser['id']) {
+         // Add reviewer checks here if needed
+    }
+
+    $data = json_decode($doc['data'], true);
+    if (!$data) $data = [];
+
+    // Map doc_type to template
+    $templatePath = '';
+    $templateDir = ROOT_PATH . 'assets/templates/';
+    
+    // Normalize department name to match template filenames
+    $dept = isset($doc['departmentFull']) && !empty($doc['departmentFull']) ? $doc['departmentFull'] : 
+            (isset($doc['department']) ? getDepartmentFullName($doc['department']) : '');
+            
+    // Fix common punctuation issues in dept name for filenames
+    // The filenames in directory listing: "College of Arts, Social Sciences, and Education (Project Proposal).docx"
+    // Just ensure $dept matches exactly one of the known folders/prefixes.
+    
+    switch ($doc['doc_type']) {
+        case 'proposal':
+            $templatePath = $templateDir . 'Project Proposals/' . $dept . ' (Project Proposal).docx';
+            break;
+        case 'communication':
+            $templatePath = $templateDir . 'Communication Letter/' . $dept . ' (Communication Letter).docx';
+            break;
+        case 'facility':
+             $templatePath = $templateDir . 'Facility Request/FACILITY REQUEST.docx';
+             break;
+        case 'saf': // Activity Proposal / SAF
+             $templatePath = $templateDir . 'SAF/SAF REQUEST.docx';
+             break;
+        default:
+             $templatePath = '';
+    }
+
+    if (!file_exists($templatePath)) {
+        // Fallback: Generate a simple HTML for print-to-pdf if template is missing
+        header('Content-Type: text/html');
+        header('Content-Disposition: inline; filename="' . htmlspecialchars($doc['title']) . '.html"');
+        
+        echo '<!DOCTYPE html><html><head><title>' . htmlspecialchars($doc['title']) . '</title>';
+        echo '<style>body{font-family:sans-serif;line-height:1.6;padding:40px;max-width:800px;margin:0 auto;} h1{border-bottom:2px solid #333;padding-bottom:10px;} .meta{color:#666;margin-bottom:20px;} table{width:100%;border-collapse:collapse;margin-top:20px;} th,td{border:1px solid #ddd;padding:12px;text-align:left;} th{background:#f9f9f9;} @media print{button{display:none;}}</style>';
+        echo '</head><body>';
+        echo '<div style="text-align:right;"><button onclick="window.print()" style="padding:10px 20px;background:#0d6efd;color:white;border:none;border-radius:5px;cursor:pointer;">Print / Save as PDF</button></div>';
+        echo '<h1>' . htmlspecialchars($doc['title']) . '</h1>';
+        echo '<div class="meta">';
+        echo '<p><strong>Type:</strong> ' . htmlspecialchars(ucfirst($doc['doc_type'])) . '</p>';
+        echo '<p><strong>Department:</strong> ' . htmlspecialchars($dept) . '</p>';
+        echo '<p><strong>Date:</strong> ' . date('F j, Y, g:i a', strtotime($doc['uploaded_at'])) . '</p>';
+        echo '<p><strong>Status:</strong> ' . htmlspecialchars(ucfirst($doc['status'])) . '</p>';
+        echo '</div>';
+        
+        if (!empty($doc['description'])) {
+            echo '<h2>Description/Rationale</h2>';
+            echo '<p>' . nl2br(htmlspecialchars($doc['description'])) . '</p>';
+        }
+
+        echo '<h2>Form Data</h2>';
+        echo '<table>';
+        foreach ($data as $k => $v) {
+            if (is_array($v)) {
+                $val = '<pre>' . htmlspecialchars(json_encode($v, JSON_PRETTY_PRINT)) . '</pre>';
+            } else {
+                $val = htmlspecialchars($v);
+            }
+            echo "<tr><th width='30%'>" . htmlspecialchars(ucwords(str_replace('_', ' ', $k))) . "</th><td>" . $val . "</td></tr>";
+        }
+        echo '</table>';
+        
+        if ($templatePath) {
+            echo '<p style="margin-top:50px;color:red;font-size:0.8em;">Note: Official template not found at: ' . htmlspecialchars(basename($templatePath)) . '</p>';
+        }
+        echo '</body></html>';
+        exit;
+    }
+
+    try {
+        // Prepare data for template
+        // Merge db fields into data
+        $data['title'] = $doc['title'];
+        $data['description'] = $doc['description'];
+        $data['date_created'] = date('F j, Y', strtotime($doc['uploaded_at']));
+        
+        // Use the utility function
+        $generatedPath = fillDocxTemplate($templatePath, $data);
+        
+        // Try convert to PDF
+        $finalPath = convertDocxToPdf($generatedPath);
+        
+        // Serve file
+        $filename = basename($finalPath);
+        $ext = pathinfo($filename, PATHINFO_EXTENSION);
+        
+        if ($ext === 'pdf') {
+            header('Content-Type: application/pdf');
+        } else {
+            header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        }
+        
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Content-Length: ' . filesize($finalPath));
+        readfile($finalPath);
+        
+        // Cleanup (optional, maybe keep cache?)
+        // unlink($generatedPath); 
+        // if ($finalPath !== $generatedPath) unlink($finalPath);
+        
+        exit;
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        die('Error creating document: ' . $e->getMessage());
+    }
 }
 
 function getApprovedEvents($db)

@@ -624,7 +624,7 @@ class DocumentTrackerSystem {
                     const closeBtn = modalEl.querySelector('.btn-close');
                     if (closeBtn) closeBtn.click();
                 }
-                this.loadStudentDocuments(true); 
+                this.loadStudentDocuments(true);
             } else {
                 this.showToast(data.message || 'Failed to resubmit document.', 'error');
                 if (box) box.style.opacity = '1';
@@ -667,7 +667,13 @@ class DocumentTrackerSystem {
     }
     shortenOfficeName(name) { return name ? String(name).replace(/\s*Approval/gi, '').trim() : 'Unknown'; }
     getDocumentTypeDisplay(type) {
-        const map = { 'saf': 'Student Activity Form', 'publication': 'Publication', 'proposal': 'Project Proposal', 'facility': 'Facility Request', 'communication': 'Communication' };
+        const map = {
+            'saf': 'Student Activity Fund',
+            'publication': 'Publication',
+            'proposal': 'Project Proposal',
+            'facility': 'Facility Request',
+            'communication': 'Communication Letter'
+        };
         return map[type] || type;
     }
     getNotesPreview(notes) {
@@ -697,20 +703,20 @@ class DocumentTrackerSystem {
         if (time) time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
     showLoadingState() {
-        if(document.getElementById('loadingState')) document.getElementById('loadingState').style.display = 'block';
-        if(document.getElementById('emptyState')) document.getElementById('emptyState').style.display = 'none';
-        if(document.querySelector('.table-wrapper')) document.querySelector('.table-wrapper').style.display = 'none';
-        if(document.getElementById('paginationContainer')) document.getElementById('paginationContainer').style.display = 'none';
+        if (document.getElementById('loadingState')) document.getElementById('loadingState').style.display = 'block';
+        if (document.getElementById('emptyState')) document.getElementById('emptyState').style.display = 'none';
+        if (document.querySelector('.table-wrapper')) document.querySelector('.table-wrapper').style.display = 'none';
+        if (document.getElementById('paginationContainer')) document.getElementById('paginationContainer').style.display = 'none';
     }
     hideLoadingState() {
-        if(document.getElementById('loadingState')) document.getElementById('loadingState').style.display = 'none';
-        if(document.querySelector('.table-wrapper')) document.querySelector('.table-wrapper').style.display = 'block';
+        if (document.getElementById('loadingState')) document.getElementById('loadingState').style.display = 'none';
+        if (document.querySelector('.table-wrapper')) document.querySelector('.table-wrapper').style.display = 'block';
     }
     showEmptyState() {
-        if(document.getElementById('loadingState')) document.getElementById('loadingState').style.display = 'none';
-        if(document.getElementById('emptyState')) document.getElementById('emptyState').style.display = 'block';
-        if(document.querySelector('.table-wrapper')) document.querySelector('.table-wrapper').style.display = 'none';
-        if(document.getElementById('paginationContainer')) document.getElementById('paginationContainer').style.display = 'none';
+        if (document.getElementById('loadingState')) document.getElementById('loadingState').style.display = 'none';
+        if (document.getElementById('emptyState')) document.getElementById('emptyState').style.display = 'block';
+        if (document.querySelector('.table-wrapper')) document.querySelector('.table-wrapper').style.display = 'none';
+        if (document.getElementById('paginationContainer')) document.getElementById('paginationContainer').style.display = 'none';
     }
     showToast(message, type = 'info', title = null) {
         if (window.ToastManager) window.ToastManager.show({ type: type, title: title, message: message, duration: 4000 });

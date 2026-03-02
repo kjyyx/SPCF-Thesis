@@ -27,6 +27,12 @@ class Auth {
             if ($stmt->rowCount() == 1) {
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
+                // Check active status
+                if (isset($user['status']) && $user['status'] !== 'active') {
+                    // User is inactive/suspended
+                    return false;
+                }
+
                 // Verify password using modern hashing
                 $passwordVerified = password_verify($password, $user['password']);
 

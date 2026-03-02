@@ -30,7 +30,7 @@ let currentUser = window.currentUser || null;
 // Determine access level based on user role and position
 const isStudent = currentUser && currentUser.role === 'student';
 const isAccounting = currentUser && currentUser.role === 'employee' && currentUser.position && currentUser.position.toLowerCase().includes('accounting');
-const isOsa = currentUser && currentUser.role === 'employee' && currentUser.position && currentUser.position.toLowerCase().includes('osa');
+const isOsa = currentUser && currentUser.role === 'employee' && currentUser.position && (currentUser.position.toLowerCase().includes('osa') || currentUser.position.toLowerCase().includes('evp'));
 const isAdmin = currentUser && currentUser.role === 'admin';
 const canEditSaf = isAccounting || isAdmin;
 

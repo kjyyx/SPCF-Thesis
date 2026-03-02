@@ -18,7 +18,8 @@ if (!$currentUser) {
 $hasAccess = $currentUser['role'] === 'student' ||
   ($currentUser['role'] === 'employee' &&
     (stripos($currentUser['position'], 'Accounting') !== false ||
-      stripos($currentUser['position'], 'OSA') !== false));
+      stripos($currentUser['position'], 'OSA') !== false ||
+      stripos($currentUser['position'], 'EVP') !== false));
 
 if (!$hasAccess) {
   header('Location: ' . BASE_URL . 'login&error=access_denied');

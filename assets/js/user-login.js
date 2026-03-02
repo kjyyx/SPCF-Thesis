@@ -3,16 +3,28 @@
 var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
 
 function detectLoginType(userId) {
-    const prefix = userId.substring(0, 3).toUpperCase(); // Convert to uppercase for case-insensitive check
-    if (prefix === 'ADM') {
-        return 'admin';
-    } else if (prefix === 'EMP') {
-        return 'employee';
-    } else if (prefix === 'STU') {
+    const id = String(userId).toUpperCase().trim();
+
+    // 1. Admin Check
+    if (id.startsWith('ADM')) return 'admin';
+
+    // 2. Student Check (CSC, SSC, or legacy STU)
+    if (id.startsWith('CSC') || id.startsWith('SSC') || id.startsWith('STU')) {
         return 'student';
-    } else {
-        return null; // Invalid prefix
     }
+
+    // 3. Employee Check (Deans, Advisers, Offices, or legacy EMP)
+    const empPrefixes = [
+        'ADV', 'DEAN', 'AP', 'OSA', 'CPAO', 'VPAA', 'EVP',
+        'PPFO', 'INFO', 'ITS', 'TECH', 'SEC', 'EMP'
+    ];
+
+    for (let prefix of empPrefixes) {
+        if (id.startsWith(prefix)) return 'employee';
+    }
+
+    // Unrecognized format
+    return null;
 }
 
 // Enhanced QR Code Generation with Multiple Fallbacks
@@ -21,13 +33,13 @@ function generateQRCode(containerId, secret, userId = 'User') {
     if (!container) {
         return;
     }
-    
+
     // Clear container
     container.innerHTML = '';
-    
+
     // Create OTP URL
     const otpUrl = `otpauth://totp/Sign-um:${userId}?secret=${secret}&issuer=Sign-um&algorithm=SHA1&digits=6&period=30`;
-    
+
     // Create wrapper
     const wrapper = document.createElement('div');
     wrapper.style.cssText = `
@@ -38,7 +50,7 @@ function generateQRCode(containerId, secret, userId = 'User') {
         width: 100%;
         padding: 10px;
     `;
-    
+
     // Show loading state
     const loadingDiv = document.createElement('div');
     loadingDiv.className = 'qr-loading';
@@ -57,10 +69,10 @@ function generateQRCode(containerId, secret, userId = 'User') {
         <p class="mt-3 text-muted">Generating QR Code...</p>
     `;
     container.appendChild(loadingDiv);
-    
+
     // Try multiple QR code providers in sequence
     tryQRCodeProvider(0);
-    
+
     function tryQRCodeProvider(attempt) {
         const providers = [
             {
@@ -76,20 +88,20 @@ function generateQRCode(containerId, secret, userId = 'User') {
                 url: `https://api.qr-code-generator.com/v1/create?size=250x250&data=${encodeURIComponent(otpUrl)}`
             }
         ];
-        
+
         if (attempt >= providers.length) {
             // All providers failed, show manual entry
             showManualEntry();
             return;
         }
-        
+
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        
-        img.onload = function() {
+
+        img.onload = function () {
             // Clear loading
             container.innerHTML = '';
-            
+
             // Set image styles
             img.style.cssText = `
                 display: block;
@@ -104,23 +116,23 @@ function generateQRCode(containerId, secret, userId = 'User') {
                 background: white;
                 padding: 8px;
             `;
-            
+
             wrapper.appendChild(img);
-            
+
             // Add secret backup
             addSecretBackup(wrapper, secret, userId);
-            
+
             container.appendChild(wrapper);
         };
-        
-        img.onerror = function() {
+
+        img.onerror = function () {
             tryQRCodeProvider(attempt + 1);
         };
-        
+
         // Add cache buster to avoid caching issues
         img.src = providers[attempt].url + '&_=' + new Date().getTime();
     }
-    
+
     function addSecretBackup(wrapper, secret, userId) {
         const backupDiv = document.createElement('div');
         backupDiv.className = 'qr-secret-backup';
@@ -135,7 +147,7 @@ function generateQRCode(containerId, secret, userId = 'User') {
             text-align: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         `;
-        
+
         backupDiv.innerHTML = `
             <div style="margin-bottom: 12px; color: #475569; font-size: 0.9rem; font-weight: 500;">
                 <i class="bi bi-key-fill" style="color: #667eea; margin-right: 5px;"></i>
@@ -176,9 +188,9 @@ function generateQRCode(containerId, secret, userId = 'User') {
                 </div>
             </div>
         `;
-        
+
         // Add click handler to toggle secret visibility
-        backupDiv.addEventListener('click', function(e) {
+        backupDiv.addEventListener('click', function (e) {
             if (e.target.id === 'showSecretBtn') {
                 const container = document.getElementById('secretContainer');
                 const btn = document.getElementById('showSecretBtn');
@@ -191,13 +203,13 @@ function generateQRCode(containerId, secret, userId = 'User') {
                 }
             }
         });
-        
+
         wrapper.appendChild(backupDiv);
     }
-    
+
     function showManualEntry() {
         container.innerHTML = '';
-        
+
         const manualDiv = document.createElement('div');
         manualDiv.className = 'manual-entry';
         manualDiv.style.cssText = `
@@ -211,7 +223,7 @@ function generateQRCode(containerId, secret, userId = 'User') {
             margin: 0 auto;
             box-shadow: 0 10px 25px rgba(251, 191, 36, 0.2);
         `;
-        
+
         manualDiv.innerHTML = `
             <i class="bi bi-exclamation-triangle-fill" style="font-size: 48px; color: #f59e0b;"></i>
             <h6 style="margin: 20px 0 10px; color: #92400e; font-weight: 700;">QR Code Unavailable</h6>
@@ -253,7 +265,7 @@ function generateQRCode(containerId, secret, userId = 'User') {
                 After setup, enter the 6-digit code below
             </div>
         `;
-        
+
         container.appendChild(manualDiv);
     }
 }
@@ -427,19 +439,17 @@ function attachLoginSubmitHandler() {
     const form = document.getElementById('loginForm');
     if (!form) return;
     form.addEventListener('submit', async function (e) {
-        e.preventDefault(); // Always prevent default form submission - handle via API
+        e.preventDefault();
 
         const loginButton = document.getElementById('loginButton');
         const loginContainer = document.querySelector('.login-container');
-        
-        // Add smooth loading transition
+
         loginContainer.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
         loginContainer.classList.add('loading');
         loginButton.disabled = true;
         loginButton.style.transform = 'scale(0.98)';
 
         try {
-            // Normal login only - 2FA handled by modal buttons
             const userId = document.getElementById('userId').value;
             const password = document.getElementById('password').value;
             if (!userId || !password) {
@@ -449,11 +459,12 @@ function attachLoginSubmitHandler() {
 
             const loginType = detectLoginType(userId);
             if (!loginType) {
-                showLoginError('Invalid User ID format. User ID must start with ADM, EMP, or STU.');
+                // --- NEW ERROR MESSAGE ---
+                showLoginError('Unrecognized User ID format. Please use a valid assigned ID (e.g., DEANCOE01, CSCCOB001, AP01).');
                 return;
             }
 
-            const requestData = { userId, password, loginType: detectLoginType(userId) };
+            const requestData = { userId, password, loginType: loginType };
             loginButton.innerHTML = '<i class="bi bi-hourglass-split"></i>Signing In...';
 
             const response = await fetch(BASE_URL + 'api/auth.php', {
@@ -477,15 +488,15 @@ function attachLoginSubmitHandler() {
                 if (data.requires_2fa_setup) {
                     // Use the simplified QR generator
                     generateQRCode('qrCodeContainer', data.secret, data.user_id);
-                    
+
                     window.tempUserId = data.user_id;
-                    
+
                     // Update button text
                     const loginBtn = document.getElementById('loginButton');
                     if (loginBtn) {
                         loginBtn.innerHTML = '<i class="bi bi-shield-plus me-2"></i>Complete 2FA Setup';
                     }
-                    
+
                     // Show the setup modal
                     const setupModal = new bootstrap.Modal(document.getElementById('2faSetupModal'));
                     setupModal.show();
@@ -521,7 +532,7 @@ function attachLoginSubmitHandler() {
             loginButton.disabled = false;
             loginButton.style.transform = '';
         }
-        }
+    }
     );
 }
 
@@ -651,27 +662,27 @@ function resendMfaCode() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'forgot_password', userId })
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Show success message
-            btn.innerHTML = '<i class="bi bi-check me-1"></i>Code Sent!';
-            setTimeout(() => {
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                btn.innerHTML = '<i class="bi bi-check me-1"></i>Code Sent!';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 3000);
+            } else {
+                // Show error
+                showForgotPasswordError(data.message || 'Failed to resend code.');
                 btn.innerHTML = originalText;
                 btn.disabled = false;
-            }, 3000);
-        } else {
-            // Show error
-            showForgotPasswordError(data.message || 'Failed to resend code.');
+            }
+        })
+        .catch(error => {
+            showForgotPasswordError('Failed to resend code. Please try again.');
             btn.innerHTML = originalText;
             btn.disabled = false;
-        }
-    })
-    .catch(error => {
-        showForgotPasswordError('Failed to resend code. Please try again.');
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-    });
+        });
 }
 
 // (Duplicate togglePasswordVisibility removed; single global function defined above)

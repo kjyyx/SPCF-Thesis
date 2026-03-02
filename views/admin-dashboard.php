@@ -83,7 +83,7 @@ $renderKeyOpts = function ($arr) { foreach ($arr as $key => $val) echo "<option 
                 <p class="page-subtitle">Manage system users, workflows, and data retention.</p>
             </div>
             <div class="page-actions d-flex gap-2">
-                <button class="btn btn-outline-secondary shadow-sm rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#systemSettingsModal"><i class="bi bi-gear me-2"></i> Settings</button>
+                <button class="btn btn-outline-secondary shadow-sm rounded-pill px-4" onclick="openSystemSettings()"><i class="bi bi-gear me-2"></i> Settings</button>
                 <button class="btn btn-primary shadow-sm rounded-pill px-4" onclick="openAddUserModal()"><i class="bi bi-person-plus me-2"></i> Add New User</button>
             </div>
         </div>

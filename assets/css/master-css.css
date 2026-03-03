@@ -1075,7 +1075,6 @@ textarea.form-control {
 
 .modal-dialog {
     width: 100%; max-width: 540px;
-    max-height: 90vh; overflow-y: auto;
     animation: modal-slide-in var(--duration-300) var(--ease-spring);
     margin: 1.75rem auto;
 }
@@ -1097,6 +1096,10 @@ textarea.form-control {
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-3xl);   /* 24px */
     box-shadow: var(--shadow-2xl);
+    /* Flex column so header/footer are sticky, body scrolls */
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 3.5rem);
     overflow: hidden;
 }
 
@@ -1104,6 +1107,7 @@ textarea.form-control {
     display: flex; align-items: center; gap: var(--space-3);
     padding: var(--space-5) var(--space-6);
     border-bottom: 1px solid var(--color-border-subtle);
+    flex-shrink: 0; /* never scroll — stays pinned at top */
 }
 
 .modal-header.modal-header-centered {
@@ -1131,7 +1135,19 @@ textarea.form-control {
     margin: 0; flex: 1;
 }
 
-.modal-body { padding: var(--space-6); }
+.modal-body {
+    padding: var(--space-6);
+    flex: 1 1 auto;          /* grows to fill, allows shrink */
+    overflow-y: auto;        /* only the body scrolls */
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gray-300) transparent;
+}
+.modal-body::-webkit-scrollbar       { width: 4px; }
+.modal-body::-webkit-scrollbar-track { background: transparent; }
+.modal-body::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: var(--radius-full); }
+.modal-body::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
 
 .modal-footer {
     display: flex; align-items: center; justify-content: flex-end;
@@ -1139,25 +1155,54 @@ textarea.form-control {
     padding: var(--space-4) var(--space-6);
     border-top: 1px solid var(--color-border-subtle);
     background: var(--color-surface-muted);
+    flex-shrink: 0; /* never scroll — stays pinned at bottom */
 }
 
 /* Bootstrap overrides */
-.modal { backdrop-filter: blur(8px); }
+.modal {
+    backdrop-filter: blur(8px);
+    overflow-x: hidden;
+    overflow-y: auto !important; /* allow the outer backdrop to scroll on very small screens */
+}
 .modal .modal-content {
     background: var(--color-surface-raised) !important;
     border: 1px solid var(--color-border-subtle) !important;
     border-radius: var(--radius-3xl) !important;
     box-shadow: var(--shadow-2xl) !important;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 3.5rem);
+    overflow: hidden;
 }
 .modal .modal-header {
     background: var(--color-surface-raised);
     border-bottom: 1px solid var(--color-border-subtle);
     padding: var(--space-5) var(--space-6);
+    flex-shrink: 0;
 }
 .modal .modal-footer {
     background: var(--color-surface-muted);
     border-top: 1px solid var(--color-border-subtle);
     padding: var(--space-4) var(--space-6);
+    flex-shrink: 0;
+}
+.modal .modal-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+/* Native Bootstrap scrollable dialog variant */
+.modal-dialog-scrollable { max-height: calc(100vh - 3.5rem); }
+.modal-dialog-scrollable .modal-content { max-height: 100%; overflow: hidden; }
+.modal-dialog-scrollable .modal-body    { overflow-y: auto; }
+/* Fullscreen modal — manages own scroll */
+.modal-fullscreen .modal-content { max-height: 100vh; border-radius: 0 !important; }
+.modal-fullscreen .modal-body    { overflow-y: auto; }
+/* Mobile: tighter margins */
+@media (max-width: 768px) {
+    .modal-dialog  { margin: var(--space-3); }
+    .modal-content { max-height: calc(100vh - 1.5rem); }
 }
 
 /* ============================================================

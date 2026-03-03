@@ -218,7 +218,7 @@ $currentPage = 'track-document';
     </div>
 
     <div class="modal fade" id="documentModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <div class="d-flex flex-column gap-1">
@@ -243,7 +243,7 @@ $currentPage = 'track-document';
     </div>
 
     <div class="modal fade" id="materialModal" tabindex="-1">
-        <div class="modal-dialog modal-lg"  style="max-width: 70vw; max-height: 90vh;">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" style="max-width: 70vw;">
             <div class="modal-content">
                 <div class="modal-header">
                     <div class="d-flex flex-column gap-1">
@@ -268,8 +268,8 @@ $currentPage = 'track-document';
     </div>
 
     <div class="modal fade" id="fullDocumentModal" tabindex="-1">
-        <div class="modal-dialog modal-lg" style="max-width: 70vw; max-height: 100vh;">
-            <div class="modal-content" style="height: 85vh;">
+        <div class="modal-dialog modal-lg modal-dialog-centered" style="max-width: 70vw;">
+            <div class="modal-content" style="height: 85vh; max-height: 90vh;">
                 <div class="modal-header">
                     <h5 class="modal-title">Full Document View</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -320,7 +320,7 @@ $currentPage = 'track-document';
     </div>
 
     <div class="modal fade" id="profileSettingsModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="bi bi-person-gear me-2"></i>Profile Settings</h5>
@@ -360,7 +360,7 @@ $currentPage = 'track-document';
     </div>
 
     <div class="modal fade" id="preferencesModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="bi bi-sliders me-2"></i>Preferences</h5>
@@ -397,7 +397,7 @@ $currentPage = 'track-document';
     </div>
 
     <div class="modal fade" id="helpModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="bi bi-question-circle me-2"></i>Help & Support</h5>

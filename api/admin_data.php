@@ -22,9 +22,9 @@ try {
     $db = (new Database())->getConnection();
     $type = $_GET['type'] ?? '';
 
-    // Pagination setup
-    $page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
-    $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 50;
+    // Pagination setup - default to 50, strictly ensure positive integers
+    $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+    $limit = isset($_GET['limit']) ? max(1, (int)$_GET['limit']) : 50;
     $offset = ($page - 1) * $limit;
 
     if ($type === 'materials') {
@@ -57,15 +57,20 @@ try {
 
         $whereSql = $whereClauses ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
-        // Count Query
+        // Count Query (For Pagination Math)
         $countStmt = $db->prepare("SELECT COUNT(*) FROM materials m LEFT JOIN students s ON m.student_id = s.id $whereSql");
         foreach ($params as $key => $val) $countStmt->bindValue($key, $val);
         $countStmt->execute();
         $totalRows = $countStmt->fetchColumn();
-        $totalPages = ceil($totalRows / $limit);
+        $totalPages = ceil($totalRows / $limit) ?: 1;
 
-        // Fetch Query
-        $query = "SELECT m.*, CONCAT(s.first_name, ' ', s.last_name) as submitted_by, s.department 
+        // Fetch Query (With Reviewer details for Modal)
+        $query = "SELECT m.*, CONCAT(s.first_name, ' ', s.last_name) as submitted_by, s.department,
+                         (SELECT CONCAT(e.first_name, ' ', e.last_name) FROM materials_steps ms LEFT JOIN employees e ON ms.assigned_to_employee_id = e.id WHERE ms.material_id = m.id AND ms.status = 'completed' ORDER BY ms.step_order DESC LIMIT 1) as approved_by_name,
+                         m.approved_at,
+                         (SELECT CONCAT(e.first_name, ' ', e.last_name) FROM materials_steps ms LEFT JOIN employees e ON ms.assigned_to_employee_id = e.id WHERE ms.material_id = m.id AND ms.status = 'rejected' LIMIT 1) as rejected_by,
+                         m.rejected_at,
+                         (SELECT ms.note FROM materials_steps ms WHERE ms.material_id = m.id AND ms.status = 'rejected' LIMIT 1) as rejection_reason
                   FROM materials m 
                   LEFT JOIN students s ON m.student_id = s.id 
                   $whereSql
@@ -83,7 +88,9 @@ try {
         echo json_encode([
             'success' => true,
             'materials' => $materials,
-            'totalPages' => $totalPages
+            'totalPages' => $totalPages,
+            'currentPage' => $page,
+            'totalRecords' => $totalRows
         ]);
 
     } elseif ($type === 'documents') {
@@ -94,8 +101,7 @@ try {
         if (!empty($_GET['status'])) {
             $status = $_GET['status'];
             if ($status === 'pending') {
-                // Pending usually means submitted or in_review or in_progress in documents workflow
-                $whereClauses[] = "(d.status = 'submitted' OR d.status = 'in_review' OR d.status = 'pending')";
+                $whereClauses[] = "(d.status = 'submitted' OR d.status = 'in_review' OR d.status = 'pending' OR d.status = 'in_progress')";
             } else {
                 $whereClauses[] = "d.status = :status";
                 $params[':status'] = $status;
@@ -111,7 +117,6 @@ try {
 
         // Department Filter
         if (!empty($_GET['department'])) {
-            // Check both document's stamped department and student's department
             $whereClauses[] = "(d.department = :dept OR s.department = :dept)";
             $params[':dept'] = $_GET['department'];
         }
@@ -124,15 +129,20 @@ try {
 
         $whereSql = $whereClauses ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
-        // Count Query
+        // Count Query (For Pagination Math)
         $countStmt = $db->prepare("SELECT COUNT(*) FROM documents d LEFT JOIN students s ON d.student_id = s.id $whereSql");
         foreach ($params as $key => $val) $countStmt->bindValue($key, $val);
         $countStmt->execute();
         $totalRows = $countStmt->fetchColumn();
-        $totalPages = ceil($totalRows / $limit);
+        $totalPages = ceil($totalRows / $limit) ?: 1;
 
-        // Fetch Query
-        $query = "SELECT d.*, CONCAT(s.first_name, ' ', s.last_name) as submitted_by, s.department 
+        // Fetch Query (With Reviewer details for Modal)
+        $query = "SELECT d.*, CONCAT(s.first_name, ' ', s.last_name) as submitted_by, s.department,
+                         (SELECT CONCAT(e.first_name, ' ', e.last_name) FROM document_steps ds LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id WHERE ds.document_id = d.id AND ds.status = 'completed' ORDER BY ds.step_order DESC LIMIT 1) as approved_by_name,
+                         (SELECT ds.acted_at FROM document_steps ds WHERE ds.document_id = d.id AND ds.status = 'completed' ORDER BY ds.step_order DESC LIMIT 1) as approved_at,
+                         (SELECT CONCAT(e.first_name, ' ', e.last_name) FROM document_steps ds LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id WHERE ds.document_id = d.id AND ds.status = 'rejected' LIMIT 1) as rejected_by,
+                         (SELECT ds.acted_at FROM document_steps ds WHERE ds.document_id = d.id AND ds.status = 'rejected' LIMIT 1) as rejected_at,
+                         (SELECT ds.note FROM document_steps ds WHERE ds.document_id = d.id AND ds.status = 'rejected' LIMIT 1) as rejection_reason
                   FROM documents d 
                   LEFT JOIN students s ON d.student_id = s.id 
                   $whereSql
@@ -150,7 +160,9 @@ try {
         echo json_encode([
             'success' => true,
             'documents' => $documents,
-            'totalPages' => $totalPages
+            'totalPages' => $totalPages,
+            'currentPage' => $page,
+            'totalRecords' => $totalRows
         ]);
 
     } else {

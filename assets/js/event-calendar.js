@@ -236,7 +236,7 @@ class CalendarApp {
 
   getFilteredEvents() {
     const searchTerm =
-      document.getElementById("eventSearch")?.value.toLowerCase() || "";
+      document.getElementById("eventSearch")?.value.toLowerCase().trim() || "";
     const departmentFilter =
       document.getElementById("departmentFilter")?.value || "";
     const statusFilter = document.getElementById("statusFilter")?.value || "";
@@ -245,16 +245,20 @@ class CalendarApp {
 
     Object.keys(this.events).forEach((dateStr) => {
       const dayEvents = this.events[dateStr].filter((event) => {
+        const eventDepartment = event.department || "";
+        const eventStatus = event.status || (event.isApproved ? "approved" : "submitted");
         const matchesSearch =
           !searchTerm ||
-          event.title.toLowerCase().includes(searchTerm) ||
-          event.department.toLowerCase().includes(searchTerm);
-        const matchesDepartment =
-          !departmentFilter || event.department === departmentFilter;
-        const matchesStatus =
-          !statusFilter ||
-          (statusFilter === "approved" && event.isApproved) ||
-          (statusFilter === "pending" && !event.isApproved);
+          (event.title || "").toLowerCase().includes(searchTerm) ||
+          (eventDepartment || "").toLowerCase().includes(searchTerm);
+        const matchesDepartment = typeof matchesDepartmentFilter === "function"
+          ? matchesDepartmentFilter(eventDepartment, departmentFilter)
+          : (!departmentFilter || eventDepartment === departmentFilter);
+        const matchesStatus = typeof matchesStatusFilter === "function"
+          ? matchesStatusFilter(eventStatus, statusFilter || "all", "document")
+          : (!statusFilter ||
+             (statusFilter === "approved" && event.isApproved) ||
+             (statusFilter === "pending" && !event.isApproved));
         return matchesSearch && matchesDepartment && matchesStatus;
       });
 

@@ -198,7 +198,7 @@ $currentPage = 'upload-publication';
   </div>
 
   <div class="modal fade" id="successModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content border-0 shadow-lg rounded-4 text-center p-4">
         <div class="modal-body py-4">
           <div class="btn-icon lg rounded-circle bg-success-subtle mx-auto mb-4"
@@ -219,7 +219,7 @@ $currentPage = 'upload-publication';
   </div>
 
   <div class="modal fade" id="profileSettingsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content border-0 shadow-lg rounded-4">
         <div class="modal-header border-bottom-0 p-4">
           <h5 class="modal-title fw-bold"><i class="bi bi-person-gear me-2 text-primary"></i>Profile Settings</h5>
@@ -262,7 +262,7 @@ $currentPage = 'upload-publication';
   </div>
 
   <div class="modal fade" id="preferencesModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content border-0 shadow-lg rounded-4">
         <div class="modal-header border-bottom-0 p-4">
           <h5 class="modal-title fw-bold"><i class="bi bi-sliders me-2 text-primary"></i>Preferences</h5>

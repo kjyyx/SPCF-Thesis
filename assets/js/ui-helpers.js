@@ -91,6 +91,44 @@ function getStatusBadge(status, type = 'document') {
     return `<span class="badge rounded-pill ${match.class}">${escapeHtml(match.text)}</span>`;
 }
 
+function normalizeStatusForFilter(status, type = 'document') {
+    return normalizeWorkflowStatus(status, type);
+}
+
+function matchesStatusFilter(status, filter, type = 'document') {
+    const normalizedStatus = normalizeStatusForFilter(status, type);
+    const normalizedFilter = normalizeStatusForFilter(filter, type);
+
+    if (!normalizedFilter || normalizedFilter === 'all') return true;
+
+    const groups = {
+        pending: ['draft', 'submitted', 'in_progress', 'on_hold'],
+        in_progress: ['in_progress'],
+        approved: ['approved'],
+        rejected: ['rejected'],
+        cancelled: ['cancelled'],
+        submitted: ['submitted']
+    };
+
+    if (groups[normalizedFilter]) return groups[normalizedFilter].includes(normalizedStatus);
+    return normalizedStatus === normalizedFilter;
+}
+
+function normalizeDepartmentValue(department) {
+    return String(department || '')
+        .toLowerCase()
+        .replace(/&/g, 'and')
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function matchesDepartmentFilter(value, filter) {
+    const normalizedFilter = normalizeDepartmentValue(filter);
+    if (!normalizedFilter) return true;
+    return normalizeDepartmentValue(value) === normalizedFilter;
+}
+
 function escapeHtml(str) {
     if (str == null) return '';
     return String(str)

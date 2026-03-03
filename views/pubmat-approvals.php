@@ -75,7 +75,6 @@ $currentPage = 'pubmat-approvals';
     <style>
         /* ── Pubmat Approvals — page-scoped styles ──────────── */
 
-        /* Lift effect on material cards */
         .pubmat-card {
             transition: transform var(--duration-200) var(--ease-spring),
                 box-shadow var(--duration-200) var(--ease-out);
@@ -86,7 +85,6 @@ $currentPage = 'pubmat-approvals';
             box-shadow: var(--shadow-lg) !important;
         }
 
-        /* Preview thumbnail area */
         .pubmat-preview {
             height: 185px;
             position: relative;
@@ -117,7 +115,6 @@ $currentPage = 'pubmat-approvals';
             right: var(--space-3);
         }
 
-        /* Meta row (author / date) */
         .pubmat-meta {
             display: flex;
             align-items: center;
@@ -127,7 +124,6 @@ $currentPage = 'pubmat-approvals';
             color: var(--color-text-tertiary);
         }
 
-        /* Recent comment preview inside card */
         .pubmat-comment-preview {
             background: var(--gray-50);
             border: 1px solid var(--color-border-subtle);
@@ -138,7 +134,6 @@ $currentPage = 'pubmat-approvals';
             line-height: var(--leading-relaxed);
         }
 
-        /* Empty / loading state */
         .pubmat-empty {
             text-align: center;
             padding: var(--space-16) var(--space-8);
@@ -165,18 +160,26 @@ $currentPage = 'pubmat-approvals';
             margin: 0;
         }
 
-        /* ── View Modal — file viewer ──────────────────────── */
         .viewer-wrap {
             background: var(--gray-100);
-            min-height: 320px;
+            min-height: 260px;
+            max-height: 60vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: auto;
+            overflow: hidden;
             padding: var(--space-4);
+            flex-shrink: 0;
         }
 
-        /* ── Comments section ──────────────────────────────── */
+        .viewer-wrap iframe {
+            display: block;
+            width: 100%;
+            height: 60vh;
+            border: 0;
+            border-radius: var(--radius-lg);
+        }
+
         .comments-section {
             padding: var(--space-5) var(--space-6);
             background: var(--color-surface);
@@ -194,8 +197,6 @@ $currentPage = 'pubmat-approvals';
         }
 
         .comments-list {
-            max-height: 340px;
-            overflow-y: auto;
             padding-right: var(--space-1);
         }
 
@@ -263,7 +264,6 @@ $currentPage = 'pubmat-approvals';
             padding-left: var(--space-3);
         }
 
-        /* Reply-to banner */
         .reply-banner {
             background: var(--color-info-bg);
             border: 1px solid rgba(2, 119, 189, 0.18);
@@ -293,7 +293,6 @@ $currentPage = 'pubmat-approvals';
             opacity: 1;
         }
 
-        /* Comment input area */
         .comment-input-area {
             margin-top: var(--space-4);
         }
@@ -304,7 +303,6 @@ $currentPage = 'pubmat-approvals';
             margin-top: var(--space-2);
         }
 
-        /* Save indicator */
         .save-indicator {
             font-size: var(--text-xs);
             color: var(--color-success);
@@ -314,7 +312,6 @@ $currentPage = 'pubmat-approvals';
             margin-top: var(--space-2);
         }
 
-        /* ── Approval modal ─────────────────────────────────── */
         .approval-field-label {
             font-size: var(--text-2xs);
             font-weight: var(--font-semibold);
@@ -369,9 +366,8 @@ $currentPage = 'pubmat-approvals';
         </div>
     </div>
 
-    <!-- Approval / Rejection Modal -->
     <div class="modal fade" id="approvalModal" tabindex="-1" aria-labelledby="approvalModalTitle" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width: 440px;">
             <div class="modal-content border-0 rounded-4" style="box-shadow: var(--shadow-xl);">
                 <div class="modal-header border-0 px-5 pt-5 pb-2">
                     <h5 class="modal-title fw-bold" id="approvalModalTitle"
@@ -403,13 +399,12 @@ $currentPage = 'pubmat-approvals';
         </div>
     </div>
 
-    <!-- Material Viewer + Comments Modal -->
     <div class="modal fade" id="viewModal" tabindex="-1" aria-labelledby="viewModalTitle" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" style="max-width: 760px;">
-            <div class="modal-content border-0 rounded-4" style="box-shadow: var(--shadow-xl); overflow: hidden;">
+            <div class="modal-content border-0 rounded-4" style="box-shadow: var(--shadow-xl);">
 
-                <!-- Header -->
-                <div class="modal-header border-0 px-5 pt-4 pb-3" style="background: var(--color-surface);">
+                <!-- Sticky Header -->
+                <div class="modal-header border-0 px-5 pt-4 pb-3" style="background: var(--color-surface); flex-shrink: 0;">
                     <h5 class="modal-title" id="viewModalTitle"
                         style="font-size: var(--text-lg); font-weight: var(--font-semibold); color: var(--color-text-heading); max-width: calc(100% - 3rem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                         <i class="bi bi-eye text-primary me-2"></i> View Material
@@ -417,59 +412,60 @@ $currentPage = 'pubmat-approvals';
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <!-- File Viewer -->
-                <div class="viewer-wrap" id="materialViewer">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
+                <!-- Scrollable Body -->
+                <div class="modal-body p-0" style="overflow-y: auto; overflow-x: hidden;">
 
-                <div id="workflowContainer" class="px-5 py-4 border-bottom" style="background: var(--gray-50);">
-                </div>
-
-                <!-- Comments Section -->
-                <div class="comments-section">
-                    <div class="comments-section-title">
-                        <i class="bi bi-chat-dots" style="color: var(--color-info);"></i>
-                        Comments
+                    <div class="px-5 pb-3 pt-3 border-bottom" style="background: var(--color-surface);">
+                        <h6 class="mb-1" style="font-size: var(--text-xs); font-weight: 700; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.5px;">Caption / Description</h6>
+                        <div id="materialDescription" style="font-size: var(--text-sm); color: var(--color-text-secondary); white-space: pre-wrap; line-height: 1.5;"></div>
                     </div>
 
-                    <!-- Comments list -->
-                    <div class="comments-list" id="threadCommentsList">
-                        <!-- populated by JS -->
-                    </div>
-
-                    <!-- Reply-to notice -->
-                    <div id="commentReplyBanner" class="reply-banner d-none">
-                        <i class="bi bi-reply"></i>
-                        Replying to <strong id="replyAuthorName"></strong>
-                        <button type="button" class="reply-banner-close" onclick="clearReplyTarget()"
-                            aria-label="Cancel reply">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
-                    </div>
-
-                    <!-- Input area -->
-                    <div class="comment-input-area">
-                        <textarea id="threadCommentInput" class="form-control" rows="3" placeholder="Write a comment…"
-                            style="border-radius: var(--radius-lg); background: var(--gray-50); border: 1px solid var(--color-border); resize: none; font-size: var(--text-sm); padding: var(--space-3) var(--space-4);"></textarea>
-                        <div class="d-flex align-items-center justify-content-between mt-2">
-                            <span class="comment-input-hint">Shift + Enter for a new line</span>
-                            <button type="button" class="btn btn-primary btn-sm" onclick="postComment()">
-                                <i class="bi bi-send me-1"></i> Post
-                            </button>
+                    <div class="viewer-wrap border-bottom" id="materialViewer" style="background: var(--gray-100);">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
                         </div>
                     </div>
 
-                    <!-- Success indicator -->
-                    <div id="notesSaveIndicator" class="save-indicator d-none">
-                        <i class="bi bi-check-circle-fill"></i> Comment posted
-                    </div>
-                </div>
+                    <div id="workflowContainer" class="px-5 py-4 border-bottom" style="background: var(--gray-50);"></div>
 
-                <!-- Footer -->
+                    <div class="comments-section">
+                        <div class="comments-section-title">
+                            <i class="bi bi-chat-dots" style="color: var(--color-info);"></i>
+                            Comments
+                        </div>
+
+                        <div class="comments-list" id="threadCommentsList"></div>
+
+                        <div id="commentReplyBanner" class="reply-banner d-none">
+                            <i class="bi bi-reply"></i>
+                            Replying to <strong id="replyAuthorName"></strong>
+                            <button type="button" class="reply-banner-close" onclick="clearReplyTarget()"
+                                aria-label="Cancel reply">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+
+                        <div class="comment-input-area">
+                            <textarea id="threadCommentInput" class="form-control" rows="3" placeholder="Write a comment…"
+                                style="border-radius: var(--radius-lg); background: var(--gray-50); border: 1px solid var(--color-border); resize: none; font-size: var(--text-sm); padding: var(--space-3) var(--space-4);"></textarea>
+                            <div class="d-flex align-items-center justify-content-between mt-2">
+                                <span class="comment-input-hint">Shift + Enter for a new line</span>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="postComment()">
+                                    <i class="bi bi-send me-1"></i> Post
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="notesSaveIndicator" class="save-indicator d-none">
+                            <i class="bi bi-check-circle-fill"></i> Comment posted
+                        </div>
+                    </div>
+
+                </div><!-- /.modal-body -->
+
+                <!-- Sticky Footer -->
                 <div class="modal-footer border-0 px-5 py-3"
-                    style="background: var(--color-surface); border-top: 1px solid var(--color-border-subtle) !important;">
+                    style="background: var(--color-surface); border-top: 1px solid var(--color-border-subtle) !important; flex-shrink: 0;">
                     <button type="button" class="btn btn-ghost border" data-bs-dismiss="modal"
                         style="margin-right: auto;">
                         Close
@@ -479,6 +475,19 @@ $currentPage = 'pubmat-approvals';
                     </button>
                 </div>
 
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="fullViewModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+        <div class="modal-dialog modal-fullscreen modal-dialog-centered">
+            <div class="modal-content bg-dark bg-opacity-75" style="backdrop-filter: blur(5px);">
+                <div class="modal-header border-0" style="position: absolute; right: 10px; top: 10px; z-index: 10;">
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="font-size: 1.5rem;"></button>
+                </div>
+                <div class="modal-body d-flex justify-content-center align-items-center p-0" onclick="const modal = bootstrap.Modal.getInstance(document.getElementById('fullViewModal')); if(modal) modal.hide();">
+                    <img id="fullViewImage" src="" class="img-fluid" style="max-height: 95vh; max-width: 95vw; object-fit: contain;" alt="Full View">
+                </div>
             </div>
         </div>
     </div>

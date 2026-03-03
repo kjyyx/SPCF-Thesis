@@ -218,30 +218,28 @@ class DocumentNotificationSystem {
             localStorage.setItem('notifications_sortOption', this.sortOption);
             localStorage.setItem('notifications_groupBy', this.currentGroup);
             
-            let filtered = [];
-            
-            // Status Filter
-            if (this.currentFilter === 'all') {
-                filtered = [...this.documents];
-            } else if (this.currentFilter === 'submitted') {
-                filtered = this.documents.filter(doc => this.normalizeDocumentStatus(doc.status) === 'submitted');
-            } else if (this.currentFilter === 'in_progress') {
-                filtered = this.documents.filter(doc => this.normalizeDocumentStatus(doc.status) === 'in_progress');
-            } else if (this.currentFilter === 'approved') {
-                filtered = this.documents.filter(doc => this.normalizeDocumentStatus(doc.status) === 'approved');
-            } else if (this.currentFilter === 'rejected') {
-                filtered = this.documents.filter(doc => this.normalizeDocumentStatus(doc.status) === 'rejected');
-            } else {
-                filtered = this.documents.filter(doc => this.normalizeDocumentStatus(doc.status) === this.currentFilter);
-            }
+            let filtered = this.documents.filter(doc => {
+                if (typeof matchesStatusFilter === 'function') {
+                    return matchesStatusFilter(doc.status, this.currentFilter, 'document');
+                }
+                return this.currentFilter === 'all' || this.normalizeDocumentStatus(doc.status) === this.currentFilter;
+            });
 
             // Search Filter
             if (this.searchTerm) {
                 const term = this.searchTerm;
                 filtered = filtered.filter(doc =>
                     (doc.title?.toLowerCase().includes(term)) ||
-                    (doc.student?.department?.toLowerCase().includes(term)) ||
-                    (doc.department?.toLowerCase().includes(term)) ||
+                    ((typeof normalizeDepartmentValue === 'function'
+                        ? normalizeDepartmentValue(doc.student?.department)
+                        : (doc.student?.department || '').toLowerCase()).includes(
+                            typeof normalizeDepartmentValue === 'function' ? normalizeDepartmentValue(term) : term
+                        )) ||
+                    ((typeof normalizeDepartmentValue === 'function'
+                        ? normalizeDepartmentValue(doc.department)
+                        : (doc.department || '').toLowerCase()).includes(
+                            typeof normalizeDepartmentValue === 'function' ? normalizeDepartmentValue(term) : term
+                        )) ||
                     (this.formatDocType(doc.doc_type || '').toLowerCase().includes(term)) ||
                     (this.getStatusInfo(doc.status).label.toLowerCase().includes(term))
                 );
@@ -772,7 +770,12 @@ class DocumentNotificationSystem {
             let key = 'Other';
             if (groupBy === 'doc_type') key = this.formatDocType(doc.doc_type || 'Unknown');
             if (groupBy === 'department') key = doc.student?.department || doc.department || 'Unknown';
-            if (groupBy === 'status') key = this.getStatusInfo(doc.status).label;
+            if (groupBy === 'status') {
+                const normalized = typeof normalizeStatusForFilter === 'function'
+                    ? normalizeStatusForFilter(doc.status, 'document')
+                    : this.normalizeDocumentStatus(doc.status);
+                key = this.getStatusInfo(normalized).label;
+            }
 
             if (!groups[key]) groups[key] = [];
             groups[key].push(doc);

@@ -141,6 +141,7 @@ class DocumentTrackerSystem {
             const row = document.createElement('tr');
             const docType = this.getDocumentTypeDisplay(doc.document_type || doc.doc_type);
             const createdDate = doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'N/A';
+            const canDelete = window.currentUser?.role === 'student' && !doc.is_material;
 
             const statusBadgeHTML = typeof window.getStatusBadge === 'function'
                 ? window.getStatusBadge(doc.status || doc.current_status, 'document')
@@ -175,7 +176,8 @@ class DocumentTrackerSystem {
                 </div></td>
                 <td class="text-end">
                     <button class="btn btn-ghost btn-sm rounded-pill px-3 me-1" onclick="documentTracker.viewDetails('${doc.id}')"><i class="bi bi-eye"></i></button>
-                    <button class="btn btn-ghost btn-icon sm rounded-pill" onclick="documentTracker.downloadDocument('${doc.id}')" title="Download"><i class="bi bi-download"></i></button>
+                    <button class="btn btn-ghost btn-icon sm rounded-pill me-1" onclick="documentTracker.downloadDocument('${doc.id}')" title="Download"><i class="bi bi-download"></i></button>
+                    ${canDelete ? `<button class="btn btn-ghost btn-icon sm rounded-pill text-danger" onclick="documentTracker.deleteDocument('${doc.id}')" title="Delete"><i class="bi bi-trash"></i></button>` : ''}
                 </td>
             `;
             tbody.appendChild(row);
@@ -443,20 +445,36 @@ class DocumentTrackerSystem {
 
         if (searchVal) {
             docs = docs.filter(doc =>
-                [doc.title, doc.document_name, doc.status, doc.current_location, doc.document_type, doc.doc_type]
+                [
+                    doc.title,
+                    doc.document_name,
+                    doc.status,
+                    doc.current_status,
+                    doc.current_location,
+                    doc.document_type,
+                    doc.doc_type,
+                    doc.department,
+                    doc.student?.department
+                ]
                     .some(f => String(f || '').toLowerCase().includes(searchVal))
             );
         }
 
         const activeFilter = document.querySelector('input[name="statusFilter"]:checked')?.id;
-        if (activeFilter && activeFilter !== 'filterAll') {
-            const map = {
-                'filterPending': ['draft', 'submitted', 'in_progress', 'on_hold'],
-                'filterApproved': ['approved'],
-                'filterRejected': ['rejected']
-            };
-            const allow = map[activeFilter] || [];
-            docs = docs.filter(doc => allow.includes(this.normalizeDocumentStatus(doc.status || doc.current_status)));
+        const filterMap = {
+            filterAll: 'all',
+            filterPending: 'pending',
+            filterApproved: 'approved',
+            filterRejected: 'rejected'
+        };
+        const wanted = filterMap[activeFilter] || 'all';
+        if (wanted !== 'all') {
+            docs = docs.filter(doc => {
+                if (typeof matchesStatusFilter === 'function') {
+                    return matchesStatusFilter(doc.status || doc.current_status, wanted, 'document');
+                }
+                return this.normalizeDocumentStatus(doc.status || doc.current_status) === wanted;
+            });
         }
 
         this.filteredDocuments = docs;
@@ -517,7 +535,10 @@ class DocumentTrackerSystem {
         switch (field) {
             case 'title': return doc.title || doc.document_name || '';
             case 'document_type': return this.getDocumentTypeDisplay(doc.document_type || doc.doc_type || '');
-            case 'current_status': return this.formatStatusDisplay(doc.status || doc.current_status || '');
+            case 'current_status':
+                return typeof normalizeStatusForFilter === 'function'
+                    ? normalizeStatusForFilter(doc.status || doc.current_status || '', 'document')
+                    : this.formatStatusDisplay(doc.status || doc.current_status || '');
             case 'current_location': return this.shortenOfficeName(doc.current_location || '');
             case 'updated_at': return doc.updated_at || doc.uploaded_at || '';
             default: return doc[field] || doc.title || doc.document_name || '';
@@ -590,6 +611,36 @@ class DocumentTrackerSystem {
             .catch(() => this.showToast('Failed to download document', 'error'));
     }
 
+    async deleteDocument(docId) {
+        if (window.currentUser?.role !== 'student') {
+            this.showToast('Only students can delete documents', 'error');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
+            return;
+        }
+
+        this.showToast('Deleting document...', 'info');
+
+        try {
+            const response = await fetch(this.apiBase + `?id=${encodeURIComponent(docId)}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showToast('Document deleted successfully', 'success');
+                await this.loadStudentDocuments(true);
+            } else {
+                this.showToast(data.message || 'Failed to delete document', 'error');
+            }
+        } catch (error) {
+            this.showToast('Failed to delete document: ' + error.message, 'error');
+        }
+    }
+
     showResubmitConfirm(docId) {
         const btn = document.getElementById(`resubmitInitBtn-${docId}`);
         const box = document.getElementById(`resubmitConfirmBox-${docId}`);
@@ -638,6 +689,7 @@ class DocumentTrackerSystem {
 
     safeText(value) { return value ? String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : 'N/A'; }
     normalizeDocumentStatus(status) {
+        if (typeof normalizeStatusForFilter === 'function') return normalizeStatusForFilter(status, 'document');
         if (typeof normalizeWorkflowStatus === 'function') return normalizeWorkflowStatus(status, 'document');
         const fallback = String(status || '').toLowerCase();
         const alias = { pending: 'submitted', completed: 'approved', in_review: 'in_progress', under_review: 'in_progress', timeout: 'on_hold', expired: 'on_hold', deleted: 'cancelled' };

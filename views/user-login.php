@@ -170,7 +170,7 @@ $twoFactorUserId = '';
     <!-- 2FA Verification Modal -->
     <div class="modal fade" id="2faVerificationModal" tabindex="-1" data-bs-backdrop="static" 
         data-bs-keyboard="false" aria-labelledby="2faVerificationLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header text-white">
                     <h5 class="modal-title" id="2faVerificationLabel">
@@ -209,7 +209,7 @@ $twoFactorUserId = '';
 
     <!-- 2FA Setup Modal -->
     <div class="modal fade" id="2faSetupModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header text-white">
                     <h5 class="modal-title fw-bold">
@@ -269,7 +269,7 @@ $twoFactorUserId = '';
 
     <!-- Forgot Password Modal -->
     <div class="modal fade" id="forgotPasswordModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
@@ -429,7 +429,7 @@ $twoFactorUserId = '';
 
     <!-- About Modal -->
     <div class="modal fade about-modal" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
             <div class="modal-content about-modal-content">
                 <div class="modal-header modal-header-centered">
                     <h5 class="modal-title" id="aboutModalLabel">

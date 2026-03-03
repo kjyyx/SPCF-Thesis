@@ -148,6 +148,16 @@ function displayMaterials(materials) {
     container.innerHTML = html;
 }
 
+// NEW: Helper function to open the full view modal
+window.openFullscreenView = function(imageUrl) {
+    const fullImageEl = document.getElementById('fullViewImage');
+    if (fullImageEl) {
+        fullImageEl.src = imageUrl;
+        const modal = new bootstrap.Modal(document.getElementById('fullViewModal'));
+        modal.show();
+    }
+};
+
 function viewMaterial(id) {
     currentMaterialId = normalizeMaterialId(id) || id;
     
@@ -167,14 +177,29 @@ function viewMaterial(id) {
                 const modalTitle = document.getElementById('viewModalTitle');
                 modalTitle.innerHTML = `<i class="bi bi-eye text-primary me-2"></i> ${escapeHtml(material.title)}`;
                 
+                // NEW: Populate Description Field
+                const descEl = document.getElementById('materialDescription');
+                if (descEl) {
+                    descEl.textContent = material.description || 'No description provided by the creator.';
+                }
+
                 const isImage = material.file_type && material.file_type.startsWith('image/');
                 const isPDF = material.file_type === 'application/pdf';
                 let fileUrl = BASE_URL + `api/materials.php?action=serve_image&id=${encodeURIComponent(currentMaterialId)}`;
                 
                 if (isImage) {
-                    viewer.innerHTML = `<img src="${fileUrl}" class="img-fluid rounded-3 shadow-sm" style="max-height: 70vh; object-fit: contain;" alt="Material">`;
+                    // NEW: Wrapping image in a clickable container with an expand icon
+                    viewer.innerHTML = `
+                        <div class="position-relative d-inline-block" style="cursor: zoom-in;" onclick="openFullscreenView('${fileUrl}')" title="Click to view full screen">
+                            <img src="${fileUrl}" class="img-fluid rounded-3 shadow-sm" style="max-height: 70vh; object-fit: contain;" alt="Material">
+                            <div class="position-absolute top-0 end-0 m-3">
+                                <span class="badge bg-dark bg-opacity-75 p-2 rounded-circle shadow" style="backdrop-filter: blur(4px);">
+                                    <i class="bi bi-arrows-fullscreen" style="font-size: 1.2rem;"></i>
+                                </span>
+                            </div>
+                        </div>`;
                 } else if (isPDF) {
-                    viewer.innerHTML = `<iframe src="${fileUrl}" class="w-100 rounded-3 shadow-sm border-0" style="height: 70vh;"></iframe>`;
+                    viewer.innerHTML = `<iframe src="${fileUrl}" class="w-100 rounded-3 shadow-sm border-0" title="PDF Viewer"></iframe>`;
                 } else {
                     viewer.innerHTML = `<div style="text-align: center; padding: var(--space-6);">
                         <i class="bi bi-file-earmark" style="font-size: 3rem; color: var(--color-text-tertiary); display: block; margin-bottom: var(--space-3);"></i>
@@ -185,9 +210,7 @@ function viewMaterial(id) {
 
                 document.getElementById('downloadBtnInModal').onclick = () => downloadMaterial(currentMaterialId);
                 
-                // NEW: Display the approval timeline
                 displayMaterialWorkflow(material);
-                
                 loadThreadComments(currentMaterialId);
             } else {
                 viewer.innerHTML = '<div style="color: var(--color-danger); padding: var(--space-4);">Material not found.</div>';

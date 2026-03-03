@@ -211,7 +211,7 @@ $currentPage = 'saf';
   </div>
 
   <div class="modal fade" id="allocateModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content border-0 shadow-lg rounded-4">
         <div class="modal-header border-bottom-0 p-4 pb-3">
           <h5 class="modal-title fw-bold text-dark"><i class="bi bi-wallet2 text-primary me-2"></i>Allocate Funds</h5>
@@ -247,7 +247,7 @@ $currentPage = 'saf';
   </div>
 
   <div class="modal fade" id="addDeductModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content border-0 shadow-lg rounded-4">
         <div class="modal-header border-bottom-0 p-4 pb-3">
           <h5 class="modal-title fw-bold text-dark"><i class="bi bi-calculator text-primary me-2"></i>Add / Deduct Funds
@@ -294,7 +294,7 @@ $currentPage = 'saf';
   </div>
 
   <div class="modal fade" id="editModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content border-0 shadow-lg rounded-4">
         <div class="modal-header border-bottom-0 p-4 pb-3">
           <h5 class="modal-title fw-bold text-dark"><i class="bi bi-pencil-square text-primary me-2"></i>Edit SAF
@@ -324,7 +324,7 @@ $currentPage = 'saf';
   </div>
 
   <div class="modal fade" id="resetModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content border-0 shadow-lg rounded-4">
         <div class="modal-header bg-danger-subtle border-bottom-0 p-4 pb-3">
           <h5 class="modal-title fw-bold text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Reset
@@ -350,7 +350,7 @@ $currentPage = 'saf';
   </div>
 
   <div class="modal fade" id="transactionModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content border-0 shadow-lg rounded-4">
         <div class="modal-header border-bottom-0 p-4 pb-3">
           <h5 class="modal-title fw-bold text-dark"><i class="bi bi-receipt text-primary me-2"></i>Transaction Details

@@ -810,7 +810,7 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
   </div>
 
   <div class="modal fade" id="profileSettingsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title"><i class="bi bi-person-gear me-2"></i>Profile Settings</h5>
@@ -855,7 +855,7 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
   </div>
 
   <div class="modal fade" id="preferencesModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title"><i class="bi bi-sliders me-2"></i>Preferences</h5>
@@ -893,7 +893,7 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
   </div>
 
   <div class="modal fade" id="helpModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title"><i class="bi bi-question-circle me-2"></i>Help & Support</h5>
@@ -915,7 +915,7 @@ addAuditLog('CREATE_DOCUMENT_VIEWED', 'Document Management', 'Viewed create docu
   </div>
 
   <div class="modal fade" id="confirmModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="confirmModalLabel">Confirm Action</h5>

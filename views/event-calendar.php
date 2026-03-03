@@ -77,6 +77,58 @@ $pendingCount = $stmt->fetchColumn();
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/master-css.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/event-calendar.css">
+    
+    <style>
+        /* --- Dynamic Full Screen Calendar Override Styles --- */
+        body.is-fullscreen {
+            overflow: hidden !important;
+            padding-top: 0px 
+        }
+        body.is-fullscreen .navbar, 
+        body.is-fullscreen .page-header, 
+        body.is-fullscreen .stat-card-group,
+        body.is-fullscreen .alert {
+            display: none !important;
+        }
+
+        body.is-fullscreen .container {
+            max-width: 100% !important;
+            padding: 1.5rem !important;
+            margin: 0 !important;
+        }
+        body.is-fullscreen #controlsCol {
+            width: 100% !important;
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+        }
+        body.is-fullscreen .calendar-card-wrapper {
+            height: calc(100vh - 110px) !important;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 0 !important;
+        }
+        body.is-fullscreen .su-calendar-grid {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        body.is-fullscreen .su-calendar-body {
+            flex: 1;
+            grid-auto-rows: minmax(12vh, auto) !important;
+            overflow-y: auto;
+        }
+        body.is-fullscreen .su-agenda-container {
+            height: 100% !important;
+            max-height: none !important;
+            overflow-y: auto;
+        }
+        
+        /* Exit Fullscreen Buttons logic */
+        .exit-fs-btn { display: none !important; }
+        body.is-fullscreen .exit-fs-btn { display: inline-flex !important; }
+    </style>
+
     <script>
         // Pass user data to JavaScript
         window.currentUser = <?php
@@ -169,7 +221,7 @@ $pendingCount = $stmt->fetchColumn();
         </div>
 
         <div class="row g-4 mb-4">
-            <div class="col-lg-8">
+            <div class="col-lg-8" id="controlsCol">
                 <div class="card h-full">
                     <div class="card-body d-flex flex-column gap-3">
 
@@ -181,6 +233,15 @@ $pendingCount = $stmt->fetchColumn();
                                     Loading...</h3>
                                 <button class="btn btn-icon sm" id="nextMonth"><i
                                         class="bi bi-chevron-right"></i></button>
+                                        
+                                <button class="btn btn-outline-danger btn-sm exit-fs-btn ms-2" onclick="toggleCalendarFullscreen()" title="Exit Full Screen">
+                                    <i class="bi bi-fullscreen-exit"></i> Exit
+                                </button>
+                                <?php if ($currentUser['role'] === 'admin' || ($currentUser['position'] ?? '') === 'Physical Plant and Facilities Office (PPFO)'): ?>
+                                    <button class="btn btn-primary btn-sm exit-fs-btn ms-2 shadow-sm" id="addEventBtnFS">
+                                        <i class="bi bi-plus-lg"></i> Add Event
+                                    </button>
+                                <?php endif; ?>
                             </div>
 
                             <div class="nav-tabs-glass">
@@ -217,7 +278,7 @@ $pendingCount = $stmt->fetchColumn();
                 </div>
             </div>
 
-            <div class="col-lg-4">
+            <div class="col-lg-4 stat-card-group">
                 <div class="d-flex flex-column gap-3 h-full">
                     <div class="d-flex gap-3 flex-1">
                         <div class="stat-card info flex-1 p-3 flex-col justify-center text-center">
@@ -238,8 +299,11 @@ $pendingCount = $stmt->fetchColumn();
                         <button type="button" class="btn btn-ghost flex-1" id="exportEventsBtn">
                             <i class="bi bi-download"></i> Export
                         </button>
-                        <?php if ($currentUser['role'] === 'admin' || $currentUser['position'] === 'Physical Plant and Facilities Office (PPFO)'): ?>
-                            <button type="button" class="btn btn-primary flex-2" id="addEventBtn">
+                        <?php if ($currentUser['role'] === 'admin' || ($currentUser['position'] ?? '') === 'Physical Plant and Facilities Office (PPFO)'): ?>
+                            <button type="button" class="btn btn-info flex-1 text-white shadow-sm" id="fullScreenBtn" onclick="toggleCalendarFullscreen()" title="Full Screen View">
+                                <i class="bi bi-arrows-fullscreen"></i> Expand
+                            </button>
+                            <button type="button" class="btn btn-primary flex-2 shadow-sm" id="addEventBtn">
                                 <i class="bi bi-plus-lg"></i> Add Event
                             </button>
                         <?php endif; ?>
@@ -248,7 +312,7 @@ $pendingCount = $stmt->fetchColumn();
             </div>
         </div>
 
-        <div class="card card-lg p-0 border-0 shadow-md">
+        <div class="card card-lg p-0 border-0 shadow-md calendar-card-wrapper">
             <div id="calendarLoading" class="text-center py-5 d-none">
                 <div class="spinner spinner-lg mx-auto mb-3"></div>
                 <p class="text-muted">Loading events...</p>
@@ -278,7 +342,7 @@ $pendingCount = $stmt->fetchColumn();
     </div>
 
     <div class="modal fade" id="eventModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="eventModalLabel">Event Details</h5>
@@ -342,7 +406,7 @@ $pendingCount = $stmt->fetchColumn();
     </div>
 
     <div class="modal fade" id="viewEventModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Event Details</h5>
@@ -386,7 +450,7 @@ $pendingCount = $stmt->fetchColumn();
     </div>
 
     <div class="modal fade" id="changePasswordModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Change Password</h5>
@@ -433,7 +497,7 @@ $pendingCount = $stmt->fetchColumn();
     </div>
 
     <div class="modal fade" id="profileSettingsModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Profile Settings</h5>
@@ -483,7 +547,7 @@ $pendingCount = $stmt->fetchColumn();
     </div>
 
     <div class="modal fade" id="preferencesModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Preferences</h5>
@@ -532,7 +596,7 @@ $pendingCount = $stmt->fetchColumn();
     </div>
 
     <div class="modal fade" id="helpModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Help & Support</h5>
@@ -598,6 +662,38 @@ $pendingCount = $stmt->fetchColumn();
         function openCreateDocumentModal() { window.location.href = window.BASE_URL + 'create-document'; }
         function openUploadPubmatModal() { window.location.href = window.BASE_URL + 'upload-publication'; }
         function openTrackDocumentsModal() { window.location.href = window.BASE_URL + 'track-document'; }
+        
+        // --- Fullscreen View Controls ---
+        function toggleCalendarFullscreen() {
+            if (!document.fullscreenElement) {
+                // Request full-screen on the entire body so modals still render properly
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`Error enabling full-screen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Apply visual changes strictly when standard browser fullscreen is active
+            document.addEventListener('fullscreenchange', () => {
+                if (document.fullscreenElement) {
+                    document.body.classList.add('is-fullscreen');
+                } else {
+                    document.body.classList.remove('is-fullscreen');
+                }
+            });
+
+            // Proxy the FS Add Event button click to the standard calendar button
+            const addBtnFs = document.getElementById('addEventBtnFS');
+            if (addBtnFs) {
+                addBtnFs.addEventListener('click', () => {
+                    const origBtn = document.getElementById('addEventBtn');
+                    if (origBtn) origBtn.click();
+                });
+            }
+        });
     </script>
 </body>
 

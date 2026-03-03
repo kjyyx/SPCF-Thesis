@@ -7,7 +7,9 @@ $badgeColor = ($role === 'admin') ? 'danger' : (($role === 'employee') ? 'primar
     <a href="<?= BASE_URL ?>" class="navbar-brand"><img src="<?= BASE_URL ?>assets/images/Sign-UM logo.png" alt="Logo"><span class="navbar-brand-divider">|</span><span class="navbar-brand-title text-muted fw-normal"><?= $pageTitle ?? 'Dashboard' ?></span></a>
     <div class="navbar-nav ms-auto d-flex flex-row align-items-center">
         <div class="user-info me-3 hidden-mobile"><i class="bi bi-person-circle me-2"></i><span id="userDisplayName"><?= htmlspecialchars($currentUser['first_name'].' '.$currentUser['last_name']) ?></span><span class="badge ms-2 bg-<?= $badgeColor ?> rounded-pill"><?= strtoupper($role) ?></span></div>
+        <?php if($role !== 'admin'): ?>
         <div class="notification-bell me-4 position-relative" onclick="showNotifications()" style="cursor:pointer;"><i class="bi bi-bell fs-5 text-secondary hover-text-primary"></i><span id="notificationCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger shadow-sm" style="display:none;font-size:0.65rem;border:2px solid white;">0</span></div>
+        <?php endif; ?>
         <div class="dropdown me-3">
             <button class="btn btn-outline-light btn-sm dropdown-toggle rounded-pill" type="button" data-bs-toggle="dropdown"><i class="bi bi-gear me-1"></i>Settings</button>
             <ul class="dropdown-menu dropdown-menu-end shadow-lg" style="border-radius:24px; border:1px solid var(--color-border-subtle); padding:8px;">

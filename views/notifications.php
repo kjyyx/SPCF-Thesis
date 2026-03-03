@@ -649,7 +649,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     </div>
 
     <div class="modal fade" id="changePasswordModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
@@ -704,7 +704,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
 
     <div class="modal fade" id="profileSettingsModal" tabindex="-1" aria-labelledby="profileSettingsLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="profileSettingsLabel">
@@ -748,7 +748,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     </div>
 
     <div class="modal fade" id="preferencesModal" tabindex="-1" aria-labelledby="preferencesLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="preferencesLabel">
@@ -792,7 +792,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     </div>
 
     <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="helpLabel">
@@ -922,7 +922,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
 
     <div class="modal fade" id="notificationsModal" tabindex="-1" aria-labelledby="notificationsModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="notificationsModalLabel">
@@ -948,7 +948,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     </div>
 
     <div class="modal fade" id="rejectDocumentModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title text-danger">
@@ -975,7 +975,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     </div>
 
     <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="confirmModalLabel">Confirm Action</h5>
@@ -993,8 +993,8 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
     </div>
 
     <div class="modal fade" id="fullDocumentModal" tabindex="-1">
-        <div class="modal-dialog modal-lg" style="max-width: 90vw; max-height: 90vh;">
-            <div class="modal-content" style="height: 85vh;">
+        <div class="modal-dialog modal-lg modal-dialog-centered" style="max-width: 90vw;">
+            <div class="modal-content" style="height: 85vh; max-height: 90vh;">
                 <div class="modal-header">
                     <h5 class="modal-title">Full Document View</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

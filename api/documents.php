@@ -251,7 +251,7 @@ function createDocument($db, $currentUser, $input)
                     ['position' => 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)', 'table' => 'employees', 'dept' => false],
                     ['position' => 'Vice President for Academic Affairs (VPAA)', 'table' => 'employees', 'dept' => false],
                     ['position' => 'Executive Vice-President / Student Services (EVP)', 'table' => 'employees', 'dept' => false],
-                    ['position' => 'Accounting Personnel (AP)', 'table' => 'employees', 'dept' => false, 'doc_only' => true]
+                    ['position' => 'Accounting Personnel (AP)', 'table' => 'employees', 'dept' => false]
                 ];
                 break;
 
@@ -438,8 +438,13 @@ function createDocument($db, $currentUser, $input)
                 $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, ?, ?, ?, 'queued')")
                     ->execute([$docId, $stepOrder++, $stepName, ($wp['table'] === 'employees' ? $assignee['id'] : null), ($wp['table'] === 'students' ? $assignee['id'] : null)]);
             }
-            if ($pos === 'Executive Vice-President / Student Services (EVP)')
+            if ($docType === 'saf') {
+                if ($pos === 'Accounting Personnel (AP)') {
+                    $approvalReached = true;
+                }
+            } elseif ($pos === 'Executive Vice-President / Student Services (EVP)') {
                 $approvalReached = true;
+            }
         }
 
         $db->commit();
@@ -521,21 +526,33 @@ function signDocument($db, $currentUser, $input, $files = null)
             $currentStep = $stepStmt->fetch(PDO::FETCH_ASSOC);
 
             if ($doc['doc_type'] === 'saf' && $currentStep && strpos($currentStep['name'], 'Accounting') !== false) {
-                $existingTransStmt = $db->prepare("SELECT COUNT(*) FROM saf_transactions WHERE transaction_description LIKE ?");
-                $existingTransStmt->execute(["%Document ID: {$documentId}%"]);
+                $existingTransStmt = $db->prepare("SELECT COUNT(*) FROM saf_transactions WHERE transaction_description LIKE ? OR transaction_description LIKE ?");
+                $existingTransStmt->execute(["%Document ID: {$documentId}%", "%Doc ID: {$documentId}%"]);
                 if ($existingTransStmt->fetchColumn() == 0) {
                     $data = json_decode($doc['data'], true);
                     if ($data) {
                         $reqSSC = $data['reqSSC'] ?? 0;
                         $reqCSC = $data['reqCSC'] ?? 0;
-                        $deptId = strtolower(trim($data['department']));
-                        $reverseDeptMap = ['supreme student council' => 'ssc', 'college of engineering' => 'coe', 'college of computing and information sciences' => 'ccis', 'college of business' => 'cob', 'college of arts, social sciences and education' => 'casse', 'college of hospitality and tourism management' => 'chtm', 'college of criminology' => 'coc', 'college of nursing' => 'con'];
+                        $deptId = strtolower(trim($data['department'] ?? ''));
+                        $reverseDeptMap = [
+                            'supreme student council' => 'ssc',
+                            'supreme student council (ssc)' => 'ssc',
+                            'ssc' => 'ssc',
+                            'college of engineering' => 'coe',
+                            'college of computing and information sciences' => 'ccis',
+                            'college of business' => 'cob',
+                            'college of arts, social sciences and education' => 'casse',
+                            'college of hospitality and tourism management' => 'chtm',
+                            'college of criminology' => 'coc',
+                            'college of nursing' => 'con',
+                            'spcf miranda' => 'miranda'
+                        ];
                         $deptId = $reverseDeptMap[$deptId] ?? $deptId;
 
                         $transStmt = $db->prepare("INSERT INTO saf_transactions (department_id, transaction_type, transaction_amount, transaction_description, transaction_date, created_by) VALUES (?, 'deduct', ?, ?, NOW(), ?)");
-                        $docTitle = $doc['title'] ?? 'SAF Request';
-                        $sscDesc = "SAF (SSC) - {$docTitle} (Doc ID: {$documentId})";
-                        $cscDesc = "SAF (CSC) - {$docTitle} (Doc ID: {$documentId})";
+                        $docTitle = trim((string) ($doc['title'] ?? 'SAF Request'));
+                        $sscDesc = $docTitle;
+                        $cscDesc = $docTitle;
 
                         if ($reqSSC > 0) {
                             $db->prepare("UPDATE saf_balances SET used_amount = used_amount + ?, current_balance = initial_amount - used_amount WHERE department_id = 'ssc'")->execute([$reqSSC]);

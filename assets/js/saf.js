@@ -20,6 +20,31 @@ DEPARTMENTS.forEach(dept => {
   deptNameToIdMap[dept.name] = dept.db_id;
 });
 
+deptNameToIdMap['Supreme Student Council'] = 'ssc';
+deptNameToIdMap['Supreme Student Council (SSC)'] = 'ssc';
+
+function mapDepartmentNameToId(name) {
+  const raw = String(name || '').trim();
+  if (!raw) return '';
+  if (deptNameToIdMap[raw]) return deptNameToIdMap[raw];
+
+  const normalized = raw.toLowerCase().replace(/\s+/g, ' ').trim();
+  const normalizedMap = {
+    'supreme student council': 'ssc',
+    'supreme student council (ssc)': 'ssc',
+    'college of arts, social sciences and education': 'casse',
+    'college of computing and information sciences': 'ccis',
+    'college of hospitality and tourism management': 'chtm',
+    'college of business': 'cob',
+    'college of criminology': 'coc',
+    'college of engineering': 'coe',
+    'college of nursing': 'con',
+    'spcf miranda': 'miranda'
+  };
+
+  return normalizedMap[normalized] || '';
+}
+
 // Global state
 let currentDeptId = null;
 let allData = [];
@@ -80,7 +105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initDataSdk();
 
   if (isStudent && currentUser.department) {
-    const studentDeptId = deptNameToIdMap[currentUser.department];
+    const studentDeptId = mapDepartmentNameToId(currentUser.department);
     if (studentDeptId) {
       currentDeptId = studentDeptId;
       document.getElementById('sidebar').style.display = 'none';

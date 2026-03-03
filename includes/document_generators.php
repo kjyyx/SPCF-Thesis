@@ -106,11 +106,10 @@ if ($key === 'budget') {
 
                 // Header Row (Narrowed column widths)
                 $table->addRow($rowHeight, ['exactHeight' => true]);
-                $table->addCell(2800)->addText('ITEM DESCRIPTION', $headerFont);
-                $table->addCell(1200)->addText('PRICE (Php)', $headerFont, ['alignment' => 'center']);
-                $table->addCell(1500)->addText('DETAILS', $headerFont, ['alignment' => 'center']);
-                $table->addCell(800)->addText('QTY', $headerFont, ['alignment' => 'center']);
-                $table->addCell(1500)->addText('TOTAL', $headerFont, ['alignment' => 'right']);
+                $table->addCell(2200)->addText('ITEM DESCRIPTION', $headerFont);
+                $table->addCell(1400)->addText('PRICE (Php)', $headerFont, ['alignment' => 'center']);
+                $table->addCell(900)->addText('QTY', $headerFont, ['alignment' => 'center']);
+                $table->addCell(1800)->addText('TOTAL', $headerFont, ['alignment' => 'right']);
 
                 $grandTotal = 0;
                 foreach ($value as $item) {
@@ -118,24 +117,28 @@ if ($key === 'budget') {
                     $grandTotal += $total;
 
                     $table->addRow($rowHeight, ['exactHeight' => true]);
-                    $table->addCell(2800)->addText(htmlspecialchars($item['name'] ?? ''), $dataFont);
-                    $table->addCell(1200)->addText(number_format(floatval($item['price'] ?? 0), 2), $dataFont, ['alignment' => 'center']);
-                    $table->addCell(1500)->addText(htmlspecialchars($item['size'] ?? ''), $dataFont, ['alignment' => 'center']);
-                    $table->addCell(800)->addText($item['qty'] ?? '0', $dataFont, ['alignment' => 'center']);
-                    $table->addCell(1500)->addText(number_format($total, 2), $dataFont, ['alignment' => 'right']);
+                    $table->addCell(2200)->addText(htmlspecialchars($item['name'] ?? ''), $dataFont);
+                    $table->addCell(1400)->addText(number_format(floatval($item['price'] ?? 0), 2), $dataFont, ['alignment' => 'center']);
+                    $table->addCell(900)->addText($item['qty'] ?? '0', $dataFont, ['alignment' => 'center']);
+                    $table->addCell(1800)->addText(number_format($total, 2), $dataFont, ['alignment' => 'right']);
                 }
 
                 // Grand Total Row
                 $table->addRow($rowHeight, ['exactHeight' => true]);
-                // Gridspan 4 merges the first 4 columns. 2800+1200+1500+800 = 6300 twips.
-                $table->addCell(6300, ['gridSpan' => 4])->addText('Grand Total:', ['bold' => true, 'size' => 9], ['alignment' => 'right']);
-                $table->addCell(1500)->addText(number_format($grandTotal, 2), ['bold' => true, 'color' => '198754', 'size' => 9], ['alignment' => 'right']);
+                // Gridspan 3 merges ITEM DESCRIPTION + PRICE + QTY columns.
+                $table->addCell(4500, ['gridSpan' => 3])->addText('Grand Total:', ['bold' => true, 'size' => 9], ['alignment' => 'right']);
+                $table->addCell(1800)->addText(number_format($grandTotal, 2), ['bold' => true, 'color' => '198754', 'size' => 9], ['alignment' => 'right']);
 
                 $templateProcessor->setComplexBlock($key, $table);
                 continue; 
                 
             } elseif ($key === 'objectives' || $key === 'ilos') {
-                $value = implode("\n• ", array_map('htmlspecialchars', $value));
+                $bulletLines = array_map(function ($line) {
+                    return '• ' . htmlspecialchars(trim((string) $line));
+                }, array_filter($value, function ($line) {
+                    return trim((string) $line) !== '';
+                }));
+                $value = implode("\n", $bulletLines);
             } elseif ($key === 'program') {
                 // Formatting Program as: "1:00 pm - 1:30pm - Activity"
                 $lines = [];

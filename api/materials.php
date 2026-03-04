@@ -501,6 +501,72 @@ switch ($method) {
             http_response_code(500); echo json_encode(['success' => false, 'message' => 'Database error']);
         }
         break;
+
+    case 'DELETE':
+        $id = $_GET['id'] ?? null;
+        if (!$id) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Material ID required']);
+            exit();
+        }
+
+        // Verify user is PPFO
+        $userRole = $_SESSION['user_role'] ?? '';
+        $userPosition = $_SESSION['position'] ?? '';
+        $isPpfo = ($userRole === 'employee' && $userPosition === 'Physical Plant and Facilities Office (PPFO)');
+        
+        if (!$isPpfo) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Access denied. PPFO only.']);
+            exit();
+        }
+
+        // Check if material exists and is approved
+        $checkStmt = $conn->prepare("SELECT id, file_path, status FROM materials WHERE id = ? AND status = 'approved'");
+        $checkStmt->execute([$id]);
+        $material = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$material) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Material not found or not approved']);
+            exit();
+        }
+
+        $conn->beginTransaction();
+        try {
+            // Delete related records first (foreign key constraints)
+            
+            // 1. Delete comments/notes
+            $deleteNotes = $conn->prepare("DELETE FROM materials_notes WHERE material_id = ?");
+            $deleteNotes->execute([$id]);
+            
+            // 2. Delete workflow steps
+            $deleteSteps = $conn->prepare("DELETE FROM materials_steps WHERE material_id = ?");
+            $deleteSteps->execute([$id]);
+            
+            // 3. Delete notifications related to this material
+            $deleteNotifications = $conn->prepare("DELETE FROM notifications WHERE related_document_id = ? AND reference_type LIKE '%material%'");
+            $deleteNotifications->execute([$id]);
+            
+            // 4. Finally delete the material
+            $deleteMaterial = $conn->prepare("DELETE FROM materials WHERE id = ?");
+            $deleteMaterial->execute([$id]);
+
+            // Delete physical file
+            $filePath = materialAbsolutePath($material['file_path']);
+            if ($filePath && file_exists($filePath)) {
+                unlink($filePath);
+            }
+
+            $conn->commit();
+            echo json_encode(['success' => true, 'message' => 'Material deleted successfully']);
+        } catch (Exception $e) {
+            $conn->rollBack();
+            error_log("Delete material error: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Database error occurred']);
+        }
+        break;
 }
 
 // Helper functions

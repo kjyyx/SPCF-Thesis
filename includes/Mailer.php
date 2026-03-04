@@ -52,7 +52,7 @@ class Mailer {
             $this->mail->Subject = $subject;
 
             // Always embed the header logo
-            $this->mail->addEmbeddedImage(ROOT_PATH . 'assets/images/Sign-UM logo.png', 'header_image');
+            $this->mail->addEmbeddedImage(ROOT_PATH . 'assets/images/Email_background.jpg', 'header_image');
 
             // Generate HTML body using the layout system
             $this->mail->Body = $this->renderTemplate($templateName, $templateData);

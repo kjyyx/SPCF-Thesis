@@ -332,13 +332,16 @@ $currentPage = 'track-document';
                         <div class="row g-3">
                             <div class="col-md-6 form-group mb-0">
                                 <label for="profileFirstName" class="form-label">First Name</label>
-                                <input type="text" class="form-control" id="profileFirstName" required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>>
+                                <input type="text" class="form-control <?php if ($currentUser['role'] !== 'admin') echo 'bg-light'; ?>" id="profileFirstName" required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>>
                             </div>
                             <div class="col-md-6 form-group mb-0">
                                 <label for="profileLastName" class="form-label">Last Name</label>
-                                <input type="text" class="form-control" id="profileLastName" required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>>
+                                <input type="text" class="form-control <?php if ($currentUser['role'] !== 'admin') echo 'bg-light'; ?>" id="profileLastName" required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>>
                             </div>
                         </div>
+                        <?php if ($currentUser['role'] !== 'admin'): ?>
+                        <small class="text-muted mb-3 d-block">Name cannot be changed by non-admin users.</small>
+                        <?php endif; ?>
                         <div class="form-group mb-0">
                             <label for="profileEmail" class="form-label">Email Address</label>
                             <input type="email" class="form-control" id="profileEmail" pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>

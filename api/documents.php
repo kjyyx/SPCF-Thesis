@@ -68,12 +68,10 @@ function enforceTimeouts($db)
             $db->prepare("UPDATE document_steps SET status = 'expired', acted_at = NOW(), note = CONCAT(COALESCE(note, ''), ' [Auto-timeout]') WHERE id = ?")->execute([$row['step_id']]);
             $db->prepare("UPDATE documents SET status = 'on_hold', updated_at = NOW() WHERE id = ?")->execute([$row['doc_id']]);
 
-            // --- NEW: TRIGGER 1 - TIMEOUT ALERT TO STUDENT ---
             $doc = $db->query("SELECT student_id, title FROM documents WHERE id = " . $row['doc_id'])->fetch(PDO::FETCH_ASSOC);
             if ($doc) {
                 pushNotification($db, $doc['student_id'], 'student', 'document', 'Document On Hold', "Your document '{$doc['title']}' has been placed on hold due to a step timeout. Please review and resubmit.", $row['doc_id'], 'document_status_in_review');
             }
-
             $db->commit();
         }
     } catch (Exception $e) {
@@ -251,7 +249,7 @@ function createDocument($db, $currentUser, $input)
                     ['position' => 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)', 'table' => 'employees', 'dept' => false],
                     ['position' => 'Vice President for Academic Affairs (VPAA)', 'table' => 'employees', 'dept' => false],
                     ['position' => 'Executive Vice-President / Student Services (EVP)', 'table' => 'employees', 'dept' => false],
-                    ['position' => 'Accounting Personnel (AP)', 'table' => 'employees', 'dept' => false]
+                    ['position' => 'Accounting Personnel (AP)', 'table' => 'employees', 'dept' => false, 'doc_only' => true]
                 ];
                 break;
 
@@ -327,10 +325,11 @@ function createDocument($db, $currentUser, $input)
         }
 
         $stepOrder = 1;
+        // RULE 1: Step 1 is always pending for creator
         $db->prepare("INSERT INTO document_steps (document_id, step_order, name, assigned_to_employee_id, assigned_to_student_id, status) VALUES (?, ?, 'Document Creator Signature', ?, ?, 'pending')")
             ->execute([$docId, $stepOrder++, ($currentUser['role'] === 'employee' ? $currentUser['id'] : null), ($currentUser['role'] === 'student' ? $currentUser['id'] : null)]);
 
-        // Unified workflow logic for ALL document types including 'communication'
+        // Unified workflow logic for ALL document types
         if ($currentUser['position'] === 'Supreme Student Council President') {
             $bypassedRoles = ['College Student Council Adviser', 'College Dean', 'Supreme Student Council President'];
             $workflowPositions = array_filter($workflowPositions, function ($wp) use ($bypassedRoles) {
@@ -342,10 +341,14 @@ function createDocument($db, $currentUser, $input)
         if ($docType === 'communication') {
             $existingAssignees = []; // Track who has been assigned to prevent duplicates
             $selectedIds = [];
-            
+
             // Extract selected IDs from frontend
-            foreach (($data['notedList'] ?? []) as $p) if (!empty($p['id'])) $selectedIds[] = $p['id'];
-            foreach (($data['approvedList'] ?? []) as $p) if (!empty($p['id'])) $selectedIds[] = $p['id'];
+            foreach (($data['notedList'] ?? []) as $p)
+                if (!empty($p['id']))
+                    $selectedIds[] = $p['id'];
+            foreach (($data['approvedList'] ?? []) as $p)
+                if (!empty($p['id']))
+                    $selectedIds[] = $p['id'];
             $selectedIds = array_unique($selectedIds);
 
             // Fetch the selected users to determine their exact positions/titles
@@ -356,14 +359,13 @@ function createDocument($db, $currentUser, $input)
                         SELECT id, position, 'student' as type FROM students WHERE id IN ($placeholders)";
                 $stmt = $db->prepare($sql);
                 $allParams = array_merge($selectedIds, $selectedIds);
-                $stmt->execute($allParams); 
+                $stmt->execute($allParams);
                 $signers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             } else {
                 $signers = [];
             }
 
             // Define Strict Hierarchy dynamically based on the configuration above
-            // This ensures that the order defined in $workflowPositions is respected
             $hierarchy = [];
             $positionConfig = [];
             $rank = 1;
@@ -375,25 +377,24 @@ function createDocument($db, $currentUser, $input)
             }
 
             // Sort Signers by Hierarchy Rank
-            usort($signers, function($a, $b) use ($hierarchy) {
-                $getRank = function($pos) use ($hierarchy) {
+            usort($signers, function ($a, $b) use ($hierarchy) {
+                $getRank = function ($pos) use ($hierarchy) {
                     foreach ($hierarchy as $key => $rank) {
-                        // Match partial position names (e.g. "College Dean - COB" matches "College Dean")
-                        if (stripos($pos, $key) !== false) return $rank;
+                        if (stripos($pos, $key) !== false)
+                            return $rank;
                     }
-                    return 0; // Steps before ADV (e.g. Instructors)
+                    return 0;
                 };
                 $rankA = $getRank($a['position']);
                 $rankB = $getRank($b['position']);
                 return $rankA - $rankB;
             });
 
-            // Add Steps to DB
+            // Add Steps to DB (all queued initially)
             foreach ($signers as $signer) {
                 $pos = $signer['position'];
                 $assigneeId = $signer['id'];
-                
-                // Determine label based on list origin (Noted vs Approved)
+
                 $label = "Approved By: $pos";
                 $isNoted = false;
                 foreach (($data['notedList'] ?? []) as $p) {
@@ -404,14 +405,14 @@ function createDocument($db, $currentUser, $input)
                     }
                 }
 
-                // Check for config overrides (like doc_only)
+                // Check for config overrides
                 foreach ($positionConfig as $confKey => $conf) {
-                     if (stripos($pos, $confKey) !== false) {
-                         if (!empty($conf['doc_only'])) {
-                             $label = "$pos (Documentation Only)";
-                         }
-                         break;
-                     }
+                    if (stripos($pos, $confKey) !== false) {
+                        if (!empty($conf['doc_only'])) {
+                            $label = "$pos (Documentation Only)";
+                        }
+                        break;
+                    }
                 }
 
                 if (!in_array($assigneeId, $existingAssignees)) {
@@ -421,9 +422,9 @@ function createDocument($db, $currentUser, $input)
                     $existingAssignees[] = $assigneeId;
                 }
             }
-            
+
             // Skip the standard loop below for communication letters
-            $workflowPositions = []; 
+            $workflowPositions = [];
         }
 
         $approvalReached = false;
@@ -450,14 +451,8 @@ function createDocument($db, $currentUser, $input)
         $db->commit();
         addAuditLog($db, 'DOCUMENT_CREATED', 'Document Management', "Document created: $docType - $title", $docId, 'Document', 'INFO');
 
-        // --- NEW: TRIGGER 2 - NOTIFY FIRST SIGNEE IMMEDIATELY ---
-        $firstSigneeStmt = $db->prepare("SELECT assigned_to_employee_id FROM document_steps WHERE document_id = ? AND step_order = 2 AND status = 'queued'");
-        $firstSigneeStmt->execute([$docId]);
-        $firstSignee = $firstSigneeStmt->fetchColumn();
-
-        if ($firstSignee) {
-            pushNotification($db, $firstSignee, 'employee', 'document', 'New Document Submitted', "{$currentUser['first_name']} submitted a new {$docType} for your review.", $docId, 'employee_document_pending');
-        }
+        // RULE 1: NO PREMATURE TRIGGERS - REMOVED THE NOTIFICATION THAT WAS HERE
+        // First signee will be notified ONLY when step 1 is completed in signDocument
 
         sendJsonResponse(true, ['document_id' => $docId, 'needs_signing' => true]);
 
@@ -521,7 +516,7 @@ function signDocument($db, $currentUser, $input, $files = null)
 
             $db->prepare("UPDATE document_steps SET status = 'completed', acted_at = NOW(), note = ? WHERE id = ? AND $assignCol = ?")->execute([$notes, $stepId, $currentUser['id']]);
 
-            $stepStmt = $db->prepare("SELECT name FROM document_steps WHERE id = ?");
+            $stepStmt = $db->prepare("SELECT name, step_order FROM document_steps WHERE id = ?");
             $stepStmt->execute([$stepId]);
             $currentStep = $stepStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -563,8 +558,10 @@ function signDocument($db, $currentUser, $input, $files = null)
                             $transStmt->execute([$deptId, $reqCSC, $cscDesc, $currentUser['id']]);
                         }
 
-                        // --- NEW: TRIGGER 3 - SAF FUNDS READY ALERT (Replaces generic approval) ---
-                        pushNotification($db, $doc['student_id'], 'student', 'document', 'SAF Funds Ready!', "Your SAF request '{$docTitle}' has been processed. Funds are ready for pickup at Accounting.", $documentId, 'doc_status_approved');
+                        // RULE 2: Anti-self notification for SAF funds
+                        if ($doc['student_id'] != $currentUser['id']) {
+                            pushNotification($db, $doc['student_id'], 'student', 'document', 'SAF Funds Ready!', "Your SAF request '{$docTitle}' has been processed. Funds are ready for pickup at Accounting.", $documentId, 'doc_status_approved');
+                        }
                     }
                 }
             }
@@ -573,37 +570,68 @@ function signDocument($db, $currentUser, $input, $files = null)
                 $db->prepare("UPDATE document_steps SET signature_map = ? WHERE id = ?")->execute([json_encode($signatureMap), $stepId]);
             }
 
-            $currentStepOrder = $db->prepare("SELECT step_order FROM document_steps WHERE id = ?");
-            $currentStepOrder->execute([$stepId]);
+            // RULE 3: JUMP LOGIC - Find the next queued step, skipping any statuses
+            $currentStepOrder = $currentStep['step_order'];
 
-            if ($order = $currentStepOrder->fetchColumn()) {
-                $db->prepare("UPDATE document_steps SET status = 'pending' WHERE document_id = ? AND step_order = ? AND status = 'queued'")->execute([$documentId, $order + 1]);
+            // Query to find the next step with status = 'queued' (not pending, not skipped)
+            $nextStepStmt = $db->prepare("
+                SELECT id, assigned_to_employee_id, assigned_to_student_id, name 
+                FROM document_steps 
+                WHERE document_id = ? AND step_order > ? AND status = 'queued' 
+                ORDER BY step_order ASC LIMIT 1
+            ");
+            $nextStepStmt->execute([$documentId, $currentStepOrder]);
+            $nextStep = $nextStepStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($nextStep) {
+                // Update the found step to 'pending'
+                $db->prepare("UPDATE document_steps SET status = 'pending' WHERE id = ?")->execute([$nextStep['id']]);
             }
 
+            // Check if all steps are completed
             $progress = $db->query("SELECT COUNT(*) as total, SUM(status = 'completed') as done FROM document_steps WHERE document_id = $documentId")->fetch(PDO::FETCH_ASSOC);
 
             if ($progress['total'] == $progress['done']) {
                 $isFullyApproved = true;
                 $db->prepare("UPDATE documents SET status = 'approved', updated_at = NOW() WHERE id = ?")->execute([$documentId]);
 
-                // --- NEW: NOTIFY STUDENT APPROVED (If not a SAF document, since we already pinged them above) ---
-                if ($doc['doc_type'] !== 'saf') {
+                // RULE 2: Anti-self notification for approval
+                if ($doc['doc_type'] !== 'saf' && $doc['student_id'] != $currentUser['id']) {
                     pushNotification($db, $doc['student_id'], 'student', 'document', 'Document Fully Approved!', "Your document '{$doc['title']}' has been fully approved.", $documentId, 'doc_status_approved');
                 }
-
             } else {
                 $db->prepare("UPDATE documents SET status = 'in_progress', updated_at = NOW() WHERE id = ? AND status IN ('submitted', 'on_hold')")->execute([$documentId]);
 
-                // --- NEW: NOTIFY NEXT ASSIGNEE IN LINE ---
-                if (isset($order)) {
-                    $nextStep = $db->prepare("SELECT assigned_to_employee_id, assigned_to_student_id FROM document_steps WHERE document_id = ? AND step_order = ?");
-                    $nextStep->execute([$documentId, $order + 1]);
-                    $next = $nextStep->fetch(PDO::FETCH_ASSOC);
+                // RULE 4: ORPHAN CATCHER & RULE 2: Anti-self notification
+                if ($nextStep) {
+                    // First, check if the next step has NULL assignees and fix it if needed
+                    if (empty($nextStep['assigned_to_employee_id']) && empty($nextStep['assigned_to_student_id'])) {
+                        // Parse position from step name
+                        $posName = str_replace([' Approval', ' (Documentation Only)', 'Noted By: ', 'Approved By: '], '', $nextStep['name']);
+                        $posName = trim(preg_replace('/\(.*?\)/', '', $posName));
 
-                    if ($next && $next['assigned_to_employee_id']) {
-                        pushNotification($db, $next['assigned_to_employee_id'], 'employee', 'document', 'Action Required', "You have a new document pending review: '{$doc['title']}'", $documentId, 'employee_document_pending');
-                    } elseif ($next && $next['assigned_to_student_id']) {
-                        pushNotification($db, $next['assigned_to_student_id'], 'student', 'document', 'Action Required', "You have a new document pending review: '{$doc['title']}'", $documentId, 'document_pending_signature');
+                        // Try to fetch employee first
+                        $fallback = fetchSignatory($db, 'employee', $posName, $doc['department']);
+
+                        if (!empty($fallback['id'])) {
+                            // Update with employee
+                            $db->prepare("UPDATE document_steps SET assigned_to_employee_id = ? WHERE id = ?")->execute([$fallback['id'], $nextStep['id']]);
+                            $nextStep['assigned_to_employee_id'] = $fallback['id'];
+                        } else {
+                            // Try student
+                            $fallback = fetchSignatory($db, 'student', $posName, $doc['department']);
+                            if (!empty($fallback['id'])) {
+                                $db->prepare("UPDATE document_steps SET assigned_to_student_id = ? WHERE id = ?")->execute([$fallback['id'], $nextStep['id']]);
+                                $nextStep['assigned_to_student_id'] = $fallback['id'];
+                            }
+                        }
+                    }
+
+                    // RULE 2: Strict anti-self notification
+                    if (!empty($nextStep['assigned_to_employee_id']) && $nextStep['assigned_to_employee_id'] != $currentUser['id']) {
+                        pushNotification($db, $nextStep['assigned_to_employee_id'], 'employee', 'document', 'Action Required', "You have a new document pending review: '{$doc['title']}'", $documentId, 'employee_document_pending');
+                    } elseif (!empty($nextStep['assigned_to_student_id']) && $nextStep['assigned_to_student_id'] != $currentUser['id']) {
+                        pushNotification($db, $nextStep['assigned_to_student_id'], 'student', 'document', 'Action Required', "You have a new document pending review: '{$doc['title']}'", $documentId, 'document_pending_signature');
                     }
                 }
             }
@@ -675,9 +703,10 @@ function rejectDocument($db, $currentUser, $input)
         $db->prepare("UPDATE document_steps SET status = 'rejected', acted_at = NOW(), note = ? WHERE id = ? AND $assignCol = ?")->execute([$reason, $stepId, $currentUser['id']]);
         $db->prepare("UPDATE documents SET status = 'rejected', updated_at = NOW() WHERE id = ?")->execute([$documentId]);
 
-        // --- NEW: INSTANT NOTIFICATION TO STUDENT ---
         $doc = $db->query("SELECT student_id, title FROM documents WHERE id = $documentId")->fetch(PDO::FETCH_ASSOC);
-        if ($doc) {
+
+        // RULE 2: Anti-self notification for rejection
+        if ($doc && $doc['student_id'] != $currentUser['id']) {
             pushNotification($db, $doc['student_id'], 'student', 'document', 'Document Rejected', "Your document '{$doc['title']}' was rejected by {$currentUser['first_name']}.", $documentId, 'doc_status_rejected');
         }
 
@@ -696,7 +725,7 @@ function resubmitDocument($db, $currentUser, $input)
     if (!$documentId)
         sendJsonResponse(false, 'Document ID required', 400);
 
-    $stmt = $db->prepare("SELECT student_id, status FROM documents WHERE id = ?");
+    $stmt = $db->prepare("SELECT student_id, status, title FROM documents WHERE id = ?");
     $stmt->execute([$documentId]);
     $doc = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -727,15 +756,42 @@ function resubmitDocument($db, $currentUser, $input)
             addAuditLog($db, 'DOCUMENT_RESUBMITTED', 'Document Management', "Document resubmitted from hold", $documentId, 'Document', 'INFO');
             $db->commit();
 
-            // --- NEW: TRIGGER 4 - RESUBMISSION ALERT TO EMPLOYEE ---
-            $pendingStmt = $db->prepare("SELECT assigned_to_employee_id, assigned_to_student_id FROM document_steps WHERE document_id = ? AND status = 'pending'");
+            // RULE 2 & 3 & 4: Find the correct pending signee after resubmission
+            $pendingStmt = $db->prepare("SELECT assigned_to_employee_id, assigned_to_student_id FROM document_steps WHERE document_id = ? AND status = 'pending' LIMIT 1");
             $pendingStmt->execute([$documentId]);
             $pendingSignee = $pendingStmt->fetch(PDO::FETCH_ASSOC);
 
             if ($pendingSignee) {
-                if ($pendingSignee['assigned_to_employee_id']) {
+                // RULE 4: Orphan catcher for resubmission
+                if (empty($pendingSignee['assigned_to_employee_id']) && empty($pendingSignee['assigned_to_student_id'])) {
+                    // Try to fix missing assignee
+                    $stepInfoStmt = $db->prepare("SELECT name, step_order FROM document_steps WHERE document_id = ? AND status = 'pending' LIMIT 1");
+                    $stepInfoStmt->execute([$documentId]);
+                    $stepInfo = $stepInfoStmt->fetch(PDO::FETCH_ASSOC);
+
+                    if ($stepInfo) {
+                        $posName = str_replace([' Approval', ' (Documentation Only)', 'Noted By: ', 'Approved By: '], '', $stepInfo['name']);
+                        $posName = trim(preg_replace('/\(.*?\)/', '', $posName));
+
+                        $fallback = fetchSignatory($db, 'employee', $posName, $doc['department']);
+
+                        if (!empty($fallback['id'])) {
+                            $db->prepare("UPDATE document_steps SET assigned_to_employee_id = ? WHERE document_id = ? AND step_order = ?")->execute([$fallback['id'], $documentId, $stepInfo['step_order']]);
+                            $pendingSignee['assigned_to_employee_id'] = $fallback['id'];
+                        } else {
+                            $fallback = fetchSignatory($db, 'student', $posName, $doc['department']);
+                            if (!empty($fallback['id'])) {
+                                $db->prepare("UPDATE document_steps SET assigned_to_student_id = ? WHERE document_id = ? AND step_order = ?")->execute([$fallback['id'], $documentId, $stepInfo['step_order']]);
+                                $pendingSignee['assigned_to_student_id'] = $fallback['id'];
+                            }
+                        }
+                    }
+                }
+
+                // RULE 2: Anti-self notification for resubmission
+                if (!empty($pendingSignee['assigned_to_employee_id']) && $pendingSignee['assigned_to_employee_id'] != $currentUser['id']) {
                     pushNotification($db, $pendingSignee['assigned_to_employee_id'], 'employee', 'document', 'Document Resubmitted', "A document on hold has been resubmitted and is awaiting your review.", $documentId, 'employee_document_pending');
-                } elseif ($pendingSignee['assigned_to_student_id']) {
+                } elseif (!empty($pendingSignee['assigned_to_student_id']) && $pendingSignee['assigned_to_student_id'] != $currentUser['id']) {
                     pushNotification($db, $pendingSignee['assigned_to_student_id'], 'student', 'document', 'Document Resubmitted', "A document on hold has been resubmitted and is awaiting your review.", $documentId, 'document_pending_signature');
                 }
             }
@@ -768,6 +824,7 @@ function updateNote($db, $currentUser, $input)
     $db->prepare("UPDATE document_steps SET note = ? WHERE id = ?")->execute([$note, $stepId]);
     sendJsonResponse(true);
 }
+
 function ensureThreadedDocumentNotesSchema($db)
 {
     $checkStmt = $db->prepare("SHOW COLUMNS FROM document_notes LIKE 'parent_note_id'");
@@ -825,8 +882,9 @@ function addDocumentComment($db, $currentUser, $input)
     $db->prepare("INSERT INTO document_notes (document_id, author_id, author_role, note, parent_note_id) VALUES (?, ?, ?, ?, ?)")
         ->execute([$documentId, $currentUser['id'], $currentUser['role'], $comment, $parentId]);
 
-    // --- NEW: INSTANT NOTIFICATION TO CREATOR ---
     $doc = $db->query("SELECT student_id, title FROM documents WHERE id = $documentId")->fetch(PDO::FETCH_ASSOC);
+
+    // RULE 2: Anti-self notification for comments
     if ($doc && $currentUser['id'] !== $doc['student_id']) {
         pushNotification($db, $doc['student_id'], 'student', 'document', 'New Comment', "{$currentUser['first_name']} commented on your document '{$doc['title']}'.", $documentId, 'document_comment');
     }
@@ -858,7 +916,7 @@ function handleGet($db, $currentUser)
 {
     // Handle file download request
     if (isset($_GET['download']) && $_GET['download'] == '1') {
-        $docId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        $docId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
         if ($docId) {
             downloadDocumentFile($db, $currentUser, $docId);
             exit;
@@ -900,24 +958,21 @@ function downloadDocumentFile($db, $currentUser, $docId)
 
     // Access check (simplified)
     if ($currentUser['role'] !== 'admin' && $doc['student_id'] != $currentUser['id']) {
-         // Add reviewer checks here if needed
+        // Add reviewer checks here if needed
     }
 
     $data = json_decode($doc['data'], true);
-    if (!$data) $data = [];
+    if (!$data)
+        $data = [];
 
     // Map doc_type to template
     $templatePath = '';
     $templateDir = ROOT_PATH . 'assets/templates/';
-    
+
     // Normalize department name to match template filenames
-    $dept = isset($doc['departmentFull']) && !empty($doc['departmentFull']) ? $doc['departmentFull'] : 
-            (isset($doc['department']) ? getDepartmentFullName($doc['department']) : '');
-            
-    // Fix common punctuation issues in dept name for filenames
-    // The filenames in directory listing: "College of Arts, Social Sciences, and Education (Project Proposal).docx"
-    // Just ensure $dept matches exactly one of the known folders/prefixes.
-    
+    $dept = isset($doc['departmentFull']) && !empty($doc['departmentFull']) ? $doc['departmentFull'] :
+        (isset($doc['department']) ? getDepartmentFullName($doc['department']) : '');
+
     switch ($doc['doc_type']) {
         case 'proposal':
             $templatePath = $templateDir . 'Project Proposals/' . $dept . ' (Project Proposal).docx';
@@ -926,20 +981,20 @@ function downloadDocumentFile($db, $currentUser, $docId)
             $templatePath = $templateDir . 'Communication Letter/' . $dept . ' (Communication Letter).docx';
             break;
         case 'facility':
-             $templatePath = $templateDir . 'Facility Request/FACILITY REQUEST.docx';
-             break;
-        case 'saf': // Activity Proposal / SAF
-             $templatePath = $templateDir . 'SAF/SAF REQUEST.docx';
-             break;
+            $templatePath = $templateDir . 'Facility Request/FACILITY REQUEST.docx';
+            break;
+        case 'saf':
+            $templatePath = $templateDir . 'SAF/SAF REQUEST.docx';
+            break;
         default:
-             $templatePath = '';
+            $templatePath = '';
     }
 
     if (!file_exists($templatePath)) {
         // Fallback: Generate a simple HTML for print-to-pdf if template is missing
         header('Content-Type: text/html');
         header('Content-Disposition: inline; filename="' . htmlspecialchars($doc['title']) . '.html"');
-        
+
         echo '<!DOCTYPE html><html><head><title>' . htmlspecialchars($doc['title']) . '</title>';
         echo '<style>body{font-family:sans-serif;line-height:1.6;padding:40px;max-width:800px;margin:0 auto;} h1{border-bottom:2px solid #333;padding-bottom:10px;} .meta{color:#666;margin-bottom:20px;} table{width:100%;border-collapse:collapse;margin-top:20px;} th,td{border:1px solid #ddd;padding:12px;text-align:left;} th{background:#f9f9f9;} @media print{button{display:none;}}</style>';
         echo '</head><body>';
@@ -951,7 +1006,7 @@ function downloadDocumentFile($db, $currentUser, $docId)
         echo '<p><strong>Date:</strong> ' . date('F j, Y, g:i a', strtotime($doc['uploaded_at'])) . '</p>';
         echo '<p><strong>Status:</strong> ' . htmlspecialchars(ucfirst($doc['status'])) . '</p>';
         echo '</div>';
-        
+
         if (!empty($doc['description'])) {
             echo '<h2>Description/Rationale</h2>';
             echo '<p>' . nl2br(htmlspecialchars($doc['description'])) . '</p>';
@@ -968,7 +1023,7 @@ function downloadDocumentFile($db, $currentUser, $docId)
             echo "<tr><th width='30%'>" . htmlspecialchars(ucwords(str_replace('_', ' ', $k))) . "</th><td>" . $val . "</td></tr>";
         }
         echo '</table>';
-        
+
         if ($templatePath) {
             echo '<p style="margin-top:50px;color:red;font-size:0.8em;">Note: Official template not found at: ' . htmlspecialchars(basename($templatePath)) . '</p>';
         }
@@ -982,31 +1037,31 @@ function downloadDocumentFile($db, $currentUser, $docId)
         $data['title'] = $doc['title'];
         $data['description'] = $doc['description'];
         $data['date_created'] = date('F j, Y', strtotime($doc['uploaded_at']));
-        
+
         // Use the utility function
         $generatedPath = fillDocxTemplate($templatePath, $data);
-        
+
         // Try convert to PDF
         $finalPath = convertDocxToPdf($generatedPath);
-        
+
         // Serve file
         $filename = basename($finalPath);
         $ext = pathinfo($filename, PATHINFO_EXTENSION);
-        
+
         if ($ext === 'pdf') {
             header('Content-Type: application/pdf');
         } else {
             header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         }
-        
+
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Content-Length: ' . filesize($finalPath));
         readfile($finalPath);
-        
+
         // Cleanup (optional, maybe keep cache?)
         // unlink($generatedPath); 
         // if ($finalPath !== $generatedPath) unlink($finalPath);
-        
+
         exit;
 
     } catch (Exception $e) {
@@ -1041,7 +1096,7 @@ function getStudentDocumentDetails($db, $currentUser, $docId)
     if (!$doc)
         sendJsonResponse(false, 'Document not found', 404);
 
-    // --- FIX: Added LEFT JOIN to fetch employee and student names ---
+    // Fetch workflow history with assignee names
     $historyStmt = $db->prepare("
         SELECT ds.id, ds.status, ds.name, ds.acted_at, ds.signature_map,
                e.first_name AS emp_first, e.last_name AS emp_last,
@@ -1081,8 +1136,6 @@ function getStudentDocumentDetails($db, $currentUser, $docId)
             'file_path' => $doc['file_path'],
             'schedule' => $scheduleData,
             'workflow_history' => array_map(function ($s) {
-
-                // --- FIX: Safely parse the assignee name ---
                 $assignee_name = 'Unknown';
                 if (!empty($s['emp_first'])) {
                     $assignee_name = trim($s['emp_first'] . ' ' . $s['emp_last']);
@@ -1095,7 +1148,7 @@ function getStudentDocumentDetails($db, $currentUser, $docId)
                     'status' => $s['status'] ?: 'pending',
                     'action' => $s['status'] === 'completed' ? 'Approved' : ($s['status'] === 'rejected' ? 'Rejected' : 'Pending'),
                     'office_name' => $s['name'] ?: 'Unknown',
-                    'assignee_name' => $assignee_name, // <--- THIS SENDS IT TO JS
+                    'assignee_name' => $assignee_name,
                     'signature_map' => $s['signature_map']
                 ];
             }, $workflow_history),
@@ -1234,7 +1287,6 @@ function getMyDocuments($db, $currentUser)
             $current_location = $pend['name'];
             $current_assignee = trim($pend['assignee_name']);
         } elseif ($doc['status'] === 'approved') {
-            // --- FIX: Location goes back to creator, Assignee shows all signed ---
             $current_location = 'Returned to Creator';
             $current_assignee = 'All Signatories';
         }
@@ -1321,7 +1373,6 @@ function getMyDocuments($db, $currentUser)
             $current_location = $pend['step_name'];
             $current_assignee = trim(($pend['first_name'] ?? '') . ' ' . ($pend['last_name'] ?? ''));
         } elseif ($mat['status'] === 'approved') {
-            // --- FIX: Location goes back to creator, Assignee shows all signed ---
             $current_location = 'Returned to Creator';
             $current_assignee = 'All Signatories';
         }
@@ -1456,12 +1507,13 @@ function getAssignedDocuments($db, $currentUser)
     sendJsonResponse(true, ['documents' => array_values($processedDocuments)]);
 }
 
-// --- NEW HELPER FUNCTION TO PUSH INSTANT NOTIFICATIONS ---
-// --- SMART NOTIFICATION PUSHER (Database + Targeted Email) ---
-function pushNotification($db, $recipId, $recipRole, $type, $title, $msg, $docId = null, $refType = null) {
-    if (!$recipId || !$recipRole) return;
+// --- RULE 5: GLOBAL PUSH NOTIFICATION FUNCTION (Database + Email) ---
+function pushNotification($db, $recipId, $recipRole, $type, $title, $msg, $docId = null, $refType = null)
+{
+    if (!$recipId || !$recipRole)
+        return;
 
-    // 1. ALWAYS push to the Database (For the UI Notification Bell)
+    // 1. Always insert into database notifications table
     try {
         $stmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_type, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())");
         $stmt->execute([$recipId, $recipRole, $type, $title, $msg, $docId, $refType]);
@@ -1469,25 +1521,25 @@ function pushNotification($db, $recipId, $recipRole, $type, $title, $msg, $docId
         error_log("DB Notification Error: " . $e->getMessage());
     }
 
-    // 2. THE GATEKEEPER: Only allow crucial alerts to become Emails
+    // 2. Gatekeeper - Only crucial alerts become emails
     $crucialEmailTriggers = [
-        'employee_document_pending',  // Document needs employee signature
-        'document_pending_signature', // Document needs student signature
-        'employee_material_pending',  // Pubmat needs approval
-        'doc_status_approved',        // Document fully approved / SAF Ready
-        'material_status_approved',   // Pubmat fully approved
-        'doc_status_rejected',        // Document rejected
-        'material_status_rejected'    // Pubmat rejected
+        'employee_document_pending',
+        'document_pending_signature',
+        'employee_material_pending',
+        'doc_status_approved',
+        'material_status_approved',
+        'doc_status_rejected',
+        'material_status_rejected',
+        'document_status_in_review'  // ✅ Add this for timeout notifications
     ];
 
-    // If the event isn't in the crucial list (e.g., it's just a comment), stop here.
+    // If the event isn't crucial (e.g., comment), stop here
     if (!in_array($refType, $crucialEmailTriggers)) {
-        return; 
+        return;
     }
 
-    // 3. SEND THE EMAIL
+    // 3. Send email via Mailer class
     try {
-        // Look up the user's actual email address
         $table = ($recipRole === 'student') ? 'students' : 'employees';
         $userStmt = $db->prepare("SELECT email, first_name, last_name FROM $table WHERE id = ? LIMIT 1");
         $userStmt->execute([$recipId]);
@@ -1497,22 +1549,22 @@ function pushNotification($db, $recipId, $recipRole, $type, $title, $msg, $docId
             require_once ROOT_PATH . 'includes/Mailer.php';
             $mailer = new Mailer();
 
-            // Map the refType to a color status for the email template
             $emailStatus = 'pending';
-            if (strpos($refType, 'approved') !== false) $emailStatus = 'approved';
-            if (strpos($refType, 'rejected') !== false) $emailStatus = 'rejected';
+            if (strpos($refType, 'approved') !== false)
+                $emailStatus = 'approved';
+            if (strpos($refType, 'rejected') !== false)
+                $emailStatus = 'rejected';
 
-            // Send the 1-to-1 targeted email
             $mailer->send(
-                $user['email'], 
-                $user['first_name'] . ' ' . $user['last_name'], 
-                "Sign-um Update: " . $title, 
-                'document_status', // The template file we created
+                $user['email'],
+                $user['first_name'] . ' ' . $user['last_name'],
+                "Sign-um Update: " . $title,
+                'document_status',
                 [
                     'recipientName' => $user['first_name'],
-                    'documentTitle' => $title, 
-                    'status'        => $emailStatus, 
-                    'message'       => $msg
+                    'documentTitle' => $title,
+                    'status' => $emailStatus,
+                    'message' => $msg
                 ]
             );
         }
@@ -1520,3 +1572,4 @@ function pushNotification($db, $recipId, $recipRole, $type, $title, $msg, $docId
         error_log("Email Trigger Failed: " . $e->getMessage());
     }
 }
+?>

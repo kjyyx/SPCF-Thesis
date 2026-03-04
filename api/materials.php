@@ -17,21 +17,29 @@ requireAuth();
 $db = new Database();
 $conn = $db->getConnection();
 
-function materialAbsolutePath($storedPath) {
+// ADD: Get current user for anti-self notification checks
+$currentUser = getCurrentUser();
+
+function materialAbsolutePath($storedPath)
+{
     $storedPath = trim((string) $storedPath);
-    if ($storedPath === '') return '';
-    if (preg_match('/^[A-Za-z]:[\\\\\/]/', $storedPath) || str_starts_with($storedPath, '/') || str_starts_with($storedPath, '\\\\')) return $storedPath;
-    if (str_starts_with($storedPath, '../uploads/')) return ROOT_PATH . 'uploads/' . basename($storedPath);
-    if (str_starts_with($storedPath, 'uploads/')) return ROOT_PATH . ltrim($storedPath, '/');
+    if ($storedPath === '')
+        return '';
+    if (preg_match('/^[A-Za-z]:[\\\\\/]/', $storedPath) || str_starts_with($storedPath, '/') || str_starts_with($storedPath, '\\\\'))
+        return $storedPath;
+    if (str_starts_with($storedPath, '../uploads/'))
+        return ROOT_PATH . 'uploads/' . basename($storedPath);
+    if (str_starts_with($storedPath, 'uploads/'))
+        return ROOT_PATH . ltrim($storedPath, '/');
     return ROOT_PATH . 'uploads/' . basename($storedPath);
 }
 
-// --- NEW HELPER FUNCTION FOR INSTANT NOTIFICATIONS ---
-// --- SMART NOTIFICATION PUSHER (Database + Targeted Email) ---
-function pushNotification($db, $recipId, $recipRole, $type, $title, $msg, $docId = null, $refType = null) {
-    if (!$recipId || !$recipRole) return;
+// --- RULE 5: GLOBAL PUSH NOTIFICATION FUNCTION (copied from documents.php for consistency) ---
+function pushNotification($db, $recipId, $recipRole, $type, $title, $msg, $docId = null, $refType = null)
+{
+    if (!$recipId || !$recipRole)
+        return;
 
-    // 1. ALWAYS push to the Database (For the UI Notification Bell)
     try {
         $stmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_type, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())");
         $stmt->execute([$recipId, $recipRole, $type, $title, $msg, $docId, $refType]);
@@ -39,25 +47,21 @@ function pushNotification($db, $recipId, $recipRole, $type, $title, $msg, $docId
         error_log("DB Notification Error: " . $e->getMessage());
     }
 
-    // 2. THE GATEKEEPER: Only allow crucial alerts to become Emails
     $crucialEmailTriggers = [
-        'employee_document_pending',  // Document needs employee signature
-        'document_pending_signature', // Document needs student signature
-        'employee_material_pending',  // Pubmat needs approval
-        'doc_status_approved',        // Document fully approved / SAF Ready
-        'material_status_approved',   // Pubmat fully approved
-        'doc_status_rejected',        // Document rejected
-        'material_status_rejected'    // Pubmat rejected
+        'employee_document_pending',
+        'document_pending_signature',
+        'employee_material_pending',
+        'doc_status_approved',
+        'material_status_approved',
+        'doc_status_rejected',
+        'material_status_rejected',
+        'document_status_in_review'  // ✅ Add this for timeout notifications
     ];
-
-    // If the event isn't in the crucial list (e.g., it's just a comment), stop here.
     if (!in_array($refType, $crucialEmailTriggers)) {
-        return; 
+        return;
     }
 
-    // 3. SEND THE EMAIL
     try {
-        // Look up the user's actual email address
         $table = ($recipRole === 'student') ? 'students' : 'employees';
         $userStmt = $db->prepare("SELECT email, first_name, last_name FROM $table WHERE id = ? LIMIT 1");
         $userStmt->execute([$recipId]);
@@ -67,22 +71,22 @@ function pushNotification($db, $recipId, $recipRole, $type, $title, $msg, $docId
             require_once ROOT_PATH . 'includes/Mailer.php';
             $mailer = new Mailer();
 
-            // Map the refType to a color status for the email template
             $emailStatus = 'pending';
-            if (strpos($refType, 'approved') !== false) $emailStatus = 'approved';
-            if (strpos($refType, 'rejected') !== false) $emailStatus = 'rejected';
+            if (strpos($refType, 'approved') !== false)
+                $emailStatus = 'approved';
+            if (strpos($refType, 'rejected') !== false)
+                $emailStatus = 'rejected';
 
-            // Send the 1-to-1 targeted email
             $mailer->send(
-                $user['email'], 
-                $user['first_name'] . ' ' . $user['last_name'], 
-                "Sign-um Update: " . $title, 
-                'document_status', // The template file we created
+                $user['email'],
+                $user['first_name'] . ' ' . $user['last_name'],
+                "Sign-um Update: " . $title,
+                'document_status',
                 [
                     'recipientName' => $user['first_name'],
-                    'documentTitle' => $title, 
-                    'status'        => $emailStatus, 
-                    'message'       => $msg
+                    'documentTitle' => $title,
+                    'status' => $emailStatus,
+                    'message' => $msg
                 ]
             );
         }
@@ -97,16 +101,20 @@ switch ($method) {
     case 'GET':
         if (isset($_GET['download']) && $_GET['download'] == '1') {
             $id = $_GET['id'] ?? null;
-            if (!$id) { http_response_code(400); echo json_encode(['success' => false, 'message' => 'Material ID required']); exit(); }
+            if (!$id) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Material ID required']);
+                exit();
+            }
 
             $userId = $_SESSION['user_id'];
             $userRole = $_SESSION['user_role'];
             $userPosition = $_SESSION['position'] ?? '';
             $isPpfo = ($userRole === 'employee' && $userPosition === 'Physical Plant and Facilities Office (PPFO)');
-            
+
             $allowedPositions = ['College Student Council Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'];
             $isApprover = ($userRole === 'employee' && in_array($userPosition, $allowedPositions));
-            
+
             if ($isApprover) {
                 $stepOrder = getStepOrderForPosition($userPosition);
                 $checkStmt = $conn->prepare("SELECT 1 FROM materials_steps WHERE material_id = ? AND assigned_to_employee_id = ? AND step_order = ?");
@@ -115,7 +123,7 @@ switch ($method) {
             } else {
                 $hasAccess = false;
             }
-            
+
             if ($userRole === 'admin') {
                 $hasAccess = true;
             } elseif (!$hasAccess) {
@@ -130,17 +138,29 @@ switch ($method) {
                 $stmt->execute([$id]);
                 $hasAccess = (bool) $stmt->fetch();
             }
-            
-            if (!$hasAccess) { http_response_code(403); echo json_encode(['success' => false, 'message' => 'Access denied']); exit(); }
+
+            if (!$hasAccess) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Access denied']);
+                exit();
+            }
 
             $stmt = $conn->prepare("SELECT * FROM materials WHERE id = ?");
             $stmt->execute([$id]);
             $material = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if (!$material) { http_response_code(404); echo json_encode(['success' => false, 'message' => 'Material not found']); exit(); }
+            if (!$material) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Material not found']);
+                exit();
+            }
 
             $filePath = materialAbsolutePath($material['file_path'] ?? '');
-            if (!$filePath || !file_exists($filePath)) { http_response_code(404); echo json_encode(['success' => false, 'message' => 'File not found']); exit(); }
+            if (!$filePath || !file_exists($filePath)) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'File not found']);
+                exit();
+            }
 
             $stmt = $conn->prepare("UPDATE materials SET downloads = downloads + 1 WHERE id = ?");
             $stmt->execute([$id]);
@@ -155,15 +175,15 @@ switch ($method) {
 
         if (isset($_GET['action']) && $_GET['action'] === 'serve_image' && isset($_GET['id'])) {
             $id = $_GET['id'];
-            
+
             $userId = $_SESSION['user_id'];
             $userRole = $_SESSION['user_role'];
             $userPosition = $_SESSION['position'] ?? '';
             $isPpfo = ($userRole === 'employee' && $userPosition === 'Physical Plant and Facilities Office (PPFO)');
-            
+
             $allowedPositions = ['College Student Council Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'];
             $isApprover = ($userRole === 'employee' && in_array($userPosition, $allowedPositions));
-            
+
             if ($isApprover) {
                 $stepOrder = getStepOrderForPosition($userPosition);
                 $checkStmt = $conn->prepare("SELECT 1 FROM materials_steps WHERE material_id = ? AND assigned_to_employee_id = ? AND step_order = ?");
@@ -172,7 +192,7 @@ switch ($method) {
             } else {
                 $hasAccess = false;
             }
-            
+
             if ($userRole === 'admin') {
                 $hasAccess = true;
             } elseif (!$hasAccess) {
@@ -187,16 +207,24 @@ switch ($method) {
                 $stmt->execute([$id]);
                 $hasAccess = (bool) $stmt->fetch();
             }
-            
-            if (!$hasAccess) { http_response_code(403); echo json_encode(['success' => false, 'message' => 'Access denied']); exit(); }
-            
+
+            if (!$hasAccess) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Access denied']);
+                exit();
+            }
+
             $stmt = $conn->prepare("SELECT file_path, file_type FROM materials WHERE id = ?");
             $stmt->execute([$id]);
             $material = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             $absolutePath = materialAbsolutePath($material['file_path'] ?? '');
-            if (!$material || !$absolutePath || !file_exists($absolutePath)) { http_response_code(404); echo json_encode(['success' => false, 'message' => 'File not found']); exit(); }
-            
+            if (!$material || !$absolutePath || !file_exists($absolutePath)) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'File not found']);
+                exit();
+            }
+
             header('Content-Type: ' . $material['file_type']);
             header('Content-Length: ' . filesize($absolutePath));
             header('Cache-Control: public, max-age=86400');
@@ -214,16 +242,16 @@ switch ($method) {
             $userId = $_SESSION['user_id'];
             $userRole = $_SESSION['user_role'];
             $userPosition = $_SESSION['position'] ?? '';
-            
+
             $allowedPositions = ['College Student Council Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'];
             $isApprover = ($userRole === 'employee' && in_array($userPosition, $allowedPositions));
-            
+
             if ($isApprover) {
                 $stepOrder = getStepOrderForPosition($userPosition);
                 $checkStmt = $conn->prepare("SELECT 1 FROM materials_steps WHERE material_id = ? AND assigned_to_employee_id = ? AND step_order = ?");
                 $checkStmt->execute([$id, $userId, $stepOrder]);
                 $hasAccess = $checkStmt->fetch();
-                
+
                 if (!$hasAccess) {
                     $checkStmt = $conn->prepare("SELECT 1 FROM materials_steps WHERE material_id = ? AND assigned_to_employee_id = ?");
                     $checkStmt->execute([$id, $userId]);
@@ -232,7 +260,7 @@ switch ($method) {
             } else {
                 $hasAccess = false;
             }
-            
+
             if ($userRole === 'admin') {
                 $hasAccess = true;
             } elseif (!$hasAccess) {
@@ -241,20 +269,27 @@ switch ($method) {
                 $ownerId = $stmt->fetch(PDO::FETCH_ASSOC)['student_id'] ?? null;
                 $hasAccess = ($ownerId == $userId);
             }
-            
-            if (!$hasAccess) { http_response_code(403); echo json_encode(['success' => false, 'message' => 'Access denied']); exit(); }
-            
+
+            if (!$hasAccess) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Access denied']);
+                exit();
+            }
+
             $stmt = $conn->prepare("
                 SELECT m.*, CONCAT(s.first_name, ' ', s.last_name) as creator_name, s.department
                 FROM materials m LEFT JOIN students s ON m.student_id = s.id WHERE m.id = ?
             ");
             $stmt->execute([$id]);
             $material = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (!$material) { echo json_encode(['success' => false, 'message' => 'Material not found']); exit(); }
+
+            if (!$material) {
+                echo json_encode(['success' => false, 'message' => 'Material not found']);
+                exit();
+            }
 
             $material['file_path'] = basename($material['file_path']);
-            
+
             $stepsStmt = $conn->prepare("
                 SELECT ms.*, e.first_name as assignee_first, e.last_name as assignee_last, e.position as assignee_position,
                        CASE WHEN ms.step_order = 1 THEN 'College Student Council Adviser Approval' WHEN ms.step_order = 2 THEN 'College Dean Approval' WHEN ms.step_order = 3 THEN 'OIC-OSA Approval' END as step_name
@@ -262,19 +297,24 @@ switch ($method) {
             ");
             $stepsStmt->execute([$id]);
             $steps = $stepsStmt->fetchAll(PDO::FETCH_ASSOC);
-            
+
             $workflow_history = [];
             $current_location = 'Pending';
-            
+
             foreach ($steps as $step) {
                 $action = 'Pending';
-                if ($step['status'] === 'completed') $action = 'Approved';
-                elseif ($step['status'] === 'rejected') $action = 'Rejected';
-                
-                if ($step['status'] === 'pending') $current_location = $step['step_name'];
-                elseif ($step['status'] === 'completed' && $step['step_order'] == 3) $current_location = 'Completed';
-                elseif ($step['status'] === 'rejected') $current_location = $step['step_name'] . ' (Rejected)';
-                
+                if ($step['status'] === 'completed')
+                    $action = 'Approved';
+                elseif ($step['status'] === 'rejected')
+                    $action = 'Rejected';
+
+                if ($step['status'] === 'pending')
+                    $current_location = $step['step_name'];
+                elseif ($step['status'] === 'completed' && $step['step_order'] == 3)
+                    $current_location = 'Completed';
+                elseif ($step['status'] === 'rejected')
+                    $current_location = $step['step_name'] . ' (Rejected)';
+
                 $workflow_history[] = [
                     'created_at' => $step['completed_at'] ?: $material['uploaded_at'],
                     'action' => $action,
@@ -283,7 +323,7 @@ switch ($method) {
                     'note' => $step['note']
                 ];
             }
-            
+
             $formattedComments = [];
             try {
                 $tableCheck = $conn->query("SHOW TABLES LIKE 'materials_notes'");
@@ -300,19 +340,26 @@ switch ($method) {
                     ");
                     $commentsStmt->execute([$id]);
                     $comments = $commentsStmt->fetchAll(PDO::FETCH_ASSOC);
-                    
-                    $formattedComments = array_map(function($comment) {
+
+                    $formattedComments = array_map(function ($comment) {
                         return [
-                            'id' => (int) $comment['id'], 'parent_id' => $comment['parent_note_id'], 'comment' => $comment['note'], 'created_at' => $comment['created_at'], 'author_name' => $comment['author_name'] ?: 'Unknown', 'author_role' => $comment['author_role'], 'author_position' => $comment['author_position'] ?: ''
+                            'id' => (int) $comment['id'],
+                            'parent_id' => $comment['parent_note_id'],
+                            'comment' => $comment['note'],
+                            'created_at' => $comment['created_at'],
+                            'author_name' => $comment['author_name'] ?: 'Unknown',
+                            'author_role' => $comment['author_role'],
+                            'author_position' => $comment['author_position'] ?: ''
                         ];
                     }, $comments);
                 }
-            } catch (PDOException $e) {}
-            
+            } catch (PDOException $e) {
+            }
+
             $material['workflow_history'] = $workflow_history;
             $material['comments'] = $formattedComments;
             $material['current_location'] = $current_location;
-            
+
             echo json_encode(['success' => true, 'material' => $material]);
             exit();
         }
@@ -320,20 +367,28 @@ switch ($method) {
         $forApproval = isset($_GET['for_approval']) && $_GET['for_approval'] == '1';
         if ($forApproval) {
             try {
-                if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role'])) { http_response_code(401); echo json_encode(['success' => false, 'message' => 'Session invalid']); exit(); }
+                if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role'])) {
+                    http_response_code(401);
+                    echo json_encode(['success' => false, 'message' => 'Session invalid']);
+                    exit();
+                }
 
                 $userRole = $_SESSION['user_role'];
                 $userPosition = $_SESSION['position'] ?? '';
                 $allowedPositions = ['College Student Council Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'];
-                
-                if ($userRole !== 'employee' || !in_array($userPosition, $allowedPositions)) { http_response_code(403); echo json_encode(['success' => false, 'message' => 'Access denied']); exit(); }
+
+                if ($userRole !== 'employee' || !in_array($userPosition, $allowedPositions)) {
+                    http_response_code(403);
+                    echo json_encode(['success' => false, 'message' => 'Access denied']);
+                    exit();
+                }
 
                 $stepOrder = getStepOrderForPosition($userPosition);
-                $department = $_SESSION['department'] ?? null; 
+                $department = $_SESSION['department'] ?? null;
 
                 $whereClause = "ms.assigned_to_employee_id = :user_id AND ms.status = 'pending' AND ms.step_order = :step_order";
                 $params = [':user_id' => $_SESSION['user_id'], ':step_order' => $stepOrder];
-                
+
                 if ($userPosition === 'College Student Council Adviser' && $department) {
                     $whereClause .= " AND s.department = :department";
                     $params[':department'] = $department;
@@ -346,7 +401,9 @@ switch ($method) {
                     WHERE " . $whereClause . " ORDER BY m.uploaded_at DESC
                 ");
                 $params[':root_uploads'] = ROOT_PATH . 'uploads/';
-                foreach ($params as $key => $value) { $stmt->bindValue($key, $value); }
+                foreach ($params as $key => $value) {
+                    $stmt->bindValue($key, $value);
+                }
                 $stmt->execute();
                 $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -365,7 +422,8 @@ switch ($method) {
 
                 echo json_encode(['success' => true, 'materials' => $materials]);
             } catch (Exception $e) {
-                http_response_code(500); echo json_encode(['success' => false, 'message' => 'Internal server error']);
+                http_response_code(500);
+                echo json_encode(['success' => false, 'message' => 'Internal server error']);
             }
             exit();
         }
@@ -373,7 +431,11 @@ switch ($method) {
         $forDisplay = isset($_GET['for_display']) && $_GET['for_display'] == '1';
         if ($forDisplay) {
             $userPosition = $_SESSION['position'] ?? '';
-            if ($userPosition !== 'Physical Plant and Facilities Office (PPFO)') { http_response_code(403); echo json_encode(['success' => false, 'message' => 'Access denied']); exit(); }
+            if ($userPosition !== 'Physical Plant and Facilities Office (PPFO)') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Access denied']);
+                exit();
+            }
 
             $stmt = $conn->prepare("SELECT m.id, m.title, REPLACE(REPLACE(m.file_path, :root_uploads, ''), '\\\\', '/') as file_path, m.file_type, m.status FROM materials m WHERE m.status = 'approved' ORDER BY m.uploaded_at DESC");
             $stmt->execute([':root_uploads' => ROOT_PATH . 'uploads/']);
@@ -397,14 +459,22 @@ switch ($method) {
 
         $action = $_POST['action'] ?? null;
         if ($action === 'upload') {
-            if (!isset($_FILES['file'])) { http_response_code(400); echo json_encode(['success' => false, 'message' => 'No file uploaded']); exit(); }
+            if (!isset($_FILES['file'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'No file uploaded']);
+                exit();
+            }
 
             $file = $_FILES['file'];
             $studentId = $_POST['student_id'] ?? null;
             $title = $_POST['title'] ?? '';
             $description = $_POST['description'] ?? '';
-            
-            if (!$studentId || !$title) { http_response_code(400); echo json_encode(['success' => false, 'message' => 'Missing fields']); exit(); }
+
+            if (!$studentId || !$title) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Missing fields']);
+                exit();
+            }
 
             $stmt = $conn->prepare("SELECT GREATEST(COALESCE(MAX(CASE WHEN id REGEXP '^MAT[0-9]+$' THEN CAST(SUBSTRING(id, 4) AS UNSIGNED) ELSE 0 END), 0), 0) as max_id FROM materials");
             $stmt->execute();
@@ -420,6 +490,7 @@ switch ($method) {
                 $stmt = $conn->prepare("INSERT INTO materials (id, student_id, title, description, file_path, file_type, status, file_size_kb, downloads) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 0)");
                 $stmt->execute([$newId, $studentId, $title, $description, $relativePath, $file['type'], round($file['size'] / 1024)]);
 
+                // RULE 1: No premature triggers - just create the workflow, notifications happen when steps are activated
                 createMaterialWorkflow($conn, $newId, $studentId);
                 echo json_encode(['success' => true, 'id' => $newId]);
             }
@@ -429,13 +500,16 @@ switch ($method) {
     case 'PUT':
         $id = $_GET['id'] ?? null;
         $rawInput = file_get_contents('php://input');
-        $action = null; $note = null;
+        $action = null;
+        $note = null;
 
         if (strpos($rawInput, '------') !== false) {
             preg_match_all('/name="([^"]+)"\s*\r?\n\r?\n([^-\r\n]+)/', $rawInput, $matches, PREG_SET_ORDER);
             foreach ($matches as $match) {
-                if ($match[1] === 'action') $action = trim($match[2]);
-                elseif ($match[1] === 'note') $note = trim($match[2]);
+                if ($match[1] === 'action')
+                    $action = trim($match[2]);
+                elseif ($match[1] === 'note')
+                    $note = trim($match[2]);
             }
         } else {
             parse_str($rawInput, $parsed);
@@ -443,7 +517,11 @@ switch ($method) {
             $note = $parsed['note'] ?? null;
         }
 
-        if (!$id || !in_array($action, ['approve', 'reject'])) { http_response_code(400); echo json_encode(['success' => false, 'message' => 'Invalid request']); exit(); }
+        if (!$id || !in_array($action, ['approve', 'reject'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid request']);
+            exit();
+        }
 
         $userId = $_SESSION['user_id'];
         $userPosition = $_SESSION['position'] ?? '';
@@ -453,7 +531,11 @@ switch ($method) {
         $stmt->execute([$id, $userId, $stepOrder]);
         $step = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$step) { http_response_code(403); echo json_encode(['success' => false, 'message' => 'Not authorized']); exit(); }
+        if (!$step) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Not authorized']);
+            exit();
+        }
 
         // Fetch material details for notification
         $matStmt = $conn->prepare("SELECT student_id, title FROM materials WHERE id = ?");
@@ -475,30 +557,39 @@ switch ($method) {
                     if ($nextAssignee) {
                         $stmt = $conn->prepare("INSERT INTO materials_steps (material_id, step_order, assigned_to_employee_id, status) VALUES (?, ?, ?, 'pending')");
                         $stmt->execute([$id, $nextStepOrder, $nextAssignee]);
-                        
-                        // NOTIFY NEXT APPROVER
-                        pushNotification($conn, $nextAssignee, 'employee', 'document', 'Pubmat Approval Required', "The publication material '$matTitle' has been forwarded for your approval.", $id, 'employee_material_pending');
+
+                        // RULE 2: Anti-self notification - don't notify if next assignee is the current user
+                        if ($nextAssignee != $userId) {
+                            pushNotification($conn, $nextAssignee, 'employee', 'document', 'Pubmat Approval Required', "The publication material '$matTitle' has been forwarded for your approval.", $id, 'employee_material_pending');
+                        }
                     }
                 } else {
+                    // Final approval
                     $stmt = $conn->prepare("UPDATE materials SET status = 'approved', approved_by = ?, approved_at = NOW() WHERE id = ?");
                     $stmt->execute([$userId, $id]);
-                    
-                    // NOTIFY STUDENT OF FULL APPROVAL
-                    pushNotification($conn, $studentId, 'student', 'document', 'Pubmat Fully Approved!', "Your publication material '$matTitle' has been fully approved and is ready for display.", $id, 'material_status_approved');
+
+                    // RULE 2: Anti-self notification - don't notify if student is the current user
+                    if ($studentId != $userId) {
+                        pushNotification($conn, $studentId, 'student', 'document', 'Pubmat Fully Approved!', "Your publication material '$matTitle' has been fully approved and is ready for display.", $id, 'material_status_approved');
+                    }
                 }
             } else {
+                // Rejection
                 $stmt = $conn->prepare("UPDATE materials SET status = 'rejected', rejected_by = ?, rejected_at = NOW() WHERE id = ?");
                 $stmt->execute([$userId, $id]);
-                
-                // NOTIFY STUDENT OF REJECTION
-                pushNotification($conn, $studentId, 'student', 'document', 'Pubmat Rejected', "Your publication material '$matTitle' was rejected by {$userPosition}.", $id, 'material_status_rejected');
+
+                // RULE 2: Anti-self notification for rejection
+                if ($studentId != $userId) {
+                    pushNotification($conn, $studentId, 'student', 'document', 'Pubmat Rejected', "Your publication material '$matTitle' was rejected by {$userPosition}.", $id, 'material_status_rejected');
+                }
             }
 
             $conn->commit();
             echo json_encode(['success' => true]);
         } catch (Exception $e) {
             $conn->rollBack();
-            http_response_code(500); echo json_encode(['success' => false, 'message' => 'Database error']);
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Database error']);
         }
         break;
 
@@ -514,7 +605,7 @@ switch ($method) {
         $userRole = $_SESSION['user_role'] ?? '';
         $userPosition = $_SESSION['position'] ?? '';
         $isPpfo = ($userRole === 'employee' && $userPosition === 'Physical Plant and Facilities Office (PPFO)');
-        
+
         if (!$isPpfo) {
             http_response_code(403);
             echo json_encode(['success' => false, 'message' => 'Access denied. PPFO only.']);
@@ -535,19 +626,19 @@ switch ($method) {
         $conn->beginTransaction();
         try {
             // Delete related records first (foreign key constraints)
-            
+
             // 1. Delete comments/notes
             $deleteNotes = $conn->prepare("DELETE FROM materials_notes WHERE material_id = ?");
             $deleteNotes->execute([$id]);
-            
+
             // 2. Delete workflow steps
             $deleteSteps = $conn->prepare("DELETE FROM materials_steps WHERE material_id = ?");
             $deleteSteps->execute([$id]);
-            
+
             // 3. Delete notifications related to this material
             $deleteNotifications = $conn->prepare("DELETE FROM notifications WHERE related_document_id = ? AND reference_type LIKE '%material%'");
             $deleteNotifications->execute([$id]);
-            
+
             // 4. Finally delete the material
             $deleteMaterial = $conn->prepare("DELETE FROM materials WHERE id = ?");
             $deleteMaterial->execute([$id]);
@@ -570,81 +661,111 @@ switch ($method) {
 }
 
 // Helper functions
-function getStepOrderForPosition($position) {
+function getStepOrderForPosition($position)
+{
     $steps = ['College Student Council Adviser' => 1, 'College Dean' => 2, 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)' => 3];
     return $steps[$position] ?? null;
 }
 
-function createMaterialWorkflow($conn, $materialId, $studentId) {
-    $stmt = $conn->prepare("SELECT department FROM students WHERE id = ?");
-    $stmt->execute([$studentId]);
-    $department = $stmt->fetch(PDO::FETCH_ASSOC)['department'] ?? '';
+function createMaterialWorkflow($conn, $materialId, $studentId)
+{
+    global $currentUser;
 
-    $cscAdviser = getEmployeeByPositionAndDepartment($conn, 'College Student Council Adviser', $department);
-    if ($cscAdviser) {
-        $stmt = $conn->prepare("INSERT INTO materials_steps (material_id, step_order, assigned_to_employee_id, status) VALUES (?, 1, ?, 'pending')");
-        $stmt->execute([$materialId, $cscAdviser]);
-        
-        // NOTIFY FIRST APPROVER (Adviser)
+    $firstStepOrder = 1;
+    $firstApproverId = null;
+
+    // SSC President bypass: start directly at OIC-OSA (step 3)
+    if (($currentUser['position'] ?? '') === 'Supreme Student Council President') {
+        $firstStepOrder = 3;
+        $firstApproverId = getEmployeeByPosition($conn, 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)');
+    } else {
+        // Normal flow: Adviser first (step 1)
+        $stmt = $conn->prepare("SELECT department FROM students WHERE id = ?");
+        $stmt->execute([$studentId]);
+        $department = $stmt->fetch(PDO::FETCH_ASSOC)['department'] ?? '';
+        $firstApproverId = getEmployeeByPositionAndDepartment($conn, 'College Student Council Adviser', $department);
+    }
+
+    // Insert first active step (allow null assignee as orphan for manual/admin fix)
+    $stmt = $conn->prepare("INSERT INTO materials_steps (material_id, step_order, assigned_to_employee_id, status) VALUES (?, ?, ?, 'pending')");
+    $stmt->execute([$materialId, $firstStepOrder, $firstApproverId]);
+
+    // Notify first approver only if valid and not the uploader (anti-self)
+    if ($firstApproverId && $firstApproverId != ($currentUser['id'] ?? null)) {
         $matStmt = $conn->prepare("SELECT title FROM materials WHERE id = ?");
         $matStmt->execute([$materialId]);
         $title = $matStmt->fetchColumn();
-        pushNotification($conn, $cscAdviser, 'employee', 'document', 'New Pubmat Submitted', "A new publication material '$title' requires your approval.", $materialId, 'employee_material_pending');
+        pushNotification($conn, $firstApproverId, 'employee', 'document', 'New Pubmat Submitted', "A new publication material '$title' requires your approval.", $materialId, 'employee_material_pending');
     }
 }
 
-function getAssigneeForStep($conn, $materialId, $stepOrder) {
+function getAssigneeForStep($conn, $materialId, $stepOrder)
+{
     $stmt = $conn->prepare("SELECT s.department FROM materials m JOIN students s ON m.student_id = s.id WHERE m.id = ?");
     $stmt->execute([$materialId]);
     $department = $stmt->fetch(PDO::FETCH_ASSOC)['department'] ?? '';
 
-    if ($stepOrder == 2) return getEmployeeByPositionAndDepartment($conn, 'College Dean', $department);
-    elseif ($stepOrder == 3) return getEmployeeByPosition($conn, 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)');
+    if ($stepOrder == 2)
+        return getEmployeeByPositionAndDepartment($conn, 'College Dean', $department);
+    elseif ($stepOrder == 3)
+        return getEmployeeByPosition($conn, 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)');
     return null;
 }
 
-function getEmployeeByPositionAndDepartment($conn, $position, $department) {
+function getEmployeeByPositionAndDepartment($conn, $position, $department)
+{
     $stmt = $conn->prepare("SELECT id FROM employees WHERE position = ? AND department = ? LIMIT 1");
     $stmt->execute([$position, $department]);
     return $stmt->fetch(PDO::FETCH_ASSOC)['id'] ?? null;
 }
 
-function getEmployeeByPosition($conn, $position) {
+function getEmployeeByPosition($conn, $position)
+{
     $stmt = $conn->prepare("SELECT id FROM employees WHERE position = ? LIMIT 1");
     $stmt->execute([$position]);
     return $stmt->fetch(PDO::FETCH_ASSOC)['id'] ?? null;
 }
 
-function userCanAccessMaterialForComments($materialId) {
+function userCanAccessMaterialForComments($materialId)
+{
     global $conn, $_SESSION;
-    if (!$materialId || empty($_SESSION['user_id'])) return false;
-    if (($_SESSION['user_role'] ?? '') === 'admin') return true;
+    if (!$materialId || empty($_SESSION['user_id']))
+        return false;
+    if (($_SESSION['user_role'] ?? '') === 'admin')
+        return true;
 
     $userId = $_SESSION['user_id'];
     $userRole = $_SESSION['user_role'] ?? '';
     $userPosition = $_SESSION['position'] ?? '';
-    
+
     $stmt = $conn->prepare("SELECT student_id FROM materials WHERE id = ?");
     $stmt->execute([$materialId]);
-    if ($stmt->fetchColumn() == $userId) return true;
-    
+    if ($stmt->fetchColumn() == $userId)
+        return true;
+
     $allowedPositions = ['College Student Council Adviser', 'College Dean', 'Officer-in-Charge, Office of Student Affairs (OIC-OSA)'];
     if ($userRole === 'employee' && in_array($userPosition, $allowedPositions)) {
         $stmt = $conn->prepare("SELECT 1 FROM materials_steps WHERE material_id = ? AND assigned_to_employee_id = ?");
         $stmt->execute([$materialId, $userId]);
-        if ($stmt->fetchColumn()) return true;
+        if ($stmt->fetchColumn())
+            return true;
     }
     return false;
 }
 
-function getMaterialComments($materialId) {
+function getMaterialComments($materialId)
+{
     global $conn;
-    if (!userCanAccessMaterialForComments($materialId)) { http_response_code(403); echo json_encode(['success' => false, 'message' => 'Access denied']); return; }
+    if (!userCanAccessMaterialForComments($materialId)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Access denied']);
+        return;
+    }
 
     try {
         $stmt = $conn->prepare("SELECT n.*, CASE WHEN n.author_role = 'employee' THEN CONCAT(e.first_name, ' ', e.last_name) WHEN n.author_role = 'student' THEN CONCAT(s.first_name, ' ', s.last_name) ELSE 'Admin' END AS author_name, CASE WHEN n.author_role = 'employee' THEN COALESCE(e.position, '') WHEN n.author_role = 'student' THEN COALESCE(s.position, '') ELSE '' END AS author_position FROM materials_notes n LEFT JOIN employees e ON n.author_role = 'employee' AND n.author_id = e.id LEFT JOIN students s ON n.author_role = 'student' AND n.author_id = s.id WHERE n.material_id = ? ORDER BY n.created_at ASC");
         $stmt->execute([$materialId]);
-        
+
         $comments = array_map(function ($row) {
             return ['id' => (int) $row['id'], 'material_id' => $row['material_id'], 'parent_id' => $row['parent_note_id'] !== null ? (int) $row['parent_note_id'] : null, 'comment' => $row['note'], 'created_at' => $row['created_at'], 'author_id' => $row['author_id'], 'author_role' => $row['author_role'], 'author_name' => trim($row['author_name'] ?: 'Unknown'), 'author_position' => $row['author_position'] ?: ''];
         }, $stmt->fetchAll(PDO::FETCH_ASSOC));
@@ -655,39 +776,52 @@ function getMaterialComments($materialId) {
     }
 }
 
-function addMaterialComment($input) {
+function addMaterialComment($input)
+{
     global $conn, $_SESSION;
-    $rawMaterialId = trim((string)($input['material_id'] ?? ''));
+    $rawMaterialId = trim((string) ($input['material_id'] ?? ''));
     $comment = trim($input['comment'] ?? '');
-    $parentId = isset($input['parent_id']) && $input['parent_id'] !== '' ? (int)$input['parent_id'] : null;
+    $parentId = isset($input['parent_id']) && $input['parent_id'] !== '' ? (int) $input['parent_id'] : null;
 
     $materialId = '';
-    if (preg_match('/^MAT-?(\\d+)$/i', $rawMaterialId, $m)) $materialId = 'MAT' . str_pad($m[1], 3, '0', STR_PAD_LEFT);
-    elseif (preg_match('/^\\d+$/', $rawMaterialId)) $materialId = 'MAT' . str_pad($rawMaterialId, 3, '0', STR_PAD_LEFT);
-    elseif (preg_match('/^MAT\\d+$/i', $rawMaterialId)) $materialId = strtoupper($rawMaterialId);
+    if (preg_match('/^MAT-?(\\d+)$/i', $rawMaterialId, $m))
+        $materialId = 'MAT' . str_pad($m[1], 3, '0', STR_PAD_LEFT);
+    elseif (preg_match('/^\\d+$/', $rawMaterialId))
+        $materialId = 'MAT' . str_pad($rawMaterialId, 3, '0', STR_PAD_LEFT);
+    elseif (preg_match('/^MAT\\d+$/i', $rawMaterialId))
+        $materialId = strtoupper($rawMaterialId);
 
-    if ($materialId === '' || $comment === '') { http_response_code(400); echo json_encode(['success' => false, 'message' => 'Material and comment are required']); return; }
-    if (!userCanAccessMaterialForComments($materialId)) { http_response_code(403); echo json_encode(['success' => false, 'message' => 'Access denied']); return; }
+    if ($materialId === '' || $comment === '') {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Material and comment are required']);
+        return;
+    }
+    if (!userCanAccessMaterialForComments($materialId)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Access denied']);
+        return;
+    }
 
     try {
         $insertStmt = $conn->prepare("INSERT INTO materials_notes (material_id, author_id, author_role, note, parent_note_id) VALUES (?, ?, ?, ?, ?)");
         $insertStmt->execute([$materialId, $_SESSION['user_id'], $_SESSION['user_role'], $comment, $parentId]);
-        $newId = (int)$conn->lastInsertId();
+        $newId = (int) $conn->lastInsertId();
 
         $matStmt = $conn->prepare("SELECT student_id, title FROM materials WHERE id = ?");
         $matStmt->execute([$materialId]);
         $mat = $matStmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if ($mat) {
             $creatorId = $mat['student_id'];
             $title = $mat['title'];
             $referenceType = $parentId ? 'document_reply' : 'document_comment';
             $message = $parentId ? "New reply on pubmat '$title'" : "New comment on pubmat '$title'";
 
+            // RULE 2: Anti-self notification for comments
             if ($_SESSION['user_id'] != $creatorId) {
                 pushNotification($conn, $creatorId, 'student', 'document', 'New Comment', $message, $materialId, $referenceType);
             }
-            
+
             $stepStmt = $conn->prepare("SELECT assigned_to_employee_id FROM materials_steps WHERE material_id = ? AND status = 'pending' LIMIT 1");
             $stepStmt->execute([$materialId]);
             $step = $stepStmt->fetch(PDO::FETCH_ASSOC);
@@ -698,7 +832,8 @@ function addMaterialComment($input) {
 
         echo json_encode(['success' => true, 'comment_id' => $newId]);
     } catch (PDOException $e) {
-        http_response_code(500); echo json_encode(['success' => false, 'message' => 'Database error']);
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Database error']);
     }
 }
 ?>

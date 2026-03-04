@@ -818,13 +818,12 @@ $renderKeyOpts = function ($arr) {
                     <form id="profileSettingsForm">
                         <div id="profileSettingsMessages"></div>
                         <div class="row g-3 mb-3">
-                            <div class="col-md-6"><label class="form-label">First Name <span
-                                        class="text-danger">*</span></label><input type="text" class="form-control"
-                                    id="profileFirstName" placeholder="e.g. Juan" required></div>
-                            <div class="col-md-6"><label class="form-label">Last Name <span
-                                        class="text-danger">*</span></label><input type="text" class="form-control"
-                                    id="profileLastName" placeholder="e.g. Dela Cruz" required></div>
+                            <div class="col-md-6"><label class="form-label">First Name <span class="text-danger">*</span></label><input type="text" class="form-control <?php if ($currentUser['role'] !== 'admin') echo 'bg-light'; ?>" id="profileFirstName" placeholder="e.g. Juan" required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>></div>
+                            <div class="col-md-6"><label class="form-label">Last Name <span class="text-danger">*</span></label><input type="text" class="form-control <?php if ($currentUser['role'] !== 'admin') echo 'bg-light'; ?>" id="profileLastName" placeholder="e.g. Dela Cruz" required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>></div>
                         </div>
+                        <?php if ($currentUser['role'] !== 'admin'): ?>
+                        <small class="text-muted mb-3 d-block">Name cannot be changed by non-admin users.</small>
+                        <?php endif; ?>
                         <div class="row g-3 mb-3">
                             <div class="col-md-6"><label class="form-label">Email <span
                                         class="text-danger">*</span></label><input type="email" class="form-control"

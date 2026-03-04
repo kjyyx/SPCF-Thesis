@@ -1,5 +1,5 @@
 // Event Calendar JavaScript
-var BASE_URL = window.BASE_URL || window.location.origin + "/SPCF-Thesis/";
+var BASE_URL = window.BASE_URL || (window.location.origin + '/SPCF-Thesis/');
 // High-level: Renders a month view calendar with events; employees/admins can CRUD, students view-only.
 // Notes for future developers:
 // - Keep global functions used by HTML intact (openChangePassword, logout, showNotifications).

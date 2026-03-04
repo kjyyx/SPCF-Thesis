@@ -169,13 +169,17 @@ try {
             json_error('Invalid user role', 400);
         }
 
-        $firstName = trim($payload['first_name'] ?? '');
-        $lastName = trim($payload['last_name'] ?? '');
+        $firstName = trim($payload['first_name'] ?? '');  // Only provided for admins
+        $lastName = trim($payload['last_name'] ?? '');    // Only provided for admins
         $email = trim($payload['email'] ?? '');
         $phone = trim($payload['phone'] ?? '');
 
-        if (!$firstName || !$lastName || !$email) {
-            json_error('First name, last name, and email are required', 400);
+        // ROLE-BASED VALIDATION: Email is always required; names only for admins
+        if (!$email) {
+            json_error('Email is required', 400);
+        }
+        if ($role === 'admin' && (!$firstName || !$lastName)) {
+            json_error('First name and last name are required for admins', 400);
         }
 
         // Check if email is already used by another user
@@ -187,16 +191,22 @@ try {
             json_error('Email address is already in use', 409);
         }
 
-        // Update user profile
-        $updateSql = "UPDATE $table SET first_name = :firstName, last_name = :lastName, email = :email, phone = :phone WHERE id = :userId";
-        $update = $db->prepare($updateSql);
-        $result = $update->execute([
-            ':firstName' => $firstName,
-            ':lastName' => $lastName,
+        // ROLE-BASED UPDATE: Only update names if admin; always update email/phone
+        $updateSql = "UPDATE $table SET email = :email, phone = :phone WHERE id = :userId";
+        $params = [
             ':email' => $email,
             ':phone' => $phone,
             ':userId' => $userId
-        ]);
+        ];
+
+        if ($role === 'admin') {
+            $updateSql = "UPDATE $table SET first_name = :firstName, last_name = :lastName, email = :email, phone = :phone WHERE id = :userId";
+            $params[':firstName'] = $firstName;
+            $params[':lastName'] = $lastName;
+        }
+
+        $update = $db->prepare($updateSql);
+        $result = $update->execute($params);
 
         if ($result) {
             addAuditLog('PROFILE_UPDATED', 'User Management', 'User updated their profile', $userId, 'User', 'INFO');

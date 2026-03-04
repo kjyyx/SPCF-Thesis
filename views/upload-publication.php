@@ -210,7 +210,7 @@ $currentPage = 'upload-publication';
           <div class="d-flex gap-3 justify-content-center">
             <button type="button" class="btn btn-light border rounded-pill px-4" data-bs-dismiss="modal"
               onclick="location.reload()">Upload More</button>
-            <a href="<?php echo BASE_URL; ?>?page=dashboard" class="btn btn-primary rounded-pill px-4 shadow-sm">Return
+            <a href="<?php echo BASE_URL; ?>?page=calendar" class="btn btn-primary rounded-pill px-4 shadow-sm">Return
               to Dashboard</a>
           </div>
         </div>
@@ -244,6 +244,9 @@ $currentPage = 'upload-publication';
                     echo 'readonly'; ?>>
               </div>
             </div>
+            <?php if ($currentUser['role'] !== 'admin'): ?>
+            <small class="text-muted mb-3 d-block">Name cannot be changed by non-admin users.</small>
+            <?php endif; ?>
             <div class="form-group mb-0">
               <label for="profileEmail" class="form-label text-muted small fw-bold text-uppercase">Email Address</label>
               <input type="email" class="form-control bg-light border-0 rounded-3 p-2 px-3" id="profileEmail"

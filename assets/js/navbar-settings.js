@@ -48,15 +48,26 @@
         e?.preventDefault();
         const em = byId('profileEmail')?.value.trim(), ph = byId('profilePhone')?.value.trim(), fn = byId('profileFirstName')?.value.trim(), ln = byId('profileLastName')?.value.trim();
         if ((byId('profileEmail') && !validateField(byId('profileEmail'), 'Email')) || (byId('profilePhone') && !validateField(byId('profilePhone'), 'Phone'))) return setMsg('profileSettingsMessages', '<div class="alert alert-danger">Fix Validation Errors</div>');
-        const p = { action: 'update_profile', email: em, phone: ph }; if (window.currentUser?.role === 'admin') { p.first_name = fn; p.last_name = ln; }
+        
+        // ROLE-BASED PAYLOAD: Only send names for admins
+        const p = { action: 'update_profile', email: em, phone: ph };
+        if (window.currentUser?.role === 'admin') {
+            p.first_name = fn;
+            p.last_name = ln;
+        }
+        
         try {
             const r = await apiPost('api/users.php', p);
             if (!r.success) return setMsg('profileSettingsMessages', `<div class="alert alert-danger">${r.message}</div>`);
-            localStorage.setItem('darkMode', !!byId('darkModeToggle')?.checked); setMsg('profileSettingsMessages', '<div class="alert alert-success">Updated!</div>'); toast('Profile updated', 'success');
-            if (window.currentUser) Object.assign(window.currentUser, { email: em, phone: ph, firstName: fn, lastName: ln });
+            localStorage.setItem('darkMode', !!byId('darkModeToggle')?.checked);
+            setMsg('profileSettingsMessages', '<div class="alert alert-success">Updated!</div>');
+            toast('Profile updated', 'success');
+            if (window.currentUser) Object.assign(window.currentUser, { email: em, phone: ph, ...(window.currentUser.role === 'admin' ? { firstName: fn, lastName: ln } : {}) });
             ['userDisplayName', 'adminUserName'].forEach(id => { if (byId(id) && window.currentUser?.role === 'admin') byId(id).textContent = `${fn} ${ln}`; });
             setTimeout(() => { setMsg('profileSettingsMessages', ''); closeModal('profileSettingsModal'); }, 900);
-        } catch (err) { toast('Server error', 'error'); }
+        } catch (err) {
+            setMsg('profileSettingsMessages', '<div class="alert alert-danger">Server error</div>');
+        }
     };
 
     document.addEventListener('submit', async e => {

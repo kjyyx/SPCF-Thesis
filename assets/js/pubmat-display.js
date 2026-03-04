@@ -27,7 +27,7 @@ async function loadPubmats() {
 
         if (response.status === 403) {
             showError('Access denied. PPFO only.');
-            window.location.href = BASE_URL + '?page=login';
+            window.location.href = BASE_URL + 'login';
             return;
         }
 
@@ -122,7 +122,7 @@ function scheduleNextSlide() {
     }, 150);
 
     slideshowTimeout = setTimeout(() => {
-        if (slideshowActive && pubmats.length > 1) {
+        if (slideshowActive) {
             slideshowIndex = (slideshowIndex + 1) % pubmats.length;
             updateSlideshow();
             scheduleNextSlide();

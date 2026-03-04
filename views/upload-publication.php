@@ -250,7 +250,7 @@ $currentPage = 'upload-publication';
             <div class="form-group mb-0">
               <label for="profileEmail" class="form-label text-muted small fw-bold text-uppercase">Email Address</label>
               <input type="email" class="form-control bg-light border-0 rounded-3 p-2 px-3" id="profileEmail"
-                pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
+                pattern="[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$" required>
               <div class="invalid-feedback">Please enter a valid email address.</div>
             </div>
           </div>

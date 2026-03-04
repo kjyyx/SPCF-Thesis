@@ -732,7 +732,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                         <?php endif; ?>
                         <div class="mb-3">
                             <label for="profileEmail" class="form-label">Email Address</label>
-                            <input type="email" class="form-control" id="profileEmail" pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" required>
+                            <input type="email" class="form-control" id="profileEmail" pattern="[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$" required>
                             <div class="invalid-feedback">Please enter a valid email address.</div>
                         </div>
                         <div class="mb-3">

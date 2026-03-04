@@ -916,6 +916,16 @@ document.addEventListener('DOMContentLoaded', async function () {
     currentUser = window.currentUser;
     if (byId('adminUserName')) byId('adminUserName').textContent = `${currentUser.firstName} ${currentUser.lastName}`;
 
+    const profileForm = byId('profileSettingsForm');
+    if (profileForm && !profileForm.dataset.bound) {
+        profileForm.addEventListener('submit', async function (e) {
+            if (window.NavbarSettings?.saveProfileSettings) {
+                await window.NavbarSettings.saveProfileSettings(e);
+            }
+        });
+        profileForm.dataset.bound = '1';
+    }
+
     const savedTab = localStorage.getItem('admin_currentTab');
     if (savedTab) {
         const targetBtn = document.querySelector(`[data-bs-target="${savedTab}"]`);

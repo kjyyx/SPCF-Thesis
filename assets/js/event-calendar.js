@@ -1233,58 +1233,16 @@ if (window.NavbarSettings) {
 document
   .getElementById("profileSettingsForm")
   .addEventListener("submit", async function (e) {
-    e.preventDefault();
-    const firstName = document.getElementById("profileFirstName").value;
-    const lastName = document.getElementById("profileLastName").value;
-    const email = document.getElementById("profileEmail").value;
-    const phone = document.getElementById("profilePhone").value;
-    const msgs = document.getElementById("profileSettingsMessages");
-
-    if (!firstName || !lastName || !email) {
-      msgs.innerHTML =
-        '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>First name, last name, and email are required.</div>';
+    if (window.NavbarSettings?.saveProfileSettings) {
+      await window.NavbarSettings.saveProfileSettings(e);
       return;
     }
 
-    try {
-      const resp = await fetch(BASE_URL + "api/users.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "update_profile",
-          first_name: firstName,
-          last_name: lastName,
-          email: email,
-          phone: phone,
-        }),
-      }).then((r) => r.json());
-
-      if (resp.success) {
-        currentUser.first_name = firstName;
-        currentUser.last_name = lastName;
-        currentUser.email = email;
-        currentUser.phone = phone;
-        if (document.getElementById("userDisplayName"))
-          document.getElementById("userDisplayName").textContent =
-            `${firstName} ${lastName}`;
-        localStorage.setItem(
-          "darkMode",
-          document.getElementById("darkModeToggle").checked,
-        );
-        applyTheme();
-        msgs.innerHTML =
-          '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Profile updated successfully!</div>';
-        setTimeout(() => {
-          bootstrap.Modal.getInstance(
-            document.getElementById("profileSettingsModal"),
-          ).hide();
-          msgs.innerHTML = "";
-        }, 2000);
-      } else
-        msgs.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>${resp.message || "Failed to update profile."}</div>`;
-    } catch (error) {
+    e.preventDefault();
+    const msgs = document.getElementById("profileSettingsMessages");
+    if (msgs) {
       msgs.innerHTML =
-        '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>An error occurred while updating your profile.</div>';
+        '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Profile settings handler is unavailable. Please refresh the page.</div>';
     }
   });
 

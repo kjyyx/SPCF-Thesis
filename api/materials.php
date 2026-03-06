@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/config.php';
 require_once ROOT_PATH . 'includes/session.php';
 require_once ROOT_PATH . 'includes/auth.php';
 require_once ROOT_PATH . 'includes/database.php';
+require_once ROOT_PATH . 'includes/utilities.php';
 require_once ROOT_PATH . 'vendor/autoload.php';
 
 header('Content-Type: application/json');
@@ -35,14 +36,52 @@ function materialAbsolutePath($storedPath)
 }
 
 // --- RULE 5: GLOBAL PUSH NOTIFICATION FUNCTION (copied from documents.php for consistency) ---
-function pushNotification($db, $recipId, $recipRole, $type, $title, $msg, $docId = null, $refType = null)
+function shouldDeduplicateNotification($refType)
+{
+    $dedupeTypes = [
+        'employee_document_pending',
+        'document_pending_signature',
+        'employee_material_pending',
+        'document_status_in_review',
+        'workflow_escalation',
+        'doc_status_approved',
+        'doc_status_rejected',
+        'material_status_approved',
+        'material_status_rejected'
+    ];
+
+    return in_array((string) $refType, $dedupeTypes, true);
+}
+
+function buildNotificationReferenceId($recipId, $recipRole, $docId, $refType)
+{
+    $docPart = $docId ? (string) $docId : 'none';
+    $refPart = $refType ?: 'generic';
+    return 'notif_' . $recipRole . '_' . $recipId . '_' . $refPart . '_' . $docPart;
+}
+
+function pushNotification($db, $recipId, $recipRole, $type, $title, $msg, $docId = null, $refType = null, $referenceId = null)
 {
     if (!$recipId || !$recipRole)
         return;
 
+    $referenceId = $referenceId ?: buildNotificationReferenceId($recipId, $recipRole, $docId, $refType);
+
+    if (shouldDeduplicateNotification($refType)) {
+        try {
+            $dedupeStmt = $db->prepare("SELECT id FROM notifications WHERE recipient_id = ? AND recipient_role = ? AND reference_id = ? AND is_read = 0 AND (is_archived = 0 OR is_archived IS NULL) AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) LIMIT 1");
+            $dedupeStmt->execute([$recipId, $recipRole, $referenceId]);
+            if ($dedupeStmt->fetchColumn()) {
+                return;
+            }
+        } catch (Exception $e) {
+            error_log("Notification dedupe check failed: " . $e->getMessage());
+        }
+    }
+
     try {
-        $stmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_type, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())");
-        $stmt->execute([$recipId, $recipRole, $type, $title, $msg, $docId, $refType]);
+        $stmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_id, reference_type, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())");
+        $stmt->execute([$recipId, $recipRole, $type, $title, $msg, $docId, $referenceId, $refType]);
     } catch (Exception $e) {
         error_log("DB Notification Error: " . $e->getMessage());
     }
@@ -169,6 +208,15 @@ switch ($method) {
             header('Content-Type: ' . mime_content_type($filePath));
             header('Content-Disposition: attachment; filename="' . $fileName . '"');
             header('Content-Length: ' . filesize($filePath));
+            addAuditLog(
+                $conn,
+                'MATERIAL_DOWNLOADED',
+                'System Activity',
+                "User downloaded material: {$material['title']} (ID: {$id})",
+                $id,
+                'Material',
+                'INFO'
+            );
             readfile($filePath);
             exit();
         }
@@ -517,9 +565,17 @@ switch ($method) {
             $note = $parsed['note'] ?? null;
         }
 
+        $note = trim((string) ($note ?? ''));
+
         if (!$id || !in_array($action, ['approve', 'reject'])) {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Invalid request']);
+            exit();
+        }
+
+        if ($action === 'reject' && $note === '') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'A reason is required when rejecting a material.']);
             exit();
         }
 

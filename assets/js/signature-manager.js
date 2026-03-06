@@ -159,35 +159,34 @@ class SignatureManager {
         window.addEventListener('touchend', end);
 
         // Upload handler
-        const uploadInput = document.getElementById('signatureUpload');
-        if (uploadInput) {
-            uploadInput.onchange = (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const img = new Image();
-                        img.onload = () => {
-                            // Reset transform before clearing to ensure entire canvas clears
-                            ctx.save();
-                            ctx.setTransform(1, 0, 0, 1, 0, 0);
-                            ctx.clearRect(0, 0, canvas.width, canvas.height);
-                            ctx.restore();
+        // const uploadInput = document.getElementById('signatureUpload');
+        // if (uploadInput) {
+        //     uploadInput.onchange = (e) => {
+        //         const file = e.target.files[0];
+        //         if (file) {
+        //             const reader = new FileReader();
+        //             reader.onload = (event) => {
+        //                 const img = new Image();
+        //                 img.onload = () => {
+        //                     ctx.save();
+        //                     ctx.setTransform(1, 0, 0, 1, 0, 0);
+        //                     ctx.clearRect(0, 0, canvas.width, canvas.height);
+        //                     ctx.restore();
 
-                            const logicalW = canvas.width / (window.devicePixelRatio || 1);
-                            const logicalH = canvas.height / (window.devicePixelRatio || 1);
-                            const scale = Math.min(logicalW / img.width, logicalH / img.height);
-                            const w = img.width * scale, h = img.height * scale;
-                            ctx.drawImage(img, (logicalW - w) / 2, (logicalH - h) / 2, w, h);
+        //                     const logicalW = canvas.width / (window.devicePixelRatio || 1);
+        //                     const logicalH = canvas.height / (window.devicePixelRatio || 1);
+        //                     const scale = Math.min(logicalW / img.width, logicalH / img.height);
+        //                     const w = img.width * scale, h = img.height * scale;
+        //                     ctx.drawImage(img, (logicalW - w) / 2, (logicalH - h) / 2, w, h);
 
-                            this.saveSignatureState(canvas);
-                        };
-                        img.src = event.target.result;
-                    };
-                    reader.readAsDataURL(file);
-                }
-            };
-        }
+        //                     this.saveSignatureState(canvas);
+        //                 };
+        //                 img.src = event.target.result;
+        //             };
+        //             reader.readAsDataURL(file);
+        //         }
+        //     };
+        // }
 
         document.getElementById('sigClearBtn')?.addEventListener('click', () => {
             // Must clear the physical area
@@ -199,7 +198,7 @@ class SignatureManager {
 
         document.getElementById('sigSaveBtn')?.addEventListener('click', () => {
             if (!this.hasCanvasContent(canvas)) {
-                if (window.ToastManager) window.ToastManager.show({ type: 'error', title: 'No Signature', message: 'Please draw or upload a signature.' });
+                if (window.ToastManager) window.ToastManager.show({ type: 'error', title: 'No Signature', message: 'Please draw your signature first.' });
                 return;
             }
             this.saveSignatureState(canvas);

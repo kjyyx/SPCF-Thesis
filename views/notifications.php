@@ -412,7 +412,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                         </div>
                     </div>
                     <div class="header-actions">
-                        <button class="action-btn primary" onclick="downloadPDF()" title="Download PDF">
+                        <button id="downloadDocumentAction" class="action-btn primary" onclick="downloadPDF()" title="Download PDF">
                             <i class="bi bi-download"></i>
                             <span>Download</span>
                         </button>
@@ -551,12 +551,12 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
 
                                 <div id="signaturePadContainer" class="signature-pad-modern d-none">
                                     <div class="signature-header">
-                                        <span class="signature-title">Add Your Signature</span>
+                                        <span class="signature-title">Draw Your Signature</span>
                                         <button class="close-signature" onclick="toggleSignaturePad()">
                                             <i class="bi bi-x"></i>
                                         </button>
                                     </div>
-                                    <div class="signature-upload-section">
+                                    <!-- <div class="signature-upload-section">
                                         <label for="signatureUpload" class="upload-label">
                                             <i class="bi bi-upload me-2"></i>
                                             Upload Signature Image
@@ -567,12 +567,12 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                             <i class="bi bi-info-circle"></i>
                                             Upload a PNG, JPG, or GIF image of your signature
                                         </div>
-                                    </div>
-                                    <div class="signature-divider">
+                                    </div> -->
+                                    <!-- <div class="signature-divider">
                                         <span>or</span>
-                                    </div>
+                                    </div> -->
                                     <div class="signature-draw-section">
-                                        <div class="draw-header">Draw Your Signature</div>
+                                        <!-- <div class="draw-header">Draw Your Signature</div> -->
                                         <div class="signature-canvas-wrapper">
                                             <canvas id="signatureCanvas" class="signature-canvas"></canvas>
                                         </div>
@@ -589,7 +589,7 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
                                     </div>
                                     <div class="signature-hint">
                                         <i class="bi bi-info-circle"></i>
-                                        Upload an image or draw your signature using your mouse or touch device
+                                        Draw your signature using your mouse or touch device
                                     </div>
                                 </div>
                             </div>
@@ -1124,6 +1124,14 @@ addAuditLog('NOTIFICATIONS_VIEWED', 'Notifications', 'Viewed notifications page'
 
         function downloadPDF() {
             if (window.documentSystem && window.documentSystem.currentDocument) {
+                const status = String(window.documentSystem.currentDocument.status || '').toLowerCase();
+                if (status !== 'approved') {
+                    if (window.ToastManager) {
+                        window.ToastManager.show({ type: 'warning', title: 'Not Available', message: 'Download is only available for fully approved documents.' });
+                    }
+                    return;
+                }
+
                 let filePath = window.documentSystem.currentDocument.file_path;
                 if (filePath.startsWith('/')) {
                     filePath = window.BASE_URL + filePath.substring(1);

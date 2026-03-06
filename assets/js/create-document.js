@@ -892,6 +892,7 @@ function addScheduleSummary() {
         </div>
     `;
     container.appendChild(div);
+    applyMinDateToInputs(div.querySelectorAll('input[type="date"]'));
     scheduleGenerate();
 }
 
@@ -1671,6 +1672,21 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+});
+
+function applyMinDateToInputs(inputs) {
+    const today = new Date().toISOString().split('T')[0];
+    (inputs || []).forEach(input => input.setAttribute('min', today));
+}
+
+// --- BUG FIX: Block past dates in all date pickers (including dynamically-added rows) ---
+document.addEventListener('DOMContentLoaded', () => {
+    applyMinDateToInputs(document.querySelectorAll('input[type="date"]'));
+    document.addEventListener('focusin', (e) => {
+        if (e.target && e.target.matches('input[type="date"]')) {
+            applyMinDateToInputs([e.target]);
+        }
+    });
 });
 
 /**

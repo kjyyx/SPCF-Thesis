@@ -49,6 +49,10 @@ function addAuditLog($pdo, $action, $category, $details, $targetId = null, $targ
             (user_id, user_role, user_name, action, category, details, target_id, target_type, severity, ip_address) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
+            $realIp = $_SERVER['HTTP_CF_CONNECTING_IP']
+                ?? (!empty($_SERVER['HTTP_X_FORWARDED_FOR']) ? trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]) : null)
+                ?? ($_SERVER['HTTP_CLIENT_IP'] ?? null)
+                ?? ($_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN');
         
         $stmt->execute([
             $_SESSION['user_id'] ?? null,
@@ -60,7 +64,7 @@ function addAuditLog($pdo, $action, $category, $details, $targetId = null, $targ
             $targetId, 
             $targetType, 
             $severity,
-            $_SERVER['REMOTE_ADDR'] ?? null
+                $realIp
         ]);
     } catch (Exception $e) {
         // Fail silently so a logging error doesn't break the main application flow

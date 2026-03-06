@@ -22,27 +22,49 @@ require_once ROOT_PATH . 'includes/session.php';
 require_once ROOT_PATH . 'vendor/autoload.php';
 use PragmaRX\Google2FA\Google2FA;
 
-// Audit log helper function
+// --- UPGRADED AUDIT LOG & REAL IP CATCHER ---
+function getRealIpAddr()
+{
+    if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+        return $_SERVER['HTTP_CF_CONNECTING_IP'];
+    } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+        return trim($ips[0]);
+    } elseif (!empty($_SERVER['HTTP_CLIENT_IP'])) {
+        return $_SERVER['HTTP_CLIENT_IP'];
+    }
+    return $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+}
+
 function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO')
 {
-    global $db;
+    global $db, $currentUser;
+
+    $userId = $currentUser['id'] ?? ($_SESSION['user_id'] ?? null);
+    $userRole = $currentUser['role'] ?? ($_SESSION['user_role'] ?? 'system');
+    $userName = isset($currentUser['first_name']) ? ($currentUser['first_name'] . ' ' . $currentUser['last_name']) : 'System/Admin';
+
     try {
-        $stmt = $db->prepare("INSERT INTO audit_logs (user_id, user_role, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $realIp = getRealIpAddr();
+
+        $conn = isset($db) && method_exists($db, 'prepare') ? $db : (new Database())->getConnection();
+
+        $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_role, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
-            $_SESSION['user_id'] ?? null,
-            'admin',
-            'Unknown User', // Admin user name not fetched here for simplicity
+            $userId,
+            $userRole,
+            $userName,
             $action,
             $category,
             $details,
             $targetId,
             $targetType,
-            $_SERVER['REMOTE_ADDR'] ?? null,
-            null, // Set user_agent to null to avoid storing PII
+            $realIp,
+            $_SERVER['HTTP_USER_AGENT'] ?? null,
             $severity ?? 'INFO',
         ]);
     } catch (Exception $e) {
-        error_log("Failed to add audit log: " . $e->getMessage());
+        error_log("Audit Log Error: " . $e->getMessage());
     }
 }
 
@@ -424,6 +446,47 @@ try {
     }
 
     // ----------------------------------
+    // RESET PASSWORD: Force-reset a user to temporary default password
+    // ----------------------------------
+    if ($method === 'POST' && $action === 'reset_password') {
+        $id = $payload['id'] ?? '';
+        $role = $payload['role'] ?? '';
+        $table = get_table_by_role($role);
+        if (!$table || !$id) {
+            json_error('Missing id or role', 400);
+        }
+
+        $tempPassword = 'ChangeMe123!';
+        $hash = password_hash($tempPassword, PASSWORD_BCRYPT);
+
+        $stmt = $db->prepare("UPDATE $table SET password = :password, must_change_password = 1 WHERE id = :id");
+        $ok = $stmt->execute([':password' => $hash, ':id' => $id]);
+
+        if ($ok) {
+            // Fetch the user's name first so the log is hyper-specific
+            $userStmt = $db->prepare("SELECT first_name, last_name FROM $table WHERE id = ?");
+            $userStmt->execute([$id]);
+            $targetUser = $userStmt->fetch(PDO::FETCH_ASSOC);
+            $targetName = $targetUser ? ($targetUser['first_name'] . ' ' . $targetUser['last_name']) : 'Unknown';
+
+            // Log the specific action
+            addAuditLog(
+                'PASSWORD_RESET_FORCED',
+                'Security',
+                "Admin forcibly reset the password for $role: $targetName ($id)",
+                $id,
+                'User',
+                'WARNING'
+            );
+        }
+
+        json_response([
+            'success' => $ok,
+            'message' => $ok ? 'Password reset successfully. Temporary password set to default.' : 'Password reset failed'
+        ]);
+    }
+
+    // ----------------------------------
     // RESET 2FA: Reset 2FA for a user
     // ----------------------------------
     if ($method === 'POST' && $action === 'reset_2fa') {
@@ -491,6 +554,13 @@ try {
             json_error('Missing id or role', 400);
         }
 
+        $beforeStmt = $db->prepare("SELECT * FROM $table WHERE id = :id LIMIT 1");
+        $beforeStmt->execute([':id' => $id]);
+        $before = $beforeStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$before) {
+            json_error('User not found', 404);
+        }
+
         $first = trim($payload['first_name'] ?? $payload['firstName'] ?? '');
         $last = trim($payload['last_name'] ?? $payload['lastName'] ?? '');
         $email = trim($payload['email'] ?? '');
@@ -532,7 +602,49 @@ try {
         $stmt = $db->prepare($sql);
         $ok = $stmt->execute($params);
         if ($ok) {
-            addAuditLog('USER_UPDATED', 'User Management', "Updated $role: $first $last ($id)", $id, 'User', 'INFO');
+            $changes = [];
+            $fieldLabels = [
+                'first_name' => 'First Name',
+                'last_name' => 'Last Name',
+                'email' => 'Email',
+                'phone' => 'Phone',
+                'position' => 'Position',
+                'department' => 'Department',
+                'office' => 'Office'
+            ];
+
+            $newState = [
+                'first_name' => $first,
+                'last_name' => $last,
+                'email' => $email,
+                'phone' => $phone,
+                'position' => $position,
+                'department' => $department,
+                'office' => $office
+            ];
+
+            foreach ($newState as $field => $newValue) {
+                if (!array_key_exists($field, $before)) {
+                    continue;
+                }
+                if ($newValue === null && $role !== 'admin' && $field === 'office') {
+                    continue;
+                }
+
+                $oldValue = trim((string) ($before[$field] ?? ''));
+                $newValueText = trim((string) ($newValue ?? ''));
+
+                if ($oldValue !== $newValueText) {
+                    $label = $fieldLabels[$field] ?? $field;
+                    $changes[] = "$label changed from '$oldValue' to '$newValueText'";
+                }
+            }
+
+            $detailText = !empty($changes)
+                ? "Updated $role: $first $last ($id). " . implode('; ', $changes)
+                : "Updated $role: $first $last ($id). No field changes detected.";
+
+            addAuditLog('USER_UPDATED', 'User Management', $detailText, $id, 'User', 'INFO');
         }
         json_response(['success' => $ok, 'message' => $ok ? 'User updated' : 'Update failed']);
     }

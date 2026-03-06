@@ -35,6 +35,8 @@ register_shutdown_function(function () {
 
 if (!defined('DOC_STEP_TIMEOUT_DAYS'))
     define('DOC_STEP_TIMEOUT_DAYS', 5);
+if (!defined('DOC_ESCALATION_START_DAYS'))
+    define('DOC_ESCALATION_START_DAYS', 3);
 
 // ------------------------------------------------------------------
 // Local Helper Functions
@@ -43,7 +45,20 @@ function enforceTimeouts($db)
 {
     try {
         $query = "
-            SELECT ds.id as step_id, d.id as doc_id 
+            SELECT ds.id as step_id,
+                   ds.step_order,
+                   ds.assigned_to_employee_id,
+                   ds.assigned_to_student_id,
+                   d.id as doc_id,
+                   d.student_id,
+                   d.title,
+                   DATEDIFF(NOW(), COALESCE(
+                        (SELECT acted_at FROM document_steps prev 
+                         WHERE prev.document_id = ds.document_id 
+                         AND prev.step_order = ds.step_order - 1 
+                         LIMIT 1),
+                        d.uploaded_at
+                   )) AS elapsed_days
             FROM document_steps ds
             JOIN documents d ON ds.document_id = d.id
             WHERE ds.status = 'pending' 
@@ -57,20 +72,116 @@ function enforceTimeouts($db)
         ";
 
         $stmt = $db->prepare($query);
-        $stmt->execute([DOC_STEP_TIMEOUT_DAYS]);
+        $stmt->execute([DOC_ESCALATION_START_DAYS]);
         $expiredSteps = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (!$expiredSteps)
             return;
 
         foreach ($expiredSteps as $row) {
-            $db->beginTransaction();
-            $db->prepare("UPDATE document_steps SET status = 'expired', acted_at = NOW(), note = CONCAT(COALESCE(note, ''), ' [Auto-timeout]') WHERE id = ?")->execute([$row['step_id']]);
-            $db->prepare("UPDATE documents SET status = 'on_hold', updated_at = NOW() WHERE id = ?")->execute([$row['doc_id']]);
+            $stepId = (int) ($row['step_id'] ?? 0);
+            $docId = (int) ($row['doc_id'] ?? 0);
+            $elapsedDays = (int) ($row['elapsed_days'] ?? 0);
+            $assigneeEmployeeId = $row['assigned_to_employee_id'] ?? null;
+            $assigneeStudentId = $row['assigned_to_student_id'] ?? null;
 
-            $doc = $db->query("SELECT student_id, title FROM documents WHERE id = " . $row['doc_id'])->fetch(PDO::FETCH_ASSOC);
-            if ($doc) {
-                pushNotification($db, $doc['student_id'], 'student', 'document', 'Document On Hold', "Your document '{$doc['title']}' has been placed on hold due to a step timeout. Please review and resubmit.", $row['doc_id'], 'document_status_in_review');
+            // Escalation chain before hard timeout:
+            // day 3 = assignee reminder, day 4 = admin escalation.
+            if ($elapsedDays === 3) {
+                if (!empty($assigneeEmployeeId)) {
+                    pushNotification(
+                        $db,
+                        $assigneeEmployeeId,
+                        'employee',
+                        'document',
+                        'Reminder: Action Required',
+                        "Document '{$row['title']}' is still pending your review.",
+                        $docId,
+                        'employee_document_pending',
+                        'esc_step_' . $stepId . '_day3_employee'
+                    );
+                } elseif (!empty($assigneeStudentId)) {
+                    pushNotification(
+                        $db,
+                        $assigneeStudentId,
+                        'student',
+                        'document',
+                        'Reminder: Action Required',
+                        "Document '{$row['title']}' is still pending your review.",
+                        $docId,
+                        'document_pending_signature',
+                        'esc_step_' . $stepId . '_day3_student'
+                    );
+                }
+            }
+
+            if ($elapsedDays === 4) {
+                if (!empty($assigneeEmployeeId)) {
+                    pushNotification(
+                        $db,
+                        $assigneeEmployeeId,
+                        'employee',
+                        'document',
+                        'Escalation: Urgent Action Required',
+                        "Document '{$row['title']}' is approaching timeout. Please act immediately.",
+                        $docId,
+                        'employee_document_pending',
+                        'esc_step_' . $stepId . '_day4_employee'
+                    );
+                } elseif (!empty($assigneeStudentId)) {
+                    pushNotification(
+                        $db,
+                        $assigneeStudentId,
+                        'student',
+                        'document',
+                        'Escalation: Urgent Action Required',
+                        "Document '{$row['title']}' is approaching timeout. Please act immediately.",
+                        $docId,
+                        'document_pending_signature',
+                        'esc_step_' . $stepId . '_day4_student'
+                    );
+                }
+
+                try {
+                    $adminStmt = $db->query("SELECT id FROM admins");
+                    foreach ($adminStmt->fetchAll(PDO::FETCH_COLUMN) as $adminId) {
+                        pushNotification(
+                            $db,
+                            $adminId,
+                            'admin',
+                            'system',
+                            'Escalation Alert',
+                            "Document '{$row['title']}' is pending for {$elapsedDays} days and may timeout soon.",
+                            $docId,
+                            'workflow_escalation',
+                            'esc_step_' . $stepId . '_day4_admin_' . $adminId
+                        );
+                    }
+                } catch (Exception $e) {
+                    error_log("Admin escalation lookup failed: " . $e->getMessage());
+                }
+            }
+
+            if ($elapsedDays < DOC_STEP_TIMEOUT_DAYS) {
+                continue;
+            }
+
+            $db->beginTransaction();
+            $db->prepare("UPDATE document_steps SET status = 'expired', acted_at = NOW(), note = CONCAT(COALESCE(note, ''), ' [Auto-timeout]') WHERE id = ?")->execute([$stepId]);
+            $db->prepare("UPDATE documents SET status = 'on_hold', updated_at = NOW() WHERE id = ?")->execute([$docId]);
+
+            if (!empty($row['student_id'])) {
+                pushNotification(
+                    $db,
+                    $row['student_id'],
+                    'student',
+                    'document',
+                    'Document On Hold',
+                    "Your document '{$row['title']}' has been placed on hold due to a step timeout. Please review and resubmit.",
+                    $docId,
+                    'document_status_in_review',
+                    'timeout_doc_' . $docId . '_step_' . $stepId
+                );
             }
             $db->commit();
         }
@@ -682,37 +793,52 @@ function rejectDocument($db, $currentUser, $input)
 {
     $documentId = $input['document_id'] ?? 0;
     $stepId = $input['step_id'] ?? 0;
-    $reason = $input['reason'] ?? '';
+    $reason = trim($input['reason'] ?? ''); // Ensure trim
 
-    if (!$documentId || empty($reason))
-        sendJsonResponse(false, 'Document ID and reason required', 400);
+    // BUG FIX 1: Strictly enforce reason on the backend
+    if (!$documentId || empty($reason)) {
+        sendJsonResponse(false, 'A reason is strictly required to reject this document.', 400);
+    }
 
     $assignCol = ($currentUser['role'] === 'employee') ? 'assigned_to_employee_id' : 'assigned_to_student_id';
 
     if (!$stepId) {
-        $q = $db->prepare("SELECT id FROM document_steps WHERE document_id = ? AND $assignCol = ? AND status = 'pending' LIMIT 1");
-        $q->execute([$documentId, $currentUser['id']]);
+        if ($currentUser['role'] === 'employee') {
+            $q = $db->prepare("SELECT ds.id FROM document_steps ds LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id WHERE ds.document_id = ? AND ds.status = 'pending' AND (ds.assigned_to_employee_id = ? OR (TRIM(LOWER(e.position)) = TRIM(LOWER(?)) AND (TRIM(LOWER(e.department)) = TRIM(LOWER(?)) OR e.department IS NULL OR TRIM(e.department) = '')) OR (ds.assigned_to_employee_id IS NULL AND TRIM(LOWER(ds.name)) LIKE CONCAT('%', TRIM(LOWER(?)), '%'))) ORDER BY ds.step_order ASC LIMIT 1");
+            $q->execute([$documentId, $currentUser['id'], $currentUser['position'], $currentUser['department'] ?? '', $currentUser['position']]);
+        } else {
+            $q = $db->prepare("SELECT ds.id FROM document_steps ds LEFT JOIN students s ON ds.assigned_to_student_id = s.id WHERE ds.document_id = ? AND ds.status = 'pending' AND (ds.assigned_to_student_id = ? OR (TRIM(LOWER(s.position)) = TRIM(LOWER(?)) AND (TRIM(LOWER(s.department)) = TRIM(LOWER(?)) OR s.department IS NULL OR TRIM(s.department) = '')) OR (ds.assigned_to_student_id IS NULL AND TRIM(LOWER(ds.name)) LIKE CONCAT('%', TRIM(LOWER(?)), '%'))) ORDER BY ds.step_order ASC LIMIT 1");
+            $q->execute([$documentId, $currentUser['id'], $currentUser['position'], $currentUser['department'] ?? '', $currentUser['position']]);
+        }
         $stepId = $q->fetchColumn();
-        if (!$stepId)
-            sendJsonResponse(false, 'No pending step assigned to you', 403);
+        if (!$stepId) sendJsonResponse(false, 'No pending step assigned to your position', 403);
     }
+
+    $lockCheck = $db->prepare("SELECT status FROM document_steps WHERE id = ?");
+    $lockCheck->execute([$stepId]);
+    if ($lockCheck->fetchColumn() !== 'pending') sendJsonResponse(false, 'Document has already been processed.', 409);
 
     try {
         $db->beginTransaction();
-
-        $db->prepare("UPDATE document_steps SET status = 'rejected', acted_at = NOW(), note = ? WHERE id = ? AND $assignCol = ?")->execute([$reason, $stepId, $currentUser['id']]);
+        
+        // Mark the current step as rejected with the reason
+        $db->prepare("UPDATE document_steps SET status = 'rejected', acted_at = NOW(), note = ?, $assignCol = ? WHERE id = ?")->execute([$reason, $currentUser['id'], $stepId]);
+        
+        // BUG FIX 2: "SEALED STATE" 
+        // Forcefully skip/terminate all subsequent queued steps so the document permanently dies and does not bounce back or stay active.
+        $db->prepare("UPDATE document_steps SET status = 'skipped' WHERE document_id = ? AND status IN ('pending', 'queued') AND id != ?")->execute([$documentId, $stepId]);
+        
+        // Seal the document permanently
         $db->prepare("UPDATE documents SET status = 'rejected', updated_at = NOW() WHERE id = ?")->execute([$documentId]);
 
         $doc = $db->query("SELECT student_id, title FROM documents WHERE id = $documentId")->fetch(PDO::FETCH_ASSOC);
-
-        // RULE 2: Anti-self notification for rejection
         if ($doc && $doc['student_id'] != $currentUser['id']) {
-            pushNotification($db, $doc['student_id'], 'student', 'document', 'Document Rejected', "Your document '{$doc['title']}' was rejected by {$currentUser['first_name']}.", $documentId, 'doc_status_rejected');
+            pushNotification($db, $doc['student_id'], 'student', 'document', 'Document Rejected', "Your document '{$doc['title']}' was rejected by {$currentUser['first_name']}. Reason: {$reason}", $documentId, 'doc_status_rejected');
         }
 
-        addAuditLog($db, 'DOCUMENT_REJECTED', 'Document Management', "Rejected by {$currentUser['first_name']}: $reason", $documentId, 'Document', 'WARNING');
+        addAuditLog($db, 'DOCUMENT_REJECTED', 'Document Management', "Rejected by {$currentUser['first_name']}. Reason: $reason", $documentId, 'Document', 'WARNING');
         $db->commit();
-        sendJsonResponse(true, ['message' => 'Document rejected', 'step_id' => $stepId]);
+        sendJsonResponse(true, ['message' => 'Document rejected and sealed', 'step_id' => $stepId]);
     } catch (Exception $e) {
         $db->rollBack();
         throw $e;
@@ -1056,6 +1182,15 @@ function downloadDocumentFile($db, $currentUser, $docId)
 
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Content-Length: ' . filesize($finalPath));
+        addAuditLog(
+            $db,
+            'DOCUMENT_DOWNLOADED',
+            'System Activity',
+            "User downloaded document: {$doc['title']} (ID: {$docId})",
+            $docId,
+            'Document',
+            'INFO'
+        );
         readfile($finalPath);
 
         // Cleanup (optional, maybe keep cache?)
@@ -1454,10 +1589,11 @@ function getAssignedDocuments($db, $currentUser)
         JOIN document_steps ds ON d.id = ds.document_id
         LEFT JOIN employees e ON ds.assigned_to_employee_id = e.id
         LEFT JOIN students st ON ds.assigned_to_student_id = st.id
-        WHERE EXISTS (
+                WHERE EXISTS (
             SELECT 1 FROM document_steps ds_target
             WHERE ds_target.document_id = d.id AND {$assignmentCondition}
-        ) {$docTypeFilter}
+                )
+                    AND d.status <> 'rejected' {$docTypeFilter}
         ORDER BY d.uploaded_at DESC, ds.step_order ASC
     ";
 
@@ -1508,15 +1644,53 @@ function getAssignedDocuments($db, $currentUser)
 }
 
 // --- RULE 5: GLOBAL PUSH NOTIFICATION FUNCTION (Database + Email) ---
-function pushNotification($db, $recipId, $recipRole, $type, $title, $msg, $docId = null, $refType = null)
+function shouldDeduplicateNotification($refType)
+{
+    $dedupeTypes = [
+        'employee_document_pending',
+        'document_pending_signature',
+        'employee_material_pending',
+        'document_status_in_review',
+        'workflow_escalation',
+        'doc_status_approved',
+        'doc_status_rejected',
+        'material_status_approved',
+        'material_status_rejected'
+    ];
+
+    return in_array((string) $refType, $dedupeTypes, true);
+}
+
+function buildNotificationReferenceId($recipId, $recipRole, $docId, $refType)
+{
+    $docPart = $docId ? (string) $docId : 'none';
+    $refPart = $refType ?: 'generic';
+    return 'notif_' . $recipRole . '_' . $recipId . '_' . $refPart . '_' . $docPart;
+}
+
+function pushNotification($db, $recipId, $recipRole, $type, $title, $msg, $docId = null, $refType = null, $referenceId = null)
 {
     if (!$recipId || !$recipRole)
         return;
 
+    $referenceId = $referenceId ?: buildNotificationReferenceId($recipId, $recipRole, $docId, $refType);
+
+    if (shouldDeduplicateNotification($refType)) {
+        try {
+            $dedupeStmt = $db->prepare("SELECT id FROM notifications WHERE recipient_id = ? AND recipient_role = ? AND reference_id = ? AND is_read = 0 AND (is_archived = 0 OR is_archived IS NULL) AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) LIMIT 1");
+            $dedupeStmt->execute([$recipId, $recipRole, $referenceId]);
+            if ($dedupeStmt->fetchColumn()) {
+                return;
+            }
+        } catch (Exception $e) {
+            error_log("Notification dedupe check failed: " . $e->getMessage());
+        }
+    }
+
     // 1. Always insert into database notifications table
     try {
-        $stmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_type, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, NOW())");
-        $stmt->execute([$recipId, $recipRole, $type, $title, $msg, $docId, $refType]);
+        $stmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_document_id, reference_id, reference_type, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())");
+        $stmt->execute([$recipId, $recipRole, $type, $title, $msg, $docId, $referenceId, $refType]);
     } catch (Exception $e) {
         error_log("DB Notification Error: " . $e->getMessage());
     }

@@ -100,6 +100,18 @@ if ($method === 'PUT' || ($method === 'POST' && $action === 'change_password')) 
         $upd = $pdo->prepare("UPDATE $table SET password=:pwd, must_change_password=0 WHERE id=:id");
         if ($upd->execute([':pwd' => $hash, ':id' => $userId])) {
             $_SESSION['must_change_password'] = 0;
+
+            $role = $_SESSION['user_role'] ?? 'unknown';
+            addAuditLog(
+                $pdo,
+                'PASSWORD_CHANGED',
+                'Security',
+                "User changed password: {$role} ({$userId})",
+                $userId,
+                'User',
+                'WARNING'
+            );
+
             sendJsonResponse(true, 'Password updated successfully.');
         }
         sendJsonResponse(false, 'Failed to update password.', 500);

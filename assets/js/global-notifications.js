@@ -6,18 +6,26 @@
     const API = BASE_URL + "api/notifications.php";
     const POLL_INTERVAL = 30000; // 30 seconds
     const FAST_POLL_INTERVAL = 5000; // 5 seconds when modal is open
+    const CURRENT_USER_KEY = `${window.currentUser?.role || "guest"}:${window.currentUser?.id || "anon"}`;
+    const LS_PENDING_KEY = `su_last_pending_approvals:${CURRENT_USER_KEY}`;
+    const LS_ANNOUNCE_KEY = `spcf_last_notif_time:${CURRENT_USER_KEY}`;
+    const LS_SYNC_KEY = `spcf_notif_sync:${CURRENT_USER_KEY}`;
 
     let pollHandle = null;
     let lastFetchTime = null;
     let isModalOpen = false;
     let notificationsCache = [];
     let unreadCount = 0;
+    let pendingApprovalsCount = 0;
     let hasInitialFetchCompleted = false;
     let typeFilters = {
         document: true,
         event: true,
         system: true,
     };
+
+    const notificationSound = new Audio(BASE_URL + 'assets/sounds/Notifications.mp3');
+    let previousPendingApprovals = parseInt(localStorage.getItem(LS_PENDING_KEY) || '0', 10) || 0;
 
     // Notification icons based on type
     const ICONS = {
@@ -57,6 +65,39 @@
         return document.getElementById(id);
     }
 
+    function upsertPendingReminder(count) {
+        let banner = qs("pendingApprovalReminder");
+
+        if (!count || count <= 0) {
+            if (banner) banner.remove();
+            return;
+        }
+
+        if (!banner) {
+            banner = document.createElement("div");
+            banner.id = "pendingApprovalReminder";
+            banner.style.position = "fixed";
+            banner.style.left = "50%";
+            banner.style.bottom = "14px";
+            banner.style.transform = "translateX(-50%)";
+            banner.style.zIndex = "1095";
+            banner.style.background = "#fff3cd";
+            banner.style.color = "#664d03";
+            banner.style.border = "1px solid #ffecb5";
+            banner.style.borderRadius = "999px";
+            banner.style.padding = "10px 16px";
+            banner.style.boxShadow = "0 8px 30px rgba(0,0,0,0.16)";
+            banner.style.fontWeight = "600";
+            banner.style.fontSize = "0.92rem";
+            banner.style.maxWidth = "92vw";
+            banner.style.whiteSpace = "nowrap";
+            document.body.appendChild(banner);
+        }
+
+        const safeCount = Number(count) || 0;
+        banner.textContent = `Action Required: You have ${safeCount} pending document${safeCount > 1 ? "s" : ""} waiting for your approval.`;
+    }
+
     // Initialize
     function init() {
         // Initial fetch
@@ -88,7 +129,7 @@
         // ✨ NEW: Cross-Tab Sync Listener ✨
         // If another tab triggers a read/delete action, instantly fetch the new state here.
         window.addEventListener("storage", (e) => {
-            if (e.key === "spcf_notif_sync") {
+            if (e.key === LS_SYNC_KEY) {
                 fetchNotifications(false);
             }
         });
@@ -109,6 +150,12 @@
 
     async function fetchNotifications(showLoading = false) {
         try {
+            const previousNotifications = notificationsCache.slice();
+            const previousIds = new Set(
+                previousNotifications.map((n) => String(n.id)),
+            );
+            const previousFetchTime = lastFetchTime;
+
             const url = new URL(API, window.location.origin);
             url.searchParams.append("t", Date.now()); // Cache bust
             url.searchParams.append("include_read", "1");
@@ -148,17 +195,46 @@
             const data = await response.json();
 
             if (data.success) {
-                const previousUnreadCount = unreadCount;
-
                 notificationsCache = data.notifications || [];
                 unreadCount = data.unread_count || 0;
+                pendingApprovalsCount = Number(data.pending_approvals_count || 0);
+                upsertPendingReminder(pendingApprovalsCount);
+                // --- NEW: Aggressive Audio & Toast Reminder ---
+                if (pendingApprovalsCount > previousPendingApprovals) {
+                    // Play sound (catch error if browser blocks autoplay)
+                    notificationSound.play().catch((e) => console.warn('Audio autoplay blocked by browser'));
+
+                    // Show aggressive toast that stays longer (10 seconds)
+                    if (window.ToastManager) {
+                        window.ToastManager.show({
+                            type: 'warning',
+                            title: 'Action Required',
+                            message: `You have ${pendingApprovalsCount} pending document${pendingApprovalsCount > 1 ? 's' : ''} requiring your signature!`,
+                            duration: 10000
+                        });
+                    }
+                }
+                previousPendingApprovals = pendingApprovalsCount;
+                localStorage.setItem(LS_PENDING_KEY, String(pendingApprovalsCount));
                 lastFetchTime = data.timestamp || new Date().toISOString();
 
                 updateBadge(unreadCount);
 
-                if (hasInitialFetchCompleted && unreadCount > previousUnreadCount) {
-                    const newCount = unreadCount - previousUnreadCount;
-                    handleNewNotifications(newCount);
+                if (hasInitialFetchCompleted) {
+                    const newlyArrived = notificationsCache.filter((n) => {
+                        const id = String(n.id);
+                        if (!previousIds.has(id)) return true;
+
+                        if (!previousFetchTime || !n.created_at) return false;
+
+                        const createdAt = new Date(n.created_at).getTime();
+                        const prevFetch = new Date(previousFetchTime).getTime();
+                        return Number.isFinite(createdAt) && Number.isFinite(prevFetch) && createdAt > prevFetch;
+                    });
+
+                    if (newlyArrived.length > 0) {
+                        handleNewNotifications(newlyArrived.length);
+                    }
                 }
 
                 hasInitialFetchCompleted = true;
@@ -186,7 +262,7 @@
     function handleNewNotifications(newCount) {
         // ✨ NEW: Cross-Tab Spam Prevention ✨
         const now = Date.now();
-        const lastAnnounced = localStorage.getItem("spcf_last_notif_time");
+        const lastAnnounced = localStorage.getItem(LS_ANNOUNCE_KEY);
 
         // If another tab announced a notification in the last 10 seconds, stay silent here.
         if (lastAnnounced && now - parseInt(lastAnnounced) < 10000) {
@@ -194,7 +270,7 @@
         }
 
         // Claim the announcement for this tab
-        localStorage.setItem("spcf_last_notif_time", now.toString());
+        localStorage.setItem(LS_ANNOUNCE_KEY, now.toString());
 
         if (
             typeof Notification !== "undefined" &&
@@ -241,7 +317,7 @@
 
     // Helper to notify other tabs to sync
     function triggerCrossTabSync() {
-        localStorage.setItem("spcf_notif_sync", Date.now().toString());
+        localStorage.setItem(LS_SYNC_KEY, Date.now().toString());
     }
 
     async function markAsRead(notificationId) {
@@ -326,53 +402,56 @@
         return "bi-bell";
     }
 
-    function buildNotificationsHTML() {
-        const filteredNotifications = notificationsCache.filter(
-            (n) => typeFilters[n.type] !== false,
-        );
+    function isGlobalAnnouncement(notification) {
+        const type = String(notification.type || "").toLowerCase();
+        const refType = String(notification.reference_type || "").toLowerCase();
+        if (type === "system" || type === "event") return true;
+        if (refType.startsWith("event_")) return true;
+        return refType === "workflow_escalation";
+    }
 
-        if (filteredNotifications.length === 0) {
-            return `
-                <div class="notification-empty-state">
-                    <i class="bi bi-bell-slash" style="font-size: 4rem; color: #cbd5e1;"></i>
-                    <h5 class="mt-3">No notifications</h5>
-                    <p class="text-muted mb-0">You're all caught up!</p>
-                </div>
-            `;
+    function buildActionLink(notification) {
+        const refType = String(notification.reference_type || "");
+        const relatedIdRaw = String(notification.related_document_id || "").trim();
+        const docId = Number(relatedIdRaw || 0);
+        const eventId = Number(notification.related_event_id || 0);
+        const notifId = Number(notification.id || 0);
+
+        if (
+            refType.includes("material_") ||
+            refType.includes("employee_material")
+        ) {
+            if (relatedIdRaw) {
+                return `${BASE_URL}?page=pubmat-approvals&material_id=${encodeURIComponent(relatedIdRaw)}&notif_id=${notifId}`;
+            }
+            return `${BASE_URL}?page=pubmat-approvals&notif_id=${notifId}`;
         }
 
-        return filteredNotifications
-            .map((n, index) => {
-                const icon = getIconForNotification(n);
-                const date = new Date(n.created_at);
-                const timeStr = n.time_ago || formatTimeAgo(date);
-                const readClass = n.is_read
-                    ? "notification-read"
-                    : "notification-unread";
+        if (docId > 0) {
+            // Use a direct deep-link to the notifications workspace and open this exact document card.
+            return `${BASE_URL}?page=notifications&open_doc=${docId}&notif_id=${notifId}`;
+        }
 
-                // Smart Routing based on User Role
-                let actionLink = "#";
-                if (n.related_document_id) {
-                    // If it's a student, send them to tracker. If employee, send to notifications.
-                    const userRole = window.currentUser?.role || "student";
-                    actionLink =
-                        userRole === "student"
-                            ? `${BASE_URL}?page=track-document`
-                            : `${BASE_URL}?page=notifications`;
-                } else if (n.related_event_id) {
-                    actionLink = `${BASE_URL}?page=calendar`;
-                } else if (
-                    (n.reference_type || "").includes("material_") ||
-                    (n.reference_type || "").includes("employee_material")
-                ) {
-                    actionLink = `${BASE_URL}?page=pubmat-approvals`;
-                }
+        if (eventId > 0 || String(notification.type || "") === "event") {
+            return `${BASE_URL}?page=event-calendar${eventId > 0 ? `&event_id=${eventId}` : ""}`;
+        }
 
-                return `
+        return "#";
+    }
+
+    function buildNotificationItemHTML(n, index) {
+        const icon = getIconForNotification(n);
+        const date = new Date(n.created_at);
+        const timeStr = n.time_ago || formatTimeAgo(date);
+        const readClass = n.is_read ? "notification-read" : "notification-unread";
+        const actionLink = buildActionLink(n);
+
+        return `
                 <div class="notification-item ${readClass}" 
                      data-notification-id="${n.id}"
                      data-notification-type="${n.type}"
                      data-reference-type="${n.reference_type || ""}"
+                     data-action-link="${escapeHtml(actionLink)}"
                      style="animation: slideInUp 0.3s ease ${index * 0.05}s both">
                     <div class="notification-icon">
                         <i class="bi ${icon}"></i>
@@ -405,8 +484,66 @@
                     </div>
                 </div>
             `;
-            })
-            .join("");
+    }
+
+    function buildSectionHTML(title, items, emptyMessage, sectionClassName, startIndex) {
+        const bodyHtml =
+            items.length > 0
+                ? items
+                      .map((n, idx) => buildNotificationItemHTML(n, startIndex + idx))
+                      .join("")
+                : `<div class="text-muted small py-2">${emptyMessage}</div>`;
+
+        return `
+            <div class="notification-section ${sectionClassName}">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="mb-0 fw-semibold">${title}</h6>
+                    <span class="badge text-bg-light">${items.length}</span>
+                </div>
+                ${bodyHtml}
+            </div>
+        `;
+    }
+
+    function buildNotificationsHTML() {
+        const filteredNotifications = notificationsCache.filter(
+            (n) => typeFilters[n.type] !== false,
+        );
+
+        if (filteredNotifications.length === 0) {
+            return `
+                <div class="notification-empty-state">
+                    <i class="bi bi-bell-slash" style="font-size: 4rem; color: #cbd5e1;"></i>
+                    <h5 class="mt-3">No notifications</h5>
+                    <p class="text-muted mb-0">You're all caught up!</p>
+                </div>
+            `;
+        }
+
+        const workflowItems = filteredNotifications.filter(
+            (n) => !isGlobalAnnouncement(n),
+        );
+        const announcementItems = filteredNotifications.filter((n) =>
+            isGlobalAnnouncement(n),
+        );
+
+        return `
+            ${buildSectionHTML(
+                "Workflow Alerts",
+                workflowItems,
+                "No workflow alerts right now.",
+                "notification-section-workflow",
+                0,
+            )}
+            <hr class="my-3" />
+            ${buildSectionHTML(
+                "Global Announcements",
+                announcementItems,
+                "No global announcements available.",
+                "notification-section-announcements",
+                workflowItems.length,
+            )}
+        `;
     }
 
     function refreshNotificationsList() {
@@ -434,9 +571,9 @@
                     markAsRead(id);
                 }
 
-                const link = this.querySelector("a[href]");
-                if (link && link.href !== "#") {
-                    window.location.href = link.href;
+                const actionLink = this.dataset.actionLink || "#";
+                if (actionLink && actionLink !== "#") {
+                    window.location.href = actionLink;
                 }
             });
         });

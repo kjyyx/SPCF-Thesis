@@ -27,11 +27,11 @@ try {
             echo json_encode(['success' => true]); exit;
         }
         if ($action === 'archive' && $notificationId) {
-            $db->prepare("UPDATE notifications SET is_archived = 1 WHERE id = ? AND recipient_id = ?")->execute([$notificationId, $currentUser['id']]);
+            $db->prepare("UPDATE notifications SET is_archived = 1 WHERE id = ? AND recipient_id = ? AND recipient_role = ?")->execute([$notificationId, $currentUser['id'], $currentUser['role']]);
             echo json_encode(['success' => true]); exit;
         }
         if ($action === 'delete' && $notificationId) {
-            $db->prepare("DELETE FROM notifications WHERE id = ? AND recipient_id = ?")->execute([$notificationId, $currentUser['id']]);
+            $db->prepare("DELETE FROM notifications WHERE id = ? AND recipient_id = ? AND recipient_role = ?")->execute([$notificationId, $currentUser['id'], $currentUser['role']]);
             echo json_encode(['success' => true]); exit;
         }
         if ($action === 'clear_all') {
@@ -39,7 +39,7 @@ try {
             echo json_encode(['success' => true]); exit;
         }
         if ($notificationId > 0) {
-            $db->prepare("UPDATE notifications SET is_read = 1 WHERE id = ? AND recipient_id = ?")->execute([$notificationId, $currentUser['id']]);
+            $db->prepare("UPDATE notifications SET is_read = 1 WHERE id = ? AND recipient_id = ? AND recipient_role = ?")->execute([$notificationId, $currentUser['id'], $currentUser['role']]);
             echo json_encode(['success' => true]); exit;
         }
         sendJsonResponse(false, 'Invalid action', 400);
@@ -50,12 +50,7 @@ try {
     $limit = min(100, intval($_GET['limit'] ?? 20));
     $offset = ($page - 1) * $limit;
 
-    // 1. Get Unread Count
-    $stmt = $db->prepare("SELECT COUNT(*) FROM notifications WHERE recipient_id = ? AND recipient_role = ? AND is_read = 0 AND (is_archived = 0 OR is_archived IS NULL)");
-    $stmt->execute([$currentUser['id'], $currentUser['role']]);
-    $unreadCount = (int) $stmt->fetchColumn();
-
-    // 2. Fetch Notifications
+    // 1. Fetch Notifications
     $stmt = $db->prepare("SELECT * FROM notifications WHERE recipient_id = ? AND recipient_role = ? AND (is_archived = 0 OR is_archived IS NULL) ORDER BY created_at DESC LIMIT ? OFFSET ?");
     $stmt->bindValue(1, $currentUser['id']);
     $stmt->bindValue(2, $currentUser['role']);
@@ -64,15 +59,129 @@ try {
     $stmt->execute();
     $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // 2. Auto-clean stale "pending review/signature" notifications that are no longer actionable.
+    $pendingRefTypes = ['employee_document_pending', 'document_pending_signature'];
+    $docIds = [];
+    foreach ($notifications as $n) {
+        if (in_array($n['reference_type'] ?? '', $pendingRefTypes, true) && !empty($n['related_document_id'])) {
+            $docIds[] = (int) $n['related_document_id'];
+        }
+    }
+    $docIds = array_values(array_unique(array_filter($docIds)));
+
+    $actionableDocSet = [];
+    if (!empty($docIds)) {
+        $placeholders = implode(',', array_fill(0, count($docIds), '?'));
+        if (($currentUser['role'] ?? '') === 'employee') {
+            $sql = "SELECT DISTINCT ds.document_id
+                    FROM document_steps ds
+                    JOIN documents d ON d.id = ds.document_id
+                    WHERE ds.status = 'pending'
+                      AND ds.assigned_to_employee_id = ?
+                      AND ds.document_id IN ($placeholders)
+                      AND d.status NOT IN ('approved', 'rejected', 'cancelled')";
+        } else {
+            $sql = "SELECT DISTINCT ds.document_id
+                    FROM document_steps ds
+                    JOIN documents d ON d.id = ds.document_id
+                    WHERE ds.status = 'pending'
+                      AND ds.assigned_to_student_id = ?
+                      AND ds.document_id IN ($placeholders)
+                      AND d.status NOT IN ('approved', 'rejected', 'cancelled')";
+        }
+
+        $params = array_merge([$currentUser['id']], $docIds);
+        $checkStmt = $db->prepare($sql);
+        $checkStmt->execute($params);
+        foreach ($checkStmt->fetchAll(PDO::FETCH_COLUMN) as $docId) {
+            $actionableDocSet[(int) $docId] = true;
+        }
+    }
+
+    $staleNotificationIds = [];
     foreach ($notifications as &$notif) {
+        $refType = $notif['reference_type'] ?? '';
+        $docId = (int) ($notif['related_document_id'] ?? 0);
+        $isActionable = true;
+
+        if (in_array($refType, $pendingRefTypes, true)) {
+            $isActionable = ($docId > 0 && isset($actionableDocSet[$docId]));
+            if (!$isActionable) {
+                $staleNotificationIds[] = (int) $notif['id'];
+            }
+        }
+
+        $notif['is_actionable'] = $isActionable;
         $notif['time_ago'] = getTimeAgo($notif['created_at']);
         $notif['is_read'] = (bool) $notif['is_read'];
     }
+    unset($notif);
+
+    if (!empty($staleNotificationIds)) {
+        $ph = implode(',', array_fill(0, count($staleNotificationIds), '?'));
+        $sql = "UPDATE notifications
+                SET is_read = 1, is_archived = 1
+                WHERE id IN ($ph) AND recipient_id = ? AND recipient_role = ?";
+        $params = array_merge($staleNotificationIds, [$currentUser['id'], $currentUser['role']]);
+        $db->prepare($sql)->execute($params);
+
+        // Remove archived stale notifications from this response immediately.
+        $staleMap = array_fill_keys($staleNotificationIds, true);
+        $notifications = array_values(array_filter($notifications, function ($n) use ($staleMap) {
+            return !isset($staleMap[(int) $n['id']]);
+        }));
+    }
+
+    // 3. Unread count after stale cleanup.
+    $stmt = $db->prepare("SELECT COUNT(*) FROM notifications WHERE recipient_id = ? AND recipient_role = ? AND is_read = 0 AND (is_archived = 0 OR is_archived IS NULL)");
+    $stmt->execute([$currentUser['id'], $currentUser['role']]);
+    $unreadCount = (int) $stmt->fetchColumn();
+
+    // 4. Strict pending approvals count (for reminders), independent from general unread.
+    if (($currentUser['role'] ?? '') === 'employee') {
+        $pendingCountSql = "SELECT COUNT(*)
+                            FROM document_steps ds
+                            JOIN documents d ON d.id = ds.document_id
+                            WHERE ds.status = 'pending'
+                              AND ds.assigned_to_employee_id = ?
+                              AND d.status NOT IN ('approved', 'rejected', 'cancelled')";
+    } else {
+        $pendingCountSql = "SELECT COUNT(*)
+                            FROM document_steps ds
+                            JOIN documents d ON d.id = ds.document_id
+                            WHERE ds.status = 'pending'
+                              AND ds.assigned_to_student_id = ?
+                              AND d.status NOT IN ('approved', 'rejected', 'cancelled')";
+    }
+    $pendingStmt = $db->prepare($pendingCountSql);
+    $pendingStmt->execute([$currentUser['id']]);
+    $pendingApprovalsCount = (int) $pendingStmt->fetchColumn();
+
+    $workflowNotifications = array_values(array_filter($notifications, function ($n) {
+        $type = strtolower((string) ($n['type'] ?? ''));
+        $refType = strtolower((string) ($n['reference_type'] ?? ''));
+        if ($type === 'system' || $type === 'event') {
+            return false;
+        }
+        if ($refType === 'workflow_escalation' || strpos($refType, 'event_') === 0) {
+            return false;
+        }
+        return true;
+    }));
+
+    $globalAnnouncements = array_values(array_filter($notifications, function ($n) {
+        $type = strtolower((string) ($n['type'] ?? ''));
+        $refType = strtolower((string) ($n['reference_type'] ?? ''));
+        return $type === 'system' || $type === 'event' || $refType === 'workflow_escalation' || strpos($refType, 'event_') === 0;
+    }));
 
     echo json_encode([
         'success' => true,
         'notifications' => $notifications,
+        'workflow_notifications' => $workflowNotifications,
+        'global_announcements' => $globalAnnouncements,
         'unread_count' => $unreadCount,
+        'pending_approvals_count' => $pendingApprovalsCount,
         'timestamp' => date('c')
     ]);
 

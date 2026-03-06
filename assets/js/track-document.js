@@ -147,6 +147,8 @@ class DocumentTrackerSystem {
                 ? window.getStatusBadge(doc.status || doc.current_status, 'document')
                 : `<span class="badge ${this.getStatusBadgeClass(doc.status || doc.current_status)}">${this.formatStatusDisplay(doc.status || doc.current_status)}</span>`;
 
+            const canDownload = !!doc.file_path && this.normalizeDocumentStatus(doc.status || doc.current_status) === 'approved';
+
             row.innerHTML = `
                 <td>
                     <div class="d-flex align-items-center gap-3">
@@ -176,7 +178,7 @@ class DocumentTrackerSystem {
                 </div></td>
                 <td class="text-end">
                     <button class="btn btn-ghost btn-sm rounded-pill px-3 me-1" onclick="documentTracker.viewDetails('${doc.id}')"><i class="bi bi-eye"></i></button>
-                    <button class="btn btn-ghost btn-icon sm rounded-pill me-1" onclick="documentTracker.downloadDocument('${doc.id}')" title="Download"><i class="bi bi-download"></i></button>
+                    ${canDownload ? `<button class="btn btn-ghost btn-icon sm rounded-pill me-1" onclick="documentTracker.downloadDocument('${doc.id}')" title="Download"><i class="bi bi-download"></i></button>` : ''}
                     ${canDelete ? `<button class="btn btn-ghost btn-icon sm rounded-pill text-danger" onclick="documentTracker.deleteDocument('${doc.id}')" title="Delete"><i class="bi bi-trash"></i></button>` : ''}
                 </td>
             `;
@@ -380,7 +382,7 @@ class DocumentTrackerSystem {
                 `;
 
                 const dlBtn = document.getElementById('downloadDocumentBtn');
-                if (dlBtn && doc.file_path && (doc.status === 'approved' || doc.status === 'rejected')) {
+                if (dlBtn && doc.file_path && this.normalizeDocumentStatus(doc.status) === 'approved') {
                     dlBtn.style.display = 'inline-flex';
                     dlBtn.onclick = () => this.downloadDocument(doc.id);
                 } else if (dlBtn) dlBtn.style.display = 'none';
@@ -593,6 +595,11 @@ class DocumentTrackerSystem {
         fetch(BASE_URL + `api/documents.php?action=document_details&id=${docId}`)
             .then(r => r.json())
             .then(data => {
+                const status = this.normalizeDocumentStatus(data?.document?.status);
+                if (status !== 'approved') {
+                    throw new Error('Download is only available for fully approved documents');
+                }
+
                 if (data.success && data.document && data.document.file_path) {
                     let filePath = data.document.file_path;
                     if (filePath.startsWith('/')) filePath = BASE_URL + filePath.substring(1);
@@ -608,7 +615,7 @@ class DocumentTrackerSystem {
                     document.body.removeChild(link);
                 } else throw new Error('File not found');
             })
-            .catch(() => this.showToast('Failed to download document', 'error'));
+                .catch((err) => this.showToast(err?.message || 'Failed to download document', 'error'));
     }
 
     async deleteDocument(docId) {

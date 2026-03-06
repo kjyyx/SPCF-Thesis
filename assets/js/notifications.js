@@ -28,6 +28,11 @@ class DocumentNotificationSystem {
         this.commentsManager = new CommentsManager(this.apiBase);
         this.signatureManager = new SignatureManager();
         this.pdfViewer = new PdfViewer(this.signatureManager);
+
+        const params = new URLSearchParams(window.location.search || '');
+        this.deepLinkDocId = parseInt(params.get('open_doc') || '', 10) || null;
+        this.deepLinkNotificationId = parseInt(params.get('notif_id') || '', 10) || null;
+        this.hasProcessedDeepLink = false;
     }
 
     // ------------------------------------------------------------------
@@ -55,6 +60,8 @@ class DocumentNotificationSystem {
         this.setupEventListeners();
         this.initGroupingControls();
         this.filterDocuments(this.currentFilter);
+
+        this.handleDeepLink();
         
         if (this.signatureManager) {
             this.signatureManager.initSignaturePad();
@@ -66,6 +73,38 @@ class DocumentNotificationSystem {
         }, 250));
 
         this.setupPeriodicRefresh();
+    }
+
+    async markNotificationAsRead(notificationId) {
+        if (!notificationId) return;
+
+        try {
+            await fetch(`${BASE_URL}api/notifications.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ notification_id: notificationId })
+            });
+        } catch (error) {
+            console.warn('Unable to auto-mark notification as read:', error);
+        }
+    }
+
+    async handleDeepLink() {
+        if (this.hasProcessedDeepLink || !this.deepLinkDocId) return;
+        this.hasProcessedDeepLink = true;
+
+        try {
+            await this.openDocument(this.deepLinkDocId);
+            if (this.deepLinkNotificationId) {
+                await this.markNotificationAsRead(this.deepLinkNotificationId);
+            }
+
+            const cleanUrl = `${BASE_URL}?page=notifications`;
+            window.history.replaceState({}, document.title, cleanUrl);
+        } catch (error) {
+            console.warn('Deep-link open failed:', error);
+        }
     }
 
     setupPeriodicRefresh() {
@@ -417,6 +456,12 @@ class DocumentNotificationSystem {
                 docStatusEl.textContent = statusInfo.label || fullDoc.status;
                 docStatusEl.className = `status-badge ${fullDoc.status}`;
             }
+
+            const downloadActionBtn = document.getElementById('downloadDocumentAction');
+            if (downloadActionBtn) {
+                const normalizedStatus = this.normalizeDocumentStatus(fullDoc.status);
+                downloadActionBtn.style.display = normalizedStatus === 'approved' ? 'inline-flex' : 'none';
+            }
             
             // Delegate PDF Loading to PdfViewer
             const pdfUrl = fullDoc.file_path; 
@@ -601,6 +646,13 @@ class DocumentNotificationSystem {
     }
 
     async rejectDocument(docId, reason) {
+        // BUG FIX: Strictly prevent rejecting without a reason
+        if (!reason || reason.trim() === '') {
+            if (window.ToastManager) window.ToastManager.show({ type: 'error', title: 'Validation Error', message: 'A reason is strictly required to reject a document.' });
+            else alert('A reason is strictly required to reject a document.');
+            return; // Stop execution, do not send to server
+        }
+
         try {
             const pendingStep = this.currentDocument?.workflow?.find(s => s.status === 'pending');
             
@@ -617,14 +669,14 @@ class DocumentNotificationSystem {
             const result = await res.json();
 
             if (result.success) {
-                if (window.ToastManager) window.ToastManager.show({ type: 'warning', title: 'Rejected', message: 'Document has been rejected.' });
+                if (window.ToastManager) window.ToastManager.show({ type: 'warning', title: 'Rejected', message: 'Document has been permanently rejected.' });
                 this.goBack();
                 this.loadDocuments();
             } else {
                 throw new Error(result.message);
             }
         } catch (error) {
-            if (window.ToastManager) window.ToastManager.show({ type: 'error', title: 'Error', message: 'Failed to reject.' });
+            if (window.ToastManager) window.ToastManager.show({ type: 'error', title: 'Error', message: error.message || 'Failed to reject.' });
         }
     }
 

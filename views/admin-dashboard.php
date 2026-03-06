@@ -14,15 +14,43 @@ if (!$currentUser || $currentUser['role'] !== 'admin') {
     exit();
 }
 
+function getRealIpAddr()
+{
+    if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+        return $_SERVER['HTTP_CF_CONNECTING_IP'];
+    } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+        return trim($ips[0]);
+    } elseif (!empty($_SERVER['HTTP_CLIENT_IP'])) {
+        return $_SERVER['HTTP_CLIENT_IP'];
+    }
+    return $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+}
+
 function addAuditLog($action, $category, $details, $targetId = null, $targetType = null, $severity = 'INFO')
 {
     global $currentUser;
+
     try {
+        $realIp = getRealIpAddr();
         $db = new Database();
         $conn = $db->getConnection();
         $stmt = $conn->prepare("INSERT INTO audit_logs (user_id, user_role, user_name, action, category, details, target_id, target_type, ip_address, user_agent, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$currentUser['id'], $currentUser['role'], $currentUser['first_name'] . ' ' . $currentUser['last_name'], $action, $category, $details, $targetId, $targetType, $_SERVER['REMOTE_ADDR'] ?? null, null, $severity ?? 'INFO']);
+        $stmt->execute([
+            $currentUser['id'] ?? ($_SESSION['user_id'] ?? null),
+            $currentUser['role'] ?? ($_SESSION['user_role'] ?? 'system'),
+            isset($currentUser['first_name']) ? ($currentUser['first_name'] . ' ' . $currentUser['last_name']) : 'System/Admin',
+            $action,
+            $category,
+            $details,
+            $targetId,
+            $targetType,
+            $realIp,
+            $_SERVER['HTTP_USER_AGENT'] ?? null,
+            $severity ?? 'INFO'
+        ]);
     } catch (Exception $e) {
+        error_log('Audit Log Error: ' . $e->getMessage());
     }
 }
 
@@ -45,10 +73,12 @@ echo "<script>
 
 $renderOpts = function ($arr) {
     foreach ($arr as $opt)
-        echo "<option value=\"$opt\">$opt</option>"; };
+        echo "<option value=\"$opt\">$opt</option>";
+};
 $renderKeyOpts = function ($arr) {
     foreach ($arr as $key => $val)
-        echo "<option value=\"$key\">$val</option>"; };
+        echo "<option value=\"$key\">$val</option>";
+};
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -478,9 +508,7 @@ $renderKeyOpts = function ($arr) {
                                 class="bi bi-info-circle me-2"></i>Set a temporary password. If left empty, the default
                             is <strong>ChangeMe123!</strong></div>
 
-                        <div id="editUserNotice" class="alert alert-warning rounded-3 mb-4" style="display:none;"><i
-                                class="bi bi-shield-lock me-2"></i>User passwords cannot be viewed or edited by
-                            administrators.</div>
+                        <div id="editUserNotice" class="alert alert-warning rounded-3 mb-4 d-flex justify-content-between align-items-center" style="display:none;"><div><i class="bi bi-shield-lock me-2"></i>User passwords cannot be viewed.</div><button type="button" class="btn btn-sm btn-danger shadow-sm" onclick="resetUserPassword()"><i class="bi bi-key me-1"></i> Reset Password</button></div>
 
                         <div class="row g-3 mb-3">
                             <div class="col-md-12"><label class="form-label">User ID / Reference Number <span
@@ -657,7 +685,7 @@ $renderKeyOpts = function ($arr) {
                 <div class="modal-footer border-top-0 pt-0 px-4 pb-4"><button type="button"
                         class="btn btn-ghost rounded-pill px-4" data-bs-dismiss="modal">Close</button><button
                         type="button" class="btn btn-primary rounded-pill shadow-sm px-4"
-                    onclick="downloadDocument()"><i class="bi bi-download me-2"></i>Download</button></div>
+                        onclick="downloadDocument()"><i class="bi bi-download me-2"></i>Download</button></div>
             </div>
         </div>
     </div>
@@ -728,7 +756,7 @@ $renderKeyOpts = function ($arr) {
                 <div class="modal-footer border-top-0 pt-0 px-4 pb-4"><button type="button"
                         class="btn btn-ghost rounded-pill px-4" data-bs-dismiss="modal">Close</button><button
                         type="button" class="btn btn-primary rounded-pill shadow-sm px-4"
-                    onclick="downloadMaterial()"><i class="bi bi-download me-2"></i>Download</button></div>
+                        onclick="downloadMaterial()"><i class="bi bi-download me-2"></i>Download</button></div>
             </div>
         </div>
     </div>
@@ -818,11 +846,21 @@ $renderKeyOpts = function ($arr) {
                     <form id="profileSettingsForm">
                         <div id="profileSettingsMessages"></div>
                         <div class="row g-3 mb-3">
-                            <div class="col-md-6"><label class="form-label">First Name <span class="text-danger">*</span></label><input type="text" class="form-control <?php if ($currentUser['role'] !== 'admin') echo 'bg-light'; ?>" id="profileFirstName" placeholder="e.g. Juan" required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>></div>
-                            <div class="col-md-6"><label class="form-label">Last Name <span class="text-danger">*</span></label><input type="text" class="form-control <?php if ($currentUser['role'] !== 'admin') echo 'bg-light'; ?>" id="profileLastName" placeholder="e.g. Dela Cruz" required <?php if ($currentUser['role'] !== 'admin') echo 'readonly'; ?>></div>
+                            <div class="col-md-6"><label class="form-label">First Name <span
+                                        class="text-danger">*</span></label><input type="text"
+                                    class="form-control <?php if ($currentUser['role'] !== 'admin')
+                                        echo 'bg-light'; ?>"
+                                    id="profileFirstName" placeholder="e.g. Juan" required <?php if ($currentUser['role'] !== 'admin')
+                                        echo 'readonly'; ?>></div>
+                            <div class="col-md-6"><label class="form-label">Last Name <span
+                                        class="text-danger">*</span></label><input type="text"
+                                    class="form-control <?php if ($currentUser['role'] !== 'admin')
+                                        echo 'bg-light'; ?>"
+                                    id="profileLastName" placeholder="e.g. Dela Cruz" required <?php if ($currentUser['role'] !== 'admin')
+                                        echo 'readonly'; ?>></div>
                         </div>
                         <?php if ($currentUser['role'] !== 'admin'): ?>
-                        <small class="text-muted mb-3 d-block">Name cannot be changed by non-admin users.</small>
+                            <small class="text-muted mb-3 d-block">Name cannot be changed by non-admin users.</small>
                         <?php endif; ?>
                         <div class="row g-3 mb-3">
                             <div class="col-md-6"><label class="form-label">Email <span

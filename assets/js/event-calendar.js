@@ -26,6 +26,9 @@ class CalendarApp {
     this.selectedDate = null;
     this.events = events;
     this.searchDebounceTimer = null;
+    this.realtimeSyncHandle = null;
+    this.isLoadingEvents = false;
+    this.lastEventsSignature = "";
     // Fixed palette for department colors (Bootstrap backgrounds)
     this.COLOR_CLASSES = [
       "bg-primary",
@@ -51,6 +54,47 @@ class CalendarApp {
     };
     this.init();
     this.loadEvents();
+  }
+
+  getNormalizedPosition() {
+    return String(currentUser?.position || "").toLowerCase();
+  }
+
+  hasEventEditPermission() {
+    if (!currentUser) return false;
+    if (currentUser.role === "admin") return true;
+    if (currentUser.role !== "employee") return false;
+
+    const pos = this.getNormalizedPosition();
+    return (
+      pos.includes("physical plant and facilities office") ||
+      pos.includes("ppfo") ||
+      pos.includes("executive vice-president") ||
+      pos.includes("evp")
+    );
+  }
+
+  hasEventApprovalPermission() {
+    // For now approval uses the same privilege model as event management.
+    return this.hasEventEditPermission();
+  }
+
+  setupRealtimeSync() {
+    if (this.realtimeSyncHandle) clearInterval(this.realtimeSyncHandle);
+
+    this.realtimeSyncHandle = setInterval(() => {
+      if (document.hidden) return;
+
+      const eventModal = document.getElementById("eventModal");
+      const viewModal = document.getElementById("viewEventModal");
+      const isAnyModalOpen =
+        (eventModal && eventModal.classList.contains("show")) ||
+        (viewModal && viewModal.classList.contains("show"));
+
+      if (isAnyModalOpen) return;
+
+      this.loadEvents(false);
+    }, 5000);
   }
 
   init() {
@@ -92,10 +136,7 @@ class CalendarApp {
       }
     } else if (currentUser.role === "employee") {
       if (employeeInfoCompact) employeeInfoCompact.style.display = "flex";
-      if (
-        addEventBtn &&
-        currentUser.position === "Physical Plant and Facilities Office (PPFO)"
-      ) {
+      if (addEventBtn && this.hasEventEditPermission()) {
         addEventBtn.style.display = "inline-flex";
       }
     } else if (currentUser.role === "admin") {
@@ -103,6 +144,7 @@ class CalendarApp {
     }
 
     this.updateUserInfo();
+    this.setupRealtimeSync();
   }
 
   updateUserInfo() {
@@ -179,16 +221,12 @@ class CalendarApp {
       });
     });
 
-    if (
-      currentUser.role === "admin" ||
-      (currentUser.role === "employee" &&
-        (currentUser.position ===
-          "Physical Plant and Facilities Office (PPFO)" ||
-          currentUser.position ===
-            "Executive Vice-President/Student Services (EVP)"))
-    ) {
+    if (this.hasEventEditPermission()) {
       document
         .getElementById("addEventBtn")
+        ?.addEventListener("click", () => this.openEventModal());
+      document
+        .getElementById("addEventBtnFS")
         ?.addEventListener("click", () => this.openEventModal());
       document
         .getElementById("saveEventBtn")
@@ -370,13 +408,34 @@ class CalendarApp {
     }
   }
 
-  async loadEvents() {
-    this.setCalendarLoading(true);
+  async loadEvents(showLoader = true) {
+    if (this.isLoadingEvents) return;
+    this.isLoadingEvents = true;
+
+    this.setCalendarLoading(showLoader);
 
     try {
       const resp = await fetch(BASE_URL + "api/events.php");
       const data = await resp.json();
       if (data && data.success) {
+        const sig = JSON.stringify(
+          (data.events || []).map((ev) => [
+            ev.id,
+            ev.title,
+            ev.department,
+            ev.event_date,
+            ev.event_time,
+            ev.approved,
+            ev.updated_at,
+          ]),
+        );
+
+        // Avoid unnecessary rerenders during realtime polling if nothing changed.
+        if (!showLoader && this.lastEventsSignature === sig) {
+          return;
+        }
+        this.lastEventsSignature = sig;
+
         const map = {};
         (data.events || []).forEach((ev) => {
           const dateStr = ev.event_date;
@@ -418,6 +477,7 @@ class CalendarApp {
       console.error(e);
     } finally {
       this.setCalendarLoading(false);
+      this.isLoadingEvents = false;
     }
   }
 
@@ -821,26 +881,14 @@ class CalendarApp {
   }
 
   handleEventClick(eventId, dateStr) {
-    const canEdit =
-      currentUser.role === "admin" ||
-      (currentUser.role === "employee" &&
-        (currentUser.position ===
-          "Physical Plant and Facilities Office (PPFO)" ||
-          currentUser.position ===
-            "Executive Vice-President/Student Services (EVP)"));
+    const canEdit = this.hasEventEditPermission();
     if (currentUser.role === "student" || !canEdit)
       this.viewEventDetails(eventId, dateStr);
     else this.editEvent(eventId, dateStr);
   }
 
   openEventModal(selectedDate = null) {
-    const canEdit =
-      currentUser.role === "admin" ||
-      (currentUser.role === "employee" &&
-        (currentUser.position ===
-          "Physical Plant and Facilities Office (PPFO)" ||
-          currentUser.position ===
-            "Executive Vice-President/Student Services (EVP)"));
+    const canEdit = this.hasEventEditPermission();
     if (currentUser && (currentUser.role === "student" || !canEdit)) return;
 
     document.getElementById("eventForm").reset();
@@ -881,19 +929,17 @@ class CalendarApp {
     }
 
     document.getElementById("deleteBtn").style.display = "inline-block";
-    const canApprove =
-      currentUser.role === "admin" ||
-      (currentUser.role === "employee" &&
-        (currentUser.position ===
-          "Physical Plant and Facilities Office (PPFO)" ||
-          currentUser.position ===
-            "Executive Vice-President/Student Services (EVP)"));
-    document.getElementById("approveBtn").style.display = canApprove
-      ? "inline-block"
-      : "none";
-    document.getElementById("disapproveBtn").style.display = canApprove
-      ? "inline-block"
-      : "none";
+    const canApprove = this.hasEventApprovalPermission();
+
+    // Save only updates event details; approval/disapproval controls status explicitly.
+    const approveBtn = document.getElementById("approveBtn");
+    const disapproveBtn = document.getElementById("disapproveBtn");
+    if (approveBtn) {
+      approveBtn.style.display = canApprove && !event.isApproved ? "inline-block" : "none";
+    }
+    if (disapproveBtn) {
+      disapproveBtn.style.display = canApprove ? "inline-block" : "none";
+    }
 
     new bootstrap.Modal(document.getElementById("eventModal")).show();
   }
@@ -938,7 +984,7 @@ class CalendarApp {
   }
 
   saveEvent() {
-    if (currentUser && currentUser.role === "student") return;
+    if (!this.hasEventEditPermission()) return;
 
     const title = document.getElementById("eventTitle").value;
     const date = document.getElementById("eventDate").value;
@@ -991,6 +1037,7 @@ class CalendarApp {
   }
 
   deleteEvent() {
+    if (!this.hasEventEditPermission()) return;
     if (!editingEventId) return;
     fetch(
       BASE_URL + `api/events.php?id=${encodeURIComponent(editingEventId)}`,
@@ -1010,6 +1057,7 @@ class CalendarApp {
   }
 
   approveEvent() {
+    if (!this.hasEventApprovalPermission()) return;
     if (!editingEventId) return;
     fetch(
       BASE_URL + `api/events.php?id=${encodeURIComponent(editingEventId)}`,
@@ -1033,6 +1081,7 @@ class CalendarApp {
   }
 
   disapproveEvent() {
+    if (!this.hasEventApprovalPermission()) return;
     if (!editingEventId) return;
     fetch(
       BASE_URL + `api/events.php?id=${encodeURIComponent(editingEventId)}`,

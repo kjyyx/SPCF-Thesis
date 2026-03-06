@@ -23,9 +23,13 @@ function hasHighEventPrivileges($role, $currentUser)
     if ($role === 'admin')
         return true;
     if ($role === 'employee') {
-        $position = $currentUser['position'] ?? '';
-        return (strpos($position, 'Executive Vice-President') !== false ||
-            strpos($position, 'Physical Plant and Facilities Office') !== false);
+        $position = strtolower((string) ($currentUser['position'] ?? ''));
+        return (
+            strpos($position, 'executive vice-president') !== false ||
+            strpos($position, 'evp') !== false ||
+            strpos($position, 'physical plant and facilities office') !== false ||
+            strpos($position, 'ppfo') !== false
+        );
     }
     return false;
 }
@@ -40,6 +44,170 @@ function canModifyEvent($db, $role, $currentUser, $eventId, $userId)
     $stmt = $db->prepare("SELECT COUNT(*) FROM events WHERE id = ? AND created_by = ?");
     $stmt->execute([$eventId, $userId]);
     return $stmt->fetchColumn() > 0;
+}
+
+function normalizeDepartmentValue($value)
+{
+    $text = strtolower(trim((string) $value));
+    if ($text === '') {
+        return '';
+    }
+    return preg_replace('/\s+/', ' ', $text);
+}
+
+function isUniversityWideDepartment($department)
+{
+    $norm = normalizeDepartmentValue($department);
+    if ($norm === '') {
+        return true;
+    }
+
+    return $norm === 'university wide' || strpos($norm, 'university') !== false;
+}
+
+function insertEventNotification($db, $recipientId, $recipientRole, $title, $message, $eventId, $referenceType, $referenceId)
+{
+    if (!$recipientId || !$recipientRole || !$referenceId) {
+        return;
+    }
+
+    // Dedupe aggressively so repeated API calls do not spam recipients.
+    $check = $db->prepare("SELECT id FROM notifications WHERE recipient_id = ? AND recipient_role = ? AND reference_id = ? LIMIT 1");
+    $check->execute([$recipientId, $recipientRole, $referenceId]);
+    if ($check->fetchColumn()) {
+        return;
+    }
+
+    $stmt = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_event_id, reference_id, reference_type, is_read, created_at) VALUES (?, ?, 'event', ?, ?, ?, ?, ?, 0, NOW())");
+    $stmt->execute([$recipientId, $recipientRole, $title, $message, $eventId, $referenceId, $referenceType]);
+}
+
+function fetchEventRecipients($db, $department)
+{
+    $recipients = [];
+
+    // Admins always receive event announcements.
+    try {
+        $adminStmt = $db->query("SELECT id FROM administrators WHERE status = 'active'");
+        foreach ($adminStmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $recipients['admin:' . $id] = ['id' => $id, 'role' => 'admin'];
+        }
+    } catch (Exception $e) {
+        error_log('Event notifications admin lookup failed: ' . $e->getMessage());
+    }
+
+    if (isUniversityWideDepartment($department)) {
+        try {
+            $employeeStmt = $db->query("SELECT id FROM employees WHERE status = 'active'");
+            foreach ($employeeStmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+                $recipients['employee:' . $id] = ['id' => $id, 'role' => 'employee'];
+            }
+        } catch (Exception $e) {
+            error_log('Event notifications employee lookup failed: ' . $e->getMessage());
+        }
+
+        try {
+            $studentStmt = $db->query("SELECT id FROM students WHERE status = 'active'");
+            foreach ($studentStmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+                $recipients['student:' . $id] = ['id' => $id, 'role' => 'student'];
+            }
+        } catch (Exception $e) {
+            error_log('Event notifications student lookup failed: ' . $e->getMessage());
+        }
+
+        return array_values($recipients);
+    }
+
+    $normDepartment = normalizeDepartmentValue($department);
+
+    try {
+        $employeeStmt = $db->prepare("SELECT id FROM employees WHERE status = 'active' AND LOWER(TRIM(COALESCE(department, office, ''))) = ?");
+        $employeeStmt->execute([$normDepartment]);
+        foreach ($employeeStmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $recipients['employee:' . $id] = ['id' => $id, 'role' => 'employee'];
+        }
+    } catch (Exception $e) {
+        error_log('Event notifications employee dept lookup failed: ' . $e->getMessage());
+    }
+
+    try {
+        $studentStmt = $db->prepare("SELECT id FROM students WHERE status = 'active' AND LOWER(TRIM(COALESCE(department, ''))) = ?");
+        $studentStmt->execute([$normDepartment]);
+        foreach ($studentStmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $recipients['student:' . $id] = ['id' => $id, 'role' => 'student'];
+        }
+    } catch (Exception $e) {
+        error_log('Event notifications student dept lookup failed: ' . $e->getMessage());
+    }
+
+    return array_values($recipients);
+}
+
+function dispatchEventAnnouncementNotifications($db, $event)
+{
+    if (empty($event) || empty($event['id'])) {
+        return;
+    }
+
+    $eventId = (int) $event['id'];
+    $title = trim((string) ($event['title'] ?? 'Upcoming Event'));
+    $department = $event['department'] ?? 'University Wide';
+    $eventDate = (string) ($event['event_date'] ?? '');
+    $eventTime = (string) ($event['event_time'] ?? '');
+
+    $timePart = $eventTime ? (' at ' . substr($eventTime, 0, 5)) : '';
+    $message = "New event: '{$title}' on {$eventDate}{$timePart} ({$department}).";
+
+    foreach (fetchEventRecipients($db, $department) as $recipient) {
+        $refId = 'event_announce_' . $eventId . '_' . $recipient['role'] . '_' . $recipient['id'];
+        insertEventNotification(
+            $db,
+            $recipient['id'],
+            $recipient['role'],
+            'New Event Announcement',
+            $message,
+            $eventId,
+            'event_announcement',
+            $refId
+        );
+    }
+}
+
+function dispatchUpcomingEventReminderNotifications($db)
+{
+    $stmt = $db->query("SELECT id, title, department, event_date, event_time FROM events WHERE approved = 1 AND event_date IN (CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 DAY))");
+    $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($events)) {
+        return;
+    }
+
+    $todayTag = date('Ymd');
+    foreach ($events as $event) {
+        $eventId = (int) ($event['id'] ?? 0);
+        if ($eventId <= 0) {
+            continue;
+        }
+
+        $title = trim((string) ($event['title'] ?? 'Upcoming Event'));
+        $department = $event['department'] ?? 'University Wide';
+        $eventDate = (string) ($event['event_date'] ?? '');
+        $eventTime = (string) ($event['event_time'] ?? '');
+        $timePart = $eventTime ? (' at ' . substr($eventTime, 0, 5)) : '';
+
+        foreach (fetchEventRecipients($db, $department) as $recipient) {
+            $refId = 'event_reminder_' . $eventId . '_' . $todayTag . '_' . $recipient['role'] . '_' . $recipient['id'];
+            insertEventNotification(
+                $db,
+                $recipient['id'],
+                $recipient['role'],
+                'Upcoming Event Reminder',
+                "Reminder: '{$title}' is scheduled on {$eventDate}{$timePart} ({$department}).",
+                $eventId,
+                'event_reminder',
+                $refId
+            );
+        }
+    }
 }
 
 if (!isLoggedIn())
@@ -61,6 +229,8 @@ $eventId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 try {
     switch ($method) {
         case 'GET':
+            dispatchUpcomingEventReminderNotifications($db);
+
             // FIX: Now securely checks the new 'department' column first!
             $query = "SELECT e.id, e.title, e.description, e.venue, e.event_date, e.event_time, 
                              e.created_by, e.created_by_role, e.created_at, e.updated_at, e.source_document_id,
@@ -98,7 +268,40 @@ try {
             ]);
 
             if ($ok) {
-                sendJsonResponse(true, ['message' => 'Event created', 'id' => $db->lastInsertId()]);
+                $newEventId = (int) $db->lastInsertId();
+
+                $newEvent = [
+                    'id' => $newEventId,
+                    'title' => trim((string) ($data['title'] ?? '')),
+                    'department' => $data['department'] ?? 'University Wide',
+                    'event_date' => $data['event_date'] ?? null,
+                    'event_time' => $data['event_time'] ?? null,
+                ];
+
+                if ((int) ($data['approved'] ?? 0) === 1) {
+                    dispatchEventAnnouncementNotifications($db, $newEvent);
+                } else {
+                    // Notify admins that a new event is pending review.
+                    try {
+                        $adminStmt = $db->query("SELECT id FROM administrators WHERE status = 'active'");
+                        foreach ($adminStmt->fetchAll(PDO::FETCH_COLUMN) as $adminId) {
+                            insertEventNotification(
+                                $db,
+                                $adminId,
+                                'admin',
+                                'Event Pending Approval',
+                                "A new event '{$newEvent['title']}' for {$newEvent['department']} is awaiting approval.",
+                                $newEventId,
+                                'event_pending_approval',
+                                'event_pending_' . $newEventId . '_admin_' . $adminId
+                            );
+                        }
+                    } catch (Exception $e) {
+                        error_log('Event pending approval notifications failed: ' . $e->getMessage());
+                    }
+                }
+
+                sendJsonResponse(true, ['message' => 'Event created', 'id' => $newEventId]);
             } else {
                 sendJsonResponse(false, 'Event creation failed', 500);
             }
@@ -117,12 +320,39 @@ try {
                 $stmt = $db->prepare("UPDATE events SET approved = ?, approved_by = ?, approved_at = NOW() WHERE id = ?");
                 $ok = $stmt->execute([$approved, $userId, $eventId]);
 
-                // Inside the 'approve' action in api/events.php
-                if ($ok && $approved) {
-                    // Notify the creator that their manual event was approved
-                    $ev = $db->query("SELECT created_by, created_by_role, title FROM events WHERE id = $eventId")->fetch(PDO::FETCH_ASSOC);
-                    if ($ev) {
-                        pushNotification($db, $ev['created_by'], $ev['created_by_role'], 'event', 'Event Approved', "Your manually created event '{$ev['title']}' has been approved.", $eventId, 'event_status_approved');
+                if ($ok) {
+                    $evStmt = $db->prepare("SELECT id, title, department, event_date, event_time, created_by, created_by_role FROM events WHERE id = ? LIMIT 1");
+                    $evStmt->execute([$eventId]);
+                    $ev = $evStmt->fetch(PDO::FETCH_ASSOC);
+
+                    if ($ev && $approved) {
+                        // Notify creator that approval is complete.
+                        insertEventNotification(
+                            $db,
+                            $ev['created_by'],
+                            $ev['created_by_role'],
+                            'Event Approved',
+                            "Your manually created event '{$ev['title']}' has been approved.",
+                            (int) $ev['id'],
+                            'event_status_approved',
+                            'event_approved_' . $ev['id'] . '_' . $ev['created_by_role'] . '_' . $ev['created_by']
+                        );
+
+                        // Broadcast approved event to intended audience.
+                        dispatchEventAnnouncementNotifications($db, $ev);
+                    }
+
+                    if ($ev && !$approved) {
+                        insertEventNotification(
+                            $db,
+                            $ev['created_by'],
+                            $ev['created_by_role'],
+                            'Event Disapproved',
+                            "Your manually created event '{$ev['title']}' was disapproved.",
+                            (int) $ev['id'],
+                            'event_status_disapproved',
+                            'event_disapproved_' . $ev['id'] . '_' . $ev['created_by_role'] . '_' . $ev['created_by']
+                        );
                     }
                 }
 

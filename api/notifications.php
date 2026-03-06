@@ -6,6 +6,80 @@ require_once ROOT_PATH . 'includes/database.php';
 
 header('Content-Type: application/json');
 
+function normalizeDepartmentValue($value) {
+    $text = strtolower(trim((string) $value));
+    if ($text === '') {
+        return '';
+    }
+    return preg_replace('/\s+/', ' ', $text);
+}
+
+function isUniversityWideDepartment($department) {
+    $norm = normalizeDepartmentValue($department);
+    if ($norm === '') {
+        return true;
+    }
+    return $norm === 'university wide' || strpos($norm, 'university') !== false;
+}
+
+function shouldReceiveEventAnnouncement($currentUser, $eventDepartment) {
+    $role = strtolower((string) ($currentUser['role'] ?? ''));
+    if ($role === 'admin') {
+        return true;
+    }
+
+    if (isUniversityWideDepartment($eventDepartment)) {
+        return true;
+    }
+
+    $userDept = normalizeDepartmentValue($currentUser['department'] ?? '');
+    $eventDept = normalizeDepartmentValue($eventDepartment);
+    return $userDept !== '' && $eventDept !== '' && $userDept === $eventDept;
+}
+
+function ensureUpcomingEventNotificationsForCurrentUser($db, $currentUser) {
+    $stmt = $db->query("SELECT id, title, department, event_date, event_time FROM events WHERE approved = 1 AND event_date IN (CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 DAY))");
+    $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($events)) {
+        return;
+    }
+
+    $recipientId = $currentUser['id'] ?? null;
+    $recipientRole = $currentUser['role'] ?? null;
+    if (!$recipientId || !$recipientRole) {
+        return;
+    }
+
+    $todayTag = date('Ymd');
+    foreach ($events as $event) {
+        if (!shouldReceiveEventAnnouncement($currentUser, $event['department'] ?? '')) {
+            continue;
+        }
+
+        $eventId = (int) ($event['id'] ?? 0);
+        if ($eventId <= 0) {
+            continue;
+        }
+
+        $refId = 'event_reminder_' . $eventId . '_' . $todayTag . '_' . $recipientRole . '_' . $recipientId;
+        $check = $db->prepare("SELECT id FROM notifications WHERE recipient_id = ? AND recipient_role = ? AND reference_id = ? LIMIT 1");
+        $check->execute([$recipientId, $recipientRole, $refId]);
+        if ($check->fetchColumn()) {
+            continue;
+        }
+
+        $title = trim((string) ($event['title'] ?? 'Upcoming Event'));
+        $eventDate = (string) ($event['event_date'] ?? '');
+        $eventTime = (string) ($event['event_time'] ?? '');
+        $department = (string) ($event['department'] ?? 'University Wide');
+        $timePart = $eventTime ? (' at ' . substr($eventTime, 0, 5)) : '';
+        $message = "Reminder: '{$title}' is scheduled on {$eventDate}{$timePart} ({$department}).";
+
+        $insert = $db->prepare("INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_event_id, reference_id, reference_type, is_read, created_at) VALUES (?, ?, 'event', ?, ?, ?, ?, 'event_reminder', 0, NOW())");
+        $insert->execute([$recipientId, $recipientRole, 'Upcoming Event Reminder', $message, $eventId, $refId]);
+    }
+}
+
 try {
     if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role'])) {
         sendJsonResponse(false, 'No active session', 401);
@@ -16,6 +90,9 @@ try {
     if (!$currentUser) sendJsonResponse(false, 'User not found', 401);
 
     $db = (new Database())->getConnection();
+
+    // Ensure bell polling can surface upcoming event reminders reliably per user.
+    ensureUpcomingEventNotificationsForCurrentUser($db, $currentUser);
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $input = json_decode(file_get_contents('php://input'), true);

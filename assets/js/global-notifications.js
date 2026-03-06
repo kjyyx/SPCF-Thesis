@@ -18,6 +18,8 @@
     let unreadCount = 0;
     let pendingApprovalsCount = 0;
     let hasInitialFetchCompleted = false;
+    let pendingAlarmToastEl = null;
+    let pendingAlarmDismissedForCount = 0;
     let typeFilters = {
         document: true,
         event: true,
@@ -26,6 +28,80 @@
 
     const notificationSound = new Audio(BASE_URL + 'assets/sounds/Notifications.mp3');
     let previousPendingApprovals = parseInt(localStorage.getItem(LS_PENDING_KEY) || '0', 10) || 0;
+
+    function stopPendingAlarm() {
+        try {
+            notificationSound.pause();
+            notificationSound.currentTime = 0;
+            notificationSound.loop = false;
+        } catch (e) {
+            console.warn('Failed to stop notification alarm:', e);
+        }
+    }
+
+    function startPendingAlarm() {
+        try {
+            if (!notificationSound.paused && notificationSound.loop) {
+                return;
+            }
+            notificationSound.loop = true;
+            notificationSound.currentTime = 0;
+            notificationSound.play().catch(() => {
+                console.warn('Audio autoplay blocked by browser');
+            });
+        } catch (e) {
+            console.warn('Failed to start notification alarm:', e);
+        }
+    }
+
+    function upsertPendingAlarmToast(count) {
+        if (!window.ToastManager || count <= 0) {
+            return;
+        }
+
+        const message = `You have ${count} pending document${count > 1 ? 's' : ''} requiring your signature!`;
+
+        if (pendingAlarmToastEl && document.body.contains(pendingAlarmToastEl)) {
+            const body = pendingAlarmToastEl.querySelector('.toast-body');
+            if (body) body.textContent = message;
+            return;
+        }
+
+        const toast = window.ToastManager.show({
+            type: 'warning',
+            title: 'Action Required',
+            message,
+            autohide: false,
+            showClose: true,
+            duration: 0,
+        });
+
+        const fallbackToast = document.querySelector('#toast-container .toast:last-child');
+        const toastEl = (toast && toast._element) ? toast._element : fallbackToast;
+        if (!toastEl) return;
+
+        pendingAlarmToastEl = toastEl;
+        toastEl.addEventListener('hidden.bs.toast', () => {
+            pendingAlarmDismissedForCount = pendingApprovalsCount;
+            pendingAlarmToastEl = null;
+            stopPendingAlarm();
+        }, { once: true });
+    }
+
+    function buildVirtualPendingReminderNotification() {
+        const nowIso = new Date().toISOString();
+        return {
+            id: 'pending-approvals-reminder',
+            type: 'document',
+            reference_type: 'pending_document',
+            title: 'Action Required',
+            message: `You have ${pendingApprovalsCount} pending document${pendingApprovalsCount > 1 ? 's' : ''} waiting for your approval.`,
+            created_at: nowIso,
+            time_ago: 'Just now',
+            is_read: 1,
+            is_virtual: true,
+        };
+    }
 
     // Notification icons based on type
     const ICONS = {
@@ -199,26 +275,36 @@
                 unreadCount = data.unread_count || 0;
                 pendingApprovalsCount = Number(data.pending_approvals_count || 0);
                 upsertPendingReminder(pendingApprovalsCount);
-                // --- NEW: Aggressive Audio & Toast Reminder ---
-                if (pendingApprovalsCount > previousPendingApprovals) {
-                    // Play sound (catch error if browser blocks autoplay)
-                    notificationSound.play().catch((e) => console.warn('Audio autoplay blocked by browser'));
+                // Keep alarm active for pending approvals until user manually closes toast.
+                const shouldTriggerAlarm =
+                    pendingApprovalsCount > 0 &&
+                    pendingApprovalsCount >= previousPendingApprovals &&
+                    pendingApprovalsCount !== pendingAlarmDismissedForCount;
 
-                    // Show aggressive toast that stays longer (10 seconds)
-                    if (window.ToastManager) {
-                        window.ToastManager.show({
-                            type: 'warning',
-                            title: 'Action Required',
-                            message: `You have ${pendingApprovalsCount} pending document${pendingApprovalsCount > 1 ? 's' : ''} requiring your signature!`,
-                            duration: 10000
-                        });
+                if (shouldTriggerAlarm) {
+                    upsertPendingAlarmToast(pendingApprovalsCount);
+                    startPendingAlarm();
+                }
+
+                if (pendingApprovalsCount <= 0) {
+                    stopPendingAlarm();
+                    pendingAlarmDismissedForCount = 0;
+                    if (pendingAlarmToastEl && document.body.contains(pendingAlarmToastEl)) {
+                        try {
+                            const bsToast = bootstrap.Toast.getInstance(pendingAlarmToastEl);
+                            if (bsToast) {
+                                bsToast.hide();
+                            }
+                        } catch (e) {
+                            console.warn('Failed to hide pending alarm toast:', e);
+                        }
                     }
                 }
                 previousPendingApprovals = pendingApprovalsCount;
                 localStorage.setItem(LS_PENDING_KEY, String(pendingApprovalsCount));
                 lastFetchTime = data.timestamp || new Date().toISOString();
 
-                updateBadge(unreadCount);
+                updateBadge(Math.max(unreadCount, pendingApprovalsCount));
 
                 if (hasInitialFetchCompleted) {
                     const newlyArrived = notificationsCache.filter((n) => {
@@ -340,7 +426,7 @@
                 }
 
                 unreadCount = notificationsCache.filter((n) => !n.is_read).length;
-                updateBadge(unreadCount);
+                updateBadge(Math.max(unreadCount, pendingApprovalsCount));
 
                 const item = document.querySelector(
                     `[data-notification-id="${notificationId}"]`,
@@ -376,7 +462,7 @@
             if (data.success) {
                 notificationsCache.forEach((n) => (n.is_read = 1));
                 unreadCount = 0;
-                updateBadge(0);
+                updateBadge(Math.max(unreadCount, pendingApprovalsCount));
 
                 document.querySelectorAll(".notification-item").forEach((item) => {
                     item.classList.remove("notification-unread");
@@ -509,6 +595,15 @@
         const filteredNotifications = notificationsCache.filter(
             (n) => typeFilters[n.type] !== false,
         );
+
+        const hasPendingWorkflowNotification = filteredNotifications.some((n) => {
+            const refType = String(n.reference_type || '').toLowerCase();
+            return refType === 'employee_document_pending' || refType === 'document_pending_signature';
+        });
+
+        if (pendingApprovalsCount > 0 && !hasPendingWorkflowNotification) {
+            filteredNotifications.unshift(buildVirtualPendingReminderNotification());
+        }
 
         if (filteredNotifications.length === 0) {
             return `

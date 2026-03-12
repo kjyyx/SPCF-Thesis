@@ -64,7 +64,8 @@ function is2FAEnabledGlobally($pdo)
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $data = json_decode(file_get_contents('php://input'), true) ?: [];
-$action = $data['action'] ?? '';
+// Check action from both POST body and query string
+$action = $data['action'] ?? $_GET['action'] ?? '';
 
 // Initialize DB once for all operations
 $pdo = (new Database())->getConnection();
@@ -236,6 +237,49 @@ if ($method === 'POST') {
                     sendJsonResponse(true, ['redirect' => ($user['role'] === 'admin' ? BASE_URL . '?page=dashboard' : BASE_URL . '?page=calendar')]);
                 }
                 sendJsonResponse(false, 'Invalid 2FA code', 400);
+                break;
+
+            case 'verify_password':
+                // ====================================================================
+                // PASSWORD VERIFICATION - For document signature confirmation
+                // ====================================================================
+                if (!isLoggedIn()) {
+                    sendJsonResponse(false, 'Not authenticated', 401);
+                }
+
+                $password = $data['password'] ?? '';
+                if (!$password) {
+                    sendJsonResponse(false, 'Password is required', 400);
+                }
+
+                $userId = $_SESSION['user_id'] ?? '';
+                $userRole = $_SESSION['user_role'] ?? '';
+                $table = _auth_table_by_role($userRole);
+
+                if (!$userId || !$table) {
+                    sendJsonResponse(false, 'Invalid session state', 400);
+                }
+
+                try {
+                    $stmt = $pdo->prepare("SELECT password FROM $table WHERE id = ?");
+                    $stmt->execute([$userId]);
+                    $userRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                    if (!$userRecord) {
+                        sendJsonResponse(false, 'User not found', 404);
+                    }
+
+                    if (password_verify($password, $userRecord['password'])) {
+                        // Log the password verification for audit purposes
+                        addAuditLog($pdo, 'PASSWORD_VERIFIED', 'Security', "User verified password for document signature", $userId, 'User', 'INFO');
+                        sendJsonResponse(true, 'Password verified successfully');
+                    } else {
+                        sendJsonResponse(false, 'Password verification failed', 401);
+                    }
+                } catch (Exception $e) {
+                    error_log("Password verification error: " . $e->getMessage());
+                    sendJsonResponse(false, 'Server error during password verification', 500);
+                }
                 break;
 
             default: // Standard Login

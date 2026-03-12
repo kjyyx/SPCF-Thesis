@@ -585,6 +585,31 @@ function signDocument($db, $currentUser, $input, $files = null)
     if (!$documentId)
         sendJsonResponse(false, 'Document ID is required', 400);
 
+    // require and verify password to reduce accidental/malicious signing
+    if (empty($input['password'])) {
+        sendJsonResponse(false, 'Password is required for signing', 401);
+    }
+    $password = $input['password'];
+    
+    // Determine the correct table based on user role
+    $table = match($currentUser['role']) {
+        'admin' => 'administrators',
+        'employee' => 'employees',
+        'student' => 'students',
+        default => null
+    };
+    
+    if (!$table) {
+        sendJsonResponse(false, 'Invalid user role', 401);
+    }
+    
+    $userStmt = $db->prepare("SELECT password FROM {$table} WHERE id = ?");
+    $userStmt->execute([$currentUser['id']]);
+    $hash = $userStmt->fetchColumn();
+    if (!$hash || !password_verify($password, $hash)) {
+        sendJsonResponse(false, 'Password verification failed', 401);
+    }
+
     $assignCol = ($currentUser['role'] === 'employee') ? 'assigned_to_employee_id' : 'assigned_to_student_id';
 
     if (!$stepId) {

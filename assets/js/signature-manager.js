@@ -197,13 +197,25 @@ class SignatureManager {
         });
 
         document.getElementById('sigSaveBtn')?.addEventListener('click', () => {
+            // Step 1: Check if canvas has content
             if (!this.hasCanvasContent(canvas)) {
                 if (window.ToastManager) window.ToastManager.show({ type: 'error', title: 'No Signature', message: 'Please draw your signature first.' });
                 return;
             }
+
+            // Step 2: Validate signature quality (no dots or minimal marks)
+            const validationResult = this.validateSignatureQuality(canvas);
+            if (!validationResult.valid) {
+                if (window.ToastManager) window.ToastManager.show({ type: 'error', title: 'Invalid Signature', message: validationResult.message });
+                return;
+            }
+
+            // Step 3: Save signature immediately (password will be requested at later step)
             this.saveSignatureState(canvas);
             if (typeof window.toggleSignaturePad === 'function') window.toggleSignaturePad();
-            if (window.ToastManager) window.ToastManager.show({ type: 'success', title: 'Saved', message: 'Signature ready to apply.' });
+            if (window.ToastManager) {
+                window.ToastManager.show({ type: 'success', title: 'Success', message: 'Signature saved. You may now sign the document.' });
+            }
         });
     }
 
@@ -212,6 +224,67 @@ class SignatureManager {
         for (let i = 3; i < pixelData.length; i += 4) { if (pixelData[i] > 0) return true; }
         return false;
     }
+
+    validateSignatureQuality(canvas) {
+        const ctx = canvas.getContext('2d');
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+        
+        // Count pixels that have been drawn on
+        let drawnPixels = 0;
+        for (let i = 3; i < data.length; i += 4) {
+            if (data[i] > 0) drawnPixels++;
+        }
+        
+        // Calculate bounds to determine if it's just a small dot
+        let minX = canvas.width, minY = canvas.height, maxX = 0, maxY = 0;
+        for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+                if (data[(y * canvas.width + x) * 4 + 3] > 0) {
+                    if (x < minX) minX = x;
+                    if (y < minY) minY = y;
+                    if (x > maxX) maxX = x;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+        
+        // Calculate the bounding box dimensions
+        const boundingWidth = maxX - minX;
+        const boundingHeight = maxY - minY;
+        const totalCanvasArea = canvas.width * canvas.height;
+        
+        // Validation checks
+        // 1. Minimum pixel count (at least 500 pixels drawn)
+        if (drawnPixels < 500) {
+            return {
+                valid: false,
+                message: 'Signature is too small. Please draw a larger signature.'
+            };
+        }
+        
+        // 2. Minimum bounding box size (at least 30x20 pixels to avoid dots)
+        if (boundingWidth < 30 || boundingHeight < 20) {
+            return {
+                valid: false,
+                message: 'Signature is too small or incomplete. Please draw a proper signature.'
+            };
+        }
+        
+        // 3. Check that signature uses at least 0.5% of canvas area
+        const signatureArea = boundingWidth * boundingHeight;
+        const minArea = totalCanvasArea * 0.005;
+        if (signatureArea < minArea) {
+            return {
+                valid: false,
+                message: 'Signature is too small. Please draw a larger signature.'
+            };
+        }
+        
+        return { valid: true, message: 'Signature is valid' };
+    }
+
+
 
     cropSignatureCanvas(canvas) {
         const ctx = canvas.getContext('2d');

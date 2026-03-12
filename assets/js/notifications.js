@@ -539,7 +539,7 @@ class DocumentNotificationSystem {
     // Core Actions (Sign / Reject / Delete)
     // ------------------------------------------------------------------
 
-    updateApprovalButtonsVisibility(doc) {
+updateApprovalButtonsVisibility(doc) {
         const signBtn = document.querySelector('.action-btn-full.success');
         const rejectBtn = document.querySelector('.action-btn-full.danger');
         const signaturePadToggle = document.getElementById('signaturePadToggle');
@@ -588,7 +588,7 @@ class DocumentNotificationSystem {
         }
     }
 
-    async signDocument(docId) {
+async signDocument(docId) {
         const doc = this.currentDocument;
         const isSaf = doc.doc_type === 'saf';
 
@@ -597,18 +597,41 @@ class DocumentNotificationSystem {
             return;
         }
 
-        const msg = isSaf 
-            ? 'Your signature will be placed on both Accounting and Issuer copies. Proceed?' 
-            : 'Are you sure you want to sign and approve this document?';
-
-        if (typeof showConfirmModal === 'function') {
-            showConfirmModal('Sign Document', msg, () => this.executeSign(docId, doc, isSaf), isSaf ? 'Sign Both' : 'Sign & Approve', 'btn-success');
-        } else {
-            if (confirm(msg)) this.executeSign(docId, doc, isSaf);
-        }
+        // Instead of a simple confirm modal, request the user’s password
+        // before proceeding.  showPasswordConfirmation will open the modal
+        // and stash the document details in window.pendingSignatureData.
+        this.showPasswordConfirmation(docId, doc, isSaf);
     }
 
-    async executeSign(docId, doc) {
+    showPasswordConfirmation(docId, doc, isSaf) {
+        // Show the password confirmation modal
+        const modal = new bootstrap.Modal(document.getElementById('passwordConfirmationModal'));
+        const passwordInput = document.getElementById('signPasswordInput');
+        const errorMessage = document.getElementById('passwordErrorMessage');
+        
+        // Reset the form
+        passwordInput.value = '';
+        errorMessage.style.display = 'none';
+        passwordInput.classList.remove('is-invalid');
+        
+        // Update modal title and message for document signing
+        const modalTitle = document.getElementById('passwordConfirmationModalLabel');
+        if (modalTitle) {
+            modalTitle.innerHTML = '<i class="bi bi-shield-lock me-2 text-warning"></i>Confirm Your Password';
+        }
+        
+
+        
+        // Focus on password input
+        modal.show();
+        setTimeout(() => passwordInput.focus(), 300);
+        
+        // Store the sign data for when password is confirmed
+        window.pendingSignatureData = { docId, doc, isSaf };
+    }
+
+    async executeSign(docId, doc, password) {
+        const isSaf = doc.doc_type === 'saf';
         try {
             const signedPdfBlob = await this.signatureManager.applySignatureToPdf(doc);
             const pendingStep = doc.workflow?.find(s => s.status === 'pending');
@@ -621,6 +644,10 @@ class DocumentNotificationSystem {
             // --- FIX: Pass the entire array of dynamically placed signatures ---
             formData.append('signature_map', JSON.stringify(this.signatureManager.placedSignatures));
             
+            if (password) {
+                formData.append('password', password);
+            }
+            
             if (signedPdfBlob) formData.append('signed_pdf', signedPdfBlob, 'signed_document.pdf');
 
             const res = await fetch(this.apiBase, { method: 'POST', body: formData });
@@ -631,6 +658,10 @@ class DocumentNotificationSystem {
                 
                 this.signatureManager.signatureImage = null;
                 this.signatureManager.placedSignatures = []; // Reset the array
+                
+                // Hide the password modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('passwordConfirmationModal'));
+                if (modal) modal.hide();
                 
                 setTimeout(() => {
                     this.goBack();
@@ -871,6 +902,81 @@ class DocumentNotificationSystem {
         };
     }
 }
+
+// ------------------------------------------------------------------
+// Password Confirmation Handler
+// ------------------------------------------------------------------
+
+async function confirmSignaturePassword() {
+    const passwordInput = document.getElementById('signPasswordInput');
+    const password = passwordInput.value.trim();
+    const errorMessage = document.getElementById('passwordErrorMessage');
+    const confirmBtn = document.getElementById('confirmPasswordBtn');
+    
+    if (!password) {
+        passwordInput.classList.add('is-invalid');
+        errorMessage.textContent = 'Password is required.';
+        errorMessage.style.display = 'block';
+        return;
+    }
+    
+    // Disable button during verification
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Verifying...';
+    
+    try {
+        const response = await fetch(BASE_URL + 'api/auth.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'verify_password', password: password })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Password is correct
+            errorMessage.style.display = 'none';
+            passwordInput.classList.remove('is-invalid');
+            
+            // Close the password modal immediately
+            const modal = bootstrap.Modal.getInstance(document.getElementById('passwordConfirmationModal'));
+            if (modal) modal.hide();
+            
+            // once password is verified we always proceed with document signing
+            const sigData = window.pendingSignatureData || {};
+            if (window.documentSystem && typeof window.documentSystem.executeSign === 'function') {
+                window.documentSystem.executeSign(sigData.docId, sigData.doc, password);
+            }
+            window.pendingSignatureData = null;
+        } else {
+            // Password is incorrect
+            passwordInput.classList.add('is-invalid');
+            errorMessage.textContent = data.message || 'Password is incorrect. Please try again.';
+            errorMessage.style.display = 'block';
+            passwordInput.value = '';
+            passwordInput.focus();
+        }
+    } catch (error) {
+        passwordInput.classList.add('is-invalid');
+        errorMessage.textContent = 'An error occurred during verification. Please try again.';
+        errorMessage.style.display = 'block';
+    } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Confirm';
+    }
+}
+
+// Allow Enter key to submit password
+setTimeout(() => {
+    const passwordInput = document.getElementById('signPasswordInput');
+    if (passwordInput) {
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                confirmSignaturePassword();
+            }
+        });
+    }
+}, 500);
 
 // ------------------------------------------------------------------
 // Global Bootstrapping

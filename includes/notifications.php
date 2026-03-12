@@ -57,3 +57,36 @@
         </div>
     </div>
 </div>
+
+<!-- Password Confirmation Modal for Document Signature -->
+<div class="modal fade" id="passwordConfirmationModal" tabindex="-1" aria-labelledby="passwordConfirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-warning-subtle bg-warning-subtle">
+                <h5 class="modal-title" id="passwordConfirmationModalLabel">
+                    <i class="bi bi-shield-lock me-2 text-warning"></i>Confirm Your Password
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info py-2 px-3 mb-3" role="alert">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <small>As a security measure, please enter your current password to confirm the document signature submission.</small>
+                </div>
+                <div class="form-group mb-0">
+                    <label for="signPasswordInput" class="form-label fw-semibold">Current Password</label>
+                    <input type="password" class="form-control form-control-lg" id="signPasswordInput" placeholder="Enter your password" required autofocus>
+                    <div class="invalid-feedback" id="passwordErrorMessage" style="display: none;">
+                        Password is incorrect. Please try again.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning rounded-pill fw-semibold" id="confirmPasswordBtn" onclick="confirmSignaturePassword()">
+                    <i class="bi bi-check-circle me-2"></i>Confirm & Submit
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

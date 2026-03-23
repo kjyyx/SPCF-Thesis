@@ -153,6 +153,13 @@ $currentPage = 'pubmat-display';
             opacity: 0;
             pointer-events: none;
         }
+        .gallery-item-wrap {
+            cursor: grab;
+        }
+        .sortable-ghost {
+            opacity: 0.4;
+            background: #e9ecef;
+        }
     </style>
 </head>
 <body class="has-navbar bg-light">
@@ -184,6 +191,7 @@ $currentPage = 'pubmat-display';
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script src="<?php echo BASE_URL; ?>assets/js/toast.js"></script>
     <script src="<?php echo BASE_URL; ?>assets/js/pubmat-display.js"></script>
 </body>

@@ -485,7 +485,7 @@ switch ($method) {
                 exit();
             }
 
-            $stmt = $conn->prepare("SELECT m.id, m.title, REPLACE(REPLACE(m.file_path, :root_uploads, ''), '\\\\', '/') as file_path, m.file_type, m.status FROM materials m WHERE m.status = 'approved' ORDER BY m.uploaded_at DESC");
+            $stmt = $conn->prepare("SELECT m.id, m.title, REPLACE(REPLACE(m.file_path, :root_uploads, ''), '\\\\', '/') as file_path, m.file_type, m.status FROM materials m WHERE m.status = 'approved' ORDER BY m.sort_order ASC, m.approved_at DESC");
             $stmt->execute([':root_uploads' => ROOT_PATH . 'uploads/']);
             $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode(['success' => true, 'materials' => $materials]);
@@ -498,12 +498,60 @@ switch ($method) {
         $isJsonRequest = strpos($contentType, 'application/json') !== false;
 
         if ($isJsonRequest) {
-            $input = json_decode(file_get_contents('php://input'), true);
-            if ($input && isset($input['action']) && $input['action'] === 'add_comment') {
-                addMaterialComment($input);
-            }
-            break;
+        $input = json_decode(file_get_contents('php://input'), true);
+        $action = $input['action'] ?? null;
+
+        if ($action === 'add_comment') {
+            addMaterialComment($input);
+            exit();
         }
+
+        if ($action === 'update_order') {
+            $userPosition = $_SESSION['position'] ?? '';
+            if ($userPosition !== 'Physical Plant and Facilities Office (PPFO)') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Access denied.']);
+                exit();
+            }
+
+            $orderedIds = $input['order'] ?? [];
+            if (empty($orderedIds) || !is_array($orderedIds)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Invalid or empty order data provided.']);
+                exit();
+            }
+
+            try {
+                $conn->beginTransaction();
+                $stmt = $conn->prepare("UPDATE materials SET sort_order = ? WHERE id = ?");
+                foreach ($orderedIds as $index => $id) {
+                    if (is_string($id) && strpos($id, 'MAT') === 0) {
+                        $stmt->execute([$index, $id]);
+                    }
+                }
+                $conn->commit();
+                
+                addAuditLog(
+                    $conn,
+                    'MATERIAL_SORTED',
+                    'System Activity',
+                    "User sorted pubmat display queue.",
+                    null,
+                    'Material',
+                    'INFO'
+                );
+
+                echo json_encode(['success' => true, 'message' => 'Order updated successfully.']);
+            } catch (Exception $e) {
+                $conn->rollBack();
+                error_log("Update sort order error: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['success' => false, 'message' => 'A database error occurred while updating the order.']);
+            }
+            exit();
+        }
+        break;
+    }
 
         $action = $_POST['action'] ?? null;
         if ($action === 'upload') {

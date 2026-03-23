@@ -1,12 +1,14 @@
 // filepath: assets/js/pubmat-display.js
 var BASE_URL = window.BASE_URL || './';
 let pubmats = [];
+let pubmatIdsJSON = '[]'; // Store as a JSON string for easy comparison and to detect changes
 let slideshowIndex = 0;
 let slideshowActive = false;
 let slideshowTimeout = null;
 let progressInterval = null;
 let progressValue = 0;
 let infoHideTimeout = null;
+let sortableInstance = null; // To hold the Sortable instance
 
 document.addEventListener('DOMContentLoaded', () => {
     const slideshowBtn = document.getElementById('slideshow-btn');
@@ -19,34 +21,76 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     loadPubmats();
+    // Periodically check for new pubmats
+    setInterval(() => loadPubmats(true), 5000);
 });
 
-async function loadPubmats() {
+async function loadPubmats(isPolling = false) {
     try {
         const response = await fetch(BASE_URL + 'api/materials.php?for_display=1&t=' + Date.now());
 
-        if (response.status === 403) {
-            showError('Access denied. PPFO only.');
-            window.location.href = BASE_URL + 'login';
+        if (!response.ok) {
+            if (response.status === 403) {
+                if (!isPolling) {
+                    showError('Access denied. PPFO only.');
+                    window.location.href = BASE_URL + 'login';
+                }
+            } else if (!isPolling) {
+                showError(`Error loading pubmats: ${response.statusText}`);
+            }
             return;
         }
 
         const contentType = response.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
-            showError('Invalid server response.');
+            if (!isPolling) showError('Invalid server response.');
             return;
         }
 
         const data = await response.json();
         if (!data.success) {
-            showError(data.message || 'Failed to load pubmats.');
+            if (!isPolling) showError(data.message || 'Failed to load pubmats.');
             return;
         }
 
-        pubmats = (data.materials || []).filter(mat => mat.status === 'approved');
-        renderGallery();
+        const newPubmats = (data.materials || []).filter(mat => mat.status === 'approved');
+        const newPubmatIdsJSON = JSON.stringify(newPubmats.map(p => p.id));
+
+        if (newPubmatIdsJSON !== pubmatIdsJSON) {
+            pubmatIdsJSON = newPubmatIdsJSON;
+            const currentIdOnScreen = slideshowActive ? pubmats[slideshowIndex]?.id : null;
+            pubmats = newPubmats;
+
+            if (!slideshowActive) {
+                renderGallery();
+            } else {
+                if (pubmats.length === 0) {
+                    closeSlideshow();
+                    return;
+                }
+                
+                let newIndex = currentIdOnScreen ? pubmats.findIndex(p => p.id === currentIdOnScreen) : -1;
+                
+                if (newIndex !== -1) {
+                    slideshowIndex = newIndex;
+                } else if (slideshowIndex >= pubmats.length) {
+                    slideshowIndex = 0;
+                }
+
+                updateSlideshow();
+
+                const counter = document.getElementById('slideshow-counter');
+                if (counter) {
+                    counter.textContent = `${slideshowIndex + 1} / ${pubmats.length}`;
+                }
+            }
+        }
     } catch (error) {
-        showError('Error loading pubmats: ' + error.message);
+        if (!isPolling) {
+            showError('Error loading pubmats: ' + error.message);
+        } else {
+            console.error('Error polling for pubmats:', error);
+        }
     }
 }
 
@@ -68,8 +112,8 @@ function renderGallery() {
     if (slideshowBtn) slideshowBtn.disabled = false;
 
     gallery.innerHTML = pubmats.map((mat, index) => `
-        <div class="gallery-item-wrap">
-            <button type="button" class="btn btn-danger btn-sm gallery-delete-btn" onclick="deletePubmat('${encodeURIComponent(mat.id)}', ${index}); event.stopPropagation();">
+        <div class="gallery-item-wrap" data-id="${mat.id}">
+            <button type="button" class="btn btn-danger btn-sm gallery-delete-btn" onclick="deletePubmat('${encodeURIComponent(mat.id)}'); event.stopPropagation();">
                 <i class="bi bi-trash" aria-hidden="true"></i>
             </button>
             <div class="gallery-item" onclick="startSlideshow(${index})">
@@ -80,7 +124,52 @@ function renderGallery() {
             </div>
         </div>
     `).join('');
+
+    if (sortableInstance) {
+        sortableInstance.destroy();
+    }
+
+    sortableInstance = Sortable.create(gallery, {
+        animation: 150,
+        handle: '.gallery-item-wrap',
+        onEnd: function (evt) {
+            const orderedIds = Array.from(gallery.children).map(item => item.dataset.id);
+            updateSortOrder(orderedIds);
+        }
+    });
 }
+
+async function updateSortOrder(orderedIds) {
+    try {
+        const response = await fetch(BASE_URL + 'api/materials.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'update_order',
+                order: orderedIds,
+            }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            if (window.ToastManager) {
+                window.ToastManager.show({ type: 'success', title: 'Success', message: 'Display order has been saved.' });
+            }
+            pubmats.sort((a, b) => orderedIds.indexOf(a.id) - orderedIds.indexOf(b.id));
+            pubmatIdsJSON = JSON.stringify(orderedIds);
+        } else {
+            showError(data.message || 'Failed to save the new order.');
+            renderGallery();
+        }
+    } catch (error) {
+        showError('Error saving order: ' + error.message);
+        renderGallery();
+    }
+}
+
 
 function startSlideshowFromBeginning() {
     if (!pubmats.length) {
@@ -91,6 +180,9 @@ function startSlideshowFromBeginning() {
 }
 
 function startSlideshow(index) {
+    if (sortableInstance) {
+        sortableInstance.option('disabled', true);
+    }
     slideshowIndex = index;
     slideshowActive = true;
     document.body.style.overflow = 'hidden';
@@ -123,15 +215,33 @@ function scheduleNextSlide() {
 
     slideshowTimeout = setTimeout(() => {
         if (slideshowActive) {
-            slideshowIndex = (slideshowIndex + 1) % pubmats.length;
-            updateSlideshow();
-            scheduleNextSlide();
+            if (pubmats.length > 0) {
+                slideshowIndex = (slideshowIndex + 1) % pubmats.length;
+                updateSlideshow();
+                scheduleNextSlide();
+            } else {
+                closeSlideshow();
+            }
         }
     }, 15000);
 }
 
 function updateSlideshow() {
+    if (pubmats.length === 0) {
+        closeSlideshow();
+        return;
+    }
+    if (slideshowIndex >= pubmats.length) {
+        slideshowIndex = 0;
+    }
+    
     const mat = pubmats[slideshowIndex];
+    if (!mat) {
+        console.error('Slideshow error: material at index ' + slideshowIndex + ' is undefined.');
+        closeSlideshow();
+        return;
+    }
+    
     const content = document.getElementById('slideshow-content');
     const title = document.getElementById('slideshow-title');
     const counter = document.getElementById('slideshow-counter');
@@ -154,10 +264,12 @@ function updateSlideshow() {
             </div>
         `;
     }
-
 }
 
 function closeSlideshow() {
+    if (sortableInstance) {
+        sortableInstance.option('disabled', false);
+    }
     slideshowActive = false;
     if (slideshowTimeout) clearTimeout(slideshowTimeout);
     if (progressInterval) clearInterval(progressInterval);
@@ -175,6 +287,7 @@ function closeSlideshow() {
     const info = document.querySelector('#slideshow-view .slideshow-info');
     if (info) info.classList.remove('is-hidden');
     document.body.style.overflow = '';
+    renderGallery();
 }
 
 function downloadPubmat(id) {
@@ -194,16 +307,16 @@ function showError(message) {
             duration: 4000
         });
     } else {
-        // Error: message
+        console.error(message);
     }
 }
 
 async function deleteCurrentPubmat() {
     if (!pubmats.length || !pubmats[slideshowIndex]) return;
-    await deletePubmat(pubmats[slideshowIndex].id, slideshowIndex);
+    await deletePubmat(pubmats[slideshowIndex].id);
 }
 
-async function deletePubmat(id, indexToAdjust = -1) {
+async function deletePubmat(id) {
     const decodedId = decodeURIComponent(String(id || ''));
     const ok = window.confirm('Delete this pubmat?');
     if (!ok) return;
@@ -218,20 +331,8 @@ async function deletePubmat(id, indexToAdjust = -1) {
             showError(data.message || 'Failed to delete pubmat.');
             return;
         }
-
-        pubmats = pubmats.filter((mat) => String(mat.id) !== decodedId);
-        renderGallery();
-
-        if (!pubmats.length) {
-            closeSlideshow();
-            return;
-        }
-
-        if (indexToAdjust >= 0 && slideshowActive) {
-            if (slideshowIndex >= pubmats.length) slideshowIndex = 0;
-            updateSlideshow();
-            scheduleNextSlide();
-        }
+        
+        loadPubmats();
     } catch (error) {
         showError('Error deleting pubmat: ' + error.message);
     }

@@ -1,3 +1,4 @@
+php_value date.timezone 'Asia/Manila'
 # ==========================================
 # 1. SECURITY & ACCESS CONTROL
 # ==========================================

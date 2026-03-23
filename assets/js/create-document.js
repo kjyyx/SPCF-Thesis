@@ -1675,18 +1675,39 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function applyMinDateToInputs(inputs) {
-    const today = new Date().toISOString().split('T')[0];
-    (inputs || []).forEach(input => input.setAttribute('min', today));
+    // 1. Force exact Asia/Manila date (YYYY-MM-DD) natively
+    const manilaDate = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).format(new Date());
+    
+    // 2. Apply it to the provided inputs
+    (inputs || []).forEach(input => {
+        if (input && input.setAttribute) {
+            input.setAttribute('min', manilaDate);
+        }
+    });
 }
 
-// --- BUG FIX: Block past dates in all date pickers (including dynamically-added rows) ---
+// 3. Attach aggressive event listeners to catch the click BEFORE the calendar opens
 document.addEventListener('DOMContentLoaded', () => {
+    // Apply to everything currently on screen
     applyMinDateToInputs(document.querySelectorAll('input[type="date"]'));
+    
+    // Aggressive catch for dynamically created date boxes (like in the Schedule Summary)
     document.addEventListener('focusin', (e) => {
         if (e.target && e.target.matches('input[type="date"]')) {
             applyMinDateToInputs([e.target]);
         }
-    });
+    }, true);
+    
+    document.addEventListener('mousedown', (e) => {
+        if (e.target && e.target.matches('input[type="date"]')) {
+            applyMinDateToInputs([e.target]);
+        }
+    }, true);
 });
 
 /**
